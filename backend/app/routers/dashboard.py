@@ -15,7 +15,7 @@ from app.core.scope import build_scope_summary
 from app.schemas.dashboard import DeliveryStatusOut, FactoryDashboardResponse, WorkshopDashboardResponse
 from app.models.system import User
 from app.services import report_service
-from app.services.report import mes_factory_production_fact, mes_home_packaging_fact, mes_workshop_machine_reconciliation
+from app.services.report import mes_fact_bundle, mes_factory_production_fact, mes_home_packaging_fact, mes_workshop_machine_reconciliation
 from scripts.check_statistics_module_ready import inspect_statistics_module_ready
 
 router = APIRouter(tags=['dashboard'])
@@ -206,6 +206,18 @@ def mes_workshop_machine_reconciliation_route(
         target_date=_target_or_last_completed(target_date),
         workshop_id=selected_workshop_id,
     )
+
+
+@router.get('/mes-fact-bundle')
+def mes_dashboard_fact_bundle(
+    request: Request,
+    target_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_manager_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
+    return mes_fact_bundle.build_mes_fact_bundle(db, target_date=_target_or_last_completed(target_date))
 
 
 @router.get('/factory', response_model=FactoryDashboardResponse, response_model_exclude_none=True)

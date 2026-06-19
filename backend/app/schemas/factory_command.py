@@ -154,6 +154,8 @@ class FactoryCoilFlowOut(BaseModel):
     updated_from_mes_at: datetime | None = None
     last_seen_from_mes_at: datetime | None = None
     destination: dict[str, Any]
+    lifecycle_events: list[dict[str, Any]] = Field(default_factory=list)
+    lifecycle_coverage: dict[str, Any] = Field(default_factory=dict)
     freshness: FactoryCommandFreshnessOut
 
 

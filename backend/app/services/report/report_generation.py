@@ -808,6 +808,9 @@ def generate_daily_reports(
                     'missing_fields': template_payload.get('missing_fields') or [],
                     'conflicts': template_payload.get('conflicts') or [],
                     'sources': template_payload.get('sources') or {},
+                    'hermes_fact_bundle': template_daily_report._persistable_hermes_fact_bundle(
+                        template_payload.get('hermes_fact_bundle') or {}
+                    ),
                 }
             if template_payload.get('status') == 'ready' and template_payload.get('text'):
                 payload_text = str(template_payload['text']) if output_mode != 'json' else payload_text
@@ -840,8 +843,15 @@ def generate_daily_reports(
             entity.reviewed_at = None
             entity.published_by = None
             entity.published_at = None
-        if template_payload and template_payload.get('status') == 'ready' and template_payload.get('text'):
-            entity.final_text_summary = str(template_payload['text'])
+            entity.final_confirmed_by = None
+            entity.final_confirmed_at = None
+            entity.is_final_version = False
+            entity.delivery_ready = False
+        if template_payload:
+            if template_payload.get('status') == 'ready' and template_payload.get('text'):
+                entity.final_text_summary = str(template_payload['text'])
+            else:
+                entity.final_text_summary = None
         db.flush()
         entities.append(entity)
 
@@ -952,16 +962,22 @@ def run_daily_pipeline(
     quality_summary = quality_service.blocker_summary(db, business_date=report_date)
     delivery_status = build_delivery_status(db, target_date=report_date)
     for item in reports:
+        item_delivery_ready = bool(delivery_status.get('delivery_ready', False))
+        item_final_version = is_final_version
         if item.report_type == 'production':
             template_payload = dict((item.report_data or {}).get('template_daily_report') or {})
-            if template_payload.get('status') == 'ready' and template_payload.get('text'):
+            template_ready = template_payload.get('status') == 'ready' and bool(template_payload.get('text'))
+            if template_ready:
                 item.final_text_summary = str(template_payload['text'])
             else:
-                item.final_text_summary = boss_summary
-            item.is_final_version = is_final_version
+                item.final_text_summary = None
+                item_delivery_ready = False
+                item_final_version = False
+                is_final_version = False
+            item.is_final_version = item_final_version
         item.quality_gate_status = quality_status
         item.quality_gate_summary = quality_summary
-        item.delivery_ready = delivery_status.get('delivery_ready', False)
+        item.delivery_ready = item_delivery_ready
     db.flush()
     record_audit(
         db,
@@ -1019,11 +1035,19 @@ def finalize_report(
         if not _is_admin(operator):
             raise ValueError('only admin can force finalize when blockers exist')
 
+    template_payload = dict((getattr(entity, 'report_data', None) or {}).get('template_daily_report') or {})
+    if entity.report_type == 'production' and (
+        template_payload.get('status') != 'ready' or not template_payload.get('text')
+    ):
+        raise ValueError('template daily report is blocked')
     entity.final_confirmed_by = operator.id
     entity.final_confirmed_at = datetime.now(timezone.utc)
     entity.is_final_version = True
     if not entity.final_text_summary:
-        entity.final_text_summary = entity.text_summary
+        if template_payload and template_payload.get('text'):
+            entity.final_text_summary = str(template_payload['text'])
+        else:
+            entity.final_text_summary = entity.text_summary
     entity.quality_gate_status = 'passed' if blocker_count == 0 else 'blocked'
     entity.quality_gate_summary = quality_service.blocker_summary(db, business_date=entity.report_date)
     delivery_status = build_delivery_status(db, target_date=entity.report_date)
@@ -1063,6 +1087,11 @@ def publish_report(
         raise ValueError('report not found')
     if entity.status == 'draft':
         raise ValueError('draft report must be reviewed before publish')
+    template_payload = dict((getattr(entity, 'report_data', None) or {}).get('template_daily_report') or {})
+    if entity.report_type == 'production' and (
+        template_payload.get('status') != 'ready' or not template_payload.get('text')
+    ):
+        raise ValueError('template daily report is blocked')
 
     entity.status = 'published'
     entity.published_by = operator.id

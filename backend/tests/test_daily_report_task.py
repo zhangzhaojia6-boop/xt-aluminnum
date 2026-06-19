@@ -1,5 +1,7 @@
 from datetime import date
+from types import SimpleNamespace
 
+from app.services import hermes_rag_service
 from app.tasks import daily_report
 
 
@@ -79,3 +81,126 @@ def test_generate_daily_reports_respects_explicit_target_date(monkeypatch) -> No
 
     assert result == {'status': 'ok', 'business_date': '2026-05-30', 'report_status': 'ready', 'text': '日报成品正文'}
     assert seen == [date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30)]
+
+
+def test_build_daily_report_product_blocks_stale_text_when_template_missing_fields(monkeypatch) -> None:
+    report = SimpleNamespace(
+        id=7,
+        report_data={'template_daily_report': {'status': 'ready', 'text': '旧日报正文'}},
+        final_text_summary='旧日报正文',
+        text_summary='旧摘要',
+        generated_at=None,
+        delivery_ready=True,
+        status='draft',
+        published_at=None,
+    )
+    db = SimpleNamespace(flush=lambda: None)
+    monkeypatch.setattr(daily_report, '_ensure_daily_report', lambda *_args, **_kwargs: report)
+    monkeypatch.setattr(
+        daily_report.template_daily_report,
+        'apply_template_daily_report_to_report',
+        lambda *_args, **_kwargs: {
+            'status': 'blocked',
+            'text': None,
+            'missing_fields': ['total_output_daily'],
+            'conflicts': [],
+        },
+    )
+
+    result = daily_report.build_daily_report_product(db, target_date=date(2026, 6, 1))
+
+    assert result['status'] == 'blocked'
+    assert result['text'] == ''
+    assert result['missing_fields'] == ['total_output_daily']
+    assert report.final_text_summary is None
+    assert report.text_summary == '旧摘要'
+    assert report.delivery_ready is False
+    assert report.status == 'draft'
+
+
+def test_build_daily_report_product_clears_previous_template_text_summary_when_blocked(monkeypatch) -> None:
+    report = SimpleNamespace(
+        id=7,
+        report_data={'template_daily_report': {'status': 'ready', 'text': '旧日报正文'}},
+        final_text_summary='旧日报正文',
+        text_summary='旧日报正文',
+        generated_at=None,
+        delivery_ready=True,
+        status='draft',
+        published_at=None,
+    )
+    db = SimpleNamespace(flush=lambda: None)
+    monkeypatch.setattr(daily_report, '_ensure_daily_report', lambda *_args, **_kwargs: report)
+    monkeypatch.setattr(
+        daily_report.template_daily_report,
+        'apply_template_daily_report_to_report',
+        lambda *_args, **_kwargs: {
+            'status': 'blocked',
+            'text': None,
+            'missing_fields': ['total_output_daily'],
+            'conflicts': [],
+        },
+    )
+
+    daily_report.build_daily_report_product(db, target_date=date(2026, 6, 1))
+
+    assert report.final_text_summary is None
+    assert report.text_summary is None
+
+
+def test_build_daily_report_product_unpublishes_report_when_template_becomes_blocked(monkeypatch) -> None:
+    report = SimpleNamespace(
+        id=7,
+        report_data={'template_daily_report': {'status': 'ready', 'text': '旧日报正文'}},
+        final_text_summary='旧日报正文',
+        text_summary='旧日报正文',
+        generated_at=None,
+        delivery_ready=True,
+        status='published',
+        published_at='2026-06-18T08:00:00Z',
+        published_by=3,
+        reviewed_at='2026-06-18T07:50:00Z',
+        reviewed_by=2,
+        final_confirmed_at='2026-06-18T08:10:00Z',
+        final_confirmed_by=4,
+        is_final_version=True,
+    )
+    db = SimpleNamespace(flush=lambda: None)
+    monkeypatch.setattr(daily_report, '_ensure_daily_report', lambda *_args, **_kwargs: report)
+    monkeypatch.setattr(
+        daily_report.template_daily_report,
+        'apply_template_daily_report_to_report',
+        lambda *_args, **_kwargs: {
+            'status': 'blocked',
+            'text': None,
+            'missing_fields': ['total_output_daily'],
+            'conflicts': [],
+        },
+    )
+
+    daily_report.build_daily_report_product(db, target_date=date(2026, 6, 1))
+
+    assert report.status == 'draft'
+    assert report.published_at is None
+    assert report.published_by is None
+    assert report.reviewed_at is None
+    assert report.reviewed_by is None
+    assert report.final_confirmed_at is None
+    assert report.final_confirmed_by is None
+    assert report.is_final_version is False
+    assert report.delivery_ready is False
+
+
+def test_archive_daily_report_to_rag_skips_blocked_template_payload(monkeypatch) -> None:
+    report = SimpleNamespace(
+        report_data={'template_daily_report': {'status': 'blocked', 'missing_fields': ['total_output_daily']}},
+        final_text_summary='旧日报正文',
+        text_summary='旧摘要',
+    )
+    monkeypatch.setattr(
+        hermes_rag_service,
+        'create_document_from_bytes',
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError('blocked report must not be archived')),
+    )
+
+    assert hermes_rag_service.archive_daily_report_to_rag(SimpleNamespace(), report=report) is None

@@ -1298,6 +1298,120 @@ def test_list_coils_exposes_trace_identity_fields(monkeypatch):
     assert flow['material_weight'] == 6350
 
 
+def test_coil_flow_exposes_lifecycle_events_without_direct_sql(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(
+                coil_id='MES:LIFE',
+                tracking_card_no='LZ-LIFE',
+                batch_no='BATCH-LIFE',
+                contract_no='HT-LIFE',
+                feeding_weight=6350,
+                current_workshop='精整',
+                current_process='包装',
+                event_time=datetime(2026, 5, 2, 7, 55, tzinfo=UTC),
+            )
+        ],
+        process_records=[
+            SimpleNamespace(
+                batch_no='BATCH-LIFE',
+                workshop_name='精整',
+                process_name='包装',
+                device_name='精整1#',
+                input_weight_tons=6.35,
+                output_weight_tons=6.12,
+                end_time=datetime(2026, 5, 2, 8, 30, tzinfo=UTC),
+                source_path='sqlserver:workshop_process_records',
+                id=12,
+            )
+        ],
+        stock_records=[
+            SimpleNamespace(
+                batch_no='BATCH-LIFE',
+                source_id='stock-life',
+                source_path='sqlserver:stock_header_records',
+                net_weight_tons=6.1,
+                in_stock_date=datetime(2026, 5, 2, 9, 0, tzinfo=UTC),
+            )
+        ],
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    flow = factory_command_service.get_coil_flow(db, coil_key='MES:LIFE')
+
+    assert flow['lifecycle_coverage']['status'] == 'ready'
+    assert flow['lifecycle_coverage']['source'] == 'local_mes_projection'
+    assert [item['kind'] for item in flow['lifecycle_events']] == ['feeding', 'process', 'stock']
+    assert flow['lifecycle_events'][0]['source_table'] == 'MES_Product'
+    assert flow['lifecycle_events'][0]['workshop'] is None
+    assert flow['lifecycle_events'][0]['process'] is None
+    assert flow['lifecycle_events'][0]['input_weight_tons'] == 6.35
+    assert flow['lifecycle_events'][0]['output_weight_tons'] is None
+    assert flow['lifecycle_events'][1]['source_table'] == 'MES_ProductProcessRecord'
+    assert flow['lifecycle_events'][1]['input_weight_tons'] == 6.35
+    assert flow['lifecycle_events'][1]['output_weight_tons'] == 6.12
+    assert flow['lifecycle_events'][2]['source_table'] == 'WMS_InStock / WMS_InStockDetail'
+    assert flow['lifecycle_events'][2]['net_weight_tons'] == 6.1
+
+
+def test_coil_flow_keeps_outbound_and_allocation_events_unverified(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(
+                coil_id='MES:LIFE-CHECK',
+                tracking_card_no='LZ-LIFE-CHECK',
+                batch_no='BATCH-LIFE-CHECK',
+                contract_no='HT-LIFE-CHECK',
+                feeding_weight=6350,
+                current_workshop='精整',
+                current_process='包装',
+                event_time=datetime(2026, 5, 2, 7, 55, tzinfo=UTC),
+            )
+        ],
+        process_records=[
+            SimpleNamespace(
+                batch_no='BATCH-LIFE-CHECK',
+                workshop_name='精整',
+                process_name='包装',
+                device_name='精整1#',
+                input_weight_tons=6.35,
+                output_weight_tons=6.12,
+                end_time=datetime(2026, 5, 2, 8, 30, tzinfo=UTC),
+                source_path='sqlserver:workshop_process_records',
+                id=18,
+            )
+        ],
+        stock_records=[
+            SimpleNamespace(
+                batch_no='BATCH-LIFE-CHECK',
+                source_id='delivery-life',
+                source_path='sqlserver:delivery_stock_records',
+                net_weight_tons=6.0,
+                in_stock_date=datetime(2026, 5, 2, 9, 0, tzinfo=UTC),
+            ),
+            SimpleNamespace(
+                batch_no='BATCH-LIFE-CHECK',
+                source_id='allocation-life',
+                source_path='sqlserver:allocation_records',
+                net_weight_tons=5.9,
+                in_stock_date=datetime(2026, 5, 2, 9, 30, tzinfo=UTC),
+            ),
+        ],
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    flow = factory_command_service.get_coil_flow(db, coil_key='MES:LIFE-CHECK')
+
+    assert flow['lifecycle_coverage']['status'] == 'partial'
+    assert flow['lifecycle_coverage']['confirmed_stock_event_count'] == 0
+    assert flow['lifecycle_coverage']['missing_segments'] == ['已证实入库/交付']
+    assert [item['kind'] for item in flow['lifecycle_events']] == ['feeding', 'process', 'delivery', 'allocation']
+    assert flow['lifecycle_events'][2]['status'] == '待验证'
+    assert flow['lifecycle_events'][2]['source_table'] == 'WMS_OutStockDetail'
+    assert flow['lifecycle_events'][3]['status'] == '候选'
+    assert flow['lifecycle_events'][3]['source_table'] == 'WMS_Allocation / WMS_OutStockDetail'
+
+
 def test_coil_flow_marks_negative_auto_scrap_as_abnormal(monkeypatch):
     db = _FakeDB(
         coils=[_coil(coil_id='MES:NEG', tracking_card_no='LZ-NEG', batch_no='BATCH-NEG')],

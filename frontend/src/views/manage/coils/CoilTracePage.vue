@@ -166,6 +166,29 @@
             </article>
           </div>
 
+          <div class="xt-coils__lifecycle">
+            <div class="xt-coils__panel-head xt-coils__panel-head--tight">
+              <div>
+                <span class="xt-coils__eyebrow">MES 前世今生</span>
+                <h3>全链路证据</h3>
+              </div>
+              <small>{{ lifecycleCoverageText }}</small>
+            </div>
+            <ol v-if="lifecycleEvents.length">
+              <li v-for="event in lifecycleEvents" :key="`${event.kind}-${event.event_time}-${event.label}`">
+                <div class="xt-coils__lifecycle-head">
+                  <span>{{ eventTimeText(event.event_time) }}</span>
+                  <em :class="['xt-coils__status-chip', lifecycleStatusTone(event.status)]">
+                    {{ event.status || '待验证' }}
+                  </em>
+                </div>
+                <strong>{{ event.label }}</strong>
+                <small>{{ lifecycleEventText(event) }}</small>
+              </li>
+            </ol>
+            <p v-else class="xt-coils__empty">暂无全链路证据</p>
+          </div>
+
           <div class="xt-coils__compare">
             <article>
               <span>MES 主数据</span>
@@ -280,6 +303,16 @@ const flowFreshnessText = computed(() => {
   return freshness.status || '已同步'
 })
 const flowMachineText = computed(() => machineLabel(flowSource.value))
+const lifecycleEvents = computed(() => flow.value?.lifecycle_events || [])
+const hasPendingLifecycleEvent = computed(() => lifecycleEvents.value.some((event) => ['候选', '待验证'].includes(event?.status)))
+const lifecycleCoverageText = computed(() => {
+  const coverage = flow.value?.lifecycle_coverage
+  if (!coverage) return '待选择'
+  if (coverage.status === 'ready' && !hasPendingLifecycleEvent.value) return '链路完整'
+  if (hasPendingLifecycleEvent.value) return '含待验证链路'
+  const missing = coverage.missing_segments || []
+  return missing.length ? `缺 ${missing.join('、')}` : '部分同步'
+})
 const machineHintText = computed(() => {
   if (selectedCoil.value?.machine_code || selectedCoil.value?.line_code) return '已匹配机列'
   return '待绑定'
@@ -448,6 +481,30 @@ function formatDateTime(value) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function eventTimeText(value) {
+  return formatDateTime(value) || '时间待同步'
+}
+
+function lifecycleEventText(event) {
+  const inputLabel = event.kind === 'feeding' ? '投料' : '上机'
+  const parts = [
+    event.workshop,
+    event.process,
+    event.machine,
+    event.input_weight_tons !== null && event.input_weight_tons !== undefined ? `${inputLabel}${formatTons(event.input_weight_tons)}` : '',
+    event.output_weight_tons !== null && event.output_weight_tons !== undefined ? `下机${formatTons(event.output_weight_tons)}` : '',
+    event.net_weight_tons !== null && event.net_weight_tons !== undefined ? `净重${formatTons(event.net_weight_tons)}` : '',
+    event.source_table,
+  ].filter(Boolean)
+  return parts.join(' · ') || '来源待同步'
+}
+
+function lifecycleStatusTone(status) {
+  if (status === '已证实') return 'tone-success'
+  if (status === '候选') return 'tone-muted'
+  return 'tone-warning'
 }
 
 function lifecycleText(coil) {
@@ -745,6 +802,13 @@ load()
   gap: var(--xt-space-3);
 }
 
+.xt-coils__panel-head--tight h3 {
+  margin: 0;
+  color: var(--xt-text-inverse);
+  font-size: var(--xt-text-base);
+  line-height: 1.2;
+}
+
 .xt-coils__table-wrap {
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--xt-primary) 15%, var(--xt-border));
@@ -852,6 +916,7 @@ load()
 }
 
 .xt-coils__route,
+.xt-coils__lifecycle,
 .xt-coils__compare {
   display: grid;
   gap: var(--xt-space-2);
@@ -883,6 +948,80 @@ load()
 .xt-coils__compare strong {
   color: var(--xt-text-inverse);
   font-weight: 900;
+}
+
+.xt-coils__lifecycle {
+  padding: var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 14%, var(--xt-border));
+  border-radius: var(--xt-radius-lg);
+  background: color-mix(in srgb, var(--xt-bg-ink) 26%, transparent);
+}
+
+.xt-coils__lifecycle ol {
+  display: grid;
+  gap: var(--xt-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.xt-coils__lifecycle li {
+  display: grid;
+  gap: 3px;
+  padding: var(--xt-space-2);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
+  border-radius: var(--xt-radius-sm);
+  background: color-mix(in srgb, var(--xt-bg-ink) 22%, transparent);
+}
+
+.xt-coils__lifecycle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xt-space-2);
+}
+
+.xt-coils__lifecycle li span {
+  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 900;
+}
+
+.xt-coils__status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 24%, var(--xt-border));
+  border-radius: var(--xt-radius-pill);
+  color: color-mix(in srgb, var(--xt-text-inverse) 60%, transparent);
+  font-size: var(--xt-text-xs);
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.xt-coils__status-chip.tone-success {
+  border-color: color-mix(in srgb, var(--xt-success) 38%, var(--xt-border));
+  color: var(--xt-success);
+}
+
+.xt-coils__status-chip.tone-warning {
+  border-color: color-mix(in srgb, var(--xt-warning) 44%, var(--xt-border));
+  color: var(--xt-warning);
+}
+
+.xt-coils__status-chip.tone-muted {
+  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+}
+
+.xt-coils__lifecycle li strong {
+  color: var(--xt-text-inverse);
+  font-weight: 900;
+}
+
+.xt-coils__lifecycle li small {
+  overflow-wrap: anywhere;
 }
 
 .xt-coils__error {

@@ -307,12 +307,46 @@ def _material_weight_tons(row: MesMaterialRecord) -> float:
     return _to_float(row.weight_kg) / 1000
 
 
-def _material_status_counts(row: MesMaterialRecord) -> bool:
+def _material_status_text(row: MesMaterialRecord) -> str:
     payload = row.source_payload if isinstance(row.source_payload, dict) else {}
-    status_text = str(row.status_name or payload.get("StatusName") or payload.get("Status") or "").strip()
+    return str(row.status_name or payload.get("StatusName") or payload.get("Status") or "").strip()
+
+
+def _material_status_counts(row: MesMaterialRecord) -> bool:
+    status_text = _material_status_text(row)
     if not status_text:
         return True
     return any(token in status_text for token in BILLET_MATERIAL_INCLUDED_STATUS_NAMES)
+
+
+def _sum_mes_material_rows(
+    rows: list[MesMaterialRecord],
+    *,
+    tokens: tuple[str, ...],
+    prefer_explicit_status: bool,
+) -> tuple[float | None, int]:
+    matched: list[tuple[MesMaterialRecord, float]] = []
+    for row in rows:
+        if not _matches_any(row.workshop_name, tokens):
+            continue
+        weight = _material_weight_tons(row)
+        if weight <= 0:
+            continue
+        matched.append((row, weight))
+    if not matched:
+        return None, 0
+
+    require_explicit_status = prefer_explicit_status and any(_material_status_text(row) for row, _weight in matched)
+    total = 0.0
+    count = 0
+    for row, weight in matched:
+        if require_explicit_status and not _material_status_text(row):
+            continue
+        if not _material_status_counts(row):
+            continue
+        total += weight
+        count += 1
+    return (round(total, 3), count) if count else (None, 0)
 
 
 def _query_mes_material_output(
@@ -326,29 +360,39 @@ def _query_mes_material_output(
         return None, 0
     if not _has_table(db, MesMaterialRecord.__tablename__):
         return None, 0
-    start_at, end_at = _billet_material_business_window(start, end)
-    rows = (
+
+    business_date_rows = (
         db.query(MesMaterialRecord)
         .filter(
-            MesMaterialRecord.production_date >= start_at,
-            MesMaterialRecord.production_date < end_at,
+            MesMaterialRecord.business_date >= start,
+            MesMaterialRecord.business_date <= end,
         )
         .order_by(MesMaterialRecord.id.asc())
         .all()
     )
-    total = 0.0
-    count = 0
-    for row in rows:
-        if not _material_status_counts(row):
-            continue
-        if not _matches_any(row.workshop_name, tokens):
-            continue
-        weight = _material_weight_tons(row)
-        if weight <= 0:
-            continue
-        total += weight
-        count += 1
-    return (round(total, 3), count) if count else (None, 0)
+    if business_date_rows:
+        return _sum_mes_material_rows(
+            business_date_rows,
+            tokens=tokens,
+            prefer_explicit_status=False,
+        )
+
+    day_start = datetime.combine(start, time.min)
+    day_end = datetime.combine(end + timedelta(days=1), time.min)
+    rows = (
+        db.query(MesMaterialRecord)
+        .filter(
+            MesMaterialRecord.production_date >= day_start,
+            MesMaterialRecord.production_date < day_end,
+        )
+        .order_by(MesMaterialRecord.id.asc())
+        .all()
+    )
+    return _sum_mes_material_rows(
+        rows,
+        tokens=tokens,
+        prefer_explicit_status=True,
+    )
 
 
 def _mes_rows(db: Session, *, start: date, end: date) -> list[MesWorkshopProcessRecord]:

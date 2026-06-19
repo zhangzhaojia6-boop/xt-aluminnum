@@ -111,6 +111,7 @@ def preview_template_daily_report(
         missing_field_groups=group_missing_fields(missing_fields),
         conflicts=list(payload.get('conflicts') or []),
         sources=dict(payload.get('sources') or {}),
+        hermes_fact_bundle=dict(payload.get('hermes_fact_bundle') or {}),
     )
 
 

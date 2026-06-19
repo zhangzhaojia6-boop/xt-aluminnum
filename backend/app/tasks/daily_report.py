@@ -22,32 +22,47 @@ def build_daily_report_product(
     generated_by: str = 'hermes',
 ) -> dict[str, Any]:
     report = _ensure_daily_report(db, target_date=target_date)
+    previous_template_payload = dict((report.report_data or {}).get('template_daily_report') or {})
+    previous_template_text = str(previous_template_payload.get('text') or report.final_text_summary or '').strip()
     payload = template_daily_report.apply_template_daily_report_to_report(
         db,
         report=report,
         target_date=target_date,
     )
-    text = str(payload.get('text') or report.final_text_summary or report.text_summary or '').strip()
+    payload_status = str(payload.get('status') or 'blocked')
+    text = str(payload.get('text') or '').strip() if payload_status == 'ready' else ''
     now = datetime.now(timezone.utc)
     report_data = dict(report.report_data or {})
     report_data['daily_report_product'] = {
         'generated_by': generated_by,
         'generated_at': now.isoformat(),
-        'status': payload.get('status'),
+        'status': payload_status,
         'missing_fields': payload.get('missing_fields') or [],
     }
     report.report_data = report_data
     if text:
         report.text_summary = report.text_summary or text
         report.final_text_summary = text
+    elif payload_status != 'ready':
+        report.final_text_summary = None
+        if previous_template_text and str(report.text_summary or '').strip() == previous_template_text:
+            report.text_summary = None
+        report.status = 'draft'
+        report.published_at = None
+        report.published_by = None
+        report.reviewed_at = None
+        report.reviewed_by = None
+        report.final_confirmed_by = None
+        report.final_confirmed_at = None
+        report.is_final_version = False
     report.generated_at = report.generated_at or now
-    report.delivery_ready = bool(text)
-    if settings.AUTO_PUBLISH_ENABLED and text and report.status in {'draft', 'reviewed'}:
+    report.delivery_ready = payload_status == 'ready' and bool(text)
+    if settings.AUTO_PUBLISH_ENABLED and report.delivery_ready and report.status in {'draft', 'reviewed'}:
         report.status = 'published'
         report.published_at = report.published_at or now
     db.flush()
     return {
-        'status': str(payload.get('status') or 'ready'),
+        'status': payload_status,
         'business_date': target_date.isoformat(),
         'report_id': report.id,
         'text': text,

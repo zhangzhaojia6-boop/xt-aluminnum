@@ -81,6 +81,7 @@ class TemplateDailyReportPreviewResponse(BaseModel):
     missing_field_groups: dict[str, list[str]] = Field(default_factory=dict)
     conflicts: list[dict] = Field(default_factory=list)
     sources: dict = Field(default_factory=dict)
+    hermes_fact_bundle: dict = Field(default_factory=dict)
 
 
 class ReportFinalizeRequest(BaseModel):

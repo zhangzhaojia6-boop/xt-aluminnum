@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -174,19 +175,17 @@ def test_render_template_daily_report_matches_locked_template() -> None:
     assert text == _template_text()
 
 
-def test_validate_template_daily_report_renders_with_blank_missing_fields() -> None:
+def test_validate_template_daily_report_blocks_missing_fields_without_rendering_text() -> None:
     facts = _facts()
     facts["values"].pop("total_output_daily")
     facts["values"].pop("wip_total")
 
     result = template_daily_report.validate_template_daily_report_facts(facts)
 
-    assert result["status"] == "ready"
+    assert result["status"] == "blocked"
     assert "total_output_daily" in result["missing_fields"]
     assert "wip_total" in result["missing_fields"]
-    assert result["text"] is not None
-    assert "车间总产量日合计吨" in result["text"]
-    assert "当天在制料吨" in result["text"]
+    assert result["text"] is None
 
 
 def test_all_template_required_fields_have_contract_metadata() -> None:
@@ -286,3 +285,48 @@ def test_build_facts_uses_mes_material_for_hot_roll_and_process_for_cold_roll(tm
     assert facts["sources"]["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
     assert facts["values"]["coating_daily"] == 0.0
     assert facts["sources"]["coating_daily"]["source_type"] == "mes_workshop_process_records"
+
+
+def test_apply_template_daily_report_stores_slim_hermes_bundle(monkeypatch) -> None:
+    monkeypatch.setattr(
+        template_daily_report,
+        "build_template_daily_report_payload",
+        lambda *_args, **_kwargs: {
+            "status": "ready",
+            "text": "日报正文",
+            "wip_date": None,
+            "missing_fields": [],
+            "conflicts": [],
+            "sources": {},
+            "hermes_fact_bundle": {
+                "target_date": REPORT_DATE.isoformat(),
+                "source": "template_daily_report_facts",
+                "facts": [
+                    {
+                        "key": "total_output_daily",
+                        "label": "车间总产量日合计",
+                        "value": 328,
+                        "unit": "吨",
+                        "group": "opening",
+                        "business_date": REPORT_DATE.isoformat(),
+                        "source": {"source_type": "mes_packaging_output", "source_table": "MES_ProductProcessRecord"},
+                        "difference_note": "核对业务日。",
+                    }
+                ],
+                "mes_fact_bundle": {"audit_gaps": [{"key": "follow_card_page_total_feeding"}], "debug": {"raw": True}},
+            },
+        },
+    )
+    report = SimpleNamespace(report_data={}, final_text_summary=None)
+
+    template_daily_report.apply_template_daily_report_to_report(
+        SimpleNamespace(),
+        report=report,
+        target_date=REPORT_DATE,
+    )
+
+    stored = report.report_data[template_daily_report.TEMPLATE_REPORT_KEY]["hermes_fact_bundle"]
+    assert stored["facts"][0]["key"] == "total_output_daily"
+    assert stored["facts"][0]["source_type"] == "mes_packaging_output"
+    assert "source" not in stored["facts"][0]
+    assert "mes_fact_bundle" not in stored

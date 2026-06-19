@@ -137,6 +137,15 @@ def _weight_tons_from_process(record: Any, tons_field: str, kg_field: str) -> fl
     return None
 
 
+def _possible_tons(value: Any) -> float | None:
+    if value is None:
+        return None
+    numeric = _number(value)
+    if abs(numeric) >= 1000:
+        return round(numeric / 1000, 4)
+    return round(numeric, 4)
+
+
 def _process_sort_key(record: Any) -> tuple[float, int]:
     value = (
         getattr(record, 'end_time', None)
@@ -177,6 +186,23 @@ def _latest_process_records_by_batch(db: Session, batch_nos: set[str]) -> dict[s
     return latest
 
 
+def _process_records_for_batch(db: Session, batch_no: str) -> list[Any]:
+    normalized = str(batch_no or '').strip()
+    if not normalized:
+        return []
+    try:
+        query = db.query(MesWorkshopProcessRecord)
+        if _is_sqlalchemy_query(query):
+            return list(query.filter(MesWorkshopProcessRecord.batch_no == normalized).all())
+        return [
+            row
+            for row in _all(db, MesWorkshopProcessRecord)
+            if str(getattr(row, 'batch_no', '') or '').strip() == normalized
+        ]
+    except (OperationalError, ProgrammingError):
+        return []
+
+
 def _process_weight_payload(record: Any | None) -> dict[str, Any]:
     if record is None:
         return {
@@ -208,6 +234,172 @@ def _process_weight_payload(record: Any | None) -> dict[str, Any]:
         'auto_scrap_rate': scrap_rate,
         'scrap_status': status,
     }
+
+
+def _event_time_text(value: Any) -> str | None:
+    return value.isoformat() if hasattr(value, 'isoformat') else (str(value) if value else None)
+
+
+def _flow_event(
+    *,
+    kind: str,
+    label: str,
+    source_table: str,
+    source_path: str | None,
+    event_time: Any,
+    workshop: Any = None,
+    process: Any = None,
+    machine: Any = None,
+    input_weight_tons: Any = None,
+    output_weight_tons: Any = None,
+    net_weight_tons: Any = None,
+    status: str = '已证实',
+) -> dict[str, Any]:
+    return {
+        'kind': kind,
+        'label': label,
+        'event_time': _event_time_text(event_time),
+        'workshop': _canonical_workshop_name_or_none(workshop),
+        'process': process,
+        'machine': machine,
+        'input_weight_tons': input_weight_tons,
+        'output_weight_tons': output_weight_tons,
+        'net_weight_tons': net_weight_tons,
+        'source_table': source_table,
+        'source_path': source_path,
+        'status': status,
+    }
+
+
+def _flow_sort_key(item: dict[str, Any]) -> tuple[str, str]:
+    return (str(item.get('event_time') or ''), str(item.get('kind') or ''))
+
+
+def _stock_event_meta(record: Any) -> dict[str, str]:
+    source_path = str(getattr(record, 'source_path', '') or '')
+    normalized = source_path.lower()
+    if 'allocation' in normalized:
+        return {
+            'kind': 'allocation',
+            'label': '成品调拨',
+            'source_table': 'WMS_Allocation / WMS_OutStockDetail',
+            'status': '候选',
+        }
+    if 'delivery' in normalized or 'outstock' in normalized:
+        return {
+            'kind': 'delivery',
+            'label': '成品出库/交付',
+            'source_table': 'WMS_OutStockDetail',
+            'status': '待验证',
+        }
+    if 'stock_header_records' in normalized or 'wms_instock' in normalized or 'instock' in normalized:
+        return {
+            'kind': 'stock',
+            'label': '成品入库',
+            'source_table': 'WMS_InStock / WMS_InStockDetail',
+            'status': '已证实',
+        }
+    return {
+        'kind': 'stock',
+        'label': '成品入库',
+        'source_table': 'WMS_InStock / WMS_InStockDetail',
+        'status': '待验证',
+    }
+
+
+def _matching_stock_records(db: Session, row: Any, batch_no: str) -> list[MesStockRecord]:
+    tracking_card_no = str(getattr(row, 'tracking_card_no', '') or '').strip()
+    coil_id = str(getattr(row, 'coil_id', '') or '').strip()
+    keys = {item for item in (batch_no, tracking_card_no, coil_id) if item}
+    if not keys:
+        return []
+    return [
+        record
+        for record in _safe_all(db, MesStockRecord)
+        if str(getattr(record, 'batch_no', '') or '').strip() in keys
+        or str(getattr(record, 'source_id', '') or '').strip() in keys
+    ]
+
+
+def _lifecycle_events(db: Session, row: Any, *, process_records: list[Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    batch_no = str(getattr(row, 'batch_no', '') or '').strip()
+    events: list[dict[str, Any]] = []
+    feeding_time = getattr(row, 'event_time', None) or getattr(row, 'updated_from_mes_at', None) or getattr(row, 'last_seen_from_mes_at', None)
+    if getattr(row, 'feeding_weight', None) is not None:
+        events.append(
+            _flow_event(
+                kind='feeding',
+                label='投料',
+                source_table='MES_Product',
+                source_path='/Feeding/Index',
+                event_time=feeding_time,
+                input_weight_tons=_possible_tons(getattr(row, 'feeding_weight', None)),
+            )
+        )
+    for record in sorted(process_records, key=_process_sort_key):
+        events.append(
+            _flow_event(
+                kind='process',
+                label=str(getattr(record, 'process_name', None) or '工序过站'),
+                source_table='MES_ProductProcessRecord',
+                source_path=getattr(record, 'source_path', None) or 'sqlserver:workshop_process_records',
+                event_time=getattr(record, 'end_time', None),
+                workshop=getattr(record, 'workshop_name', None),
+                process=getattr(record, 'process_name', None),
+                machine=getattr(record, 'device_name', None),
+                input_weight_tons=_weight_tons_from_process(record, 'input_weight_tons', 'input_weight_kg'),
+                output_weight_tons=_weight_tons_from_process(record, 'output_weight_tons', 'output_weight_kg'),
+            )
+        )
+    for record in sorted(
+        _matching_stock_records(db, row, batch_no),
+        key=lambda item: _event_time_text(getattr(item, 'in_stock_date', None) or getattr(item, 'updated_at', None)) or '',
+    ):
+        source_path = str(getattr(record, 'source_path', '') or '')
+        meta = _stock_event_meta(record)
+        events.append(
+            _flow_event(
+                kind=meta['kind'],
+                label=meta['label'],
+                source_table=meta['source_table'],
+                source_path=source_path,
+                event_time=getattr(record, 'in_stock_date', None),
+                net_weight_tons=getattr(record, 'net_weight_tons', None),
+                status=meta['status'],
+            )
+        )
+    for event in sorted([item for item in _safe_all(db, CoilFlowEvent) if item.coil_key == getattr(row, 'coil_id', None)], key=_event_sort_key):
+        events.append(
+            _flow_event(
+                kind='snapshot_flow',
+                label='MES流转快照',
+                source_table='MES_Product',
+                source_path='coil_flow_events',
+                event_time=getattr(event, 'event_time', None),
+                workshop=getattr(event, 'current_workshop', None),
+                process=getattr(event, 'current_process', None),
+                status='候选',
+            )
+        )
+    events = sorted(events, key=_flow_sort_key)
+    terminal_events = [item for item in events if item['kind'] in {'stock', 'delivery', 'allocation'}]
+    confirmed_terminal_events = [item for item in terminal_events if item.get('status') == '已证实']
+    coverage = {
+        'status': 'ready' if process_records and confirmed_terminal_events else 'partial',
+        'process_event_count': len(process_records),
+        'stock_event_count': len(terminal_events),
+        'confirmed_stock_event_count': len(confirmed_terminal_events),
+        'missing_segments': [
+            label
+            for label, missing in (
+                ('工序历史', not process_records),
+                ('已证实入库/交付', not confirmed_terminal_events),
+            )
+            if missing
+        ],
+        'source': 'local_mes_projection',
+    }
+    return events, coverage
 
 
 def _coil_trace_payload(row: Any, *, line_code: str | None = None) -> dict[str, Any]:
@@ -1733,6 +1925,8 @@ def get_coil_flow(db: Session, *, coil_key: str, scope: ScopeSummary | None = No
     event = events[-1] if events else None
     batch_no = str(getattr(row, 'batch_no', '') or '').strip()
     latest_process_by_batch = _latest_process_records_by_batch(db, {batch_no})
+    process_records = _process_records_for_batch(db, batch_no)
+    lifecycle_events, lifecycle_coverage = _lifecycle_events(db, row, process_records=process_records)
     line_aliases = _line_alias_map(_scoped_machine_lines(db, scope=scope))
     return {
         **_coil_trace_payload(row, line_code=_line_code_for_coil(row, line_aliases)),
@@ -1748,6 +1942,8 @@ def get_coil_flow(db: Session, *, coil_key: str, scope: ScopeSummary | None = No
         ),
         'next_process': getattr(row, 'next_process', None) if row else getattr(event, 'next_process', None),
         'destination': _destination(row) if row else {'kind': 'unknown', 'label': '未知'},
+        'lifecycle_events': lifecycle_events,
+        'lifecycle_coverage': lifecycle_coverage,
         'freshness': build_freshness(db),
     }
 

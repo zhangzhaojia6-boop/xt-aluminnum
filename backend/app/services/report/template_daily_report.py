@@ -13,6 +13,8 @@ from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
 from app.models.reports import DailyReport
 from app.services.report import daily_overview_builder
 from app.services.report._utils import _to_float
+from app.services.report.mes_fact_bundle import build_mes_fact_bundle
+from app.services.report.template_daily_field_contract import field_group
 from app.services.report.template_daily_fact_sources import collect_template_daily_facts
 
 
@@ -192,6 +194,28 @@ REQUIRED_FIELDS = (
     "cost_per_ton",
 )
 
+FACT_LABELS = {
+    "total_output_daily": "车间总产量日合计",
+    "total_output_month": "车间总产量月累计",
+    "total_output_delta": "车间总产量较昨日",
+    "hot_roll_daily": "热轧车间日产量",
+    "hot_roll_month": "热轧车间月累计产量",
+    "cold_1650_daily": "1650车间日产量",
+    "cold_1850_daily": "1850车间日产量",
+    "cold_2050_daily": "2050车间日产量",
+    "rolling_daily": "轧机日产量",
+    "finished_inbound_daily": "入库成品日合计",
+    "daily_contract_weight": "当天接合同",
+    "remaining_contract_weight": "总余合同量",
+    "daily_yield_rate": "日成品率",
+    "hot_roll_yield_rate": "热轧成品率",
+    "monthly_yield_rate": "月成品率",
+    "electricity_cost_10k": "电费",
+    "gas_cost_10k": "气费",
+    "total_cost_10k": "成本合计",
+    "cost_per_ton": "吨成本",
+}
+
 
 def _source(source_type: str, **extra: Any) -> dict[str, Any]:
     return {"source_type": source_type, **extra}
@@ -281,6 +305,119 @@ def _month_day(value: Any) -> str:
         return f"{value.month}月{value.day}日"
     parsed = date.fromisoformat(str(value))
     return f"{parsed.month}月{parsed.day}日"
+
+
+def _fact_label(key: str) -> str:
+    return FACT_LABELS.get(key, key)
+
+
+def _fact_unit(key: str) -> str | None:
+    if key == "report_date":
+        return None
+    if key == "cast_roll_active_lines":
+        return "条"
+    if key.endswith("_pass_daily") or key.endswith("_pass_month"):
+        return "道"
+    if key.endswith("_kwh"):
+        return "度"
+    if key.endswith("_m3"):
+        return "m³"
+    if key.endswith("_cost_10k"):
+        return "万元"
+    if key == "cost_per_ton":
+        return "元/吨"
+    if key == "roller_grind_daily" or key == "roller_grind_month":
+        return "根"
+    if key == "recovery_daily" or key == "recovery_month":
+        return "块"
+    if "yield" in key or key.endswith("_rate"):
+        return "%"
+    return "吨"
+
+
+def _is_dynamic_fact_value(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _difference_note(key: str, source: dict[str, Any]) -> str:
+    source_type = str(source.get("source_type") or "unknown")
+    if source_type == "previous_final_report":
+        return "该值来自昨日已确认日报对比，不是当天实时抓取数。"
+    if source_type.startswith("mes_"):
+        return "如与 MES 页面不一致，先核对业务日、单位、车间别名和算法口径。"
+    return f"该值来自日报 facts.sources 的 {source_type} 口径，发现差异先核对业务日和单位。"
+
+
+def build_template_daily_report_hermes_bundle(
+    facts: dict[str, Any],
+    *,
+    target_date: date,
+    mes_fact_bundle: dict[str, Any],
+) -> dict[str, Any]:
+    values = dict(facts.get("values") or {})
+    sources = dict(facts.get("sources") or {})
+    daily_report_facts = []
+    for key, value in values.items():
+        if not _is_dynamic_fact_value(value):
+            continue
+        source = dict(sources.get(key) or {})
+        daily_report_facts.append(
+            {
+                "key": key,
+                "label": _fact_label(key),
+                "metric_name": _fact_label(key),
+                "value": round(float(value), 3),
+                "unit": _fact_unit(key),
+                "group": field_group(key),
+                "business_date": str(source.get("business_date") or target_date.isoformat()),
+                "dimensions": {"field_group": field_group(key)},
+                "source": source,
+                "source_type": source.get("source_type"),
+                "source_table": source.get("source_table") or source.get("source_type"),
+                "source_fields": [item for item in (source.get("field"), source.get("basis")) if item],
+                "updated_at": source.get("updated_at") or source.get("last_seen_from_mes_at"),
+                "difference_status": "not_compared",
+                "difference_note": _difference_note(key, source),
+            }
+        )
+    return {
+        "target_date": target_date.isoformat(),
+        "wip_date": facts.get("wip_date"),
+        "source": "template_daily_report_facts",
+        "fact_count": len(daily_report_facts),
+        "facts": daily_report_facts,
+        "daily_report_facts": daily_report_facts,
+        "mes_fact_bundle": mes_fact_bundle,
+        "missing_fields": list(facts.get("missing_fields") or []),
+        "conflicts": list(facts.get("conflicts") or []),
+    }
+
+
+def _persistable_hermes_fact_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+    facts = []
+    for item in bundle.get("daily_report_facts") or bundle.get("facts") or []:
+        facts.append(
+            {
+                "key": item.get("key"),
+                "label": item.get("label"),
+                "value": item.get("value"),
+                "unit": item.get("unit"),
+                "group": item.get("group"),
+                "business_date": item.get("business_date"),
+                "source_type": item.get("source_type") or (item.get("source") or {}).get("source_type"),
+                "difference_note": item.get("difference_note"),
+            }
+        )
+    return {
+        "target_date": bundle.get("target_date"),
+        "wip_date": bundle.get("wip_date"),
+        "source": bundle.get("source"),
+        "fact_count": len(facts),
+        "facts": facts,
+        "daily_report_facts": facts,
+        "missing_fields": list(bundle.get("missing_fields") or []),
+        "conflicts": list(bundle.get("conflicts") or []),
+    }
 
 
 def _matches_any(value: Any, tokens: tuple[str, ...]) -> bool:
@@ -553,9 +690,10 @@ def validate_template_daily_report_facts(facts: dict[str, Any]) -> dict[str, Any
     values = dict(facts.get("values") or {})
     declared_missing = [str(item) for item in facts.get("missing_fields") or []]
     missing = list(dict.fromkeys([*declared_missing, *[key for key in REQUIRED_FIELDS if values.get(key) is None]]))
+    status = "blocked" if missing else "ready"
     return {
-        "status": "ready",
-        "text": render_template_daily_report(facts),
+        "status": status,
+        "text": render_template_daily_report(facts) if status == "ready" else None,
         "missing_fields": missing,
         "conflicts": list(facts.get("conflicts") or []),
     }
@@ -644,12 +782,19 @@ def build_template_daily_report_payload(
 ) -> dict[str, Any]:
     facts = build_template_daily_report_facts(db, target_date=target_date, wip_date=wip_date)
     validation = validate_template_daily_report_facts(facts)
+    mes_fact_bundle = build_mes_fact_bundle(db, target_date=target_date, include_debug=False)
+    hermes_fact_bundle = build_template_daily_report_hermes_bundle(
+        facts,
+        target_date=target_date,
+        mes_fact_bundle=mes_fact_bundle,
+    )
     return {
         **validation,
         "target_date": target_date.isoformat(),
         "wip_date": facts.get("wip_date"),
         "facts": facts,
         "sources": facts.get("sources") or {},
+        "hermes_fact_bundle": hermes_fact_bundle,
     }
 
 
@@ -669,6 +814,7 @@ def apply_template_daily_report_to_report(
         "missing_fields": payload.get("missing_fields") or [],
         "conflicts": payload.get("conflicts") or [],
         "sources": payload.get("sources") or {},
+        "hermes_fact_bundle": _persistable_hermes_fact_bundle(payload.get("hermes_fact_bundle") or {}),
     }
     report.report_data = report_data
     if payload["status"] == "ready" and payload.get("text"):

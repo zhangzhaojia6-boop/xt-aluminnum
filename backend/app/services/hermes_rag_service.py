@@ -282,6 +282,9 @@ def archive_daily_report_to_rag(
     actor: User | None = None,
     generated_by: str = 'hermes',
 ) -> RagDocument | None:
+    template_payload = dict((report.report_data or {}).get('template_daily_report') or {})
+    if template_payload.get('status') != 'ready':
+        return None
     body = str(report.final_text_summary or report.text_summary or '').strip()
     if not body:
         return None
