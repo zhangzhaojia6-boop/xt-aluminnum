@@ -174,6 +174,8 @@ def test_factory_production_fact_uses_finished_inbound_over_feeding_for_yield(tm
     assert fact['factory_finished_inbound_daily_output'] == 85.0
     assert fact['daily_yield_rate'] == 85.0
     assert fact['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
+    assert fact['feeding_daily_delta'] is None
+    assert fact['feeding_month_to_date_delta'] is None
     assert fact['feeding_source_pages'] == [
         {'page': '计划管理 / 投料管理', 'path': '/Feeding/Index'},
         {'page': '计划管理 / 随行卡管理', 'path': '/FollowCard/Index'},

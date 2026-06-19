@@ -412,6 +412,8 @@ def build_factory_production_fact(db: Session, *, target_date: date) -> dict[str
         'daily_yield_rate': calculate_yield_rate(daily_inbound, daily_feeding),
         'month_yield_rate': calculate_yield_rate(month_inbound, month_feeding),
         'yield_rate_source': YIELD_RATE_SOURCE,
+        'feeding_daily_delta': None,
+        'feeding_month_to_date_delta': None,
         'source_table': FEEDING_SOURCE_TABLE,
         'source_weight_field': FEEDING_SOURCE_WEIGHT_FIELD,
         'source_time_field': FEEDING_SOURCE_TIME_FIELD,
