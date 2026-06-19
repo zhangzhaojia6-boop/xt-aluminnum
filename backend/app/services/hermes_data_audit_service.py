@@ -179,16 +179,6 @@ class HermesDataAuditService:
             fields=normalized_fields,
             mes_query_keys=mes_query_keys,
         )
-        run_key = self._build_run_key(
-            business_date,
-            normalized_fields,
-            mes_query_keys,
-            self._output_skill_identity(output_skill_snapshot),
-        )
-        existing_run = self._db.query(HermesDataAuditRun).filter(HermesDataAuditRun.run_key == run_key).one_or_none()
-        if existing_run is not None:
-            return existing_run
-
         mes_field_values = self._extract_mes_field_values(mes_result.get('records', {}), normalized_fields)
         hub_field_values = self._extract_direct_field_values(hub_snapshot, normalized_fields)
         output_field_values = self._extract_direct_field_values(output_skill_snapshot.get('parsed', {}), normalized_fields)
@@ -215,6 +205,17 @@ class HermesDataAuditService:
             output_skill_snapshot=output_skill_snapshot,
             field_values=output_field_values,
         )
+        run_key = self._build_run_key(
+            business_date,
+            normalized_fields,
+            mes_query_keys,
+            mes_snapshot=mes_snapshot,
+            hub_snapshot=safe_hub_snapshot,
+            output_skill_identity=self._output_skill_identity(output_skill_snapshot),
+        )
+        existing_run = self._db.query(HermesDataAuditRun).filter(HermesDataAuditRun.run_key == run_key).one_or_none()
+        if existing_run is not None:
+            return existing_run
 
         diffs, comparable_count, matched_count = self._build_diffs(
             fields=normalized_fields,
@@ -326,6 +327,13 @@ class HermesDataAuditService:
                 }
                 status = 'blocked'
                 summary['blocked_count'] += 1
+            elif not self._is_controlled_handler(self._correction_handler):
+                action.evidence = {
+                    **(action.evidence or {}),
+                    'blocked_reason': 'handler_not_controlled',
+                }
+                status = 'blocked'
+                summary['blocked_count'] += 1
             else:
                 handler_new_ids = {id(item) for item in self._db.new}
                 savepoint = self._db.begin_nested()
@@ -368,6 +376,12 @@ class HermesDataAuditService:
             run.completed_at = now
         elif summary['applied_count']:
             run.status = 'corrected'
+            run.completed_at = now
+        elif summary['failed_count']:
+            run.status = 'correction_failed'
+            run.completed_at = now
+        elif summary['blocked_count']:
+            run.status = 'correction_blocked'
             run.completed_at = now
 
         self._db.commit()
@@ -731,12 +745,16 @@ class HermesDataAuditService:
         business_date: date,
         fields: Sequence[str],
         mes_query_keys: Sequence[str] | None,
+        mes_snapshot: Mapping[str, Any] | None = None,
+        hub_snapshot: Mapping[str, Any] | None = None,
         output_skill_identity: Mapping[str, Any] | None = None,
     ) -> str:
         payload = {
             'business_date': business_date.isoformat(),
             'fields': _stable_string_list(fields),
             'mes_query_keys': _stable_string_list(mes_query_keys or DEFAULT_MES_QUERY_KEYS),
+            'mes_snapshot_hash': (mes_snapshot or {}).get('payload_hash'),
+            'hub_snapshot_hash': (hub_snapshot or {}).get('payload_hash'),
             'output_skill_identity': _json_safe(output_skill_identity or {}),
         }
         digest = hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()[:16]
@@ -847,10 +865,12 @@ class HermesDataAuditService:
         mes_status = source_status.get('mes')
         hub_status = source_status.get('hub')
         output_status = source_status.get('output_skill')
-        if mes_status in {'failed', 'partial_failed'} or hub_status == 'failed' or source_errors:
-            return 'completed_with_source_error'
         if hub_status == 'empty' or output_status in {'missing', 'empty', 'unsupported'}:
             return 'completed_with_missing_source'
+        if mes_status in {'failed', 'partial_failed'} or hub_status == 'failed':
+            return 'completed_with_source_error'
+        if source_errors and source_errors != {'output_skill': 'output_skill_source_missing'}:
+            return 'completed_with_source_error'
         return 'completed'
 
     def _cleanup_failed_handler_side_effects(self, *, existing_new_ids: set[int]) -> None:
@@ -858,6 +878,10 @@ class HermesDataAuditService:
             if id(item) not in existing_new_ids:
                 self._db.expunge(item)
         self._db.expire_all()
+
+    @staticmethod
+    def _is_controlled_handler(handler: Callable[[Mapping[str, Any]], Mapping[str, Any] | None]) -> bool:
+        return bool(getattr(handler, 'hermes_controlled_transaction', False))
 
     @staticmethod
     def _sync_action_from_payload(
