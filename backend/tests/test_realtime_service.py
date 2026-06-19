@@ -2709,6 +2709,7 @@ def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatc
             'factory_feeding_month_to_date_input': 60.0,
             'factory_finished_inbound_daily_output': 39.25,
             'factory_finished_inbound_month_to_date_output': 49.25,
+            'feeding_month_to_date_delta': -5.5,
             'daily_yield_rate': 78.5,
             'month_yield_rate': 82.08,
             'yield_rate_source': 'mes_feeding_to_finished_inbound',
@@ -2733,7 +2734,10 @@ def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatc
     assert payload['factory_total']['factory_total_output'] == 42.5
     assert payload['factory_total']['factory_feeding_daily_input'] == 50.0
     assert payload['factory_total']['finished_inbound_output'] == 39.25
+    assert payload['factory_total']['factory_finished_inbound_daily_output'] == 39.25
     assert payload['factory_total']['finished_inbound_monthly_output'] == 49.25
+    assert payload['factory_total']['factory_finished_inbound_month_to_date_output'] == 49.25
+    assert payload['factory_total']['feeding_month_to_date_delta'] == -5.5
     assert payload['factory_total']['yield_rate'] == 78.5
     assert payload['factory_total']['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
     assert payload['factory_total']['business_day_start'] == '07:50'

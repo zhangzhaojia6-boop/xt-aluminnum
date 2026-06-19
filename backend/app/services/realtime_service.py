@@ -1850,6 +1850,7 @@ def _inject_factory_packaging_output(
     scoped_workshop_id: int | None,
 ) -> dict:
     factory_total = payload.setdefault('factory_total', {})
+    production_fact: dict = {}
     feeding_input = None
     feeding_monthly_input = None
     finished_inbound_monthly_output = None
@@ -1904,7 +1905,10 @@ def _inject_factory_packaging_output(
         'packaging_monthly_output': round(packaging_monthly_output, 2),
         'month_to_date_output': round(packaging_monthly_output, 2),
         'finished_inbound_output': round(finished_inbound_output, 2),
+        'factory_finished_inbound_daily_output': round(finished_inbound_output, 2) if scoped_workshop_id is None else 0.0,
         'finished_inbound_monthly_output': round(_to_float(finished_inbound_monthly_output), 2) if scoped_workshop_id is None else 0.0,
+        'factory_finished_inbound_month_to_date_output': round(_to_float(finished_inbound_monthly_output), 2) if scoped_workshop_id is None else 0.0,
+        'feeding_month_to_date_delta': production_fact.get('feeding_month_to_date_delta') if scoped_workshop_id is None else None,
         'owner_storage_finished_weight': round(finished_inbound_output, 2),
         'yield_rate': yield_rate if scoped_workshop_id is None else factory_total.get('yield_rate'),
         'monthly_yield_rate': monthly_yield_rate if scoped_workshop_id is None else factory_total.get('monthly_yield_rate'),
