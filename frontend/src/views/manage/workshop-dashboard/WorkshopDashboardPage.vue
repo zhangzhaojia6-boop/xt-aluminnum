@@ -298,7 +298,7 @@ const liveWorkshopTotal = computed(() => {
   return liveWorkshop.workshop_total || liveWorkshop.workshopTotal || {}
 })
 const kpis = computed(() => [
-  { key: 'workshop-feeding', label: '车间投料量', value: formatNumber(liveWorkshopTotal.value.input ?? dashboard.value.input_weight ?? dashboard.value.inputWeight, 2), unit: '吨', tone: 'primary' },
+  { key: 'workshop-feeding', label: '车间投料量 / 上机量', value: formatNumber(liveWorkshopTotal.value.input ?? dashboard.value.input_weight ?? dashboard.value.inputWeight, 2), unit: '吨', tone: 'primary' },
   { key: 'process', label: '车间下机量', value: formatNumber(dashboard.value.process_output ?? liveWorkshopTotal.value.output ?? dashboard.value.total_output, 2), unit: '吨', tone: 'primary' },
   { key: 'finished', label: '车间口径产量', value: formatNumber(dashboard.value.total_output, 2), unit: '吨', tone: 'success' },
   { key: 'factory-feeding', label: '全厂投料', value: formatNumber(factoryProductionFact.value.factory_feeding_daily_input, 2), unit: '吨', tone: 'primary' },
