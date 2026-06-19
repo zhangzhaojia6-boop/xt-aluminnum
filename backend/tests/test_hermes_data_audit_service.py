@@ -625,6 +625,141 @@ def test_apply_corrections_blocks_when_rollback_metadata_is_missing() -> None:
         db.close()
 
 
+def test_apply_corrections_blocks_when_risk_level_is_missing() -> None:
+    db = _db_session()
+    called = {'value': False}
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            called['value'] = True
+            return {'evidence': {'handler': 'ok'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        action = _supported_action('missing-risk-level')
+        action.pop('risk_level')
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        row = db.query(HermesCorrectionAction).one()
+        assert called['value'] is False
+        assert result['blocked_count'] == 1
+        assert row.status == 'blocked'
+        assert row.evidence['blocked_reason'] in {'missing_risk_level', 'incomplete_correction_audit_payload'}
+    finally:
+        db.close()
+
+
+def test_apply_corrections_blocks_mes_target_tables() -> None:
+    db = _db_session()
+    called = {'value': False}
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            called['value'] = True
+            return {'evidence': {'handler': 'ok'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        action = _supported_action('mes-target')
+        action['target_table'] = 'mes_stock_records'
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        row = db.query(HermesCorrectionAction).one()
+        assert called['value'] is False
+        assert result['blocked_count'] == 1
+        assert row.status == 'blocked'
+        assert row.evidence['blocked_reason'] in {'mes_target_read_only', 'target_table_not_allowed'}
+    finally:
+        db.close()
+
+
+def test_apply_corrections_dry_run_does_not_create_action_rows_or_call_handler() -> None:
+    db = _db_session()
+    called = {'value': False}
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            called['value'] = True
+            return {'evidence': {'handler': 'ok'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_supported_action('dry-run-no-row')],
+            dry_run=True,
+            applied_by_id=9,
+        )
+
+        assert called['value'] is False
+        assert result['dry_run_count'] == 1
+        assert db.query(HermesCorrectionAction).count() == 0
+    finally:
+        db.close()
+
+
+def test_apply_corrections_dry_run_keeps_existing_pending_action_unchanged() -> None:
+    db = _db_session()
+    called = {'value': False}
+    try:
+        run = _make_run(db)
+        existing = HermesCorrectionAction(
+            audit_run_id=run.id,
+            idempotency_key='pending-action',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='mapping_alias_rules',
+            target_key='cold-roll:2050',
+            field_name='workshop_output',
+            before_value={'hub': 95.0},
+            after_value={'hub': 100.0},
+            evidence={'source': 'mes'},
+            rollback_payload={'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
+            status='pending',
+            rollback_status='not_requested',
+        )
+        db.add(existing)
+        db.commit()
+
+        def _handler(action):
+            called['value'] = True
+            return {'evidence': {'handler': 'ok'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_supported_action('pending-action')],
+            dry_run=True,
+            applied_by_id=9,
+        )
+
+        db.refresh(existing)
+        assert called['value'] is False
+        assert result['dry_run_count'] == 1
+        assert existing.status == 'pending'
+        assert db.query(HermesCorrectionAction).count() == 1
+    finally:
+        db.close()
+
+
 def test_apply_corrections_allows_real_apply_after_dry_run() -> None:
     db = _db_session()
     handler_calls: list[dict] = []
@@ -645,6 +780,7 @@ def test_apply_corrections_allows_real_apply_after_dry_run() -> None:
             dry_run=True,
             applied_by_id=9,
         )
+        assert db.query(HermesCorrectionAction).count() == 0
         applied = service.apply_corrections(
             audit_run_id=run.id,
             actions=[action],

@@ -68,6 +68,13 @@ SUPPORTED_ACTION_TYPES = {
     'mapping_reconciliation_run',
     'daily_report_recalculate',
 }
+ALLOWED_TARGET_TABLES = {
+    'mapping_alias_rules',
+    'mapping_field_rules',
+    'mapping_reconciliation_runs',
+    'daily_report_runs',
+    'data_hub_snapshot',
+}
 
 TEXT_RAW_EXTENSIONS = {'.txt', '.md', '.log'}
 CSV_EXTENSIONS = {'.csv'}
@@ -314,6 +321,27 @@ class HermesDataAuditService:
         }
         now = datetime.now(timezone.utc)
 
+        if dry_run:
+            existing_actions = {
+                row.idempotency_key: row
+                for row in self._db.query(HermesCorrectionAction)
+                .filter(HermesCorrectionAction.audit_run_id == audit_run_id)
+                .all()
+            }
+            for payload in actions:
+                idempotency_key = str(payload.get('idempotency_key') or '').strip()
+                if not idempotency_key:
+                    raise ValueError('idempotency_key is required')
+                preview_action = existing_actions.get(idempotency_key) or HermesCorrectionAction(
+                    audit_run_id=audit_run_id,
+                    idempotency_key=idempotency_key,
+                    rollback_status='not_requested',
+                )
+                self._sync_action_from_payload(preview_action, audit_run_id=audit_run_id, payload=payload)
+                summary['dry_run_count'] += 1
+                summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': 'dry_run'})
+            return summary
+
         for payload in actions:
             idempotency_key = str(payload.get('idempotency_key') or '').strip()
             if not idempotency_key:
@@ -324,7 +352,7 @@ class HermesDataAuditService:
                 .filter(HermesCorrectionAction.idempotency_key == idempotency_key)
                 .one_or_none()
             )
-            if existing is not None and not (existing.status == 'dry_run' and not dry_run):
+            if existing is not None and existing.status not in {'pending', 'dry_run'}:
                 summary['skipped_count'] += 1
                 summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': 'skipped_duplicate'})
                 continue
@@ -966,7 +994,7 @@ class HermesDataAuditService:
         action.audit_run_id = audit_run_id
         action.idempotency_key = str(payload.get('idempotency_key') or '').strip()
         action.action_type = str(payload.get('action_type') or 'unknown')
-        action.risk_level = str(payload.get('risk_level') or 'low')
+        action.risk_level = str(payload.get('risk_level') or '').strip()
         action.target_table = str(payload.get('target_table') or '')
         action.target_key = str(payload.get('target_key') or '')
         action.field_name = str(payload.get('field_name')) if payload.get('field_name') is not None else None
@@ -1011,14 +1039,18 @@ class HermesDataAuditService:
         }
 
     def _determine_action_status(self, *, action: HermesCorrectionAction, dry_run: bool) -> tuple[str, str | None]:
-        if dry_run:
-            return 'dry_run', None
         if action.action_type not in SUPPORTED_ACTION_TYPES:
             return 'blocked', 'unsupported_action_type'
+        if not action.risk_level:
+            return 'blocked', 'missing_risk_level'
         if not self._apply_enabled:
             return 'blocked', 'apply_disabled'
         if action.risk_level.lower() != 'low':
             return 'high_risk_blocked', 'high_risk'
+        if not self._is_allowed_target_table(action.target_table):
+            if str(action.target_table).strip().startswith('mes_'):
+                return 'blocked', 'mes_target_read_only'
+            return 'blocked', 'target_table_not_allowed'
         if self._correction_handler is None:
             return 'blocked', 'handler_missing'
         if not self._is_controlled_handler(self._correction_handler):
@@ -1046,6 +1078,8 @@ class HermesDataAuditService:
     def _has_complete_correction_audit_payload(action: HermesCorrectionAction) -> bool:
         if not action.idempotency_key or not action.target_table or not action.target_key:
             return False
+        if not action.risk_level:
+            return False
         if action.before_value in (None, {}) or action.after_value in (None, {}):
             return False
         rollback_payload = action.rollback_payload
@@ -1058,3 +1092,7 @@ class HermesDataAuditService:
                 return True
             return False
         return True
+
+    @staticmethod
+    def _is_allowed_target_table(target_table: str | None) -> bool:
+        return str(target_table or '').strip() in ALLOWED_TARGET_TABLES
