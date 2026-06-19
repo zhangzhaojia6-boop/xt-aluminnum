@@ -672,7 +672,20 @@ class MvcMesAdapter(MesAdapter):
         if not text:
             return False
         lowered = text.lower()
-        return '__requestverificationtoken' in lowered or '/login/checklogin' in lowered
+        return any(
+            marker in lowered
+            for marker in (
+                '/login/checklogin',
+                'id="txt_name"',
+                "id='txt_name'",
+                'id="txt_password"',
+                "id='txt_password'",
+                'name="account"',
+                "name='account'",
+                '<title>登录',
+                '请输入账号',
+            )
+        )
 
     @staticmethod
     def _extract_rows(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:

@@ -1332,9 +1332,34 @@ def _wip_source_payload(metadata: Mapping[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _configured_mvc_wip_adapter():
+    if not (settings.MES_MVC_BASE_URL and settings.MES_MVC_USERNAME and settings.MES_MVC_PASSWORD):
+        return None
+    from app.adapters.mvc_mes_adapter import MvcMesAdapter
+
+    return MvcMesAdapter(
+        base_url=settings.MES_MVC_BASE_URL,
+        username=settings.MES_MVC_USERNAME,
+        password=settings.MES_MVC_PASSWORD,
+        timeout_seconds=settings.MES_MVC_TIMEOUT_SECONDS,
+    )
+
+
+def _list_wip_totals() -> list[MesWipTotal]:
+    mvc_adapter = _configured_mvc_wip_adapter()
+    if mvc_adapter is not None:
+        try:
+            rows = mvc_adapter.list_wip_totals()
+        except Exception:
+            rows = []
+        if rows:
+            return rows
+    return get_mes_adapter().list_wip_totals()
+
+
 def sync_mes_wip_total(db: Session, *, now: datetime | None = None) -> MesSyncStats:
     synced_at = now or _utcnow()
-    rows = get_mes_adapter().list_wip_totals()
+    rows = _list_wip_totals()
     merged_fields: dict[str, dict[str, Any]] = {}
     for row in rows:
         source_payload = _wip_source_payload(row.metadata)

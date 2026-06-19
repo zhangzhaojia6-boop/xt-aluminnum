@@ -745,6 +745,7 @@ def test_sync_mes_projection_keeps_successful_sources_when_one_source_fails(monk
         def list_machine_line_sources(self):
             return []
 
+    monkeypatch.setattr('app.services.mes_sync_service._configured_mvc_wip_adapter', lambda: None)
     monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: Adapter())
 
     stats = mes_sync_service.sync_mes_projection(db, now=datetime(2026, 5, 2, 8, 35, tzinfo=UTC))
@@ -1018,6 +1019,7 @@ def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive
                 )
             ]
 
+    monkeypatch.setattr('app.services.mes_sync_service._configured_mvc_wip_adapter', lambda: None)
     monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: Adapter())
 
     with Session() as db:
@@ -1177,6 +1179,7 @@ def test_sync_mes_wip_total_merges_duplicate_source_ids(tmp_path, monkeypatch):
                 ),
             ]
 
+    monkeypatch.setattr('app.services.mes_sync_service._configured_mvc_wip_adapter', lambda: None)
     monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: Adapter())
 
     with Session() as db:
@@ -1190,6 +1193,46 @@ def test_sync_mes_wip_total_merges_duplicate_source_ids(tmp_path, monkeypatch):
     assert rows[0].source_id == '1450车间:total'
     assert rows[0].doing_count == 6
     assert float(rows[0].doing_weight_tons) == 37.0
+
+
+def test_sync_mes_wip_total_prefers_mvc_page_totals(tmp_path, monkeypatch):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-wip-mvc.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesWipTotalSnapshot.__table__])
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    synced_at = datetime(2026, 6, 19, 8, 35, tzinfo=UTC)
+
+    class MvcAdapter:
+        def list_wip_totals(self):
+            return [
+                MesWipTotal(
+                    workshop_name='2050车间',
+                    doing_weight=304.5,
+                    metadata={'process_totals': {'冷轧': 304.5}},
+                )
+            ]
+
+    class SqlAdapter:
+        def list_wip_totals(self):
+            return [
+                MesWipTotal(
+                    workshop_name='2050车间',
+                    doing_weight=9999.0,
+                    metadata={'process_totals': {'包装': 9999.0}},
+                )
+            ]
+
+    monkeypatch.setattr('app.services.mes_sync_service._configured_mvc_wip_adapter', lambda: MvcAdapter())
+    monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: SqlAdapter())
+
+    with Session() as db:
+        stats = mes_sync_service.sync_mes_wip_total(db, now=synced_at)
+        db.commit()
+        rows = db.scalars(select(MesWipTotalSnapshot)).all()
+
+    assert stats.fetched_count == 1
+    assert len(rows) == 1
+    assert rows[0].source_id == '2050车间:冷轧'
+    assert float(rows[0].doing_weight_tons) == 304.5
 
 
 def test_sync_reference_items_falls_back_when_mes_returns_zero_uuid_ids(tmp_path, monkeypatch):

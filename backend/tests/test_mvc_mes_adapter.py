@@ -165,7 +165,10 @@ def test_mvc_mes_adapter_prefers_real_card_no_over_batch_number():
 
 def test_mvc_mes_adapter_relogs_when_table_request_returns_login_page():
     calls = []
-    login_page = '<input name="__RequestVerificationToken" type="hidden" value="token-2" />'
+    login_page = (
+        '<input name="__RequestVerificationToken" type="hidden" value="token-2" />'
+        '<input id="txt_Name" name="Account" />'
+    )
     adapter = MvcMesAdapter(
         base_url='https://mes.example.com',
         username='mes-user',
@@ -516,3 +519,23 @@ def test_mvc_mes_adapter_reads_wip_total_from_html_page():
     assert totals[1].metadata['process_totals'] == {'洗拉': 107.5}
     assert calls[-1]['method'] == 'GET'
     assert calls[-1]['url'].endswith('/Dispatch/DoingReportTotal')
+
+
+def test_mvc_mes_adapter_does_not_treat_business_page_token_as_login():
+    business_page = _Response(
+        text='''<html><head><title>当前在制品统计</title></head><body>
+        <form><input name="__RequestVerificationToken" value="token-1" /></form>
+        <div>在制料总计</div>
+        </body></html>''',
+        headers={'content-type': 'text/html; charset=utf-8'},
+    )
+    login_page = _Response(
+        text='''<html><head><title>登录 - 河南鑫泰铝业生产管理系统</title></head><body>
+        <input id="txt_Name" name="account" />
+        <input id="txt_Password" name="password" />
+        </body></html>''',
+        headers={'content-type': 'text/html; charset=utf-8'},
+    )
+
+    assert not MvcMesAdapter._looks_like_login_page(response=business_page, payload={})
+    assert MvcMesAdapter._looks_like_login_page(response=login_page, payload={})
