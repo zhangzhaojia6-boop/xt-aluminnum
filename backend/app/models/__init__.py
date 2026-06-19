@@ -87,6 +87,7 @@ from app.models.rag import (
     RagQueryLog,
     RagSourceIngestion,
 )
+from app.models.hermes_data_audit import HermesCorrectionAction, HermesDataAuditRun
 from app.models.reconciliation import DataReconciliationItem, MappingReconciliationRun
 from app.models.reports import DailyReport
 from app.models.rule_config import RuleConfig
@@ -169,6 +170,8 @@ __all__ = [
     'HermesLearningEvent',
     'HermesShortTermMemory',
     'HermesApprovedLesson',
+    'HermesDataAuditRun',
+    'HermesCorrectionAction',
     'ProductionPlanDaily',
     'AlloySpecBreakdown',
     'ShipmentOutflowRecord',
