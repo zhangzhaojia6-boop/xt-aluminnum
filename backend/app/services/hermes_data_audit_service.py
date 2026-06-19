@@ -527,10 +527,16 @@ class HermesDataAuditService:
                         }
                     )
 
-        status = 'parsed' if 'parsed' in statuses else 'empty'
-        if not combined_fields and not raw_text_parts and 'unsupported' in statuses:
+        if 'failed' in statuses:
+            status = 'failed'
+        elif 'parsed' in statuses:
+            status = 'parsed'
+        elif 'unsupported' in statuses:
             status = 'unsupported'
-        elif not combined_fields and status == 'parsed':
+        else:
+            status = 'empty'
+
+        if status == 'parsed' and not combined_fields and not raw_text_parts:
             status = 'empty'
 
         return {
@@ -569,25 +575,39 @@ class HermesDataAuditService:
                 'issues': [{'code': 'output_skill_file_missing', 'path': str(candidate)}],
             }
 
-        if resolved_path.suffix.lower() in CSV_EXTENSIONS:
-            parsed = self._parse_csv_output_skill_file(resolved_path)
-        else:
-            parsed = parse_output_skill_reference_file(resolved_path)
-        raw_text = self._read_text_file(resolved_path) if resolved_path.suffix.lower() in TEXT_RAW_EXTENSIONS else ''
-        extracted_fields, extraction_issues = self._extract_output_skill_fields(parsed.get('rows', []), raw_text)
-        issues = [*_json_safe(parsed.get('issues', [])), *extraction_issues]
+        try:
+            if resolved_path.suffix.lower() in CSV_EXTENSIONS:
+                parsed = self._parse_csv_output_skill_file(resolved_path)
+            else:
+                parsed = parse_output_skill_reference_file(resolved_path)
+            raw_text = self._read_text_file(resolved_path) if resolved_path.suffix.lower() in TEXT_RAW_EXTENSIONS else ''
+            extracted_fields, extraction_issues = self._extract_output_skill_fields(parsed.get('rows', []), raw_text)
+            issues = [*_json_safe(parsed.get('issues', [])), *extraction_issues]
 
-        status = str(parsed.get('status') or 'missing')
-        if status == 'parsed' and not parsed.get('rows') and not extracted_fields:
-            status = 'empty'
+            status = str(parsed.get('status') or 'missing')
+            if status == 'parsed' and not parsed.get('rows') and not extracted_fields:
+                status = 'empty'
 
-        return {
-            'status': status,
-            'files': [str(resolved_path)],
-            'raw_text': raw_text,
-            'parsed': extracted_fields,
-            'issues': issues,
-        }
+            return {
+                'status': status,
+                'files': [str(resolved_path)],
+                'raw_text': raw_text,
+                'parsed': extracted_fields,
+                'issues': issues,
+            }
+        except Exception as exc:
+            return {
+                'status': 'failed',
+                'files': [str(resolved_path)],
+                'raw_text': '',
+                'parsed': {},
+                'issues': [
+                    {
+                        'code': 'output_skill_parse_failed',
+                        'message': redact_secret_text(str(exc)),
+                    }
+                ],
+            }
 
     @staticmethod
     def _read_text_file(path: Path) -> str:
@@ -739,6 +759,11 @@ class HermesDataAuditService:
                 'evidence': {
                     'field_name': field_name,
                     'values': values,
+                },
+                'rollback_payload': {
+                    'mode': 'manual',
+                    'reason': 'hub_snapshot_reconciliation_requires_manual_restore',
+                    'restore_before_value': {'hub': values.get('hub')},
                 },
             }
             action_payload['idempotency_key'] = self._build_action_idempotency_key(action_payload)
@@ -998,6 +1023,8 @@ class HermesDataAuditService:
             return 'blocked', 'handler_missing'
         if not self._is_controlled_handler(self._correction_handler):
             return 'blocked', 'handler_not_controlled'
+        if not self._has_complete_correction_audit_payload(action):
+            return 'blocked', 'incomplete_correction_audit_payload'
         return 'executable', None
 
     @staticmethod
@@ -1014,3 +1041,20 @@ class HermesDataAuditService:
             'evidence': action.evidence,
             'rollback_payload': action.rollback_payload,
         }
+
+    @staticmethod
+    def _has_complete_correction_audit_payload(action: HermesCorrectionAction) -> bool:
+        if not action.idempotency_key or not action.target_table or not action.target_key:
+            return False
+        if action.before_value in (None, {}) or action.after_value in (None, {}):
+            return False
+        rollback_payload = action.rollback_payload
+        if rollback_payload in (None, {}):
+            return False
+        if isinstance(rollback_payload, Mapping):
+            if rollback_payload.get('restore_before_value') not in (None, {}):
+                return True
+            if rollback_payload.get('reason') or rollback_payload.get('mode') == 'not_available':
+                return True
+            return False
+        return True

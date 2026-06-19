@@ -86,6 +86,7 @@ def _supported_action(idempotency_key: str, *, action_type: str = 'mapping_alias
         'before_value': {'hub': 95.0},
         'after_value': {'hub': 100.0},
         'evidence': {'source': 'mes'},
+        'rollback_payload': {'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
     }
 
 
@@ -280,6 +281,32 @@ def test_create_run_redacts_mes_source_errors_before_persisting() -> None:
         assert 'abc' not in persisted
         assert '123' not in persisted
         assert '<redacted>' in persisted
+    finally:
+        db.close()
+
+
+def test_create_run_records_output_skill_parse_failure_instead_of_crashing(tmp_path) -> None:
+    root = tmp_path / 'output-skill'
+    root.mkdir()
+    (root / '2026-06-18-bad.json').write_text('{"broken": ', encoding='utf-8')
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            output_skill_root=root,
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert run.status == 'completed_with_source_error'
+        assert run.source_status['output_skill'] == 'failed'
+        assert 'output_skill' in run.source_errors
+        assert 'abc123' not in str(run.source_errors['output_skill'])
     finally:
         db.close()
 
@@ -563,6 +590,37 @@ def test_apply_corrections_blocks_unsupported_action_type() -> None:
         assert result['blocked_count'] == 1
         assert action.status == 'blocked'
         assert action.evidence['blocked_reason'] == 'unsupported_action_type'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_blocks_when_rollback_metadata_is_missing() -> None:
+    db = _db_session()
+    called = {'value': False}
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            called['value'] = True
+            return {'evidence': {'handler': 'ok'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        action = _supported_action('missing-rollback')
+        action.pop('rollback_payload')
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        row = db.query(HermesCorrectionAction).one()
+        assert called['value'] is False
+        assert result['blocked_count'] == 1
+        assert row.status == 'blocked'
+        assert row.evidence['blocked_reason'] == 'incomplete_correction_audit_payload'
     finally:
         db.close()
 
