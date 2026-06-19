@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
+import csv
 from datetime import date, datetime, timezone
 from decimal import Decimal
 import hashlib
@@ -50,8 +51,26 @@ DEFAULT_MES_QUERY_KEYS = (
     'yield_records',
     'wip_totals',
 )
+DEFAULT_AUDIT_FIELDS = (
+    'total_output',
+    'workshop_output',
+    'wip_total',
+    'inbound_total',
+    'total_electricity_kwh',
+    'total_gas_m3',
+    'yield_rate',
+    'contract_amount',
+    'ton_cost',
+)
+SUPPORTED_ACTION_TYPES = {
+    'mapping_alias_upsert',
+    'mapping_field_rule_upsert',
+    'mapping_reconciliation_run',
+    'daily_report_recalculate',
+}
 
 TEXT_RAW_EXTENSIONS = {'.txt', '.md', '.log'}
+CSV_EXTENSIONS = {'.csv'}
 _TRUE_VALUES = {'1', 'true', 'yes', 'on'}
 _NARRATIVE_PATTERNS = {
     'inbound_total': re.compile(r'入库成品日合计\s*([0-9]+(?:\.[0-9]+)?)\s*吨'),
@@ -78,6 +97,15 @@ _SUM_FIELDS = {
     'total_gas_m3',
     'total_output',
     'inbound_total',
+}
+_CSV_HEADER_ALIASES = {
+    '日期': 'business_date',
+    'date': 'business_date',
+    '产量(吨)': 'output_tons',
+    '总产量': 'total_output',
+    '成品率': 'yield_rate',
+    '成材率': 'yield_rate',
+    '日成品率': 'yield_rate',
 }
 
 
@@ -168,11 +196,11 @@ class HermesDataAuditService:
         self,
         *,
         business_date: date,
-        fields: Sequence[str],
+        fields: Sequence[str] | None,
         mes_query_keys: Sequence[str] | None = None,
         created_by_id: int | None = None,
     ) -> HermesDataAuditRun:
-        normalized_fields = [str(field).strip() for field in fields if str(field).strip()]
+        normalized_fields = self._normalize_fields(fields)
         now = datetime.now(timezone.utc)
         mes_result, hub_snapshot, hub_status, hub_error, output_skill_snapshot = self._collect_sources(
             business_date=business_date,
@@ -308,70 +336,80 @@ class HermesDataAuditService:
                 rollback_status='not_requested',
             )
             self._sync_action_from_payload(action, audit_run_id=audit_run_id, payload=payload)
-            status = 'pending'
-
-            if dry_run:
-                status = 'dry_run'
-                summary['dry_run_count'] += 1
-            elif not self._apply_enabled:
-                status = 'blocked'
-                summary['blocked_count'] += 1
-                summary['reason'] = 'apply_disabled'
-            elif action.risk_level.lower() != 'low':
-                status = 'high_risk_blocked'
-                summary['blocked_count'] += 1
-            elif self._correction_handler is None:
-                action.evidence = {
-                    **(action.evidence or {}),
-                    'blocked_reason': 'handler_missing',
-                }
-                status = 'blocked'
-                summary['blocked_count'] += 1
-            elif not self._is_controlled_handler(self._correction_handler):
-                action.evidence = {
-                    **(action.evidence or {}),
-                    'blocked_reason': 'handler_not_controlled',
-                }
-                status = 'blocked'
-                summary['blocked_count'] += 1
-            else:
-                handler_new_ids = {id(item) for item in self._db.new}
-                savepoint = self._db.begin_nested()
-                try:
-                    handler_result = _json_safe(self._correction_handler(_json_safe(payload)) or {})
-                    savepoint.commit()
-                    if isinstance(handler_result, Mapping):
-                        if 'before_value' in handler_result:
-                            action.before_value = _json_safe(handler_result.get('before_value'))
-                        if 'after_value' in handler_result:
-                            action.after_value = _json_safe(handler_result.get('after_value'))
-                        if 'evidence' in handler_result:
-                            action.evidence = _json_safe(handler_result.get('evidence') or {})
-                        if 'rollback_payload' in handler_result:
-                            action.rollback_payload = _json_safe(handler_result.get('rollback_payload'))
-                    status = 'applied'
-                    action.applied_by_id = applied_by_id
-                    action.applied_at = now
-                    summary['applied_count'] += 1
-                except Exception as exc:
-                    savepoint.rollback()
-                    self._cleanup_failed_handler_side_effects(existing_new_ids=handler_new_ids)
-                    status = 'failed'
-                    action.evidence = {
-                        **(action.evidence or {}),
-                        'error': redact_secret_text(str(exc)),
-                    }
-                    summary['failed_count'] += 1
-
-            action.status = status
+            action.status = 'pending'
             if is_new_action:
                 self._db.add(action)
             self._db.flush()
             if is_new_action:
                 summary['created_count'] += 1
-            summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': status})
+
+        planned_actions = (
+            self._db.query(HermesCorrectionAction)
+            .filter(HermesCorrectionAction.audit_run_id == audit_run_id)
+            .filter(HermesCorrectionAction.idempotency_key.in_([str(payload.get('idempotency_key') or '').strip() for payload in actions]))
+            .order_by(HermesCorrectionAction.id.asc())
+            .all()
+        )
+
+        executable_actions: list[HermesCorrectionAction] = []
+        for action in planned_actions:
+            status, blocked_reason = self._determine_action_status(action=action, dry_run=dry_run)
+            if status == 'executable':
+                executable_actions.append(action)
+                continue
+            action.status = status
+            if blocked_reason:
+                action.evidence = {**(action.evidence or {}), 'blocked_reason': blocked_reason}
+            if status == 'dry_run':
+                summary['dry_run_count'] += 1
+            elif 'blocked' in status:
+                summary['blocked_count'] += 1
+                if blocked_reason == 'apply_disabled':
+                    summary['reason'] = 'apply_disabled'
+            summary['action_statuses'].append({'idempotency_key': action.idempotency_key, 'status': status})
+
+        if not dry_run and executable_actions:
+            handler_new_ids = {id(item) for item in self._db.new}
+            savepoint = self._db.begin_nested()
+            handler_results: dict[str, Mapping[str, Any]] = {}
+            batch_error: str | None = None
+            try:
+                for action in executable_actions:
+                    handler_result = _json_safe(self._correction_handler(_json_safe(self._action_payload(action))) or {})
+                    handler_results[action.idempotency_key] = handler_result if isinstance(handler_result, Mapping) else {}
+                savepoint.commit()
+            except Exception as exc:
+                savepoint.rollback()
+                self._cleanup_failed_handler_side_effects(existing_new_ids=handler_new_ids)
+                batch_error = redact_secret_text(str(exc))
+
+            if batch_error is not None:
+                for action in executable_actions:
+                    action.status = 'failed'
+                    action.evidence = {**(action.evidence or {}), 'error': batch_error}
+                    summary['failed_count'] += 1
+                    summary['action_statuses'].append({'idempotency_key': action.idempotency_key, 'status': 'failed'})
+            else:
+                for action in executable_actions:
+                    handler_result = handler_results.get(action.idempotency_key, {})
+                    if 'before_value' in handler_result:
+                        action.before_value = _json_safe(handler_result.get('before_value'))
+                    if 'after_value' in handler_result:
+                        action.after_value = _json_safe(handler_result.get('after_value'))
+                    if 'evidence' in handler_result:
+                        action.evidence = _json_safe(handler_result.get('evidence') or {})
+                    if 'rollback_payload' in handler_result:
+                        action.rollback_payload = _json_safe(handler_result.get('rollback_payload'))
+                    action.status = 'applied'
+                    action.applied_by_id = applied_by_id
+                    action.applied_at = now
+                    summary['applied_count'] += 1
+                    summary['action_statuses'].append({'idempotency_key': action.idempotency_key, 'status': 'applied'})
 
         if summary['applied_count'] and (summary['failed_count'] or summary['blocked_count']):
+            run.status = 'correction_partial_failed'
+            run.completed_at = now
+        elif summary['failed_count'] and summary['blocked_count']:
             run.status = 'correction_partial_failed'
             run.completed_at = now
         elif summary['applied_count']:
@@ -531,7 +569,10 @@ class HermesDataAuditService:
                 'issues': [{'code': 'output_skill_file_missing', 'path': str(candidate)}],
             }
 
-        parsed = parse_output_skill_reference_file(resolved_path)
+        if resolved_path.suffix.lower() in CSV_EXTENSIONS:
+            parsed = self._parse_csv_output_skill_file(resolved_path)
+        else:
+            parsed = parse_output_skill_reference_file(resolved_path)
         raw_text = self._read_text_file(resolved_path) if resolved_path.suffix.lower() in TEXT_RAW_EXTENSIONS else ''
         extracted_fields, extraction_issues = self._extract_output_skill_fields(parsed.get('rows', []), raw_text)
         issues = [*_json_safe(parsed.get('issues', [])), *extraction_issues]
@@ -642,29 +683,36 @@ class HermesDataAuditService:
         matched_count = 0
 
         for field_name in fields:
+            mes_value = mes_values.get(field_name)
+            hub_value = hub_values.get(field_name)
+            output_value = output_values.get(field_name)
             values = {
-                source_name: source_values[field_name]
-                for source_name, source_values in (
-                    ('mes', mes_values),
-                    ('hub', hub_values),
-                    ('output_skill', output_values),
+                source_name: value
+                for source_name, value in (
+                    ('mes', mes_value),
+                    ('hub', hub_value),
+                    ('output_skill', output_value),
                 )
-                if field_name in source_values
+                if value is not None
             }
-            if len(values) < 2:
-                diffs[field_name] = {
-                    'status': 'not_comparable',
-                    'values': values,
-                }
-                continue
+            if len(values) >= 2:
+                comparable_count += 1
 
-            comparable_count += 1
-            first_value = next(iter(values.values()))
-            if all(_values_match(first_value, other) for other in list(values.values())[1:]):
+            if mes_value is None:
+                status = 'mes_missing'
+            elif hub_value is None:
+                status = 'hub_missing'
+            elif output_value is None:
+                status = 'output_skill_missing'
+            elif _values_match(mes_value, hub_value) and _values_match(mes_value, output_value):
+                status = 'matched'
                 matched_count += 1
-                diffs[field_name] = {'status': 'matched', 'values': values}
+            elif _values_match(mes_value, output_value) and not _values_match(mes_value, hub_value):
+                status = 'hub_mismatch'
             else:
-                diffs[field_name] = {'status': 'mismatched', 'values': values}
+                status = 'cannot_decide'
+
+            diffs[field_name] = {'status': status, 'values': values}
 
         return diffs, comparable_count, matched_count
 
@@ -676,12 +724,12 @@ class HermesDataAuditService:
     ) -> list[dict[str, Any]]:
         actions: list[dict[str, Any]] = []
         for field_name, diff in diffs.items():
-            if diff.get('status') != 'mismatched':
+            if diff.get('status') != 'hub_mismatch':
                 continue
             values = diff.get('values') or {}
             suggested_value = values.get('mes', values.get('output_skill'))
             action_payload = {
-                'action_type': 'review_field_mismatch',
+                'action_type': 'mapping_reconciliation_run',
                 'risk_level': 'low',
                 'field_name': field_name,
                 'target_table': 'data_hub_snapshot',
@@ -865,12 +913,12 @@ class HermesDataAuditService:
         mes_status = source_status.get('mes')
         hub_status = source_status.get('hub')
         output_status = source_status.get('output_skill')
-        if hub_status == 'empty' or output_status in {'missing', 'empty', 'unsupported'}:
-            return 'completed_with_missing_source'
         if mes_status in {'failed', 'partial_failed'} or hub_status == 'failed':
             return 'completed_with_source_error'
         if source_errors and source_errors != {'output_skill': 'output_skill_source_missing'}:
             return 'completed_with_source_error'
+        if hub_status == 'empty' or output_status in {'missing', 'empty', 'unsupported'}:
+            return 'completed_with_missing_source'
         return 'completed'
 
     def _cleanup_failed_handler_side_effects(self, *, existing_new_ids: set[int]) -> None:
@@ -901,3 +949,68 @@ class HermesDataAuditService:
         action.after_value = _json_safe(payload.get('after_value'))
         action.evidence = _json_safe(payload.get('evidence') or {})
         action.rollback_payload = _json_safe(payload.get('rollback_payload'))
+
+    @staticmethod
+    def _normalize_fields(fields: Sequence[str] | None) -> list[str]:
+        normalized = [str(field).strip() for field in (fields or []) if str(field).strip()]
+        return normalized or list(DEFAULT_AUDIT_FIELDS)
+
+    def _parse_csv_output_skill_file(self, path: Path) -> dict[str, Any]:
+        rows: list[dict[str, Any]] = []
+        with path.open('r', encoding='utf-8-sig', newline='') as handle:
+            reader = csv.DictReader(handle)
+            for raw_row in reader:
+                row: dict[str, Any] = {}
+                for header, value in raw_row.items():
+                    normalized_header = _CSV_HEADER_ALIASES.get(str(header).strip(), str(header).strip())
+                    if value in (None, ''):
+                        continue
+                    if normalized_header == 'business_date':
+                        row['business_date'] = str(value).strip()
+                    elif normalized_header in {'output_tons', 'total_output'}:
+                        number = _numeric_value(value)
+                        if number is not None:
+                            row[normalized_header] = number
+                    elif normalized_header == 'yield_rate':
+                        number = _numeric_value(value)
+                        if number is not None:
+                            row['yield_rate'] = number
+                if row:
+                    rows.append(row)
+        return {
+            'status': 'parsed',
+            'source_file': str(path),
+            'source_type': 'output_skill_csv',
+            'rows': rows,
+            'issues': [],
+        }
+
+    def _determine_action_status(self, *, action: HermesCorrectionAction, dry_run: bool) -> tuple[str, str | None]:
+        if dry_run:
+            return 'dry_run', None
+        if action.action_type not in SUPPORTED_ACTION_TYPES:
+            return 'blocked', 'unsupported_action_type'
+        if not self._apply_enabled:
+            return 'blocked', 'apply_disabled'
+        if action.risk_level.lower() != 'low':
+            return 'high_risk_blocked', 'high_risk'
+        if self._correction_handler is None:
+            return 'blocked', 'handler_missing'
+        if not self._is_controlled_handler(self._correction_handler):
+            return 'blocked', 'handler_not_controlled'
+        return 'executable', None
+
+    @staticmethod
+    def _action_payload(action: HermesCorrectionAction) -> dict[str, Any]:
+        return {
+            'idempotency_key': action.idempotency_key,
+            'action_type': action.action_type,
+            'risk_level': action.risk_level,
+            'target_table': action.target_table,
+            'target_key': action.target_key,
+            'field_name': action.field_name,
+            'before_value': action.before_value,
+            'after_value': action.after_value,
+            'evidence': action.evidence,
+            'rollback_payload': action.rollback_payload,
+        }
