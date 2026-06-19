@@ -263,6 +263,55 @@ def test_create_run_persists_output_skill_issues_into_source_errors() -> None:
         db.close()
 
 
+def test_create_run_redacts_mes_source_errors_before_persisting() -> None:
+    mes_service = _MesReadServiceFake(
+        {
+            'business_date': '2026-06-18',
+            'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+            'records': {
+                'summary': [
+                    {'field': 'total_output', 'value': 100.0},
+                ]
+            },
+            'source_status': {
+                'mes': 'partial_failed',
+                'sources': {
+                    'summary': {'status': 'ok', 'count': 1},
+                    'stock_records': {'status': 'failed', 'count': 0},
+                },
+            },
+            'source_errors': {'stock_records': 'password=abc token=123'},
+        }
+    )
+
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=mes_service,
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        persisted = run.source_errors['mes']['stock_records']
+        assert 'abc' not in persisted
+        assert '123' not in persisted
+        assert '<redacted>' in persisted
+    finally:
+        db.close()
+
+
 def test_create_run_writes_failed_run_before_raising_when_no_field_is_comparable(tmp_path) -> None:
     root = tmp_path / 'output-skill'
     root.mkdir()
@@ -382,6 +431,55 @@ def test_apply_corrections_skips_duplicate_idempotency_keys() -> None:
         db.close()
 
 
+def test_apply_corrections_allows_real_apply_after_dry_run() -> None:
+    db = _db_session()
+    handler_calls: list[dict] = []
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            handler_calls.append(action)
+            return {'evidence': {'handler': 'applied'}}
+
+        service = HermesDataAuditService(
+            db,
+            apply_enabled=True,
+            correction_handler=_handler,
+        )
+        action = {
+            'idempotency_key': 'dry-then-apply',
+            'action_type': 'hub_update',
+            'risk_level': 'low',
+            'target_table': 'daily_stats',
+            'target_key': '2026-06-18:yield_rate',
+            'field_name': 'yield_rate',
+            'before_value': {'hub': 95.0},
+            'after_value': {'hub': 96.5},
+            'evidence': {'source': 'mes'},
+        }
+
+        preview = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=True,
+            applied_by_id=9,
+        )
+        applied = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        action_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='dry-then-apply').one()
+        assert preview['action_statuses'] == [{'idempotency_key': 'dry-then-apply', 'status': 'dry_run'}]
+        assert applied['action_statuses'] == [{'idempotency_key': 'dry-then-apply', 'status': 'applied'}]
+        assert len(handler_calls) == 1
+        assert action_row.status == 'applied'
+    finally:
+        db.close()
+
+
 def test_apply_corrections_does_not_mark_applied_when_handler_missing() -> None:
     db = _db_session()
     try:
@@ -414,6 +512,60 @@ def test_apply_corrections_does_not_mark_applied_when_handler_missing() -> None:
         assert action.status == 'blocked'
         assert action.applied_at is None
         assert action.evidence['blocked_reason'] == 'handler_missing'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_marks_run_as_partial_failure_when_batch_mixes_success_and_failure() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            if action['idempotency_key'] == 'will-fail':
+                raise RuntimeError('boom')
+            return {'evidence': {'handler': 'ok'}}
+
+        service = HermesDataAuditService(
+            db,
+            apply_enabled=True,
+            correction_handler=_handler,
+        )
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[
+                {
+                    'idempotency_key': 'will-pass',
+                    'action_type': 'hub_update',
+                    'risk_level': 'low',
+                    'target_table': 'daily_stats',
+                    'target_key': '2026-06-18:yield_rate',
+                    'field_name': 'yield_rate',
+                    'before_value': {'hub': 95.0},
+                    'after_value': {'hub': 96.5},
+                    'evidence': {'source': 'mes'},
+                },
+                {
+                    'idempotency_key': 'will-fail',
+                    'action_type': 'hub_update',
+                    'risk_level': 'low',
+                    'target_table': 'daily_stats',
+                    'target_key': '2026-06-18:total_output',
+                    'field_name': 'total_output',
+                    'before_value': {'hub': 95.0},
+                    'after_value': {'hub': 100.0},
+                    'evidence': {'source': 'mes'},
+                },
+            ],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        db.refresh(run)
+        assert result['applied_count'] == 1
+        assert result['failed_count'] == 1
+        assert run.status == 'correction_partial_failed'
     finally:
         db.close()
 
@@ -462,3 +614,60 @@ def test_apply_corrections_marks_applied_when_handler_succeeds() -> None:
         assert action.rollback_payload == {'mode': 'manual'}
     finally:
         db.close()
+
+
+def test_create_run_uses_stable_run_key_for_same_inputs() -> None:
+    mes_payload = {
+        'business_date': '2026-06-18',
+        'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+        'records': {
+            'summary': [
+                {'field': 'total_output', 'value': 100.0},
+            ]
+        },
+        'source_status': {
+            'mes': 'ok',
+            'sources': {
+                'summary': {'status': 'ok', 'count': 1},
+            },
+        },
+        'source_errors': {},
+    }
+    db1 = _db_session()
+    db2 = _db_session()
+    try:
+        service1 = HermesDataAuditService(
+            db1,
+            mes_read_service=_MesReadServiceFake(mes_payload),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service2 = HermesDataAuditService(
+            db2,
+            mes_read_service=_MesReadServiceFake(mes_payload),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        stable_snapshot = {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+        service1._read_output_skill_business_date = lambda business_date: stable_snapshot
+        service2._read_output_skill_business_date = lambda business_date: stable_snapshot
+
+        run1 = service1.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+            mes_query_keys=['stock_records', 'workshop_process_records'],
+        )
+        run2 = service2.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+            mes_query_keys=['workshop_process_records', 'stock_records'],
+        )
+
+        assert run1.run_key == run2.run_key
+    finally:
+        db1.close()
+        db2.close()

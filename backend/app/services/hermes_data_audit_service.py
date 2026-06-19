@@ -109,6 +109,13 @@ def _redact_issue_payload(value: Any) -> Any:
     return safe_value
 
 
+def _stable_string_list(values: Sequence[str] | None) -> list[str]:
+    if not values:
+        return []
+    normalized = {str(value).strip() for value in values if str(value).strip()}
+    return sorted(normalized)
+
+
 def _numeric_value(value: Any) -> float | None:
     if value is None or value == '':
         return None
@@ -269,25 +276,18 @@ class HermesDataAuditService:
                 .filter(HermesCorrectionAction.idempotency_key == idempotency_key)
                 .one_or_none()
             )
-            if existing is not None:
+            if existing is not None and not (existing.status == 'dry_run' and not dry_run):
                 summary['skipped_count'] += 1
                 summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': 'skipped_duplicate'})
                 continue
 
-            action = HermesCorrectionAction(
+            is_new_action = existing is None
+            action = existing or HermesCorrectionAction(
                 audit_run_id=audit_run_id,
                 idempotency_key=idempotency_key,
-                action_type=str(payload.get('action_type') or 'unknown'),
-                risk_level=str(payload.get('risk_level') or 'low'),
-                target_table=str(payload.get('target_table') or ''),
-                target_key=str(payload.get('target_key') or ''),
-                field_name=str(payload.get('field_name')) if payload.get('field_name') is not None else None,
-                before_value=_json_safe(payload.get('before_value')),
-                after_value=_json_safe(payload.get('after_value')),
-                evidence=_json_safe(payload.get('evidence') or {}),
-                rollback_payload=_json_safe(payload.get('rollback_payload')),
                 rollback_status='not_requested',
             )
+            self._sync_action_from_payload(action, audit_run_id=audit_run_id, payload=payload)
             status = 'pending'
 
             if dry_run:
@@ -332,12 +332,17 @@ class HermesDataAuditService:
                     summary['failed_count'] += 1
 
             action.status = status
-            self._db.add(action)
+            if is_new_action:
+                self._db.add(action)
             self._db.flush()
-            summary['created_count'] += 1
+            if is_new_action:
+                summary['created_count'] += 1
             summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': status})
 
-        if summary['applied_count']:
+        if summary['applied_count'] and (summary['failed_count'] or summary['blocked_count']):
+            run.status = 'correction_partial_failed'
+            run.completed_at = now
+        elif summary['applied_count']:
             run.status = 'corrected'
             run.completed_at = now
 
@@ -663,7 +668,7 @@ class HermesDataAuditService:
     ) -> dict[str, Any]:
         source_errors: dict[str, Any] = {}
         if mes_errors:
-            source_errors['mes'] = _json_safe(mes_errors)
+            source_errors['mes'] = _redact_issue_payload(mes_errors)
         if hub_error:
             source_errors['hub'] = hub_error
         output_status = output_skill_snapshot.get('status')
@@ -705,9 +710,8 @@ class HermesDataAuditService:
     ) -> str:
         payload = {
             'business_date': business_date.isoformat(),
-            'fields': list(fields),
-            'mes_query_keys': list(mes_query_keys or DEFAULT_MES_QUERY_KEYS),
-            'issued_at': datetime.now(timezone.utc).isoformat(),
+            'fields': _stable_string_list(fields),
+            'mes_query_keys': _stable_string_list(mes_query_keys or DEFAULT_MES_QUERY_KEYS),
         }
         digest = hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()[:16]
         return f'hermes-audit-{business_date.isoformat()}-{digest}'
@@ -718,3 +722,22 @@ class HermesDataAuditService:
             :16
         ]
         return f"{payload.get('action_type', 'action')}:{digest}"
+
+    @staticmethod
+    def _sync_action_from_payload(
+        action: HermesCorrectionAction,
+        *,
+        audit_run_id: int,
+        payload: Mapping[str, Any],
+    ) -> None:
+        action.audit_run_id = audit_run_id
+        action.idempotency_key = str(payload.get('idempotency_key') or '').strip()
+        action.action_type = str(payload.get('action_type') or 'unknown')
+        action.risk_level = str(payload.get('risk_level') or 'low')
+        action.target_table = str(payload.get('target_table') or '')
+        action.target_key = str(payload.get('target_key') or '')
+        action.field_name = str(payload.get('field_name')) if payload.get('field_name') is not None else None
+        action.before_value = _json_safe(payload.get('before_value'))
+        action.after_value = _json_safe(payload.get('after_value'))
+        action.evidence = _json_safe(payload.get('evidence') or {})
+        action.rollback_payload = _json_safe(payload.get('rollback_payload'))
