@@ -116,6 +116,11 @@ def _stable_string_list(values: Sequence[str] | None) -> list[str]:
     return sorted(normalized)
 
 
+def _payload_hash(value: Any) -> str:
+    encoded = json.dumps(_json_safe(value), ensure_ascii=False, sort_keys=True).encode('utf-8')
+    return hashlib.sha1(encoded).hexdigest()
+
+
 def _numeric_value(value: Any) -> float | None:
     if value is None or value == '':
         return None
@@ -174,16 +179,19 @@ class HermesDataAuditService:
             fields=normalized_fields,
             mes_query_keys=mes_query_keys,
         )
+        run_key = self._build_run_key(
+            business_date,
+            normalized_fields,
+            mes_query_keys,
+            self._output_skill_identity(output_skill_snapshot),
+        )
+        existing_run = self._db.query(HermesDataAuditRun).filter(HermesDataAuditRun.run_key == run_key).one_or_none()
+        if existing_run is not None:
+            return existing_run
 
         mes_field_values = self._extract_mes_field_values(mes_result.get('records', {}), normalized_fields)
         hub_field_values = self._extract_direct_field_values(hub_snapshot, normalized_fields)
         output_field_values = self._extract_direct_field_values(output_skill_snapshot.get('parsed', {}), normalized_fields)
-
-        mes_snapshot = _json_safe(dict(mes_result))
-        mes_snapshot['field_values'] = mes_field_values
-        safe_hub_snapshot = {'data': _json_safe(hub_snapshot), 'field_values': hub_field_values}
-        safe_output_snapshot = _json_safe(dict(output_skill_snapshot))
-        safe_output_snapshot['field_values'] = output_field_values
 
         source_status = {
             'mes': mes_result.get('source_status', {}).get('mes', 'empty'),
@@ -195,6 +203,17 @@ class HermesDataAuditService:
             mes_errors=mes_result.get('source_errors', {}),
             hub_error=hub_error,
             output_skill_snapshot=output_skill_snapshot,
+        )
+        mes_snapshot = self._build_mes_snapshot(mes_result=mes_result, field_values=mes_field_values)
+        safe_hub_snapshot = self._build_hub_snapshot(
+            hub_snapshot=hub_snapshot,
+            hub_status=hub_status,
+            field_values=hub_field_values,
+            hub_error=hub_error,
+        )
+        safe_output_snapshot = self._build_output_skill_snapshot(
+            output_skill_snapshot=output_skill_snapshot,
+            field_values=output_field_values,
         )
 
         diffs, comparable_count, matched_count = self._build_diffs(
@@ -209,7 +228,7 @@ class HermesDataAuditService:
         )
 
         run = HermesDataAuditRun(
-            run_key=self._build_run_key(business_date, normalized_fields, mes_query_keys),
+            run_key=run_key,
             business_date=business_date,
             status='running',
             source_status=source_status,
@@ -234,7 +253,7 @@ class HermesDataAuditService:
             raise NoComparableDataError(f'No comparable data for audit run {run.id}')
 
         run.match_rate = matched_count / comparable_count
-        run.status = 'completed'
+        run.status = self._completed_run_status(source_status=source_status, source_errors=source_errors)
         run.completed_at = now
         self._db.commit()
         self._db.refresh(run)
@@ -308,8 +327,11 @@ class HermesDataAuditService:
                 status = 'blocked'
                 summary['blocked_count'] += 1
             else:
+                handler_new_ids = {id(item) for item in self._db.new}
+                savepoint = self._db.begin_nested()
                 try:
                     handler_result = _json_safe(self._correction_handler(_json_safe(payload)) or {})
+                    savepoint.commit()
                     if isinstance(handler_result, Mapping):
                         if 'before_value' in handler_result:
                             action.before_value = _json_safe(handler_result.get('before_value'))
@@ -324,6 +346,8 @@ class HermesDataAuditService:
                     action.applied_at = now
                     summary['applied_count'] += 1
                 except Exception as exc:
+                    savepoint.rollback()
+                    self._cleanup_failed_handler_side_effects(existing_new_ids=handler_new_ids)
                     status = 'failed'
                     action.evidence = {
                         **(action.evidence or {}),
@@ -707,11 +731,13 @@ class HermesDataAuditService:
         business_date: date,
         fields: Sequence[str],
         mes_query_keys: Sequence[str] | None,
+        output_skill_identity: Mapping[str, Any] | None = None,
     ) -> str:
         payload = {
             'business_date': business_date.isoformat(),
             'fields': _stable_string_list(fields),
             'mes_query_keys': _stable_string_list(mes_query_keys or DEFAULT_MES_QUERY_KEYS),
+            'output_skill_identity': _json_safe(output_skill_identity or {}),
         }
         digest = hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()[:16]
         return f'hermes-audit-{business_date.isoformat()}-{digest}'
@@ -722,6 +748,116 @@ class HermesDataAuditService:
             :16
         ]
         return f"{payload.get('action_type', 'action')}:{digest}"
+
+    @staticmethod
+    def _build_mes_snapshot(
+        *,
+        mes_result: Mapping[str, Any],
+        field_values: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        records = mes_result.get('records') or {}
+        records_count_by_source = {
+            str(source_name): len(source_rows) if isinstance(source_rows, list) else 0
+            for source_name, source_rows in records.items()
+        }
+        return _redact_issue_payload(
+            {
+                'business_date': mes_result.get('business_date'),
+                'window': mes_result.get('window') or {},
+                'source_status': mes_result.get('source_status') or {},
+                'source_errors': mes_result.get('source_errors') or {},
+                'records_count_by_source': records_count_by_source,
+                'field_values': field_values,
+                'payload_hash': _payload_hash(
+                    {
+                        'window': mes_result.get('window'),
+                        'records': mes_result.get('records'),
+                        'source_status': mes_result.get('source_status'),
+                        'source_errors': mes_result.get('source_errors'),
+                    }
+                ),
+                'raw_payload_truncated': True,
+            }
+        )
+
+    @staticmethod
+    def _build_hub_snapshot(
+        *,
+        hub_snapshot: Mapping[str, Any],
+        hub_status: str,
+        field_values: Mapping[str, Any],
+        hub_error: str | None,
+    ) -> dict[str, Any]:
+        return _redact_issue_payload(
+            {
+                'status': hub_status,
+                'field_values': field_values,
+                'source_errors': hub_error,
+                'field_count': len(hub_snapshot),
+                'payload_hash': _payload_hash(hub_snapshot),
+                'raw_payload_truncated': True,
+            }
+        )
+
+    @staticmethod
+    def _build_output_skill_snapshot(
+        *,
+        output_skill_snapshot: Mapping[str, Any],
+        field_values: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        return _redact_issue_payload(
+            {
+                'status': output_skill_snapshot.get('status', 'missing'),
+                'files': output_skill_snapshot.get('files') or [],
+                'parsed': field_values,
+                'issues': output_skill_snapshot.get('issues') or [],
+                'payload_hash': _payload_hash(
+                    {
+                        'files': output_skill_snapshot.get('files'),
+                        'raw_text': output_skill_snapshot.get('raw_text'),
+                        'parsed': output_skill_snapshot.get('parsed'),
+                        'issues': output_skill_snapshot.get('issues'),
+                    }
+                ),
+                'raw_payload_truncated': 'raw_text' in output_skill_snapshot,
+            }
+        )
+
+    @staticmethod
+    def _output_skill_identity(output_skill_snapshot: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            'status': output_skill_snapshot.get('status', 'missing'),
+            'files': sorted(str(item) for item in output_skill_snapshot.get('files') or []),
+            'payload_hash': _payload_hash(
+                {
+                    'files': output_skill_snapshot.get('files'),
+                    'raw_text': output_skill_snapshot.get('raw_text'),
+                    'parsed': output_skill_snapshot.get('parsed'),
+                    'issues': output_skill_snapshot.get('issues'),
+                }
+            ),
+        }
+
+    @staticmethod
+    def _completed_run_status(
+        *,
+        source_status: Mapping[str, Any],
+        source_errors: Mapping[str, Any],
+    ) -> str:
+        mes_status = source_status.get('mes')
+        hub_status = source_status.get('hub')
+        output_status = source_status.get('output_skill')
+        if mes_status in {'failed', 'partial_failed'} or hub_status == 'failed' or source_errors:
+            return 'completed_with_source_error'
+        if hub_status == 'empty' or output_status in {'missing', 'empty', 'unsupported'}:
+            return 'completed_with_missing_source'
+        return 'completed'
+
+    def _cleanup_failed_handler_side_effects(self, *, existing_new_ids: set[int]) -> None:
+        for item in list(self._db.new):
+            if id(item) not in existing_new_ids:
+                self._db.expunge(item)
+        self._db.expire_all()
 
     @staticmethod
     def _sync_action_from_payload(

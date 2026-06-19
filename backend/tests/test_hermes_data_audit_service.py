@@ -155,7 +155,7 @@ def test_create_run_persists_match_rate_diffs_source_status_and_errors(tmp_path)
         db.refresh(run)
 
         assert mes_service.calls[0]['business_date'] == date(2026, 6, 18)
-        assert run.status == 'completed'
+        assert run.status == 'completed_with_source_error'
         assert float(run.match_rate) == pytest.approx(0.5)
         assert run.source_status == {
             'mes': 'partial_failed',
@@ -207,6 +207,64 @@ def test_create_run_persists_match_rate_diffs_source_status_and_errors(tmp_path)
         ]
         saved = db.query(HermesDataAuditRun).filter(HermesDataAuditRun.id == run.id).one()
         assert saved.created_by_id == 7
+    finally:
+        db.close()
+
+
+def test_create_run_persists_safe_snapshot_summaries_only(tmp_path) -> None:
+    root = tmp_path / 'output-skill'
+    root.mkdir()
+    (root / '2026-06-18-日报.txt').write_text(
+        '车间总产量日合计100吨 token=abc123\n',
+        encoding='utf-8',
+    )
+    mes_service = _MesReadServiceFake(
+        {
+            'business_date': '2026-06-18',
+            'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+            'records': {
+                'summary': [
+                    {'field': 'total_output', 'value': 100.0, 'debug_note': 'token=abc123'},
+                ]
+            },
+            'source_status': {
+                'mes': 'ok',
+                'sources': {
+                    'summary': {'status': 'ok', 'count': 1},
+                },
+            },
+            'source_errors': {},
+        }
+    )
+
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=mes_service,
+            output_skill_root=root,
+            hub_snapshot_reader=lambda business_date, fields: {
+                'total_output': 100.0,
+                'debug_note': 'token=abc123',
+            },
+        )
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        mes_snapshot_text = str(run.mes_snapshot)
+        hub_snapshot_text = str(run.hub_snapshot)
+        output_snapshot_text = str(run.output_skill_snapshot)
+        assert 'abc123' not in mes_snapshot_text
+        assert 'abc123' not in hub_snapshot_text
+        assert 'abc123' not in output_snapshot_text
+        assert 'records' not in run.mes_snapshot
+        assert 'raw_text' not in run.output_skill_snapshot
+        assert run.mes_snapshot['records_count_by_source'] == {'summary': 1}
+        assert run.output_skill_snapshot['parsed'] == {'total_output': 100.0}
+        assert 'payload_hash' in run.output_skill_snapshot
     finally:
         db.close()
 
@@ -308,6 +366,100 @@ def test_create_run_redacts_mes_source_errors_before_persisting() -> None:
         assert 'abc' not in persisted
         assert '123' not in persisted
         assert '<redacted>' in persisted
+    finally:
+        db.close()
+
+
+def test_create_run_returns_existing_run_for_same_input_without_unique_error() -> None:
+    mes_payload = {
+        'business_date': '2026-06-18',
+        'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+        'records': {
+            'summary': [
+                {'field': 'total_output', 'value': 100.0},
+            ]
+        },
+        'source_status': {
+            'mes': 'ok',
+            'sources': {
+                'summary': {'status': 'ok', 'count': 1},
+            },
+        },
+        'source_errors': {},
+    }
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(mes_payload),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        stable_snapshot = {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+        service._read_output_skill_business_date = lambda business_date: stable_snapshot
+
+        first = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+        second = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert first.id == second.id
+        assert db.query(HermesDataAuditRun).count() == 1
+    finally:
+        db.close()
+
+
+def test_create_run_changes_run_key_when_output_skill_content_changes(tmp_path) -> None:
+    root = tmp_path / 'output-skill'
+    root.mkdir()
+    report = root / '2026-06-18-日报.txt'
+    report.write_text('车间总产量日合计100吨\n', encoding='utf-8')
+    mes_payload = {
+        'business_date': '2026-06-18',
+        'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+        'records': {
+            'summary': [
+                {'field': 'total_output', 'value': 100.0},
+            ]
+        },
+        'source_status': {
+            'mes': 'ok',
+            'sources': {
+                'summary': {'status': 'ok', 'count': 1},
+            },
+        },
+        'source_errors': {},
+    }
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(mes_payload),
+            output_skill_root=root,
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+
+        first = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+        report.write_text('车间总产量日合计100吨\ntoken=changed\n', encoding='utf-8')
+        second = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert first.id != second.id
+        assert first.run_key != second.run_key
     finally:
         db.close()
 
@@ -516,6 +668,48 @@ def test_apply_corrections_does_not_mark_applied_when_handler_missing() -> None:
         db.close()
 
 
+def test_apply_corrections_rolls_back_handler_side_effects_when_handler_fails() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            db.add(User(username='temp-user', name='Temp User', password_hash='x'))
+            raise RuntimeError('boom after write')
+
+        service = HermesDataAuditService(
+            db,
+            apply_enabled=True,
+            correction_handler=_handler,
+        )
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[
+                {
+                    'idempotency_key': 'handler-rollback',
+                    'action_type': 'hub_update',
+                    'risk_level': 'low',
+                    'target_table': 'daily_stats',
+                    'target_key': '2026-06-18:yield_rate',
+                    'field_name': 'yield_rate',
+                    'before_value': {'hub': 95.0},
+                    'after_value': {'hub': 96.5},
+                    'evidence': {'source': 'mes'},
+                }
+            ],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).filter_by(idempotency_key='handler-rollback').one()
+        assert result['failed_count'] == 1
+        assert action.status == 'failed'
+        assert db.query(User).filter_by(username='temp-user').count() == 0
+    finally:
+        db.close()
+
+
 def test_apply_corrections_marks_run_as_partial_failure_when_batch_mixes_success_and_failure() -> None:
     db = _db_session()
     try:
@@ -671,3 +865,50 @@ def test_create_run_uses_stable_run_key_for_same_inputs() -> None:
     finally:
         db1.close()
         db2.close()
+
+
+def test_create_run_uses_degraded_status_when_sources_have_errors_but_data_is_comparable() -> None:
+    mes_service = _MesReadServiceFake(
+        {
+            'business_date': '2026-06-18',
+            'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+            'records': {
+                'summary': [
+                    {'field': 'total_output', 'value': 100.0},
+                ]
+            },
+            'source_status': {
+                'mes': 'partial_failed',
+                'sources': {
+                    'summary': {'status': 'ok', 'count': 1},
+                    'stock_records': {'status': 'failed', 'count': 0},
+                },
+            },
+            'source_errors': {'stock_records': 'password=abc token=123'},
+        }
+    )
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=mes_service,
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert run.status == 'completed_with_source_error'
+        assert 'output_skill' not in run.source_errors
+        assert 'mes' in run.source_errors
+    finally:
+        db.close()
