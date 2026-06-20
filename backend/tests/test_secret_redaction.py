@@ -22,6 +22,26 @@ def test_redact_secret_text_masks_connection_style_values() -> None:
     assert 'token=<redacted>' in redacted
 
 
+def test_redact_secret_text_masks_uri_connection_passwords() -> None:
+    text = (
+        'postgresql://user:secretpass@db.example.com/app '
+        'mysql://readonly:mysqlpass@db.example.com/app '
+        'https://api-user:http-secret@example.com/token'
+    )
+
+    redacted = redact_secret_text(text)
+
+    assert 'secretpass' not in redacted
+    assert 'mysqlpass' not in redacted
+    assert 'http-secret' not in redacted
+    assert 'postgresql://user:secretpass@db.example.com/app' not in redacted
+    assert 'mysql://readonly:mysqlpass@db.example.com/app' not in redacted
+    assert 'https://api-user:http-secret@example.com/token' not in redacted
+    assert 'postgresql://<redacted>@db.example.com/app' in redacted
+    assert 'mysql://<redacted>@db.example.com/app' in redacted
+    assert 'https://<redacted>@example.com/token' in redacted
+
+
 def test_filter_sensitive_mapping_removes_private_customer_and_secret_fields() -> None:
     payload = filter_sensitive_mapping({
         'TrackingCardNo': 'S-2-085-2',

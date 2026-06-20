@@ -141,7 +141,10 @@ def test_format_backfill_row_contains_table_values_and_redacts_sensitive_text() 
         'outskill': 'missing',
         'diffs': 9,
         'next': 'mount_output_skill_reference_and_rerun',
-        'detail': 'source=output_skill field=total_output password=abc token=123',
+        'detail': (
+            'source=output_skill field=total_output password=abc token=123 '
+            'postgresql://user:secretpass@db.example.com/app'
+        ),
     }
 
     row = module.format_backfill_row(summary)
@@ -151,13 +154,18 @@ def test_format_backfill_row_contains_table_values_and_redacts_sensitive_text() 
     assert 'mount_output_skill_reference_and_rerun' in row
     assert 'password=abc' not in row
     assert 'token=123' not in row
+    assert 'secretpass' not in row
+    assert 'postgresql://user:secretpass@db.example.com/app' not in row
+    assert 'postgresql://<redacted>@db.example.com/app' in row
     assert '<redacted>' in row
 
 
 def test_run_backfill_continues_after_day_errors() -> None:
     module = _load_script_module()
     comparable_error = module.NoComparableDataError('No comparable data for audit run 3')
-    failed_error = RuntimeError('mes source failed password=abc token=123')
+    failed_error = RuntimeError(
+        'mes source failed password=abc token=123 postgresql://user:secretpass@db.example.com/app'
+    )
     ok_run = _make_run(
         business_date=date(2026, 6, 18),
         status='completed_with_missing_source',
@@ -187,6 +195,9 @@ def test_run_backfill_continues_after_day_errors() -> None:
     assert summaries[1]['next'].startswith('fix_source_health_and_rerun')
     assert 'password=abc' not in summaries[1]['detail']
     assert 'token=123' not in summaries[1]['detail']
+    assert 'secretpass' not in summaries[1]['detail']
+    assert 'postgresql://user:secretpass@db.example.com/app' not in summaries[1]['detail']
+    assert 'postgresql://<redacted>@db.example.com/app' in summaries[1]['detail']
     assert summaries[2]['outskill'] == 'missing'
     assert len(service.create_calls) == 3
 
