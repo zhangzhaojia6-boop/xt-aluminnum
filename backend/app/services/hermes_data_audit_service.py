@@ -487,6 +487,22 @@ class HermesDataAuditService:
         now = datetime.now(timezone.utc)
         planned_idempotency_keys: list[str] = []
 
+        if not dry_run and run.status == 'corrected':
+            summary['reason'] = 'rerun_audit_required'
+            for payload in actions:
+                idempotency_key = str(payload.get('idempotency_key') or '').strip()
+                if not idempotency_key:
+                    raise ValueError('idempotency_key is required')
+                summary['blocked_count'] += 1
+                summary['action_statuses'].append(
+                    {
+                        'idempotency_key': idempotency_key,
+                        'status': 'blocked',
+                        'reason': 'rerun_audit_required',
+                    }
+                )
+            return summary
+
         if dry_run:
             for payload in actions:
                 idempotency_key = str(payload.get('idempotency_key') or '').strip()

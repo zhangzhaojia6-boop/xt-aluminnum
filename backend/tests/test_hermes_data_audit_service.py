@@ -979,6 +979,162 @@ def test_apply_corrections_allows_dry_run_when_apply_flag_disabled() -> None:
         db.close()
 
 
+def test_apply_corrections_blocks_real_apply_for_corrected_run_without_side_effects() -> None:
+    db = _db_session()
+    executor_called = {'value': False}
+    try:
+        run = _make_run(db)
+        run.status = 'corrected'
+        db.commit()
+        service = HermesDataAuditService(db, apply_enabled=True)
+
+        def _unexpected_executor(action):
+            executor_called['value'] = True
+            return {'evidence': {'handler': 'should-not-run'}}
+
+        service._execute_mapping_alias_upsert = _unexpected_executor
+        action = _supported_action('corrected-real-apply-blocked')
+        action['target_key'] = 'workshop:cold-roll-2050:corrected'
+        action['before_value'] = {
+            'entity_type': 'workshop',
+            'canonical_code': 'cold-roll-2050',
+            'alias_code': 'corrected',
+            'source_type': 'hermes',
+        }
+        action['after_value'] = {
+            'entity_type': 'workshop',
+            'canonical_code': 'cold-roll-2050',
+            'alias_code': 'corrected',
+            'alias_name': '已修正别名',
+            'source_type': 'hermes',
+            'is_active': True,
+        }
+        action['evidence'] = {
+            'source': 'mes',
+            'reason': 'corrected run must rerun before real apply',
+            'field': 'alias_code',
+            'field_name': 'alias_code',
+            'evidence_ref': 'corrected-run:2026-06-18',
+            'values': {'alias_code': 'corrected', 'canonical_code': 'cold-roll-2050'},
+        }
+        action['rollback_payload'] = {
+            'mode': 'manual',
+            'reason': 'restore alias before audit correction',
+            'restore_before_value': {
+                'entity_type': 'workshop',
+                'alias_code': 'corrected',
+                'source_type': 'hermes',
+                'record_existed': False,
+            },
+            'rollback_available': True,
+            'rollback_unavailable_reason': '',
+        }
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        assert result['reason'] == 'rerun_audit_required'
+        assert result['blocked_count'] == 1
+        assert result['applied_count'] == 0
+        assert result['dry_run_count'] == 0
+        assert result['created_count'] == 0
+        assert result['failed_count'] == 0
+        assert result['skipped_count'] == 0
+        assert result['action_statuses'] == [
+            {
+                'idempotency_key': 'corrected-real-apply-blocked',
+                'status': 'blocked',
+                'reason': 'rerun_audit_required',
+            }
+        ]
+        assert executor_called['value'] is False
+        assert db.query(HermesCorrectionAction).count() == 0
+        assert (
+            db.query(MasterCodeAlias)
+            .filter_by(entity_type='workshop', alias_code='corrected', source_type='hermes')
+            .count()
+            == 0
+        )
+        db.refresh(run)
+        assert run.status == 'corrected'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_allows_dry_run_preview_for_corrected_run() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        run.status = 'corrected'
+        db.commit()
+        service = HermesDataAuditService(db, apply_enabled=True)
+        action = _supported_action('corrected-dry-run-preview')
+        action['target_key'] = 'workshop:cold-roll-2050:corrected-preview'
+        action['before_value'] = {
+            'entity_type': 'workshop',
+            'canonical_code': 'cold-roll-2050',
+            'alias_code': 'corrected-preview',
+            'source_type': 'hermes',
+        }
+        action['after_value'] = {
+            'entity_type': 'workshop',
+            'canonical_code': 'cold-roll-2050',
+            'alias_code': 'corrected-preview',
+            'alias_name': '已修正预览别名',
+            'source_type': 'hermes',
+            'is_active': True,
+        }
+        action['evidence'] = {
+            'source': 'mes',
+            'reason': 'corrected run dry-run preview remains available',
+            'field': 'alias_code',
+            'field_name': 'alias_code',
+            'evidence_ref': 'corrected-preview:2026-06-18',
+            'values': {'alias_code': 'corrected-preview', 'canonical_code': 'cold-roll-2050'},
+        }
+        action['rollback_payload'] = {
+            'mode': 'manual',
+            'reason': 'restore alias before audit correction',
+            'restore_before_value': {
+                'entity_type': 'workshop',
+                'alias_code': 'corrected-preview',
+                'source_type': 'hermes',
+                'record_existed': False,
+            },
+            'rollback_available': True,
+            'rollback_unavailable_reason': '',
+        }
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=True,
+            applied_by_id=9,
+        )
+
+        assert result['reason'] is None
+        assert result['dry_run_count'] == 1
+        assert result['blocked_count'] == 0
+        assert result['action_statuses'] == [
+            {'idempotency_key': 'corrected-dry-run-preview', 'status': 'dry_run'}
+        ]
+        assert db.query(HermesCorrectionAction).count() == 0
+        assert (
+            db.query(MasterCodeAlias)
+            .filter_by(entity_type='workshop', alias_code='corrected-preview', source_type='hermes')
+            .count()
+            == 0
+        )
+        db.refresh(run)
+        assert run.status == 'corrected'
+    finally:
+        db.close()
+
+
 def test_apply_corrections_blocks_unsupported_action_type() -> None:
     db = _db_session()
     called = {'value': False}
@@ -1439,7 +1595,7 @@ def test_apply_corrections_does_not_reassign_pending_action_from_other_run() -> 
         db.close()
 
 
-def test_apply_corrections_skips_duplicate_real_apply_after_applied() -> None:
+def test_apply_corrections_blocks_repeat_real_apply_after_run_becomes_corrected() -> None:
     db = _db_session()
     handler_calls: list[dict] = []
     try:
@@ -1469,9 +1625,17 @@ def test_apply_corrections_skips_duplicate_real_apply_after_applied() -> None:
         action_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='repeat-real-apply').one()
         alias_rows = db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').all()
         assert first['action_statuses'] == [{'idempotency_key': 'repeat-real-apply', 'status': 'applied'}]
-        assert second['action_statuses'] == [{'idempotency_key': 'repeat-real-apply', 'status': 'skipped_duplicate'}]
+        assert second['reason'] == 'rerun_audit_required'
+        assert second['action_statuses'] == [
+            {
+                'idempotency_key': 'repeat-real-apply',
+                'status': 'blocked',
+                'reason': 'rerun_audit_required',
+            }
+        ]
         assert second['applied_count'] == 0
-        assert second['skipped_count'] == 1
+        assert second['blocked_count'] == 1
+        assert second['skipped_count'] == 0
         assert len(handler_calls) == 0
         assert action_row.status == 'applied'
         assert len(alias_rows) == 1
@@ -1544,7 +1708,7 @@ def test_apply_corrections_historical_duplicate_does_not_block_new_action_in_sam
         db.close()
 
 
-def test_apply_corrections_duplicate_real_apply_does_not_report_applied_and_skipped_for_same_key() -> None:
+def test_apply_corrections_repeat_real_apply_reports_only_rerun_gate_status() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
@@ -1564,8 +1728,9 @@ def test_apply_corrections_duplicate_real_apply_does_not_report_applied_and_skip
             applied_by_id=9,
         )
 
+        assert second['reason'] == 'rerun_audit_required'
         statuses = [item['status'] for item in second['action_statuses'] if item['idempotency_key'] == 'repeat-status-check']
-        assert statuses == ['skipped_duplicate']
+        assert statuses == ['blocked']
     finally:
         db.close()
 
