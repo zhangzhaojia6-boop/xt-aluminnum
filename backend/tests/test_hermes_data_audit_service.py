@@ -132,6 +132,8 @@ def _add_dingtalk_file_document(
     source_name: str = '钉钉群文件',
     source_type: str = 'dingtalk_file',
     source_ref: str = 'dingtalk://files/产量核对.xlsx?token=file-secret',
+    document_status: str = 'active',
+    ingestion_status: str = 'active',
     document_metadata: dict | None = None,
     ingestion_metadata: dict | None = None,
 ) -> tuple[RagDocument, RagSourceIngestion]:
@@ -140,7 +142,7 @@ def _add_dingtalk_file_document(
         source_name=source_name,
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         encoding='binary',
-        status='active',
+        status=document_status,
         file_size=2048,
         chunk_count=0,
         metadata_payload=document_metadata or {'source': 'dingtalk_file', 'channel': 'dingtalk_group'},
@@ -151,7 +153,7 @@ def _add_dingtalk_file_document(
     ingestion = RagSourceIngestion(
         source_type=source_type,
         source_ref=source_ref,
-        status='active',
+        status=ingestion_status,
         document_id=document.id,
         metadata_payload=ingestion_metadata or {'channel': 'dingtalk_group'},
         created_at=created_at,
@@ -704,7 +706,72 @@ def test_create_run_records_dingtalk_read_failure_without_interrupting_compariso
         assert run.source_errors['dingtalk_text'] == 'token=<redacted> unavailable'
         assert float(run.match_rate) == pytest.approx(1.0)
         assert run.diffs['total_output']['status'] == 'matched'
-        assert run.status == 'completed_with_source_error'
+        assert run.status == 'completed'
+    finally:
+        db.close()
+
+
+def test_read_dingtalk_text_evidence_prefers_source_payload_business_time_over_created_at() -> None:
+    db = _db_session()
+    try:
+        _add_dingtalk_text_message(
+            db,
+            text='6月18日夜班总产量100吨',
+            created_at=_dingtalk_created_at(day=19, hour=9, minute=5),
+            source_payload={'sent_at': '2026-06-18T20:00:00+08:00'},
+        )
+        service = HermesDataAuditService(db, output_skill_root=None)
+
+        items, status, error = service._read_dingtalk_text_evidence(business_date=date(2026, 6, 18))
+
+        assert error is None
+        assert status == 'ok'
+        assert len(items) == 1
+        assert items[0]['sent_at'] == '2026-06-18T20:00:00+08:00'
+        assert items[0]['created_at'].startswith('2026-06-19T09:05:00')
+    finally:
+        db.close()
+
+
+def test_read_dingtalk_file_evidence_requires_active_dingtalk_ingestion_and_caps_results() -> None:
+    db = _db_session()
+    created_at = _dingtalk_created_at()
+    try:
+        inactive_document, _ = _add_dingtalk_file_document(
+            db,
+            created_at=created_at,
+            filename='inactive.xlsx',
+            ingestion_status='inactive',
+        )
+        metadata_only_document, _ = _add_dingtalk_file_document(
+            db,
+            created_at=_dingtalk_created_at(hour=9, minute=1),
+            filename='metadata-only.xlsx',
+            source_type='rag_upload',
+            source_ref='upload://metadata-only.xlsx',
+            document_metadata={'source': 'dingtalk_file', 'channel': 'dingtalk_group'},
+            ingestion_metadata={'channel': 'manual_upload'},
+        )
+        valid_document_ids: list[int] = []
+        for offset in range(6):
+            document, _ = _add_dingtalk_file_document(
+                db,
+                created_at=_dingtalk_created_at(hour=10, minute=offset),
+                filename=f'valid-{offset}.xlsx',
+                source_ref=f'dingtalk://files/valid-{offset}.xlsx?token=file-secret-{offset}',
+            )
+            valid_document_ids.append(document.id)
+        service = HermesDataAuditService(db, output_skill_root=None)
+
+        items, status, error = service._read_dingtalk_file_evidence(business_date=date(2026, 6, 18))
+
+        assert error is None
+        assert status == 'ok'
+        assert len(items) == 5
+        returned_ids = {item['document_id'] for item in items}
+        assert inactive_document.id not in returned_ids
+        assert metadata_only_document.id not in returned_ids
+        assert returned_ids.issubset(set(valid_document_ids))
     finally:
         db.close()
 
@@ -1218,6 +1285,21 @@ def test_completed_run_status_keeps_mes_source_error_priority_over_empty_sources
     )
 
     assert status == 'completed_with_source_error'
+
+
+def test_completed_run_status_ignores_dingtalk_source_errors() -> None:
+    status = HermesDataAuditService._completed_run_status(
+        source_status={
+            'mes': 'ok',
+            'hub': 'ok',
+            'output_skill': 'parsed',
+            'dingtalk_text': 'failed',
+            'dingtalk_file': 'empty',
+        },
+        source_errors={'dingtalk_text': 'token=<redacted> unavailable'},
+    )
+
+    assert status == 'completed'
 
 
 def test_create_run_writes_failed_run_before_raising_when_no_field_is_comparable(tmp_path) -> None:

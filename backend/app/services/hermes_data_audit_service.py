@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 import csv
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import json
@@ -12,7 +12,6 @@ from pathlib import Path
 import re
 from typing import Any
 
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.business_time import production_business_window
@@ -151,6 +150,7 @@ _ROLLBACK_PRESERVE_KEYS = {
 }
 _AUDIT_NESTED_MERGE_KEYS = {'values', 'restore_before_value'}
 _DINGTALK_EVIDENCE_LIMIT = 5
+_PRIMARY_AUDIT_SOURCE_ERROR_KEYS = {'mes', 'hub', 'output_skill'}
 
 
 def _json_safe(value: Any) -> Any:
@@ -204,6 +204,38 @@ def _iso_datetime(value: Any) -> str | None:
     if value in (None, ''):
         return None
     return redact_secret_text(str(value))
+
+
+def _coerce_datetime(value: Any, *, fallback_tz: Any = None) -> datetime | None:
+    if isinstance(value, datetime):
+        if value.tzinfo is None and fallback_tz is not None:
+            return value.replace(tzinfo=fallback_tz)
+        return value
+    if value in (None, ''):
+        return None
+    if isinstance(value, (int, float)):
+        raw_value = float(value)
+        if raw_value > 10**12:
+            raw_value /= 1000.0
+        return datetime.fromtimestamp(raw_value, tz=fallback_tz or timezone.utc)
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        numeric_value = float(text)
+    except ValueError:
+        numeric_value = None
+    if numeric_value is not None:
+        if numeric_value > 10**12:
+            numeric_value /= 1000.0
+        return datetime.fromtimestamp(numeric_value, tz=fallback_tz or timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None and fallback_tz is not None:
+        return parsed.replace(tzinfo=fallback_tz)
+    return parsed
 
 
 def _redacted_sample_text(value: Any, *, limit: int = _AUDIT_TEXT_SAMPLE_LIMIT) -> str:
@@ -806,16 +838,18 @@ class HermesDataAuditService:
 
     def _read_dingtalk_text_evidence(self, *, business_date: date) -> tuple[list[dict[str, Any]], str, str | None]:
         window_start, window_end = production_business_window(business_date)
+        candidate_start = window_start - timedelta(days=1)
+        candidate_end = window_end + timedelta(days=1)
         try:
             rows = (
                 self._db.query(ChatInboxMessage)
                 .filter(
                     ChatInboxMessage.channel == 'dingtalk_group',
-                    ChatInboxMessage.created_at >= window_start,
-                    ChatInboxMessage.created_at < window_end,
+                    ChatInboxMessage.created_at >= candidate_start,
+                    ChatInboxMessage.created_at < candidate_end,
                 )
                 .order_by(ChatInboxMessage.created_at.desc(), ChatInboxMessage.id.desc())
-                .limit(_DINGTALK_EVIDENCE_LIMIT)
+                .limit(_DINGTALK_EVIDENCE_LIMIT * 4)
                 .all()
             )
         except Exception as exc:
@@ -823,6 +857,9 @@ class HermesDataAuditService:
 
         items: list[dict[str, Any]] = []
         for row in rows:
+            sent_at = self._dingtalk_message_datetime(row, fallback_tz=window_start.tzinfo)
+            if sent_at is None or sent_at < window_start or sent_at >= window_end:
+                continue
             redacted_text = redact_secret_text(row.text or '')
             items.append(
                 {
@@ -831,12 +868,14 @@ class HermesDataAuditService:
                     'group_id': redact_secret_text(row.group_id or '') or None,
                     'trace_id': redact_secret_text(row.trace_id or ''),
                     'sender_external_id': redact_secret_text(row.sender_external_id or '') or None,
-                    'sent_at': self._dingtalk_message_sent_at(row),
+                    'sent_at': _iso_datetime(sent_at),
                     'created_at': _iso_datetime(row.created_at),
                     'text_sample': _redacted_sample_text(redacted_text),
                     'text_hash': hashlib.sha256(redacted_text.encode('utf-8')).hexdigest(),
                 }
             )
+            if len(items) >= _DINGTALK_EVIDENCE_LIMIT:
+                break
         return items, 'ok' if items else 'empty', None
 
     def _read_dingtalk_file_evidence(self, *, business_date: date) -> tuple[list[dict[str, Any]], str, str | None]:
@@ -844,15 +883,15 @@ class HermesDataAuditService:
         try:
             rows = (
                 self._db.query(RagDocument, RagSourceIngestion)
-                .outerjoin(RagSourceIngestion, RagSourceIngestion.document_id == RagDocument.id)
+                .join(RagSourceIngestion, RagSourceIngestion.document_id == RagDocument.id)
                 .filter(
                     RagDocument.status == 'active',
-                    or_(
-                        (RagDocument.created_at >= window_start) & (RagDocument.created_at < window_end),
-                        (RagSourceIngestion.created_at >= window_start) & (RagSourceIngestion.created_at < window_end),
-                    ),
+                    RagSourceIngestion.status == 'active',
+                    RagSourceIngestion.created_at >= window_start,
+                    RagSourceIngestion.created_at < window_end,
                 )
-                .order_by(RagDocument.created_at.desc(), RagDocument.id.desc(), RagSourceIngestion.id.desc())
+                .order_by(RagSourceIngestion.created_at.desc(), RagSourceIngestion.id.desc(), RagDocument.id.desc())
+                .limit(_DINGTALK_EVIDENCE_LIMIT * 2)
                 .all()
             )
         except Exception as exc:
@@ -1254,20 +1293,23 @@ class HermesDataAuditService:
         return source_errors
 
     @staticmethod
-    def _dingtalk_message_sent_at(message: ChatInboxMessage) -> str | None:
+    def _dingtalk_message_datetime(message: ChatInboxMessage, *, fallback_tz: Any = None) -> datetime | None:
         payload = message.source_payload or {}
         for key in ('sent_at', 'sentAt', 'message_time', 'messageTime', 'msgTime', 'timestamp'):
             if key in payload and payload[key] not in (None, ''):
-                return _iso_datetime(payload[key])
-        return _iso_datetime(message.created_at)
+                parsed = _coerce_datetime(payload[key], fallback_tz=fallback_tz)
+                if parsed is not None:
+                    return parsed
+        return _coerce_datetime(message.created_at, fallback_tz=fallback_tz)
 
     @staticmethod
     def _is_dingtalk_file_document(*, document: RagDocument, ingestion: RagSourceIngestion | None) -> bool:
+        if ingestion is None or ingestion.status != 'active':
+            return False
         return _contains_dingtalk_marker(
             getattr(ingestion, 'source_type', None),
             getattr(ingestion, 'source_ref', None),
             getattr(ingestion, 'metadata_payload', None),
-            document.metadata_payload,
         )
 
     @staticmethod
@@ -1451,9 +1493,14 @@ class HermesDataAuditService:
         mes_status = source_status.get('mes')
         hub_status = source_status.get('hub')
         output_status = source_status.get('output_skill')
+        primary_source_errors = {
+            key: value
+            for key, value in (source_errors or {}).items()
+            if key in _PRIMARY_AUDIT_SOURCE_ERROR_KEYS
+        }
         if mes_status in {'failed', 'partial_failed'} or hub_status == 'failed':
             return 'completed_with_source_error'
-        if source_errors and source_errors != {'output_skill': 'output_skill_source_missing'}:
+        if primary_source_errors and primary_source_errors != {'output_skill': 'output_skill_source_missing'}:
             return 'completed_with_source_error'
         if mes_status == 'empty' or hub_status == 'empty' or output_status in {'missing', 'empty', 'unsupported'}:
             return 'completed_with_missing_source'

@@ -32,6 +32,7 @@ router = APIRouter(tags=['hermes-data-audit'])
 _TRUE_VALUES = {'1', 'true', 'yes', 'on'}
 _PENDING_CORRECTION_ACTION_STATUSES = {'pending', 'suggested'}
 _RETRYABLE_TERMINAL_CORRECTION_ACTION_STATUSES = {'failed', 'blocked', 'high_risk_blocked', 'blocked_duplicate'}
+_PRIMARY_AUDIT_SOURCE_ERROR_KEYS = {'mes', 'hub', 'output_skill'}
 _ACTION_GATE_REASON_PRIORITY = {
     'executor_not_supported': 0,
     'mes_target_read_only': 1,
@@ -338,7 +339,11 @@ def _blocked_action_gate_reason(correction_actions: list[dict[str, Any]]) -> str
 
 
 def _source_gate_reason(run: HermesDataAuditRun) -> str | None:
-    source_errors = run.source_errors or {}
+    source_errors = {
+        key: value
+        for key, value in (run.source_errors or {}).items()
+        if key in _PRIMARY_AUDIT_SOURCE_ERROR_KEYS
+    }
     if source_errors.get('output_skill') == 'output_skill_source_missing':
         return 'output_skill_source_missing'
     if source_errors:
