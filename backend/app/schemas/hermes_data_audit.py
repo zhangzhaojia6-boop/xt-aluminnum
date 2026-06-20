@@ -10,7 +10,6 @@ class HermesDataAuditRunCreateRequest(BaseModel):
     business_date: date
     fields: list[str] = Field(default_factory=list)
     mes_query_keys: list[str] = Field(default_factory=list)
-    dry_run: bool = True
 
 
 class HermesDataAuditCorrectionsRequest(BaseModel):

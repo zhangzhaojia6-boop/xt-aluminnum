@@ -239,6 +239,111 @@ def test_logged_in_user_can_get_hermes_data_audit_run() -> None:
     assert payload['source_health']['output_skill']['status'] == 'missing'
 
 
+def test_get_hermes_data_audit_run_hides_apply_gate_after_applied_action(monkeypatch) -> None:
+    monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-corrected-applied',
+        business_date=date(2026, 6, 18),
+        status='corrected',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={'records_count_by_source': {'stock_records': 3}},
+        hub_snapshot={'field_count': 1},
+        output_skill_snapshot={'parsed': {'total_output': 10}},
+        diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
+        suggested_actions=[],
+        match_rate=Decimal('0.5000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.flush()
+    db.add(
+        HermesCorrectionAction(
+            audit_run_id=run.id,
+            idempotency_key='applied:1',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='master_code_aliases',
+            target_key='workshop:精整',
+            before_value={'alias_code': '精整车间'},
+            after_value={'alias_code': '精整'},
+            evidence={'reason': 'matched'},
+            status='applied',
+            rollback_payload={'restore_before_value': {'alias_code': '精整车间'}},
+        )
+    )
+    db.commit()
+    previous_overrides = _install_overrides(db=db, user_role='user')
+
+    try:
+        client = TestClient(app)
+        response = client.get(f'/api/v1/hermes/data-audit/runs/{run.id}')
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['decision_gate']['can_apply'] is False
+    assert payload['decision_gate']['reason'] == 'no_pending_correction_actions'
+    assert payload['recommended_next_step'] == 'rerun_audit_to_verify'
+
+
+def test_get_hermes_data_audit_run_does_not_mark_failed_action_as_ready_to_apply(monkeypatch) -> None:
+    monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-completed-failed',
+        business_date=date(2026, 6, 18),
+        status='completed',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={'records_count_by_source': {'stock_records': 3}},
+        hub_snapshot={'field_count': 1},
+        output_skill_snapshot={'parsed': {'total_output': 10}},
+        diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
+        suggested_actions=[],
+        match_rate=Decimal('0.5000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.flush()
+    db.add(
+        HermesCorrectionAction(
+            audit_run_id=run.id,
+            idempotency_key='failed:1',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='master_code_aliases',
+            target_key='workshop:精整',
+            before_value={'alias_code': '精整车间'},
+            after_value={'alias_code': '精整'},
+            evidence={'reason': 'matched'},
+            status='failed',
+            rollback_payload={'restore_before_value': {'alias_code': '精整车间'}},
+        )
+    )
+    db.commit()
+    previous_overrides = _install_overrides(db=db, user_role='user')
+
+    try:
+        client = TestClient(app)
+        response = client.get(f'/api/v1/hermes/data-audit/runs/{run.id}')
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['decision_gate']['can_apply'] is False
+    assert payload['decision_gate']['reason'] != 'ready_to_apply'
+
+
 def test_get_hermes_data_audit_run_returns_404_when_missing() -> None:
     engine = _make_engine()
     Base.metadata.create_all(engine, tables=ROUTER_TABLES)
@@ -307,7 +412,8 @@ def test_admin_can_apply_hermes_data_audit_corrections() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload['apply_summary']['applied_count'] == 1
-    assert payload['decision_gate']['can_apply'] is True
+    assert payload['decision_gate']['can_apply'] is False
+    assert payload['recommended_next_step'] == 'rerun_audit_to_verify'
     assert service.apply_calls[0]['applied_by_id'] == 1
 
 

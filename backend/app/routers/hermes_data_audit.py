@@ -23,6 +23,7 @@ from app.services.hermes_mes_read_service import HermesMesReadService
 router = APIRouter(tags=['hermes-data-audit'])
 
 _TRUE_VALUES = {'1', 'true', 'yes', 'on'}
+_PENDING_CORRECTION_ACTION_STATUSES = {'pending', 'suggested'}
 
 
 def get_hermes_data_audit_service(db: Session = Depends(get_db)) -> HermesDataAuditService:
@@ -150,6 +151,15 @@ def _serialize_correction_actions(db: Session, run: HermesDataAuditRun) -> list[
     return [_serialize_action_payload(payload) for payload in (run.suggested_actions or []) if isinstance(payload, dict)]
 
 
+def _pending_correction_actions(correction_actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    pending_actions: list[dict[str, Any]] = []
+    for item in correction_actions:
+        status_name = str(item.get('status') or 'suggested').strip()
+        if status_name in _PENDING_CORRECTION_ACTION_STATUSES:
+            pending_actions.append(item)
+    return pending_actions
+
+
 def _source_gate_reason(run: HermesDataAuditRun) -> str | None:
     source_errors = run.source_errors or {}
     if source_errors.get('output_skill') == 'output_skill_source_missing':
@@ -170,30 +180,29 @@ def _build_decision_gate(
     correction_actions: list[dict[str, Any]],
     apply_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    if apply_summary is not None:
-        apply_enabled = bool(apply_summary.get('apply_enabled', _apply_enabled_flag()))
-        reason = str(apply_summary.get('reason') or '').strip()
-        can_apply = not reason and int(apply_summary.get('blocked_count', 0) or 0) == 0 and int(apply_summary.get('failed_count', 0) or 0) == 0
-        return {
-            'can_apply': can_apply,
-            'reason': reason or ('ready_to_apply' if can_apply else 'review_required'),
-            'apply_enabled': apply_enabled,
-        }
-
-    apply_enabled = _apply_enabled_flag()
+    apply_enabled = (
+        bool(apply_summary.get('apply_enabled', _apply_enabled_flag()))
+        if apply_summary is not None
+        else _apply_enabled_flag()
+    )
     reason = _source_gate_reason(run)
     if reason:
         return {'can_apply': False, 'reason': reason, 'apply_enabled': apply_enabled}
     if not correction_actions:
         return {'can_apply': False, 'reason': 'no_correction_actions', 'apply_enabled': apply_enabled}
+    pending_actions = _pending_correction_actions(correction_actions)
+    if not pending_actions:
+        return {'can_apply': False, 'reason': 'no_pending_correction_actions', 'apply_enabled': apply_enabled}
     if not apply_enabled:
         return {'can_apply': False, 'reason': 'apply_disabled', 'apply_enabled': apply_enabled}
-    if any((item.get('risk_level') or '').lower() != 'low' for item in correction_actions):
+    if any((item.get('risk_level') or '').lower() != 'low' for item in pending_actions):
         return {'can_apply': False, 'reason': 'review_required', 'apply_enabled': apply_enabled}
     return {'can_apply': True, 'reason': 'ready_to_apply', 'apply_enabled': apply_enabled}
 
 
 def _recommended_next_step(*, run: HermesDataAuditRun, decision_gate: dict[str, Any], apply_summary: dict[str, Any] | None = None) -> str:
+    if run.status == 'corrected':
+        return 'rerun_audit_to_verify'
     if apply_summary is not None and int(apply_summary.get('applied_count', 0) or 0) > 0:
         return 'rerun_audit_to_verify'
     reason = decision_gate.get('reason')
@@ -201,7 +210,7 @@ def _recommended_next_step(*, run: HermesDataAuditRun, decision_gate: dict[str, 
         return 'mount_output_skill_reference_and_rerun'
     if reason == 'source_unhealthy':
         return 'fix_source_health_and_rerun'
-    if reason == 'no_correction_actions':
+    if reason in {'no_correction_actions', 'no_pending_correction_actions'}:
         return 'review_diffs_or_expand_fields'
     if reason == 'apply_disabled':
         return 'review_low_risk_actions'
