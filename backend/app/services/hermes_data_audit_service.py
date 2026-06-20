@@ -302,6 +302,8 @@ class HermesDataAuditService:
         mes_query_keys: Sequence[str] | None = None,
         created_by_id: int | None = None,
     ) -> HermesDataAuditRun:
+        if business_date is None:
+            raise ValueError('business_date is required')
         normalized_fields = self._normalize_fields(fields)
         now = datetime.now(timezone.utc)
         mes_result, hub_snapshot, hub_status, hub_error, output_skill_snapshot = self._collect_sources(
@@ -415,6 +417,7 @@ class HermesDataAuditService:
             'action_statuses': [],
         }
         now = datetime.now(timezone.utc)
+        planned_idempotency_keys: list[str] = []
 
         if dry_run:
             existing_actions = {
@@ -458,16 +461,19 @@ class HermesDataAuditService:
             if is_new_action:
                 self._db.add(action)
             self._db.flush()
+            planned_idempotency_keys.append(idempotency_key)
             if is_new_action:
                 summary['created_count'] += 1
 
-        planned_actions = (
-            self._db.query(HermesCorrectionAction)
-            .filter(HermesCorrectionAction.audit_run_id == audit_run_id)
-            .filter(HermesCorrectionAction.idempotency_key.in_([str(payload.get('idempotency_key') or '').strip() for payload in actions]))
-            .order_by(HermesCorrectionAction.id.asc())
-            .all()
-        )
+        planned_actions = []
+        if planned_idempotency_keys:
+            planned_actions = (
+                self._db.query(HermesCorrectionAction)
+                .filter(HermesCorrectionAction.audit_run_id == audit_run_id)
+                .filter(HermesCorrectionAction.idempotency_key.in_(planned_idempotency_keys))
+                .order_by(HermesCorrectionAction.id.asc())
+                .all()
+            )
 
         executable_actions: list[HermesCorrectionAction] = []
         for action in planned_actions:

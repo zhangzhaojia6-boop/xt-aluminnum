@@ -531,6 +531,41 @@ def test_create_run_returns_existing_run_for_same_input_without_unique_error() -
         db.close()
 
 
+def test_create_run_requires_business_date_before_touching_sources() -> None:
+    db = _db_session()
+    call_counts = {'mes': 0, 'hub': 0, 'output': 0}
+    try:
+        mes_service = _MesReadServiceFake(_summary_payload())
+
+        def _hub_reader(business_date, fields):
+            call_counts['hub'] += 1
+            raise AssertionError('hub reader should not be called')
+
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=mes_service,
+            hub_snapshot_reader=_hub_reader,
+        )
+
+        def _fail_output_reader(business_date):
+            call_counts['output'] += 1
+            raise AssertionError('output reader should not be called')
+
+        service._read_output_skill_business_date = _fail_output_reader
+
+        with pytest.raises(ValueError, match='business_date'):
+            service.create_run(
+                business_date=None,
+                fields=['total_output'],
+            )
+
+        call_counts['mes'] = len(mes_service.calls)
+        assert call_counts == {'mes': 0, 'hub': 0, 'output': 0}
+        assert db.query(HermesDataAuditRun).count() == 0
+    finally:
+        db.close()
+
+
 def test_create_run_creates_new_run_when_mes_snapshot_changes() -> None:
     db = _db_session()
     try:
@@ -1042,6 +1077,75 @@ def test_apply_corrections_allows_real_apply_after_dry_run() -> None:
         assert applied['action_statuses'] == [{'idempotency_key': 'dry-then-apply', 'status': 'applied'}]
         assert len(handler_calls) == 1
         assert action_row.status == 'applied'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_skips_duplicate_real_apply_after_applied() -> None:
+    db = _db_session()
+    handler_calls: list[dict] = []
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            handler_calls.append(action)
+            return {'evidence': {'handler': 'applied'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        action = _supported_action('repeat-real-apply')
+
+        first = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+        second = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        action_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='repeat-real-apply').one()
+        assert first['action_statuses'] == [{'idempotency_key': 'repeat-real-apply', 'status': 'applied'}]
+        assert second['action_statuses'] == [{'idempotency_key': 'repeat-real-apply', 'status': 'skipped_duplicate'}]
+        assert second['applied_count'] == 0
+        assert second['skipped_count'] == 1
+        assert len(handler_calls) == 1
+        assert action_row.status == 'applied'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_duplicate_real_apply_does_not_report_applied_and_skipped_for_same_key() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            return {'evidence': {'handler': 'applied'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        action = _supported_action('repeat-status-check')
+
+        service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+        second = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        statuses = [item['status'] for item in second['action_statuses'] if item['idempotency_key'] == 'repeat-status-check']
+        assert statuses == ['skipped_duplicate']
     finally:
         db.close()
 
