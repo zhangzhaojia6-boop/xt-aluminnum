@@ -134,21 +134,56 @@ def _serialize_correction_actions(db: Session, run: HermesDataAuditRun) -> list[
         .order_by(HermesCorrectionAction.id.asc())
         .all()
     )
-    if rows:
-        return [
-            {
-                'id': row.id,
-                'idempotency_key': row.idempotency_key,
-                'action_type': row.action_type,
-                'risk_level': row.risk_level,
-                'status': row.status,
-                'target_table': row.target_table,
-                'target_key': row.target_key,
-                'rollback_available': _rollback_available(row.rollback_payload),
-            }
-            for row in rows
-        ]
-    return [_serialize_action_payload(payload) for payload in (run.suggested_actions or []) if isinstance(payload, dict)]
+    serialized_rows = [
+        {
+            'id': row.id,
+            'idempotency_key': row.idempotency_key,
+            'action_type': row.action_type,
+            'risk_level': row.risk_level,
+            'status': row.status,
+            'target_table': row.target_table,
+            'target_key': row.target_key,
+            'rollback_available': _rollback_available(row.rollback_payload),
+        }
+        for row in rows
+    ]
+    seen_idempotency_keys = {
+        str(item['idempotency_key'])
+        for item in serialized_rows
+        if item.get('idempotency_key') not in (None, '')
+    }
+    seen_action_targets = {
+        (
+            row.action_type,
+            row.target_table,
+            row.target_key,
+            row.field_name,
+        )
+        for row in rows
+    }
+
+    merged_actions = list(serialized_rows)
+    for payload in run.suggested_actions or []:
+        if not isinstance(payload, dict):
+            continue
+        idempotency_key = payload.get('idempotency_key')
+        if idempotency_key not in (None, ''):
+            normalized_key = str(idempotency_key)
+            if normalized_key in seen_idempotency_keys:
+                continue
+            seen_idempotency_keys.add(normalized_key)
+        else:
+            action_target = (
+                payload.get('action_type'),
+                payload.get('target_table'),
+                payload.get('target_key'),
+                payload.get('field_name'),
+            )
+            if action_target in seen_action_targets:
+                continue
+            seen_action_targets.add(action_target)
+        merged_actions.append(_serialize_action_payload(payload))
+    return merged_actions
 
 
 def _pending_correction_actions(correction_actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
