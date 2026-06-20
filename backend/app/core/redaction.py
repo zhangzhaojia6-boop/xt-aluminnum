@@ -28,6 +28,9 @@ _TEXT_PATTERNS = (
     re.compile(r'(?i)\b(user id|uid)\s*=\s*[^;,\s]+'),
     re.compile(r'(?i)\b(authorization)\s*[:=]\s*[^;,\s]+'),
 )
+_URI_AUTHORITY_PATTERN = re.compile(
+    r'(?i)\b[a-z][a-z0-9+.-]*://[^/\s:@]*:[^@\s/]+@[^\s,;]+'
+)
 
 
 def is_sensitive_key(key: object) -> bool:
@@ -56,7 +59,7 @@ def filter_sensitive_mapping(metadata: Mapping[str, Any]) -> dict[str, Any]:
 
 def redact_secret_text(value: object) -> str:
     text = str(value)
-    redacted = text
+    redacted = _URI_AUTHORITY_PATTERN.sub('<redacted-connection-uri>', text)
     for pattern in _TEXT_PATTERNS:
         redacted = pattern.sub(lambda match: f'{match.group(1)}=<redacted>', redacted)
     return redacted
