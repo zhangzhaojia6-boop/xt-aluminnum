@@ -29,7 +29,7 @@ _TEXT_PATTERNS = (
     re.compile(r'(?i)\b(authorization)\s*[:=]\s*[^;,\s]+'),
 )
 _URI_AUTHORITY_PATTERN = re.compile(
-    r'(?i)\b((?:postgresql(?:\+[a-z0-9_]+)?|mysql|mssql|sqlserver|https?)://)[^/\s:@]+:[^@\s/]+@([^\s,;]+)'
+    r'(?i)\b[a-z][a-z0-9+.-]*://[^/\s:@]+:[^@\s/]+@[^\s,;]+'
 )
 
 
