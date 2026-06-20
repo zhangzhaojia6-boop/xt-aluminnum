@@ -727,6 +727,51 @@ def test_create_run_real_source_failure_outranks_missing_source() -> None:
         db.close()
 
 
+def test_create_run_marks_mes_empty_with_hub_and_output_data_as_missing_source() -> None:
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(
+                {
+                    'business_date': '2026-06-18',
+                    'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+                    'records': {},
+                    'source_status': {'mes': 'empty', 'sources': {}},
+                    'source_errors': {},
+                }
+            ),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+
+        run = service.create_run(business_date=date(2026, 6, 18), fields=['total_output'])
+
+        assert run.diffs['total_output']['status'] == 'mes_missing'
+        assert run.status == 'completed_with_missing_source'
+    finally:
+        db.close()
+
+
+def test_completed_run_status_keeps_mes_source_error_priority_over_empty_sources() -> None:
+    status = HermesDataAuditService._completed_run_status(
+        source_status={
+            'mes': 'partial_failed',
+            'hub': 'empty',
+            'output_skill': 'parsed',
+        },
+        source_errors={'mes': {'stock_records': 'timeout'}},
+    )
+
+    assert status == 'completed_with_source_error'
+
+
 def test_create_run_writes_failed_run_before_raising_when_no_field_is_comparable(tmp_path) -> None:
     root = tmp_path / 'output-skill'
     root.mkdir()

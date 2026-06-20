@@ -1097,7 +1097,7 @@ class HermesDataAuditService:
             return 'completed_with_source_error'
         if source_errors and source_errors != {'output_skill': 'output_skill_source_missing'}:
             return 'completed_with_source_error'
-        if hub_status == 'empty' or output_status in {'missing', 'empty', 'unsupported'}:
+        if mes_status == 'empty' or hub_status == 'empty' or output_status in {'missing', 'empty', 'unsupported'}:
             return 'completed_with_missing_source'
         return 'completed'
 
