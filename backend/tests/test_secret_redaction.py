@@ -26,7 +26,8 @@ def test_redact_secret_text_masks_uri_connection_passwords() -> None:
     text = (
         'postgresql://user:secretpass@db.example.com/app '
         'mysql://readonly:mysqlpass@db.example.com/app '
-        'https://api-user:http-secret@example.com/token'
+        'https://api-user:http-secret@example.com/token '
+        'https://example.com/docs'
     )
 
     redacted = redact_secret_text(text)
@@ -37,9 +38,11 @@ def test_redact_secret_text_masks_uri_connection_passwords() -> None:
     assert 'postgresql://user:secretpass@db.example.com/app' not in redacted
     assert 'mysql://readonly:mysqlpass@db.example.com/app' not in redacted
     assert 'https://api-user:http-secret@example.com/token' not in redacted
-    assert 'postgresql://<redacted>@db.example.com/app' in redacted
-    assert 'mysql://<redacted>@db.example.com/app' in redacted
-    assert 'https://<redacted>@example.com/token' in redacted
+    assert 'postgresql://' not in redacted
+    assert 'mysql://' not in redacted
+    assert 'https://api-user:' not in redacted
+    assert '<redacted-connection-uri>' in redacted
+    assert 'https://example.com/docs' in redacted
 
 
 def test_filter_sensitive_mapping_removes_private_customer_and_secret_fields() -> None:

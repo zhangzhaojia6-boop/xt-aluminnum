@@ -156,7 +156,9 @@ def test_format_backfill_row_contains_table_values_and_redacts_sensitive_text() 
     assert 'token=123' not in row
     assert 'secretpass' not in row
     assert 'postgresql://user:secretpass@db.example.com/app' not in row
-    assert 'postgresql://<redacted>@db.example.com/app' in row
+    assert 'postgresql://' not in row
+    assert 'db.example.com/app' not in row
+    assert '<redacted-connection-uri>' in row
     assert '<redacted>' in row
 
 
@@ -197,7 +199,9 @@ def test_run_backfill_continues_after_day_errors() -> None:
     assert 'token=123' not in summaries[1]['detail']
     assert 'secretpass' not in summaries[1]['detail']
     assert 'postgresql://user:secretpass@db.example.com/app' not in summaries[1]['detail']
-    assert 'postgresql://<redacted>@db.example.com/app' in summaries[1]['detail']
+    assert 'postgresql://' not in summaries[1]['detail']
+    assert 'db.example.com/app' not in summaries[1]['detail']
+    assert '<redacted-connection-uri>' in summaries[1]['detail']
     assert summaries[2]['outskill'] == 'missing'
     assert len(service.create_calls) == 3
 

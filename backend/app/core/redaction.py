@@ -59,7 +59,7 @@ def filter_sensitive_mapping(metadata: Mapping[str, Any]) -> dict[str, Any]:
 
 def redact_secret_text(value: object) -> str:
     text = str(value)
-    redacted = _URI_AUTHORITY_PATTERN.sub(lambda match: f'{match.group(1)}<redacted>@{match.group(2)}', text)
+    redacted = _URI_AUTHORITY_PATTERN.sub('<redacted-connection-uri>', text)
     for pattern in _TEXT_PATTERNS:
         redacted = pattern.sub(lambda match: f'{match.group(1)}=<redacted>', redacted)
     return redacted
