@@ -75,12 +75,26 @@ def _summary_payload(value: float = 100.0, *, mes_status: str = 'ok', errors: di
     }
 
 
-def _supported_action(idempotency_key: str, *, action_type: str = 'mapping_alias_upsert', risk_level: str = 'low') -> dict:
+def _supported_action(
+    idempotency_key: str,
+    *,
+    action_type: str = 'mapping_alias_upsert',
+    risk_level: str = 'low',
+    target_table: str | None = None,
+) -> dict:
+    resolved_target_table = target_table
+    if resolved_target_table is None:
+        resolved_target_table = {
+            'mapping_alias_upsert': 'master_code_aliases',
+            'mapping_field_rule_upsert': 'mapping_field_rules',
+            'mapping_reconciliation_run': 'mapping_reconciliation_runs',
+            'daily_report_recalculate': 'daily_report_runs',
+        }.get(action_type, 'master_code_aliases')
     return {
         'idempotency_key': idempotency_key,
         'action_type': action_type,
         'risk_level': risk_level,
-        'target_table': 'mapping_alias_rules',
+        'target_table': resolved_target_table,
         'target_key': 'cold-roll:2050',
         'field_name': 'workshop_output',
         'before_value': {'hub': 95.0},
@@ -718,6 +732,37 @@ def test_apply_corrections_blocks_mes_target_tables() -> None:
         db.close()
 
 
+def test_apply_corrections_blocks_invalid_action_target_pair() -> None:
+    db = _db_session()
+    called = {'value': False}
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            called['value'] = True
+            return {'evidence': {'handler': 'ok'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        action = _supported_action('crossed-pair')
+        action['target_table'] = 'daily_report_runs'
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        row = db.query(HermesCorrectionAction).one()
+        assert called['value'] is False
+        assert result['blocked_count'] == 1
+        assert row.status == 'blocked'
+        assert row.evidence['blocked_reason'] == 'target_table_not_allowed_for_action'
+    finally:
+        db.close()
+
+
 def test_apply_corrections_dry_run_does_not_create_action_rows_or_call_handler() -> None:
     db = _db_session()
     called = {'value': False}
@@ -755,7 +800,7 @@ def test_apply_corrections_dry_run_keeps_existing_pending_action_unchanged() -> 
             idempotency_key='pending-action',
             action_type='mapping_alias_upsert',
             risk_level='low',
-            target_table='mapping_alias_rules',
+            target_table='master_code_aliases',
             target_key='cold-roll:2050',
             field_name='workshop_output',
             before_value={'hub': 95.0},

@@ -68,12 +68,11 @@ SUPPORTED_ACTION_TYPES = {
     'mapping_reconciliation_run',
     'daily_report_recalculate',
 }
-ALLOWED_TARGET_TABLES = {
-    'mapping_alias_rules',
-    'mapping_field_rules',
-    'mapping_reconciliation_runs',
-    'daily_report_runs',
-    'data_hub_snapshot',
+ACTION_TARGET_TABLE_ALLOWLIST = {
+    'mapping_alias_upsert': {'master_code_aliases'},
+    'mapping_field_rule_upsert': {'mapping_field_rules'},
+    'mapping_reconciliation_run': {'mapping_reconciliation_runs', 'data_hub_snapshot'},
+    'daily_report_recalculate': {'daily_report_runs'},
 }
 
 TEXT_RAW_EXTENSIONS = {'.txt', '.md', '.log'}
@@ -1052,10 +1051,10 @@ class HermesDataAuditService:
             return 'blocked', 'apply_disabled'
         if action.risk_level.lower() != 'low':
             return 'high_risk_blocked', 'high_risk'
-        if not self._is_allowed_target_table(action.target_table):
+        if not self._is_allowed_target_for_action(action.action_type, action.target_table):
             if str(action.target_table).strip().startswith('mes_'):
                 return 'blocked', 'mes_target_read_only'
-            return 'blocked', 'target_table_not_allowed'
+            return 'blocked', 'target_table_not_allowed_for_action'
         if self._correction_handler is None:
             return 'blocked', 'handler_missing'
         if not self._is_controlled_handler(self._correction_handler):
@@ -1138,5 +1137,7 @@ class HermesDataAuditService:
         return True
 
     @staticmethod
-    def _is_allowed_target_table(target_table: str | None) -> bool:
-        return str(target_table or '').strip() in ALLOWED_TARGET_TABLES
+    def _is_allowed_target_for_action(action_type: str | None, target_table: str | None) -> bool:
+        normalized_action = str(action_type or '').strip()
+        normalized_target = str(target_table or '').strip()
+        return normalized_target in ACTION_TARGET_TABLE_ALLOWLIST.get(normalized_action, set())
