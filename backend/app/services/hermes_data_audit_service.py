@@ -115,6 +115,7 @@ _CSV_HEADER_ALIASES = {
 }
 _AUDIT_HEAVY_KEY_TOKENS = {'raw', 'raw_text', 'records', 'rows', 'items', 'payload', 'content'}
 _AUDIT_SAFE_ROOT_KEYS = {'before_value', 'after_value', 'evidence', 'rollback_payload'}
+_AUDIT_PRESERVE_STRUCTURE_KEYS = {'evidence', 'rollback_payload', 'restore_before_value', 'values'}
 _AUDIT_TEXT_SAMPLE_LIMIT = 160
 _AUDIT_INLINE_TEXT_LIMIT = 200
 _AUDIT_MAPPING_SUMMARY_LIMIT = 8
@@ -220,10 +221,17 @@ def _summarize_audit_text(value: str) -> dict[str, Any]:
     }
 
 
+def _should_preserve_audit_mapping_structure(field_name: str | None) -> bool:
+    if field_name is None:
+        return False
+    return str(field_name).strip().lower() in _AUDIT_PRESERVE_STRUCTURE_KEYS
+
+
 def _slim_correction_audit_value(value: Any, *, field_name: str | None = None, depth: int = 0) -> Any:
     safe_value = _json_safe(value)
     if isinstance(safe_value, Mapping):
-        if _is_high_risk_audit_key(field_name) or len(safe_value) > _AUDIT_MAPPING_SUMMARY_LIMIT:
+        preserve_mapping_structure = _should_preserve_audit_mapping_structure(field_name)
+        if not preserve_mapping_structure and (_is_high_risk_audit_key(field_name) or len(safe_value) > _AUDIT_MAPPING_SUMMARY_LIMIT):
             sample: dict[str, Any] = {}
             for index, (key, item) in enumerate(safe_value.items()):
                 if index >= _AUDIT_SAMPLE_ITEM_LIMIT:
