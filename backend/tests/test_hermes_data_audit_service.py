@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import json
 
@@ -8,7 +8,16 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Base, HermesCorrectionAction, HermesDataAuditRun, MasterCodeAlias, User
+from app.models import (
+    Base,
+    ChatInboxMessage,
+    HermesCorrectionAction,
+    HermesDataAuditRun,
+    MasterCodeAlias,
+    RagDocument,
+    RagSourceIngestion,
+    User,
+)
 from app.services.hermes_data_audit_service import (
     DEFAULT_AUDIT_FIELDS,
     HermesDataAuditService,
@@ -24,9 +33,12 @@ def _db_session() -> Session:
         bind=engine,
         tables=[
             User.__table__,
+            ChatInboxMessage.__table__,
             HermesDataAuditRun.__table__,
             HermesCorrectionAction.__table__,
             MasterCodeAlias.__table__,
+            RagDocument.__table__,
+            RagSourceIngestion.__table__,
         ],
     )
     return Session(engine)
@@ -75,6 +87,78 @@ def _summary_payload(value: float = 100.0, *, mes_status: str = 'ok', errors: di
         },
         'source_errors': errors or {},
     }
+
+
+def _dingtalk_created_at(
+    year: int = 2026,
+    month: int = 6,
+    day: int = 18,
+    hour: int = 9,
+    minute: int = 0,
+) -> datetime:
+    return datetime(year, month, day, hour, minute, tzinfo=timezone(timedelta(hours=8)))
+
+
+def _add_dingtalk_text_message(
+    db: Session,
+    *,
+    text: str,
+    created_at: datetime,
+    group_id: str = 'ding-group-001',
+    trace_id: str = 'trace-ding-text-001',
+    sender_external_id: str = 'ding-user-001',
+    source_payload: dict | None = None,
+) -> ChatInboxMessage:
+    message = ChatInboxMessage(
+        channel='dingtalk_group',
+        group_id=group_id,
+        sender_external_id=sender_external_id,
+        text=text,
+        agent_code='hermes',
+        trace_id=trace_id,
+        source_payload=source_payload or {},
+        created_at=created_at,
+    )
+    db.add(message)
+    db.flush()
+    return message
+
+
+def _add_dingtalk_file_document(
+    db: Session,
+    *,
+    created_at: datetime,
+    filename: str = '产量核对.xlsx',
+    source_name: str = '钉钉群文件',
+    source_type: str = 'dingtalk_file',
+    source_ref: str = 'dingtalk://files/产量核对.xlsx?token=file-secret',
+    document_metadata: dict | None = None,
+    ingestion_metadata: dict | None = None,
+) -> tuple[RagDocument, RagSourceIngestion]:
+    document = RagDocument(
+        filename=filename,
+        source_name=source_name,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        encoding='binary',
+        status='active',
+        file_size=2048,
+        chunk_count=0,
+        metadata_payload=document_metadata or {'source': 'dingtalk_file', 'channel': 'dingtalk_group'},
+        created_at=created_at,
+    )
+    db.add(document)
+    db.flush()
+    ingestion = RagSourceIngestion(
+        source_type=source_type,
+        source_ref=source_ref,
+        status='active',
+        document_id=document.id,
+        metadata_payload=ingestion_metadata or {'channel': 'dingtalk_group'},
+        created_at=created_at,
+    )
+    db.add(ingestion)
+    db.flush()
+    return document, ingestion
 
 
 def _supported_action(
@@ -496,6 +580,135 @@ def test_create_run_persists_safe_snapshot_summaries_only(tmp_path) -> None:
         db.close()
 
 
+def test_create_run_persists_dingtalk_read_only_evidence_summaries() -> None:
+    db = _db_session()
+    long_text = ('班组确认总产量100吨 ' * 20) + 'token=ding-secret password=ding-pass'
+    created_at = _dingtalk_created_at()
+    try:
+        _add_dingtalk_text_message(
+            db,
+            text=long_text,
+            created_at=created_at,
+            source_payload={'sent_at': '2026-06-18T09:00:00+08:00'},
+        )
+        document, _ = _add_dingtalk_file_document(db, created_at=created_at)
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert run.source_status['dingtalk_text'] == 'ok'
+        assert run.source_status['dingtalk_file'] == 'ok'
+        text_items = run.source_status['dingtalk_evidence']['dingtalk_text']['items']
+        file_items = run.source_status['dingtalk_evidence']['dingtalk_file']['items']
+        assert len(text_items) == 1
+        assert len(file_items) == 1
+        text_item = text_items[0]
+        file_item = file_items[0]
+        assert text_item['source'] == 'dingtalk_text'
+        assert text_item['channel'] == 'dingtalk_group'
+        assert text_item['group_id'] == 'ding-group-001'
+        assert text_item['trace_id'] == 'trace-ding-text-001'
+        assert text_item['sender_external_id'] == 'ding-user-001'
+        assert text_item['sent_at'] == '2026-06-18T09:00:00+08:00'
+        assert text_item['created_at'].startswith('2026-06-18T09:00:00')
+        assert text_item['text_sample'] != long_text
+        assert 'ding-secret' not in json.dumps(text_item, ensure_ascii=False)
+        assert 'ding-pass' not in json.dumps(text_item, ensure_ascii=False)
+        assert '<redacted>' in text_item['text_sample']
+        assert text_item['text_hash']
+        assert file_item['source'] == 'dingtalk_file'
+        assert file_item['document_id'] == document.id
+        assert file_item['filename'] == '产量核对.xlsx'
+        assert file_item['source_name'] == '钉钉群文件'
+        assert file_item['file_size'] == 2048
+        assert file_item['created_at'].startswith('2026-06-18T09:00:00')
+        assert file_item['source_ref'] == 'dingtalk://files/产量核对.xlsx?token=<redacted>'
+        assert file_item['source_type'] == 'dingtalk_file'
+        serialized_status = json.dumps(run.source_status, ensure_ascii=False)
+        assert long_text not in serialized_status
+        assert 'ding-secret' not in serialized_status
+        assert 'ding-pass' not in serialized_status
+    finally:
+        db.close()
+
+
+def test_create_run_keeps_original_completion_logic_when_no_dingtalk_evidence() -> None:
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert run.status == 'completed'
+        assert run.source_status['dingtalk_text'] == 'empty'
+        assert run.source_status['dingtalk_file'] == 'empty'
+        assert run.source_status['dingtalk_evidence']['dingtalk_text']['items'] == []
+        assert run.source_status['dingtalk_evidence']['dingtalk_file']['items'] == []
+    finally:
+        db.close()
+
+
+def test_create_run_records_dingtalk_read_failure_without_interrupting_comparison() -> None:
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+        service._read_dingtalk_text_evidence = lambda **kwargs: ([], 'failed', 'token=ding-secret unavailable')
+        service._read_dingtalk_file_evidence = lambda **kwargs: ([], 'empty', None)
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert run.source_status['dingtalk_text'] == 'failed'
+        assert run.source_status['dingtalk_file'] == 'empty'
+        assert run.source_errors['dingtalk_text'] == 'token=<redacted> unavailable'
+        assert float(run.match_rate) == pytest.approx(1.0)
+        assert run.diffs['total_output']['status'] == 'matched'
+        assert run.status == 'completed_with_source_error'
+    finally:
+        db.close()
+
+
 def test_create_run_persists_output_skill_issues_into_source_errors() -> None:
     db = _db_session()
     try:
@@ -583,6 +796,44 @@ def test_create_run_records_output_skill_parse_failure_instead_of_crashing(tmp_p
         db.close()
 
 
+def test_create_run_changes_run_key_when_dingtalk_evidence_changes() -> None:
+    db = _db_session()
+    created_at = _dingtalk_created_at()
+    try:
+        _add_dingtalk_text_message(
+            db,
+            text='第一条钉钉确认：总产量100吨',
+            created_at=created_at,
+        )
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+
+        first = service.create_run(business_date=date(2026, 6, 18), fields=['total_output'])
+        _add_dingtalk_text_message(
+            db,
+            text='第二条钉钉确认：总产量101吨',
+            created_at=created_at + timedelta(minutes=5),
+            trace_id='trace-ding-text-002',
+        )
+        second = service.create_run(business_date=date(2026, 6, 18), fields=['total_output'])
+
+        assert first.id != second.id
+        assert first.run_key != second.run_key
+        assert db.query(HermesDataAuditRun).count() == 2
+    finally:
+        db.close()
+
+
 def test_create_run_classifies_hub_mismatch_and_generates_supported_suggestion(tmp_path) -> None:
     root = tmp_path / 'output-skill'
     root.mkdir()
@@ -626,6 +877,72 @@ def test_create_run_classifies_hub_mismatch_and_generates_supported_suggestion(t
         assert run.diffs['total_output']['status'] == 'hub_mismatch'
         assert run.diffs['yield_rate']['status'] == 'matched'
         assert run.suggested_actions[0]['action_type'] in SUPPORTED_ACTION_TYPES
+    finally:
+        db.close()
+
+
+def test_create_run_does_not_use_dingtalk_evidence_in_match_rate_or_correction_actions() -> None:
+    db = _db_session()
+    created_at = _dingtalk_created_at()
+    try:
+        _add_dingtalk_text_message(
+            db,
+            text='钉钉里有人说产量是999吨，但这只是说明，不是事实',
+            created_at=created_at,
+        )
+        _add_dingtalk_file_document(db, created_at=created_at)
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(
+                {
+                    'business_date': '2026-06-18',
+                    'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+                    'records': {
+                        'summary': [
+                            {'field': 'total_output', 'value': 100.0},
+                            {'field': 'yield_rate', 'value': 96.5},
+                        ]
+                    },
+                    'source_status': {'mes': 'ok', 'sources': {'summary': {'status': 'ok', 'count': 2}}},
+                    'source_errors': {},
+                }
+            ),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 95.0, 'yield_rate': 96.5},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0, 'yield_rate': 96.5},
+            'issues': [],
+        }
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output', 'yield_rate'],
+        )
+
+        assert float(run.match_rate) == pytest.approx(0.5)
+        assert set(run.diffs['total_output']['values']) == {'mes', 'hub', 'output_skill'}
+        assert set(run.diffs['yield_rate']['values']) == {'mes', 'hub', 'output_skill'}
+        assert run.suggested_actions == [
+            {
+                'idempotency_key': run.suggested_actions[0]['idempotency_key'],
+                'action_type': 'mapping_reconciliation_run',
+                'risk_level': 'low',
+                'field_name': 'total_output',
+                'target_table': 'data_hub_snapshot',
+                'target_key': '2026-06-18:total_output',
+                'before_value': {'hub': 95.0},
+                'after_value': {'suggested_value': 100.0},
+                'evidence': {'field_name': 'total_output', 'values': {'mes': 100.0, 'hub': 95.0, 'output_skill': 100.0}},
+                'rollback_payload': {
+                    'mode': 'manual',
+                    'reason': 'hub_snapshot_reconciliation_requires_manual_restore',
+                    'restore_before_value': {'hub': 95.0},
+                },
+            }
+        ]
     finally:
         db.close()
 

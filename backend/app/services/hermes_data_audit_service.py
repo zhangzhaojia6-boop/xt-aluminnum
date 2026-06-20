@@ -12,10 +12,12 @@ from pathlib import Path
 import re
 from typing import Any
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.business_time import production_business_window
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
-from app.models import MasterCodeAlias
+from app.models import ChatInboxMessage, MasterCodeAlias, RagDocument, RagSourceIngestion
 from app.models.hermes_data_audit import HermesCorrectionAction, HermesDataAuditRun
 from app.services.mapping_reconciliation_service import PARSEABLE_REFERENCE_EXTENSIONS, parse_output_skill_reference_file
 
@@ -148,6 +150,7 @@ _ROLLBACK_PRESERVE_KEYS = {
     'rollback_unavailable_reason',
 }
 _AUDIT_NESTED_MERGE_KEYS = {'values', 'restore_before_value'}
+_DINGTALK_EVIDENCE_LIMIT = 5
 
 
 def _json_safe(value: Any) -> Any:
@@ -193,6 +196,43 @@ def _payload_hash(value: Any) -> str:
 def _payload_sha256(value: Any) -> str:
     encoded = json.dumps(_json_safe(value), ensure_ascii=False, sort_keys=True).encode('utf-8')
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _iso_datetime(value: Any) -> str | None:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if value in (None, ''):
+        return None
+    return redact_secret_text(str(value))
+
+
+def _redacted_sample_text(value: Any, *, limit: int = _AUDIT_TEXT_SAMPLE_LIMIT) -> str:
+    redacted = redact_secret_text(str(value or ''))
+    sample = redacted[:limit]
+    if '<redacted>' in redacted and '<redacted>' not in sample:
+        marker = ' <redacted>'
+        sample = f"{sample[: max(limit - len(marker), 0)]}{marker}"
+    return sample
+
+
+def _iter_string_values(value: Any) -> list[str]:
+    if isinstance(value, Mapping):
+        items: list[str] = []
+        for nested in value.values():
+            items.extend(_iter_string_values(nested))
+        return items
+    if isinstance(value, (list, tuple, set)):
+        items: list[str] = []
+        for nested in value:
+            items.extend(_iter_string_values(nested))
+        return items
+    if value in (None, ''):
+        return []
+    return [str(value)]
+
+
+def _contains_dingtalk_marker(*values: Any) -> bool:
+    return any('dingtalk' in item.lower() for value in values for item in _iter_string_values(value))
 
 
 def _numeric_value(value: Any) -> float | None:
@@ -386,6 +426,11 @@ class HermesDataAuditService:
             fields=normalized_fields,
             mes_query_keys=mes_query_keys,
         )
+        dingtalk_evidence = self._read_dingtalk_evidence(business_date=business_date)
+        safe_dingtalk_evidence = {
+            source_name: {key: value for key, value in payload.items() if key != 'error'}
+            for source_name, payload in dingtalk_evidence.items()
+        }
         mes_field_values = self._extract_mes_field_values(mes_result.get('records', {}), normalized_fields)
         hub_field_values = self._extract_direct_field_values(hub_snapshot, normalized_fields)
         output_field_values = self._extract_direct_field_values(output_skill_snapshot.get('parsed', {}), normalized_fields)
@@ -395,11 +440,19 @@ class HermesDataAuditService:
             'hub': hub_status,
             'output_skill': output_skill_snapshot.get('status', 'missing'),
             'mes_sources': mes_result.get('source_status', {}).get('sources', {}),
+            'dingtalk_text': dingtalk_evidence.get('dingtalk_text', {}).get('status', 'empty'),
+            'dingtalk_file': dingtalk_evidence.get('dingtalk_file', {}).get('status', 'empty'),
+            'dingtalk_evidence': safe_dingtalk_evidence,
         }
         source_errors = self._merge_source_errors(
             mes_errors=mes_result.get('source_errors', {}),
             hub_error=hub_error,
             output_skill_snapshot=output_skill_snapshot,
+            dingtalk_errors={
+                source_name: payload.get('error')
+                for source_name, payload in dingtalk_evidence.items()
+                if source_name in {'dingtalk_text', 'dingtalk_file'} and payload.get('error')
+            },
         )
         mes_snapshot = self._build_mes_snapshot(mes_result=mes_result, field_values=mes_field_values)
         safe_hub_snapshot = self._build_hub_snapshot(
@@ -419,6 +472,16 @@ class HermesDataAuditService:
             mes_snapshot=mes_snapshot,
             hub_snapshot=safe_hub_snapshot,
             output_skill_identity=self._output_skill_identity(output_skill_snapshot),
+            dingtalk_evidence_identity={
+                'dingtalk_text': {
+                    'status': dingtalk_evidence.get('dingtalk_text', {}).get('status'),
+                    'payload_hash': dingtalk_evidence.get('dingtalk_text', {}).get('payload_hash'),
+                },
+                'dingtalk_file': {
+                    'status': dingtalk_evidence.get('dingtalk_file', {}).get('status'),
+                    'payload_hash': dingtalk_evidence.get('dingtalk_file', {}).get('payload_hash'),
+                },
+            },
         )
         existing_run = self._db.query(HermesDataAuditRun).filter(HermesDataAuditRun.run_key == run_key).one_or_none()
         if existing_run is not None:
@@ -720,6 +783,106 @@ class HermesDataAuditService:
         hub_snapshot, hub_status, hub_error = self._read_hub_snapshot(business_date=business_date, fields=fields)
         output_skill_snapshot = self._read_output_skill_business_date(business_date)
         return mes_result, hub_snapshot, hub_status, hub_error, output_skill_snapshot
+
+    def _read_dingtalk_evidence(self, *, business_date: date) -> dict[str, Any]:
+        text_items, text_status, text_error = self._read_dingtalk_text_evidence(business_date=business_date)
+        file_items, file_status, file_error = self._read_dingtalk_file_evidence(business_date=business_date)
+        return {
+            'dingtalk_text': {
+                'status': text_status,
+                'count': len(text_items),
+                'items': text_items,
+                'payload_hash': _payload_hash(text_items),
+                'error': text_error,
+            },
+            'dingtalk_file': {
+                'status': file_status,
+                'count': len(file_items),
+                'items': file_items,
+                'payload_hash': _payload_hash(file_items),
+                'error': file_error,
+            },
+        }
+
+    def _read_dingtalk_text_evidence(self, *, business_date: date) -> tuple[list[dict[str, Any]], str, str | None]:
+        window_start, window_end = production_business_window(business_date)
+        try:
+            rows = (
+                self._db.query(ChatInboxMessage)
+                .filter(
+                    ChatInboxMessage.channel == 'dingtalk_group',
+                    ChatInboxMessage.created_at >= window_start,
+                    ChatInboxMessage.created_at < window_end,
+                )
+                .order_by(ChatInboxMessage.created_at.desc(), ChatInboxMessage.id.desc())
+                .limit(_DINGTALK_EVIDENCE_LIMIT)
+                .all()
+            )
+        except Exception as exc:
+            return [], 'failed', redact_secret_text(str(exc))
+
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            redacted_text = redact_secret_text(row.text or '')
+            items.append(
+                {
+                    'source': 'dingtalk_text',
+                    'channel': redact_secret_text(row.channel or ''),
+                    'group_id': redact_secret_text(row.group_id or '') or None,
+                    'trace_id': redact_secret_text(row.trace_id or ''),
+                    'sender_external_id': redact_secret_text(row.sender_external_id or '') or None,
+                    'sent_at': self._dingtalk_message_sent_at(row),
+                    'created_at': _iso_datetime(row.created_at),
+                    'text_sample': _redacted_sample_text(redacted_text),
+                    'text_hash': hashlib.sha256(redacted_text.encode('utf-8')).hexdigest(),
+                }
+            )
+        return items, 'ok' if items else 'empty', None
+
+    def _read_dingtalk_file_evidence(self, *, business_date: date) -> tuple[list[dict[str, Any]], str, str | None]:
+        window_start, window_end = production_business_window(business_date)
+        try:
+            rows = (
+                self._db.query(RagDocument, RagSourceIngestion)
+                .outerjoin(RagSourceIngestion, RagSourceIngestion.document_id == RagDocument.id)
+                .filter(
+                    RagDocument.status == 'active',
+                    or_(
+                        (RagDocument.created_at >= window_start) & (RagDocument.created_at < window_end),
+                        (RagSourceIngestion.created_at >= window_start) & (RagSourceIngestion.created_at < window_end),
+                    ),
+                )
+                .order_by(RagDocument.created_at.desc(), RagDocument.id.desc(), RagSourceIngestion.id.desc())
+                .all()
+            )
+        except Exception as exc:
+            return [], 'failed', redact_secret_text(str(exc))
+
+        items: list[dict[str, Any]] = []
+        seen_document_ids: set[int] = set()
+        for document, ingestion in rows:
+            if document.id in seen_document_ids:
+                continue
+            if not self._is_dingtalk_file_document(document=document, ingestion=ingestion):
+                continue
+            seen_document_ids.add(document.id)
+            source_type = self._dingtalk_source_type(document=document, ingestion=ingestion)
+            source_ref = self._dingtalk_source_ref(document=document, ingestion=ingestion)
+            items.append(
+                {
+                    'source': 'dingtalk_file',
+                    'document_id': document.id,
+                    'filename': redact_secret_text(document.filename),
+                    'source_name': redact_secret_text(document.source_name),
+                    'file_size': document.file_size,
+                    'created_at': _iso_datetime(document.created_at),
+                    'source_ref': source_ref,
+                    'source_type': source_type,
+                }
+            )
+            if len(items) >= _DINGTALK_EVIDENCE_LIMIT:
+                break
+        return items, 'ok' if items else 'empty', None
 
     def _read_mes_sources(self, *, business_date: date, mes_query_keys: Sequence[str] | None) -> dict[str, Any]:
         if self._mes_read_service is None:
@@ -1070,12 +1233,16 @@ class HermesDataAuditService:
         mes_errors: Mapping[str, Any],
         hub_error: str | None,
         output_skill_snapshot: Mapping[str, Any],
+        dingtalk_errors: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         source_errors: dict[str, Any] = {}
         if mes_errors:
             source_errors['mes'] = _redact_issue_payload(mes_errors)
         if hub_error:
             source_errors['hub'] = hub_error
+        for source_name, error in (dingtalk_errors or {}).items():
+            if error:
+                source_errors[str(source_name)] = redact_secret_text(str(error))
         output_status = output_skill_snapshot.get('status')
         output_issues = output_skill_snapshot.get('issues') or []
         if output_status == 'missing':
@@ -1085,6 +1252,43 @@ class HermesDataAuditService:
         elif output_issues:
             source_errors['output_skill'] = _redact_issue_payload(output_issues)
         return source_errors
+
+    @staticmethod
+    def _dingtalk_message_sent_at(message: ChatInboxMessage) -> str | None:
+        payload = message.source_payload or {}
+        for key in ('sent_at', 'sentAt', 'message_time', 'messageTime', 'msgTime', 'timestamp'):
+            if key in payload and payload[key] not in (None, ''):
+                return _iso_datetime(payload[key])
+        return _iso_datetime(message.created_at)
+
+    @staticmethod
+    def _is_dingtalk_file_document(*, document: RagDocument, ingestion: RagSourceIngestion | None) -> bool:
+        return _contains_dingtalk_marker(
+            getattr(ingestion, 'source_type', None),
+            getattr(ingestion, 'source_ref', None),
+            getattr(ingestion, 'metadata_payload', None),
+            document.metadata_payload,
+        )
+
+    @staticmethod
+    def _dingtalk_source_type(*, document: RagDocument, ingestion: RagSourceIngestion | None) -> str | None:
+        if ingestion is not None and ingestion.source_type:
+            return redact_secret_text(ingestion.source_type)
+        metadata_payload = document.metadata_payload or {}
+        source_type = metadata_payload.get('source_type') or metadata_payload.get('source')
+        if source_type in (None, ''):
+            return None
+        return redact_secret_text(str(source_type))
+
+    @staticmethod
+    def _dingtalk_source_ref(*, document: RagDocument, ingestion: RagSourceIngestion | None) -> str | None:
+        if ingestion is not None and ingestion.source_ref:
+            return redact_secret_text(ingestion.source_ref)
+        metadata_payload = document.metadata_payload or {}
+        source_ref = metadata_payload.get('source_ref')
+        if source_ref in (None, ''):
+            return None
+        return redact_secret_text(str(source_ref))
 
     def _output_skill_root_path(self) -> Path | None:
         raw_value = self._output_skill_root or os.getenv('OUTPUT_SKILL_ROOT')
@@ -1119,6 +1323,7 @@ class HermesDataAuditService:
         mes_snapshot: Mapping[str, Any] | None = None,
         hub_snapshot: Mapping[str, Any] | None = None,
         output_skill_identity: Mapping[str, Any] | None = None,
+        dingtalk_evidence_identity: Mapping[str, Any] | None = None,
     ) -> str:
         payload = {
             'business_date': business_date.isoformat(),
@@ -1131,6 +1336,7 @@ class HermesDataAuditService:
                 'payload_hash': (hub_snapshot or {}).get('payload_hash'),
             },
             'output_skill_identity': _json_safe(output_skill_identity or {}),
+            'dingtalk_evidence_identity': _json_safe(dingtalk_evidence_identity or {}),
         }
         digest = hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()[:16]
         return f'hermes-audit-{business_date.isoformat()}-{digest}'
