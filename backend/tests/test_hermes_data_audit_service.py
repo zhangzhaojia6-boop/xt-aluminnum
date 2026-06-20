@@ -965,7 +965,7 @@ def test_apply_corrections_marks_applied_when_controlled_handler_succeeds() -> N
                 'before_value': {'hub': 95.0},
                 'after_value': {'hub': 96.5},
                 'evidence': {'handler': 'ok'},
-                'rollback_payload': {'mode': 'manual'},
+                'rollback_payload': {'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
             }
 
         _handler.hermes_controlled_transaction = True
@@ -986,5 +986,73 @@ def test_apply_corrections_marks_applied_when_controlled_handler_succeeds() -> N
         assert action.evidence == {'handler': 'ok'}
         db.refresh(run)
         assert run.status == 'corrected'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_fails_when_handler_clears_evidence() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            return {
+                'before_value': {'hub': 95.0},
+                'after_value': {'hub': 96.5},
+                'evidence': {},
+                'rollback_payload': {'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
+            }
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_supported_action('handler-clears-evidence')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).one()
+        assert result['applied_count'] == 0
+        assert result['failed_count'] == 1
+        assert action.status == 'failed'
+        assert action.evidence['error'] in {'invalid_handler_audit_payload', 'incomplete_correction_audit_payload'}
+        db.refresh(run)
+        assert run.status == 'correction_failed'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_fails_when_handler_clears_rollback_payload() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            return {
+                'before_value': {'hub': 95.0},
+                'after_value': {'hub': 96.5},
+                'evidence': {'handler': 'ok', 'source': 'mes'},
+                'rollback_payload': {},
+            }
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_supported_action('handler-clears-rollback')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).one()
+        assert result['applied_count'] == 0
+        assert result['failed_count'] == 1
+        assert action.status == 'failed'
+        assert action.evidence['error'] in {'invalid_handler_audit_payload', 'incomplete_correction_audit_payload'}
+        db.refresh(run)
+        assert run.status == 'correction_failed'
     finally:
         db.close()

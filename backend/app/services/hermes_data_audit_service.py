@@ -400,11 +400,21 @@ class HermesDataAuditService:
                 for action in executable_actions:
                     handler_result = _json_safe(self._correction_handler(_json_safe(self._action_payload(action))) or {})
                     handler_results[action.idempotency_key] = handler_result if isinstance(handler_result, Mapping) else {}
+                for action in executable_actions:
+                    projected_action = self._project_action_with_handler_result(
+                        action=action,
+                        handler_result=handler_results.get(action.idempotency_key, {}),
+                    )
+                    if not self._has_complete_correction_audit_payload(projected_action):
+                        raise ValueError('invalid_handler_audit_payload')
                 savepoint.commit()
             except Exception as exc:
                 savepoint.rollback()
                 self._cleanup_failed_handler_side_effects(existing_new_ids=handler_new_ids)
-                batch_error = redact_secret_text(str(exc))
+                if str(exc) == 'invalid_handler_audit_payload':
+                    batch_error = 'invalid_handler_audit_payload'
+                else:
+                    batch_error = redact_secret_text(str(exc))
 
             if batch_error is not None:
                 for action in executable_actions:
@@ -1070,6 +1080,37 @@ class HermesDataAuditService:
         }
 
     @staticmethod
+    def _project_action_with_handler_result(
+        *,
+        action: HermesCorrectionAction,
+        handler_result: Mapping[str, Any],
+    ) -> HermesCorrectionAction:
+        projected = HermesCorrectionAction(
+            audit_run_id=action.audit_run_id,
+            idempotency_key=action.idempotency_key,
+            action_type=action.action_type,
+            risk_level=action.risk_level,
+            target_table=action.target_table,
+            target_key=action.target_key,
+            field_name=action.field_name,
+            before_value=action.before_value,
+            after_value=action.after_value,
+            evidence=action.evidence,
+            rollback_payload=action.rollback_payload,
+            rollback_status=action.rollback_status,
+            status=action.status,
+        )
+        if 'before_value' in handler_result:
+            projected.before_value = _json_safe(handler_result.get('before_value'))
+        if 'after_value' in handler_result:
+            projected.after_value = _json_safe(handler_result.get('after_value'))
+        if 'evidence' in handler_result:
+            projected.evidence = _json_safe(handler_result.get('evidence') or {})
+        if 'rollback_payload' in handler_result:
+            projected.rollback_payload = _json_safe(handler_result.get('rollback_payload'))
+        return projected
+
+    @staticmethod
     def _has_complete_correction_audit_payload(action: HermesCorrectionAction) -> bool:
         if not action.idempotency_key or not action.target_table or not action.target_key:
             return False
@@ -1082,7 +1123,7 @@ class HermesDataAuditService:
             return False
         if not any(
             evidence.get(key) not in (None, '', {}, [])
-            for key in ('reason', 'source', 'evidence_ref', 'field', 'field_name', 'values')
+            for key in ('reason', 'source', 'evidence_ref', 'field', 'field_name', 'values', 'handler')
         ):
             return False
         rollback_payload = action.rollback_payload
