@@ -184,6 +184,29 @@ def _action_with_large_top_level_rollback_payload(idempotency_key: str) -> dict:
     return action
 
 
+def _large_top_level_before_after_value(value: float, *, source: str, reason: str) -> dict:
+    return {
+        'field': 'workshop_output',
+        'field_name': 'workshop_output',
+        'old_value': value - 1,
+        'new_value': value,
+        'unit': 'ton',
+        'source': source,
+        'reason': reason,
+        'note': 'keep small fields',
+        'extra_1': 'alpha',
+        'rows': [{'raw': _large_raw_text(), 'raw_text': _large_raw_text(), 'value': value}],
+        'raw_text': _large_raw_text(),
+    }
+
+
+def _action_with_large_top_level_before_after(idempotency_key: str) -> dict:
+    action = _supported_action(idempotency_key)
+    action['before_value'] = _large_top_level_before_after_value(95.0, source='hub', reason='previous snapshot')
+    action['after_value'] = _large_top_level_before_after_value(100.0, source='mes', reason='mes source of truth')
+    return action
+
+
 def _assert_payload_slimmed(payload: dict) -> None:
     large_text = _large_raw_text()
     serialized = json.dumps(payload, ensure_ascii=False)
@@ -568,6 +591,47 @@ def test_create_run_creates_new_run_when_hub_snapshot_changes() -> None:
 
         assert first.id != second.id
         assert first.run_key != second.run_key
+    finally:
+        db.close()
+
+
+def test_create_run_creates_new_run_when_hub_status_changes_with_same_empty_snapshot() -> None:
+    db = _db_session()
+    try:
+        first_service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            hub_snapshot_reader=lambda business_date, fields: {},
+        )
+
+        def _failed_hub_reader(business_date, fields):
+            raise RuntimeError('token=hub-secret unavailable')
+
+        second_service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            hub_snapshot_reader=_failed_hub_reader,
+        )
+        stable_snapshot = {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+        first_service._read_output_skill_business_date = lambda business_date: stable_snapshot
+        second_service._read_output_skill_business_date = lambda business_date: stable_snapshot
+
+        first = first_service.create_run(business_date=date(2026, 6, 18), fields=['total_output'])
+        second = second_service.create_run(business_date=date(2026, 6, 18), fields=['total_output'])
+
+        assert first.id != second.id
+        assert first.run_key != second.run_key
+        assert first.source_status['hub'] == 'empty'
+        assert first.status == 'completed_with_missing_source'
+        assert second.source_status['hub'] == 'failed'
+        assert second.status == 'completed_with_source_error'
+        assert second.source_errors['hub'] == 'token=<redacted> unavailable'
     finally:
         db.close()
 
@@ -1235,6 +1299,49 @@ def test_apply_corrections_keeps_large_top_level_rollback_machine_fields() -> No
         db.close()
 
 
+def test_apply_corrections_keeps_large_top_level_before_after_machine_fields() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        service = HermesDataAuditService(db, apply_enabled=False)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_action_with_large_top_level_before_after('large-top-level-before-after')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).one()
+        assert result['blocked_count'] == 1
+        assert action.before_value['field'] == 'workshop_output'
+        assert action.before_value['field_name'] == 'workshop_output'
+        assert action.before_value['old_value'] == 94.0
+        assert action.before_value['new_value'] == 95.0
+        assert action.before_value['unit'] == 'ton'
+        assert action.before_value['source'] == 'hub'
+        assert action.before_value['reason'] == 'previous snapshot'
+        assert action.before_value['note'] == 'keep small fields'
+        assert action.before_value['extra_1'] == 'alpha'
+        assert action.after_value['field'] == 'workshop_output'
+        assert action.after_value['field_name'] == 'workshop_output'
+        assert action.after_value['old_value'] == 99.0
+        assert action.after_value['new_value'] == 100.0
+        assert action.after_value['unit'] == 'ton'
+        assert action.after_value['source'] == 'mes'
+        assert action.after_value['reason'] == 'mes source of truth'
+        assert action.after_value['note'] == 'keep small fields'
+        assert action.after_value['extra_1'] == 'alpha'
+        _assert_collection_summary(action.before_value['rows'])
+        _assert_text_summary(action.before_value['raw_text'])
+        _assert_collection_summary(action.after_value['rows'])
+        _assert_text_summary(action.after_value['raw_text'])
+        _assert_payload_slimmed(action.before_value)
+        _assert_payload_slimmed(action.after_value)
+    finally:
+        db.close()
+
+
 def test_apply_corrections_slims_large_handler_result_payloads_before_persisting() -> None:
     db = _db_session()
     try:
@@ -1292,6 +1399,60 @@ def test_apply_corrections_slims_large_handler_result_payloads_before_persisting
         _assert_payload_slimmed(action.after_value)
         _assert_payload_slimmed(action.evidence)
         _assert_payload_slimmed(action.rollback_payload)
+    finally:
+        db.close()
+
+
+def test_apply_corrections_keeps_large_handler_result_before_after_machine_fields() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            return {
+                'before_value': _large_top_level_before_after_value(95.0, source='hub', reason='handler previous snapshot'),
+                'after_value': _large_top_level_before_after_value(96.5, source='mes', reason='handler mes source of truth'),
+                'evidence': {'handler': 'ok', 'source': 'mes'},
+                'rollback_payload': {'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
+            }
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_supported_action('large-handler-before-after')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).one()
+        assert result['applied_count'] == 1
+        assert action.status == 'applied'
+        assert action.before_value['field'] == 'workshop_output'
+        assert action.before_value['field_name'] == 'workshop_output'
+        assert action.before_value['old_value'] == 94.0
+        assert action.before_value['new_value'] == 95.0
+        assert action.before_value['unit'] == 'ton'
+        assert action.before_value['source'] == 'hub'
+        assert action.before_value['reason'] == 'handler previous snapshot'
+        assert action.before_value['note'] == 'keep small fields'
+        assert action.before_value['extra_1'] == 'alpha'
+        assert action.after_value['field'] == 'workshop_output'
+        assert action.after_value['field_name'] == 'workshop_output'
+        assert action.after_value['old_value'] == 95.5
+        assert action.after_value['new_value'] == 96.5
+        assert action.after_value['unit'] == 'ton'
+        assert action.after_value['source'] == 'mes'
+        assert action.after_value['reason'] == 'handler mes source of truth'
+        assert action.after_value['note'] == 'keep small fields'
+        assert action.after_value['extra_1'] == 'alpha'
+        _assert_collection_summary(action.before_value['rows'])
+        _assert_text_summary(action.before_value['raw_text'])
+        _assert_collection_summary(action.after_value['rows'])
+        _assert_text_summary(action.after_value['raw_text'])
+        _assert_payload_slimmed(action.before_value)
+        _assert_payload_slimmed(action.after_value)
     finally:
         db.close()
 

@@ -115,7 +115,14 @@ _CSV_HEADER_ALIASES = {
 }
 _AUDIT_HEAVY_KEY_TOKENS = {'raw', 'raw_text', 'records', 'rows', 'items', 'payload', 'content'}
 _AUDIT_SAFE_ROOT_KEYS = {'before_value', 'after_value', 'evidence', 'rollback_payload'}
-_AUDIT_PRESERVE_STRUCTURE_KEYS = {'evidence', 'rollback_payload', 'restore_before_value', 'values'}
+_AUDIT_PRESERVE_STRUCTURE_KEYS = {
+    'before_value',
+    'after_value',
+    'evidence',
+    'rollback_payload',
+    'restore_before_value',
+    'values',
+}
 _AUDIT_TEXT_SAMPLE_LIMIT = 160
 _AUDIT_INLINE_TEXT_LIMIT = 200
 _AUDIT_MAPPING_SUMMARY_LIMIT = 8
@@ -960,7 +967,11 @@ class HermesDataAuditService:
             'fields': _stable_string_list(fields),
             'mes_query_keys': _stable_string_list(mes_query_keys or DEFAULT_MES_QUERY_KEYS),
             'mes_snapshot_hash': (mes_snapshot or {}).get('payload_hash'),
-            'hub_snapshot_hash': (hub_snapshot or {}).get('payload_hash'),
+            'hub_source_identity': {
+                'status': (hub_snapshot or {}).get('status'),
+                'source_errors': (hub_snapshot or {}).get('source_errors'),
+                'payload_hash': (hub_snapshot or {}).get('payload_hash'),
+            },
             'output_skill_identity': _json_safe(output_skill_identity or {}),
         }
         digest = hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()[:16]
@@ -1012,13 +1023,18 @@ class HermesDataAuditService:
         field_values: Mapping[str, Any],
         hub_error: str | None,
     ) -> dict[str, Any]:
+        source_identity = {
+            'snapshot': hub_snapshot,
+            'status': hub_status,
+            'source_errors': hub_error,
+        }
         return _redact_issue_payload(
             {
                 'status': hub_status,
                 'field_values': field_values,
                 'source_errors': hub_error,
                 'field_count': len(hub_snapshot),
-                'payload_hash': _payload_hash(hub_snapshot),
+                'payload_hash': _payload_hash(source_identity),
                 'raw_payload_truncated': True,
             }
         )
