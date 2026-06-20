@@ -141,10 +141,7 @@ def test_format_backfill_row_contains_table_values_and_redacts_sensitive_text() 
         'outskill': 'missing',
         'diffs': 9,
         'next': 'mount_output_skill_reference_and_rerun',
-        'detail': (
-            'source=output_skill field=total_output password=abc token=123 '
-            'postgresql://user:secretpass@db.example.com/app'
-        ),
+        'detail': 'line1\npassword=abc\tpostgresql://user:secret@db.example.com/app',
     }
 
     row = module.format_backfill_row(summary)
@@ -152,10 +149,11 @@ def test_format_backfill_row_contains_table_values_and_redacts_sensitive_text() 
     assert '2026-06-16' in row
     assert 'completed_with_source_error' in row
     assert 'mount_output_skill_reference_and_rerun' in row
+    assert row.count('\n') == 0
+    assert '\t' not in row
     assert 'password=abc' not in row
-    assert 'token=123' not in row
-    assert 'secretpass' not in row
-    assert 'postgresql://user:secretpass@db.example.com/app' not in row
+    assert 'secret' not in row
+    assert 'postgresql://user:secret@db.example.com/app' not in row
     assert 'postgresql://' not in row
     assert 'db.example.com/app' not in row
     assert '<redacted-connection-uri>' in row

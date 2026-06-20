@@ -81,6 +81,10 @@ def _count_diffs(diffs: Any) -> int:
     return count
 
 
+def _safe_single_line_text(value: Any) -> str:
+    return ' '.join(redact_secret_text(value).split())
+
+
 def _source_status(run: Any, source_name: str, default: str = 'unknown') -> str:
     source_status = getattr(run, 'source_status', None)
     if not isinstance(source_status, dict):
@@ -167,7 +171,7 @@ def format_backfill_row(summary: dict[str, Any]) -> str:
     )
     detail = str(summary.get('detail') or '').strip()
     if detail:
-        row = f'{row}  {redact_secret_text(detail)}'
+        row = f'{row}  {_safe_single_line_text(detail)}'
     return row
 
 
@@ -183,7 +187,7 @@ def _error_summary(*, business_date: date, status: str, detail: str, next_step: 
         'diffs': '--',
         'correction_action_count': 0,
         'next': next_step,
-        'detail': redact_secret_text(detail),
+        'detail': _safe_single_line_text(detail),
     }
 
 
