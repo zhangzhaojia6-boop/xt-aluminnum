@@ -479,6 +479,82 @@ def test_get_hermes_data_audit_run_does_not_mark_failed_action_as_ready_to_apply
     assert payload['decision_gate']['reason'] != 'ready_to_apply'
 
 
+def test_get_hermes_data_audit_run_exposes_retry_suggestion_for_same_failed_key(monkeypatch) -> None:
+    monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-completed-failed-retryable',
+        business_date=date(2026, 6, 18),
+        status='completed',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={'records_count_by_source': {'stock_records': 3}},
+        hub_snapshot={'field_count': 1},
+        output_skill_snapshot={'parsed': {'total_output': 10}},
+        diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
+        suggested_actions=[
+            {
+                'idempotency_key': 'retryable:1',
+                'action_type': 'mapping_alias_upsert',
+                'risk_level': 'low',
+                'target_table': 'master_code_aliases',
+                'target_key': 'workshop:精整',
+                'field_name': 'alias_code',
+                'before_value': {'alias_code': '精整车间'},
+                'after_value': {
+                    'entity_type': 'workshop',
+                    'canonical_code': '精整',
+                    'alias_code': '精整',
+                    'alias_name': '精整',
+                    'source_type': 'hermes',
+                    'is_active': True,
+                },
+                'evidence': {'reason': 'retry with full payload', 'field': 'alias_code'},
+                'rollback_payload': {'restore_before_value': {'alias_code': '精整车间'}},
+            }
+        ],
+        match_rate=Decimal('0.5000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.flush()
+    db.add(
+        HermesCorrectionAction(
+            audit_run_id=run.id,
+            idempotency_key='retryable:1',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='master_code_aliases',
+            target_key='workshop:精整',
+            before_value={'alias_code': '精整车间'},
+            after_value={'alias_code': '精整'},
+            evidence={'reason': 'old failed payload'},
+            status='failed',
+            rollback_payload={'restore_before_value': {'alias_code': '精整车间'}},
+        )
+    )
+    db.commit()
+    previous_overrides = _install_overrides(db=db, user_role='user')
+
+    try:
+        client = TestClient(app)
+        response = client.get(f'/api/v1/hermes/data-audit/runs/{run.id}')
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    retry_entries = [item for item in payload['correction_actions'] if item['idempotency_key'] == 'retryable:1']
+    assert len(retry_entries) == 2
+    assert any(item['status'] == 'failed' for item in retry_entries)
+    assert any(item['status'] == 'suggested' for item in retry_entries)
+    assert payload['decision_gate']['can_apply'] is True
+    assert payload['decision_gate']['reason'] == 'ready_to_apply'
+
+
 def test_get_hermes_data_audit_run_keeps_blocked_reason_when_only_high_risk_blocked_action_exists(monkeypatch) -> None:
     monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
     engine = _make_engine()
@@ -767,6 +843,113 @@ def test_admin_can_apply_hermes_data_audit_corrections() -> None:
     assert payload['decision_gate']['can_apply'] is False
     assert payload['recommended_next_step'] == 'rerun_audit_to_verify'
     assert service.apply_calls[0]['applied_by_id'] == 1
+    assert service.apply_calls[0]['actions'] == [run.suggested_actions[0]]
+
+
+def test_apply_hermes_data_audit_corrections_prefers_retry_suggestion_payload_for_same_failed_key() -> None:
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-apply-retry-suggestion',
+        business_date=date(2026, 6, 18),
+        status='completed',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={'records_count_by_source': {'stock_records': 3}},
+        hub_snapshot={'field_count': 2},
+        output_skill_snapshot={'parsed': {'total_output': 10}},
+        diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
+        suggested_actions=[
+            {
+                'idempotency_key': 'retryable:post',
+                'action_type': 'mapping_alias_upsert',
+                'risk_level': 'low',
+                'target_table': 'master_code_aliases',
+                'target_key': 'workshop:精整',
+                'field_name': 'alias_code',
+                'before_value': {'alias_code': '精整车间'},
+                'after_value': {
+                    'entity_type': 'workshop',
+                    'canonical_code': '精整',
+                    'alias_code': '精整',
+                    'alias_name': '精整',
+                    'source_type': 'hermes',
+                    'is_active': True,
+                },
+                'evidence': {'reason': 'retry with suggested payload', 'field': 'alias_code'},
+                'rollback_payload': {'restore_before_value': {'alias_code': '精整车间'}},
+            }
+        ],
+        match_rate=Decimal('0.0000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.flush()
+    db.add(
+        HermesCorrectionAction(
+            audit_run_id=run.id,
+            idempotency_key='retryable:post',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='master_code_aliases',
+            target_key='workshop:精整',
+            before_value={'alias_code': '旧失败值'},
+            after_value={'alias_code': '旧失败值'},
+            evidence={'reason': 'stale failed payload'},
+            status='failed',
+            rollback_payload={'restore_before_value': {'alias_code': '旧失败值'}},
+        )
+    )
+    db.commit()
+    db.refresh(run)
+    service = FakeHermesDataAuditService(db)
+
+    def _capture_apply(
+        *,
+        audit_run_id: int,
+        actions: list[dict],
+        dry_run: bool = True,
+        applied_by_id: int | None = None,
+    ) -> dict:
+        service.apply_calls.append(
+            {
+                'audit_run_id': audit_run_id,
+                'actions': list(actions),
+                'dry_run': dry_run,
+                'applied_by_id': applied_by_id,
+            }
+        )
+        return {
+            'audit_run_id': audit_run_id,
+            'apply_enabled': True,
+            'reason': None,
+            'created_count': 0,
+            'dry_run_count': 0,
+            'applied_count': 0,
+            'blocked_count': 0,
+            'skipped_count': 0,
+            'failed_count': 0,
+            'action_statuses': [],
+        }
+
+    service.apply_corrections = _capture_apply
+    previous_overrides = _install_overrides(db=db, user_role='admin', service=service)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            f'/api/v1/hermes/data-audit/runs/{run.id}/corrections',
+            json={
+                'idempotency_keys': ['retryable:post'],
+                'dry_run': False,
+            },
+        )
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
     assert service.apply_calls[0]['actions'] == [run.suggested_actions[0]]
 
 

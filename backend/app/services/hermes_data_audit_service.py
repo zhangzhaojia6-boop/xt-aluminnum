@@ -77,6 +77,12 @@ ACTION_TARGET_TABLE_ALLOWLIST = {
 }
 REAL_APPLY_EXECUTOR_ACTIONS = {'mapping_alias_upsert'}
 REUSABLE_ACTION_STATUSES = {'pending', 'dry_run'}
+SAME_RUN_RETRYABLE_ACTION_STATUSES = REUSABLE_ACTION_STATUSES | {
+    'failed',
+    'blocked',
+    'high_risk_blocked',
+    'blocked_duplicate',
+}
 RERUN_REQUIRED_AUDIT_STATUSES = {'corrected', 'correction_partial_failed'}
 
 TEXT_RAW_EXTENSIONS = {'.txt', '.md', '.log'}
@@ -1333,6 +1339,10 @@ class HermesDataAuditService:
     def _is_reusable_action_status(status: str | None) -> bool:
         return str(status or '').strip() in REUSABLE_ACTION_STATUSES
 
+    @staticmethod
+    def _is_same_run_retryable_action_status(status: str | None) -> bool:
+        return str(status or '').strip() in SAME_RUN_RETRYABLE_ACTION_STATUSES
+
     def _duplicate_action_status(
         self,
         *,
@@ -1343,7 +1353,7 @@ class HermesDataAuditService:
         if existing is None:
             return None
         same_run = existing.audit_run_id == audit_run_id
-        if same_run and self._is_reusable_action_status(existing.status):
+        if same_run and self._is_same_run_retryable_action_status(existing.status):
             return None
         if same_run:
             return {

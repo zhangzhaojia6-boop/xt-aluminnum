@@ -958,6 +958,52 @@ def test_apply_corrections_blocks_non_dry_run_when_apply_flag_disabled() -> None
         db.close()
 
 
+def test_apply_corrections_can_retry_same_blocked_action_after_apply_enabled_changes() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        action = _mapping_alias_action('retry-after-blocked')
+
+        blocked_service = HermesDataAuditService(db, apply_enabled=False)
+        first = blocked_service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        blocked_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='retry-after-blocked').one()
+        blocked_row_id = blocked_row.id
+        db.refresh(run)
+        assert first['reason'] == 'apply_disabled'
+        assert first['blocked_count'] == 1
+        assert blocked_row.status == 'blocked'
+        assert run.status == 'correction_blocked'
+
+        retry_service = HermesDataAuditService(db, apply_enabled=True)
+        second = retry_service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        action_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='retry-after-blocked').one()
+        alias_rows = db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').all()
+        db.refresh(run)
+        assert second['applied_count'] == 1
+        assert second['blocked_count'] == 0
+        assert second['created_count'] == 0
+        assert second['action_statuses'] == [{'idempotency_key': 'retry-after-blocked', 'status': 'applied'}]
+        assert action_row.id == blocked_row_id
+        assert action_row.status == 'applied'
+        assert len(alias_rows) == 1
+        assert run.status == 'corrected'
+        assert db.query(HermesCorrectionAction).count() == 1
+    finally:
+        db.close()
+
+
 def test_apply_corrections_allows_dry_run_when_apply_flag_disabled() -> None:
     db = _db_session()
     try:
@@ -1991,6 +2037,61 @@ def test_apply_corrections_rolls_back_whole_batch_when_one_alias_upsert_fails() 
         assert db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').count() == 0
         db.refresh(run)
         assert run.status == 'correction_failed'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_can_retry_same_failed_action_with_fixed_payload() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        broken_action = _mapping_alias_action(
+            'retry-after-failed',
+            after_value={
+                'entity_type': 'workshop',
+                'canonical_code': 'cold-roll-2050',
+                'alias_name': '冷轧2050',
+                'source_type': 'hermes',
+                'is_active': True,
+            },
+        )
+
+        first = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[broken_action],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        failed_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='retry-after-failed').one()
+        failed_row_id = failed_row.id
+        db.refresh(run)
+        assert first['applied_count'] == 0
+        assert first['failed_count'] == 1
+        assert failed_row.status == 'failed'
+        assert run.status == 'correction_failed'
+        assert db.query(MasterCodeAlias).count() == 0
+
+        second = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_mapping_alias_action('retry-after-failed')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='retry-after-failed').one()
+        alias_row = db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').one()
+        db.refresh(run)
+        assert second['applied_count'] == 1
+        assert second['failed_count'] == 0
+        assert second['created_count'] == 0
+        assert second['action_statuses'] == [{'idempotency_key': 'retry-after-failed', 'status': 'applied'}]
+        assert action_row.id == failed_row_id
+        assert action_row.status == 'applied'
+        assert alias_row.canonical_code == 'cold-roll-2050'
+        assert run.status == 'corrected'
+        assert db.query(HermesCorrectionAction).count() == 1
     finally:
         db.close()
 

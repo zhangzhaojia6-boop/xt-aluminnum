@@ -31,6 +31,7 @@ router = APIRouter(tags=['hermes-data-audit'])
 
 _TRUE_VALUES = {'1', 'true', 'yes', 'on'}
 _PENDING_CORRECTION_ACTION_STATUSES = {'pending', 'suggested'}
+_RETRYABLE_TERMINAL_CORRECTION_ACTION_STATUSES = {'failed', 'blocked', 'high_risk_blocked', 'blocked_duplicate'}
 _ACTION_GATE_REASON_PRIORITY = {
     'executor_not_supported': 0,
     'mes_target_read_only': 1,
@@ -163,6 +164,10 @@ def _correction_action_payload_from_row(row: HermesCorrectionAction) -> dict[str
     }
 
 
+def _is_retryable_terminal_correction_action_status(status: str | None) -> bool:
+    return str(status or '').strip().lower() in _RETRYABLE_TERMINAL_CORRECTION_ACTION_STATUSES
+
+
 def _serialize_correction_actions(db: Session, run: HermesDataAuditRun) -> list[dict[str, Any]]:
     rows = (
         db.query(HermesCorrectionAction)
@@ -187,6 +192,11 @@ def _serialize_correction_actions(db: Session, run: HermesDataAuditRun) -> list[
         }
         for row in rows
     ]
+    serialized_rows_by_key = {
+        str(item['idempotency_key']): item
+        for item in serialized_rows
+        if item.get('idempotency_key') not in (None, '')
+    }
     seen_idempotency_keys = {
         str(item['idempotency_key'])
         for item in serialized_rows
@@ -203,6 +213,7 @@ def _serialize_correction_actions(db: Session, run: HermesDataAuditRun) -> list[
     }
 
     merged_actions = list(serialized_rows)
+    added_retry_suggestion_keys: set[str] = set()
     for payload in run.suggested_actions or []:
         if not isinstance(payload, dict):
             continue
@@ -210,6 +221,14 @@ def _serialize_correction_actions(db: Session, run: HermesDataAuditRun) -> list[
         if idempotency_key not in (None, ''):
             normalized_key = str(idempotency_key)
             if normalized_key in seen_idempotency_keys:
+                existing_row = serialized_rows_by_key.get(normalized_key)
+                if (
+                    existing_row is not None
+                    and _is_retryable_terminal_correction_action_status(existing_row.get('status'))
+                    and normalized_key not in added_retry_suggestion_keys
+                ):
+                    merged_actions.append(_serialize_action_payload(payload))
+                    added_retry_suggestion_keys.add(normalized_key)
                 continue
             seen_idempotency_keys.add(normalized_key)
         else:
@@ -404,18 +423,22 @@ def _known_correction_payloads(
     )
     payloads_by_id: dict[int, dict[str, Any]] = {}
     payloads_by_key: dict[str, dict[str, Any]] = {}
+    row_status_by_key: dict[str, str] = {}
     for row in rows:
         payload = _correction_action_payload_from_row(row)
         payloads_by_id[row.id] = payload
         key = str(row.idempotency_key or '').strip()
         if key:
             payloads_by_key[key] = payload
+            row_status_by_key[key] = str(row.status or '')
 
     for payload in run.suggested_actions or []:
         if not isinstance(payload, dict):
             continue
         key = str(payload.get('idempotency_key') or '').strip()
-        if not key or key in payloads_by_key:
+        if not key:
+            continue
+        if key in payloads_by_key and not _is_retryable_terminal_correction_action_status(row_status_by_key.get(key)):
             continue
         payloads_by_key[key] = payload
     return payloads_by_id, payloads_by_key
