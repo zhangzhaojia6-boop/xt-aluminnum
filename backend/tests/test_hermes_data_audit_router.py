@@ -223,7 +223,7 @@ def test_logged_in_user_can_get_hermes_data_audit_run() -> None:
     db.add(run)
     db.commit()
     db.refresh(run)
-    previous_overrides = _install_overrides(db=db, user_role='manager')
+    previous_overrides = _install_overrides(db=db, user_role='user')
 
     try:
         client = TestClient(app)
