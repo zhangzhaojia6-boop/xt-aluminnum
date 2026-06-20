@@ -13,6 +13,8 @@ class HermesDataAuditRunCreateRequest(BaseModel):
 
 
 class HermesDataAuditCorrectionsRequest(BaseModel):
+    action_ids: list[int] = Field(default_factory=list)
+    idempotency_keys: list[str] = Field(default_factory=list)
     actions: list[dict[str, Any]] = Field(default_factory=list)
     dry_run: bool = True
 

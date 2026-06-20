@@ -505,7 +505,27 @@ def test_admin_can_apply_hermes_data_audit_corrections() -> None:
         hub_snapshot={'field_count': 2},
         output_skill_snapshot={'parsed': {'total_output': 10}},
         diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
-        suggested_actions=[],
+        suggested_actions=[
+            {
+                'idempotency_key': 'alias:1',
+                'action_type': 'mapping_alias_upsert',
+                'risk_level': 'low',
+                'target_table': 'master_code_aliases',
+                'target_key': 'workshop:精整',
+                'field_name': 'alias_code',
+                'before_value': {'alias_code': '精整车间'},
+                'after_value': {
+                    'entity_type': 'workshop',
+                    'canonical_code': '精整',
+                    'alias_code': '精整车间',
+                    'alias_name': '精整车间',
+                    'source_type': 'hermes',
+                    'is_active': True,
+                },
+                'evidence': {'reason': 'match mes', 'field': 'alias_code'},
+                'rollback_payload': {'restore_before_value': {'alias_code': '精整车间'}},
+            }
+        ],
         match_rate=Decimal('0.0000'),
         created_by_id=1,
     )
@@ -523,14 +543,8 @@ def test_admin_can_apply_hermes_data_audit_corrections() -> None:
                 'actions': [
                     {
                         'idempotency_key': 'alias:1',
-                        'action_type': 'mapping_alias_upsert',
-                        'risk_level': 'low',
-                        'target_table': 'master_code_aliases',
-                        'target_key': 'workshop:精整',
-                        'before_value': {'alias_code': '精整车间'},
-                        'after_value': {'alias_code': '精整'},
-                        'evidence': {'reason': 'match mes'},
-                        'rollback_payload': {'restore_before_value': {'alias_code': '精整车间'}},
+                        'action_type': 'daily_report_recalculate',
+                        'target_table': 'daily_report_runs',
                     }
                 ],
                 'dry_run': False,
@@ -546,9 +560,57 @@ def test_admin_can_apply_hermes_data_audit_corrections() -> None:
     assert payload['decision_gate']['can_apply'] is False
     assert payload['recommended_next_step'] == 'rerun_audit_to_verify'
     assert service.apply_calls[0]['applied_by_id'] == 1
+    assert service.apply_calls[0]['actions'] == [run.suggested_actions[0]]
 
 
-def test_apply_hermes_data_audit_corrections_requires_non_empty_actions() -> None:
+def test_get_hermes_data_audit_run_blocks_executor_unsupported_suggestion(monkeypatch) -> None:
+    monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-unsupported-suggestion',
+        business_date=date(2026, 6, 18),
+        status='completed',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={'records_count_by_source': {'stock_records': 3}},
+        hub_snapshot={'field_count': 1},
+        output_skill_snapshot={'parsed': {'total_output': 10}},
+        diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
+        suggested_actions=[
+            {
+                'idempotency_key': 'manual-reconcile:1',
+                'action_type': 'mapping_reconciliation_run',
+                'risk_level': 'low',
+                'target_table': 'data_hub_snapshot',
+                'target_key': '2026-06-18',
+                'rollback_payload': {'restore_before_value': {'business_date': '2026-06-18'}},
+            }
+        ],
+        match_rate=Decimal('0.5000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    previous_overrides = _install_overrides(db=db, user_role='user')
+
+    try:
+        client = TestClient(app)
+        response = client.get(f'/api/v1/hermes/data-audit/runs/{run.id}')
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['decision_gate']['can_apply'] is False
+    assert payload['decision_gate']['reason'] == 'executor_not_supported'
+    assert payload['decision_gate']['reason'] != 'ready_to_apply'
+
+
+def test_apply_hermes_data_audit_corrections_requires_action_selection() -> None:
     engine = _make_engine()
     Base.metadata.create_all(engine, tables=ROUTER_TABLES)
     db = Session(engine)
@@ -574,13 +636,66 @@ def test_apply_hermes_data_audit_corrections_requires_non_empty_actions() -> Non
 
     try:
         client = TestClient(app)
-        response = client.post(f'/api/v1/hermes/data-audit/runs/{run.id}/corrections', json={'actions': []})
+        response = client.post(f'/api/v1/hermes/data-audit/runs/{run.id}/corrections', json={})
     finally:
         _restore_overrides(previous_overrides)
         db.close()
 
     assert response.status_code == 400
     assert response.json()['detail']['reason'] == 'no_actions_selected'
+
+
+def test_apply_hermes_data_audit_corrections_rejects_unknown_forged_action_payload() -> None:
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-unknown-forged-action',
+        business_date=date(2026, 6, 18),
+        status='completed',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={},
+        hub_snapshot={},
+        output_skill_snapshot={},
+        diffs={},
+        suggested_actions=[],
+        match_rate=Decimal('1.0000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    service = FakeHermesDataAuditService(db)
+    previous_overrides = _install_overrides(db=db, user_role='admin', service=service)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            f'/api/v1/hermes/data-audit/runs/{run.id}/corrections',
+            json={
+                'actions': [
+                    {
+                        'action_type': 'mapping_alias_upsert',
+                        'risk_level': 'low',
+                        'target_table': 'master_code_aliases',
+                        'target_key': 'workshop:精整',
+                        'before_value': {'alias_code': '精整车间'},
+                        'after_value': {'alias_code': '精整'},
+                        'evidence': {'reason': 'forged'},
+                        'rollback_payload': {'restore_before_value': {'alias_code': '精整车间'}},
+                    }
+                ],
+                'dry_run': False,
+            },
+        )
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 400
+    assert response.json()['detail']['reason'] == 'unknown_correction_action'
+    assert service.apply_calls == []
 
 
 def test_non_admin_cannot_apply_hermes_data_audit_corrections() -> None:
