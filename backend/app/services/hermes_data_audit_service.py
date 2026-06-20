@@ -1077,6 +1077,14 @@ class HermesDataAuditService:
             return False
         if action.before_value in (None, {}) or action.after_value in (None, {}):
             return False
+        evidence = action.evidence
+        if evidence in (None, {}) or not isinstance(evidence, Mapping):
+            return False
+        if not any(
+            evidence.get(key) not in (None, '', {}, [])
+            for key in ('reason', 'source', 'evidence_ref', 'field', 'field_name', 'values')
+        ):
+            return False
         rollback_payload = action.rollback_payload
         if rollback_payload in (None, {}):
             return False

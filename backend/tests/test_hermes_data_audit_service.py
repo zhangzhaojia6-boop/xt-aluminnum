@@ -625,6 +625,37 @@ def test_apply_corrections_blocks_when_rollback_metadata_is_missing() -> None:
         db.close()
 
 
+def test_apply_corrections_blocks_when_evidence_is_empty() -> None:
+    db = _db_session()
+    called = {'value': False}
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            called['value'] = True
+            return {'evidence': {'handler': 'ok'}}
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        action = _supported_action('missing-evidence')
+        action['evidence'] = {}
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        row = db.query(HermesCorrectionAction).one()
+        assert called['value'] is False
+        assert result['blocked_count'] == 1
+        assert row.status == 'blocked'
+        assert row.evidence['blocked_reason'] in {'missing_correction_evidence', 'incomplete_correction_audit_payload'}
+    finally:
+        db.close()
+
+
 def test_apply_corrections_blocks_when_risk_level_is_missing() -> None:
     db = _db_session()
     called = {'value': False}
