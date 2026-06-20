@@ -42,9 +42,9 @@ class _MesReadServiceFake:
         return self.payload
 
 
-def _make_run(db: Session) -> HermesDataAuditRun:
+def _make_run(db: Session, *, run_key: str = 'run-1') -> HermesDataAuditRun:
     run = HermesDataAuditRun(
-        run_key='run-1',
+        run_key=run_key,
         business_date=date(2026, 6, 18),
         status='completed',
         source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'parsed'},
@@ -1213,7 +1213,61 @@ def test_apply_corrections_dry_run_does_not_create_action_rows_or_call_handler()
 
         assert called['value'] is False
         assert result['dry_run_count'] == 1
+        assert result['action_statuses'] == [{'idempotency_key': 'dry-run-no-row', 'status': 'dry_run'}]
         assert db.query(HermesCorrectionAction).count() == 0
+        assert not db.new
+        assert not db.dirty
+    finally:
+        db.close()
+
+
+def test_apply_corrections_dry_run_previews_gate_failures_without_persisting_or_dirtying_session() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        missing_metadata_action = _supported_action('dry-run-missing-metadata')
+        missing_metadata_action.pop('rollback_payload')
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[
+                _supported_action('dry-run-unsupported', action_type='review_field_mismatch'),
+                _supported_action('dry-run-mes-target', target_table='mes_work_orders'),
+                _supported_action('dry-run-high-risk', risk_level='high'),
+                missing_metadata_action,
+            ],
+            dry_run=True,
+            applied_by_id=9,
+        )
+
+        assert result['dry_run_count'] == 0
+        assert result['blocked_count'] == 4
+        assert result['action_statuses'] == [
+            {
+                'idempotency_key': 'dry-run-unsupported',
+                'status': 'blocked',
+                'reason': 'unsupported_action_type',
+            },
+            {
+                'idempotency_key': 'dry-run-mes-target',
+                'status': 'blocked',
+                'reason': 'mes_target_read_only',
+            },
+            {
+                'idempotency_key': 'dry-run-high-risk',
+                'status': 'high_risk_blocked',
+                'reason': 'high_risk',
+            },
+            {
+                'idempotency_key': 'dry-run-missing-metadata',
+                'status': 'blocked',
+                'reason': 'incomplete_correction_audit_payload',
+            },
+        ]
+        assert db.query(HermesCorrectionAction).count() == 0
+        assert not db.new
+        assert not db.dirty
     finally:
         db.close()
 
@@ -1308,6 +1362,62 @@ def test_apply_corrections_allows_real_apply_after_dry_run() -> None:
         db.close()
 
 
+def test_apply_corrections_does_not_reassign_pending_action_from_other_run() -> None:
+    db = _db_session()
+    try:
+        run1 = _make_run(db, run_key='run-1')
+        run2 = _make_run(db, run_key='run-2')
+        existing = HermesCorrectionAction(
+            audit_run_id=run1.id,
+            idempotency_key='shared-key',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='master_code_aliases',
+            target_key='run1-original-target',
+            field_name='workshop_output',
+            before_value={'hub': 95.0},
+            after_value={'hub': 96.0},
+            evidence={'source': 'mes', 'reason': 'run1 pending action'},
+            rollback_payload={'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
+            status='pending',
+            rollback_status='not_requested',
+        )
+        db.add(existing)
+        db.commit()
+
+        service = HermesDataAuditService(db, apply_enabled=True)
+        result = service.apply_corrections(
+            audit_run_id=run2.id,
+            actions=[_mapping_alias_action('shared-key')],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        db.refresh(existing)
+        db.refresh(run2)
+        assert result['applied_count'] == 0
+        assert result['blocked_count'] == 1
+        assert result['skipped_count'] == 0
+        assert result['action_statuses'] == [
+            {
+                'idempotency_key': 'shared-key',
+                'status': 'blocked_duplicate',
+                'reason': 'duplicate_in_other_run_pending',
+                'existing_audit_run_id': run1.id,
+                'existing_action_status': 'pending',
+            }
+        ]
+        assert existing.audit_run_id == run1.id
+        assert existing.status == 'pending'
+        assert existing.target_key == 'run1-original-target'
+        assert existing.after_value == {'hub': 96.0}
+        assert db.query(HermesCorrectionAction).count() == 1
+        assert db.query(MasterCodeAlias).count() == 0
+        assert run2.status == 'correction_blocked'
+    finally:
+        db.close()
+
+
 def test_apply_corrections_skips_duplicate_real_apply_after_applied() -> None:
     db = _db_session()
     handler_calls: list[dict] = []
@@ -1348,6 +1458,71 @@ def test_apply_corrections_skips_duplicate_real_apply_after_applied() -> None:
         db.close()
 
 
+def test_apply_corrections_historical_duplicate_does_not_block_new_action_in_same_batch() -> None:
+    db = _db_session()
+    try:
+        run1 = _make_run(db, run_key='run-1')
+        run2 = _make_run(db, run_key='run-2')
+        historical = HermesCorrectionAction(
+            audit_run_id=run1.id,
+            idempotency_key='historical-applied',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='master_code_aliases',
+            target_key='run1:2050',
+            field_name='alias_code',
+            before_value={'entity_type': 'workshop', 'alias_code': '2050-old'},
+            after_value={'entity_type': 'workshop', 'canonical_code': 'cold-roll-2050', 'alias_code': '2050-old'},
+            evidence={'source': 'mes', 'reason': 'historical apply'},
+            rollback_payload={'mode': 'manual', 'restore_before_value': {'entity_type': 'workshop', 'alias_code': '2050-old'}},
+            status='applied',
+            rollback_status='not_requested',
+            applied_by_id=3,
+        )
+        db.add(historical)
+        db.commit()
+
+        new_action = _mapping_alias_action('new-current-action')
+        new_action['target_key'] = 'workshop:cold-roll-2050:2051'
+        new_action['before_value']['alias_code'] = '2051'
+        new_action['after_value']['alias_code'] = '2051'
+        new_action['after_value']['alias_name'] = '冷轧2051'
+        new_action['rollback_payload']['restore_before_value']['alias_code'] = '2051'
+        new_action['evidence']['values']['alias_code'] = '2051'
+
+        service = HermesDataAuditService(db, apply_enabled=True)
+        result = service.apply_corrections(
+            audit_run_id=run2.id,
+            actions=[_mapping_alias_action('historical-applied'), new_action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        db.refresh(historical)
+        new_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='new-current-action').one()
+        alias_row = db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2051', source_type='hermes').one()
+        assert result['applied_count'] == 1
+        assert result['skipped_count'] == 1
+        assert result['blocked_count'] == 0
+        assert result['action_statuses'] == [
+            {
+                'idempotency_key': 'historical-applied',
+                'status': 'skipped_duplicate',
+                'reason': 'duplicate_in_other_run_terminal',
+                'existing_audit_run_id': run1.id,
+                'existing_action_status': 'applied',
+            },
+            {'idempotency_key': 'new-current-action', 'status': 'applied'},
+        ]
+        assert historical.audit_run_id == run1.id
+        assert historical.status == 'applied'
+        assert new_row.audit_run_id == run2.id
+        assert new_row.status == 'applied'
+        assert alias_row.canonical_code == 'cold-roll-2050'
+    finally:
+        db.close()
+
+
 def test_apply_corrections_duplicate_real_apply_does_not_report_applied_and_skipped_for_same_key() -> None:
     db = _db_session()
     try:
@@ -1370,6 +1545,89 @@ def test_apply_corrections_duplicate_real_apply_does_not_report_applied_and_skip
 
         statuses = [item['status'] for item in second['action_statuses'] if item['idempotency_key'] == 'repeat-status-check']
         assert statuses == ['skipped_duplicate']
+    finally:
+        db.close()
+
+
+def test_apply_corrections_current_batch_gate_only_uses_new_current_run_actions() -> None:
+    db = _db_session()
+    try:
+        run1 = _make_run(db, run_key='run-1')
+        run2 = _make_run(db, run_key='run-2')
+        historical = HermesCorrectionAction(
+            audit_run_id=run1.id,
+            idempotency_key='historical-applied',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='master_code_aliases',
+            target_key='run1:2050',
+            field_name='alias_code',
+            before_value={'entity_type': 'workshop', 'alias_code': '2050-old'},
+            after_value={'entity_type': 'workshop', 'canonical_code': 'cold-roll-2050', 'alias_code': '2050-old'},
+            evidence={'source': 'mes', 'reason': 'historical apply'},
+            rollback_payload={'mode': 'manual', 'restore_before_value': {'entity_type': 'workshop', 'alias_code': '2050-old'}},
+            status='applied',
+            rollback_status='not_requested',
+            applied_by_id=3,
+        )
+        db.add(historical)
+        db.commit()
+
+        valid_action = _mapping_alias_action('new-valid-action')
+        valid_action['target_key'] = 'workshop:cold-roll-2050:2052'
+        valid_action['before_value']['alias_code'] = '2052'
+        valid_action['after_value']['alias_code'] = '2052'
+        valid_action['after_value']['alias_name'] = '冷轧2052'
+        valid_action['rollback_payload']['restore_before_value']['alias_code'] = '2052'
+        valid_action['evidence']['values']['alias_code'] = '2052'
+
+        service = HermesDataAuditService(db, apply_enabled=True)
+        result = service.apply_corrections(
+            audit_run_id=run2.id,
+            actions=[
+                _mapping_alias_action('historical-applied'),
+                valid_action,
+                _supported_action('unsupported-new-action', action_type='mapping_field_rule_upsert'),
+            ],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        rows = db.query(HermesCorrectionAction).order_by(HermesCorrectionAction.id).all()
+        db.refresh(run2)
+        assert result['applied_count'] == 0
+        assert result['skipped_count'] == 1
+        assert result['blocked_count'] == 2
+        assert result['failed_count'] == 0
+        assert result['action_statuses'] == [
+            {
+                'idempotency_key': 'historical-applied',
+                'status': 'skipped_duplicate',
+                'reason': 'duplicate_in_other_run_terminal',
+                'existing_audit_run_id': run1.id,
+                'existing_action_status': 'applied',
+            },
+            {
+                'idempotency_key': 'unsupported-new-action',
+                'status': 'blocked',
+                'reason': 'executor_not_supported',
+            },
+            {
+                'idempotency_key': 'new-valid-action',
+                'status': 'blocked',
+            },
+        ]
+        assert [row.idempotency_key for row in rows] == ['historical-applied', 'new-valid-action', 'unsupported-new-action']
+        assert rows[0].audit_run_id == run1.id
+        assert rows[0].status == 'applied'
+        assert rows[1].audit_run_id == run2.id
+        assert rows[1].status == 'blocked'
+        assert rows[1].evidence['blocked_reason'] == 'batch_not_all_executable'
+        assert rows[2].audit_run_id == run2.id
+        assert rows[2].status == 'blocked'
+        assert rows[2].evidence['blocked_reason'] == 'executor_not_supported'
+        assert db.query(MasterCodeAlias).count() == 0
+        assert run2.status == 'correction_blocked'
     finally:
         db.close()
 

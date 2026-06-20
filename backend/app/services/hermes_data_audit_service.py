@@ -76,6 +76,7 @@ ACTION_TARGET_TABLE_ALLOWLIST = {
     'daily_report_recalculate': {'daily_report_runs'},
 }
 REAL_APPLY_EXECUTOR_ACTIONS = {'mapping_alias_upsert'}
+REUSABLE_ACTION_STATUSES = {'pending', 'dry_run'}
 
 TEXT_RAW_EXTENSIONS = {'.txt', '.md', '.log'}
 CSV_EXTENSIONS = {'.csv'}
@@ -487,19 +488,40 @@ class HermesDataAuditService:
         planned_idempotency_keys: list[str] = []
 
         if dry_run:
-            existing_actions = {
-                row.idempotency_key: row
-                for row in self._db.query(HermesCorrectionAction)
-                .filter(HermesCorrectionAction.audit_run_id == audit_run_id)
-                .all()
-            }
             for payload in actions:
                 idempotency_key = str(payload.get('idempotency_key') or '').strip()
                 if not idempotency_key:
                     raise ValueError('idempotency_key is required')
-                _ = existing_actions.get(idempotency_key)
-                summary['dry_run_count'] += 1
-                summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': 'dry_run'})
+                existing = (
+                    self._db.query(HermesCorrectionAction)
+                    .filter(HermesCorrectionAction.idempotency_key == idempotency_key)
+                    .one_or_none()
+                )
+                duplicate_status = self._duplicate_action_status(
+                    audit_run_id=audit_run_id,
+                    idempotency_key=idempotency_key,
+                    existing=existing,
+                )
+                if duplicate_status is not None:
+                    self._record_preview_status(summary=summary, status_entry=duplicate_status)
+                    continue
+
+                preview_action = HermesCorrectionAction(
+                    audit_run_id=audit_run_id,
+                    idempotency_key=idempotency_key,
+                    rollback_status='not_requested',
+                )
+                self._sync_action_from_payload(preview_action, audit_run_id=audit_run_id, payload=payload)
+                status, blocked_reason = self._determine_action_status(action=preview_action, dry_run=True)
+                if status == 'executable':
+                    summary['dry_run_count'] += 1
+                    summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': 'dry_run'})
+                    continue
+
+                status_entry = {'idempotency_key': idempotency_key, 'status': status}
+                if blocked_reason:
+                    status_entry['reason'] = blocked_reason
+                self._record_preview_status(summary=summary, status_entry=status_entry)
             return summary
 
         for payload in actions:
@@ -512,9 +534,13 @@ class HermesDataAuditService:
                 .filter(HermesCorrectionAction.idempotency_key == idempotency_key)
                 .one_or_none()
             )
-            if existing is not None and existing.status not in {'pending', 'dry_run'}:
-                summary['skipped_count'] += 1
-                summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': 'skipped_duplicate'})
+            duplicate_status = self._duplicate_action_status(
+                audit_run_id=audit_run_id,
+                idempotency_key=idempotency_key,
+                existing=existing,
+            )
+            if duplicate_status is not None:
+                self._record_preview_status(summary=summary, status_entry=duplicate_status)
                 continue
 
             is_new_action = existing is None
@@ -557,11 +583,14 @@ class HermesDataAuditService:
                 summary['dry_run_count'] += 1
             elif 'blocked' in status:
                 summary['blocked_count'] += 1
-                if blocked_reason == 'apply_disabled':
-                    summary['reason'] = 'apply_disabled'
-            summary['action_statuses'].append({'idempotency_key': action.idempotency_key, 'status': status})
+                if blocked_reason and summary['reason'] is None:
+                    summary['reason'] = blocked_reason
+            status_entry = {'idempotency_key': action.idempotency_key, 'status': status}
+            if blocked_reason:
+                status_entry['reason'] = blocked_reason
+            summary['action_statuses'].append(status_entry)
 
-        batch_has_gate_issue = bool(summary['skipped_count']) or batch_has_non_executable_action
+        batch_has_gate_issue = batch_has_non_executable_action
         if not dry_run and executable_actions and batch_has_gate_issue:
             if summary['reason'] is None:
                 summary['reason'] = 'batch_not_all_executable'
@@ -1269,10 +1298,6 @@ class HermesDataAuditService:
             return 'blocked', 'unsupported_action_type'
         if not action.risk_level:
             return 'blocked', 'missing_risk_level'
-        if not self._apply_enabled:
-            return 'blocked', 'apply_disabled'
-        if action.risk_level.lower() != 'low':
-            return 'high_risk_blocked', 'high_risk'
         if not self._is_allowed_target_for_action(action.action_type, action.target_table):
             if str(action.target_table).strip().startswith('mes_'):
                 return 'blocked', 'mes_target_read_only'
@@ -1281,7 +1306,68 @@ class HermesDataAuditService:
             return 'blocked', 'incomplete_correction_audit_payload'
         if not self._has_internal_executor(action.action_type):
             return 'blocked', 'executor_not_supported'
+        if action.risk_level.lower() != 'low':
+            return 'high_risk_blocked', 'high_risk'
+        if not self._apply_enabled:
+            return 'blocked', 'apply_disabled'
         return 'executable', None
+
+    @staticmethod
+    def _is_reusable_action_status(status: str | None) -> bool:
+        return str(status or '').strip() in REUSABLE_ACTION_STATUSES
+
+    def _duplicate_action_status(
+        self,
+        *,
+        audit_run_id: int,
+        idempotency_key: str,
+        existing: HermesCorrectionAction | None,
+    ) -> dict[str, Any] | None:
+        if existing is None:
+            return None
+        same_run = existing.audit_run_id == audit_run_id
+        if same_run and self._is_reusable_action_status(existing.status):
+            return None
+        if same_run:
+            return {
+                'idempotency_key': idempotency_key,
+                'status': 'skipped_duplicate',
+            }
+        if self._is_reusable_action_status(existing.status):
+            return {
+                'idempotency_key': idempotency_key,
+                'status': 'blocked_duplicate',
+                'reason': 'duplicate_in_other_run_pending',
+                'existing_audit_run_id': existing.audit_run_id,
+                'existing_action_status': existing.status,
+            }
+        return {
+            'idempotency_key': idempotency_key,
+            'status': 'skipped_duplicate',
+            'reason': 'duplicate_in_other_run_terminal',
+            'existing_audit_run_id': existing.audit_run_id,
+            'existing_action_status': existing.status,
+        }
+
+    @staticmethod
+    def _record_preview_status(
+        *,
+        summary: dict[str, Any],
+        status_entry: Mapping[str, Any],
+    ) -> None:
+        summary['action_statuses'].append(dict(status_entry))
+        status = str(status_entry.get('status') or '').strip()
+        reason = status_entry.get('reason')
+        if status == 'dry_run':
+            summary['dry_run_count'] += 1
+            return
+        if status == 'skipped_duplicate':
+            summary['skipped_count'] += 1
+            return
+        if 'blocked' in status:
+            summary['blocked_count'] += 1
+            if reason and summary['reason'] is None:
+                summary['reason'] = str(reason)
 
     @staticmethod
     def _action_payload(action: HermesCorrectionAction) -> dict[str, Any]:
