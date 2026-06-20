@@ -128,6 +128,15 @@ _AUDIT_INLINE_TEXT_LIMIT = 200
 _AUDIT_MAPPING_SUMMARY_LIMIT = 8
 _AUDIT_LIST_SUMMARY_LIMIT = 4
 _AUDIT_SAMPLE_ITEM_LIMIT = 2
+_EVIDENCE_PRESERVE_KEYS = {'reason', 'source', 'field', 'field_name', 'evidence_ref', 'values'}
+_ROLLBACK_PRESERVE_KEYS = {
+    'mode',
+    'reason',
+    'restore_before_value',
+    'rollback_available',
+    'rollback_unavailable_reason',
+}
+_AUDIT_NESTED_MERGE_KEYS = {'values', 'restore_before_value'}
 
 
 def _json_safe(value: Any) -> Any:
@@ -274,6 +283,61 @@ def _slim_correction_audit_value(value: Any, *, field_name: str | None = None, d
             return _summarize_audit_text(redacted)
         return redacted
     return safe_value
+
+
+def _is_empty_audit_merge_value(value: Any) -> bool:
+    return value in (None, '', {}, [])
+
+
+def _merge_nested_audit_mapping(original: Mapping[str, Any], incoming: Mapping[str, Any]) -> dict[str, Any]:
+    merged = {str(key): _json_safe(item) for key, item in original.items()}
+    for key, item in incoming.items():
+        normalized_key = str(key)
+        safe_item = _json_safe(item)
+        existing_item = merged.get(normalized_key)
+        if isinstance(existing_item, Mapping) and isinstance(safe_item, Mapping):
+            merged[normalized_key] = _merge_nested_audit_mapping(existing_item, safe_item)
+            continue
+        if _is_empty_audit_merge_value(safe_item) and not _is_empty_audit_merge_value(existing_item):
+            continue
+        merged[normalized_key] = safe_item
+    return merged
+
+
+def _merge_audit_metadata_mapping(
+    original: Any,
+    incoming: Any,
+    *,
+    preserve_keys: set[str],
+) -> Any:
+    safe_incoming = _json_safe(incoming)
+    if not isinstance(safe_incoming, Mapping):
+        return safe_incoming
+    if not safe_incoming:
+        return {}
+
+    safe_original = _json_safe(original or {})
+    if not isinstance(safe_original, Mapping):
+        safe_original = {}
+
+    merged = {str(key): item for key, item in safe_original.items()}
+    for key, item in safe_incoming.items():
+        normalized_key = str(key)
+        safe_item = _json_safe(item)
+        existing_item = merged.get(normalized_key)
+        if (
+            normalized_key in _AUDIT_NESTED_MERGE_KEYS
+            and isinstance(existing_item, Mapping)
+            and isinstance(safe_item, Mapping)
+        ):
+            merged[normalized_key] = _merge_nested_audit_mapping(existing_item, safe_item)
+            continue
+        if normalized_key in preserve_keys and _is_empty_audit_merge_value(safe_item) and not _is_empty_audit_merge_value(
+            existing_item
+        ):
+            continue
+        merged[normalized_key] = safe_item
+    return merged
 
 
 class HermesDataAuditService:
@@ -496,6 +560,7 @@ class HermesDataAuditService:
             handler_new_ids = {id(item) for item in self._db.new}
             savepoint = self._db.begin_nested()
             handler_results: dict[str, Mapping[str, Any]] = {}
+            projected_actions: dict[str, HermesCorrectionAction] = {}
             batch_error: str | None = None
             try:
                 for action in executable_actions:
@@ -506,6 +571,7 @@ class HermesDataAuditService:
                         action=action,
                         handler_result=handler_results.get(action.idempotency_key, {}),
                     )
+                    projected_actions[action.idempotency_key] = projected_action
                     if not self._has_complete_correction_audit_payload(projected_action):
                         raise ValueError('invalid_handler_audit_payload')
                 savepoint.commit()
@@ -525,25 +591,25 @@ class HermesDataAuditService:
                     summary['action_statuses'].append({'idempotency_key': action.idempotency_key, 'status': 'failed'})
             else:
                 for action in executable_actions:
-                    handler_result = handler_results.get(action.idempotency_key, {})
-                    if 'before_value' in handler_result:
+                    projected_action = projected_actions[action.idempotency_key]
+                    if projected_action.before_value is not None:
                         action.before_value = _slim_correction_audit_value(
-                            handler_result.get('before_value'),
+                            projected_action.before_value,
                             field_name='before_value',
                         )
-                    if 'after_value' in handler_result:
+                    if projected_action.after_value is not None:
                         action.after_value = _slim_correction_audit_value(
-                            handler_result.get('after_value'),
+                            projected_action.after_value,
                             field_name='after_value',
                         )
-                    if 'evidence' in handler_result:
+                    if projected_action.evidence is not None:
                         action.evidence = _slim_correction_audit_value(
-                            handler_result.get('evidence') or {},
+                            projected_action.evidence,
                             field_name='evidence',
                         )
-                    if 'rollback_payload' in handler_result:
+                    if projected_action.rollback_payload is not None:
                         action.rollback_payload = _slim_correction_audit_value(
-                            handler_result.get('rollback_payload'),
+                            projected_action.rollback_payload,
                             field_name='rollback_payload',
                         )
                     action.status = 'applied'
@@ -1226,24 +1292,20 @@ class HermesDataAuditService:
             status=action.status,
         )
         if 'before_value' in handler_result:
-            projected.before_value = _slim_correction_audit_value(
-                handler_result.get('before_value'),
-                field_name='before_value',
-            )
+            projected.before_value = _json_safe(handler_result.get('before_value'))
         if 'after_value' in handler_result:
-            projected.after_value = _slim_correction_audit_value(
-                handler_result.get('after_value'),
-                field_name='after_value',
-            )
+            projected.after_value = _json_safe(handler_result.get('after_value'))
         if 'evidence' in handler_result:
-            projected.evidence = _slim_correction_audit_value(
-                handler_result.get('evidence') or {},
-                field_name='evidence',
+            projected.evidence = _merge_audit_metadata_mapping(
+                action.evidence,
+                handler_result.get('evidence'),
+                preserve_keys=_EVIDENCE_PRESERVE_KEYS,
             )
         if 'rollback_payload' in handler_result:
-            projected.rollback_payload = _slim_correction_audit_value(
+            projected.rollback_payload = _merge_audit_metadata_mapping(
+                action.rollback_payload,
                 handler_result.get('rollback_payload'),
-                field_name='rollback_payload',
+                preserve_keys=_ROLLBACK_PRESERVE_KEYS,
             )
         return projected
 

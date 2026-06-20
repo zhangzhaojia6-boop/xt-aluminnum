@@ -105,6 +105,26 @@ def _supported_action(
     }
 
 
+def _supported_action_with_machine_audit_fields(idempotency_key: str) -> dict:
+    action = _supported_action(idempotency_key)
+    action['evidence'] = {
+        'source': 'mes',
+        'reason': 'source-of-truth mismatch',
+        'field': 'workshop_output',
+        'field_name': 'workshop_output',
+        'evidence_ref': 'report:2026-06-18',
+        'values': {'before': 95.0, 'after': 100.0},
+    }
+    action['rollback_payload'] = {
+        'mode': 'manual',
+        'reason': 'restore previous hub value',
+        'restore_before_value': {'hub': 95.0},
+        'rollback_available': True,
+        'rollback_unavailable_reason': '',
+    }
+    return action
+
+
 def _large_raw_text() -> str:
     return ('RAW-ROW-' * 250) + ' token=secret-token password=top-secret'
 
@@ -1327,7 +1347,7 @@ def test_apply_corrections_marks_applied_when_controlled_handler_succeeds() -> N
                 'before_value': {'hub': 95.0},
                 'after_value': {'hub': 96.5},
                 'evidence': {'handler': 'ok'},
-                'rollback_payload': {'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
+                'rollback_payload': {'handler_ref': 'rollback:ok'},
             }
 
         _handler.hermes_controlled_transaction = True
@@ -1335,7 +1355,7 @@ def test_apply_corrections_marks_applied_when_controlled_handler_succeeds() -> N
 
         result = service.apply_corrections(
             audit_run_id=run.id,
-            actions=[_supported_action('applied-action')],
+            actions=[_supported_action_with_machine_audit_fields('applied-action')],
             dry_run=False,
             applied_by_id=3,
         )
@@ -1345,7 +1365,19 @@ def test_apply_corrections_marks_applied_when_controlled_handler_succeeds() -> N
         assert action.status == 'applied'
         assert action.before_value == {'hub': 95.0}
         assert action.after_value == {'hub': 96.5}
-        assert action.evidence == {'handler': 'ok'}
+        assert action.evidence['source'] == 'mes'
+        assert action.evidence['reason'] == 'source-of-truth mismatch'
+        assert action.evidence['field'] == 'workshop_output'
+        assert action.evidence['field_name'] == 'workshop_output'
+        assert action.evidence['evidence_ref'] == 'report:2026-06-18'
+        assert action.evidence['values'] == {'before': 95.0, 'after': 100.0}
+        assert action.evidence['handler'] == 'ok'
+        assert action.rollback_payload['mode'] == 'manual'
+        assert action.rollback_payload['reason'] == 'restore previous hub value'
+        assert action.rollback_payload['restore_before_value'] == {'hub': 95.0}
+        assert action.rollback_payload['rollback_available'] is True
+        assert action.rollback_payload['rollback_unavailable_reason'] == ''
+        assert action.rollback_payload['handler_ref'] == 'rollback:ok'
         db.refresh(run)
         assert run.status == 'corrected'
     finally:
@@ -1508,14 +1540,19 @@ def test_apply_corrections_slims_large_handler_result_payloads_before_persisting
                 },
                 'evidence': {
                     'handler': 'ok',
-                    'source': 'mes',
-                    'field_name': 'workshop_output',
-                    'values': {'rows': [{'raw': _large_raw_text()}], 'raw_text': _large_raw_text()},
+                    'source': '',
+                    'field_name': None,
+                    'values': {
+                        'rows': [{'raw': _large_raw_text()}],
+                        'raw_text': _large_raw_text(),
+                    },
                 },
                 'rollback_payload': {
-                    'mode': 'manual',
-                    'reason': 'restore previous hub value',
-                    'restore_before_value': {'hub': 95.0},
+                    'reason': '',
+                    'restore_before_value': {
+                        'rows': [{'raw': _large_raw_text(), 'raw_text': _large_raw_text(), 'value': 95.0}],
+                        'content': _large_raw_text(),
+                    },
                     'payload': {'raw_text': _large_raw_text()},
                 },
             }
@@ -1525,7 +1562,7 @@ def test_apply_corrections_slims_large_handler_result_payloads_before_persisting
 
         result = service.apply_corrections(
             audit_run_id=run.id,
-            actions=[_supported_action('slim-handler-result')],
+            actions=[_supported_action_with_machine_audit_fields('slim-handler-result')],
             dry_run=False,
             applied_by_id=3,
         )
@@ -1536,18 +1573,60 @@ def test_apply_corrections_slims_large_handler_result_payloads_before_persisting
         assert action.before_value['hub'] == 95.0
         assert action.after_value['hub'] == 96.5
         assert action.evidence['source'] == 'mes'
+        assert action.evidence['reason'] == 'source-of-truth mismatch'
         assert action.evidence['field_name'] == 'workshop_output'
+        assert action.evidence['values']['before'] == 95.0
+        assert action.evidence['values']['after'] == 100.0
         assert action.rollback_payload['mode'] == 'manual'
-        assert action.rollback_payload['restore_before_value'] == {'hub': 95.0}
+        assert action.rollback_payload['reason'] == 'restore previous hub value'
+        assert action.rollback_payload['restore_before_value']['hub'] == 95.0
         _assert_collection_summary(action.before_value['rows'])
         _assert_text_summary(action.after_value['content'])
         _assert_collection_summary(action.evidence['values']['rows'])
         _assert_text_summary(action.evidence['values']['raw_text'])
+        _assert_collection_summary(action.rollback_payload['restore_before_value']['rows'])
+        _assert_text_summary(action.rollback_payload['restore_before_value']['content'])
         _assert_collection_summary(action.rollback_payload['payload'])
         _assert_payload_slimmed(action.before_value)
         _assert_payload_slimmed(action.after_value)
         _assert_payload_slimmed(action.evidence)
         _assert_payload_slimmed(action.rollback_payload)
+    finally:
+        db.close()
+
+
+def test_apply_corrections_merges_handler_rollback_payload_without_losing_machine_fields() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            return {
+                'before_value': {'hub': 95.0},
+                'after_value': {'hub': 96.5},
+                'evidence': {'handler': 'ok'},
+                'rollback_payload': {'handler_ref': 'rollback:ok'},
+            }
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_supported_action_with_machine_audit_fields('merge-handler-rollback')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).one()
+        assert result['applied_count'] == 1
+        assert action.status == 'applied'
+        assert action.rollback_payload['mode'] == 'manual'
+        assert action.rollback_payload['reason'] == 'restore previous hub value'
+        assert action.rollback_payload['restore_before_value'] == {'hub': 95.0}
+        assert action.rollback_payload['rollback_available'] is True
+        assert action.rollback_payload['rollback_unavailable_reason'] == ''
+        assert action.rollback_payload['handler_ref'] == 'rollback:ok'
     finally:
         db.close()
 
