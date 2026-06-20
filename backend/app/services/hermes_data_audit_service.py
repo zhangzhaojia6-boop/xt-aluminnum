@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.models import MasterCodeAlias
 from app.models.hermes_data_audit import HermesCorrectionAction, HermesDataAuditRun
-from app.services.mapping_reconciliation_service import parse_output_skill_reference_file
+from app.services.mapping_reconciliation_service import PARSEABLE_REFERENCE_EXTENSIONS, parse_output_skill_reference_file
 
 
 class OutputSkillSourceMissingError(RuntimeError):
@@ -79,6 +79,7 @@ REAL_APPLY_EXECUTOR_ACTIONS = {'mapping_alias_upsert'}
 
 TEXT_RAW_EXTENSIONS = {'.txt', '.md', '.log'}
 CSV_EXTENSIONS = {'.csv'}
+OUTPUT_SKILL_ALLOWED_EXTENSIONS = set(PARSEABLE_REFERENCE_EXTENSIONS) | CSV_EXTENSIONS
 _TRUE_VALUES = {'1', 'true', 'yes', 'on'}
 _NARRATIVE_PATTERNS = {
     'inbound_total': re.compile(r'入库成品日合计\s*([0-9]+(?:\.[0-9]+)?)\s*吨'),
@@ -732,6 +733,16 @@ class HermesDataAuditService:
                 'issues': [{'code': 'output_skill_source_missing'}],
             }
 
+        matched_files = [path for path in matched_files if self._is_allowed_output_skill_extension(path)]
+        if not matched_files:
+            return {
+                'status': 'missing',
+                'files': [],
+                'raw_text': '',
+                'parsed': {},
+                'issues': [{'code': 'output_skill_source_missing'}],
+            }
+
         files: list[str] = []
         raw_text_parts: list[str] = []
         combined_fields: dict[str, Any] = {}
@@ -1028,6 +1039,10 @@ class HermesDataAuditService:
         if raw_value is None or str(raw_value).strip() == '':
             return None
         return Path(raw_value)
+
+    @staticmethod
+    def _is_allowed_output_skill_extension(path: Path) -> bool:
+        return path.suffix.lower() in OUTPUT_SKILL_ALLOWED_EXTENSIONS
 
     @staticmethod
     def _filename_matches_business_date(file_name: str, business_date: date) -> bool:

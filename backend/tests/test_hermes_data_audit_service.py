@@ -367,6 +367,59 @@ def test_read_output_skill_file_accepts_csv(tmp_path) -> None:
         db.close()
 
 
+def test_create_run_ignores_same_date_png_when_txt_reference_exists(tmp_path) -> None:
+    root = tmp_path / 'output-skill'
+    root.mkdir()
+    (root / '2026-06-18-日报.txt').write_text('车间总产量日合计100吨\n', encoding='utf-8')
+    (root / '2026-06-18-截图.png').write_bytes(b'not-a-real-png')
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            output_skill_root=root,
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert run.status == 'completed'
+        assert run.source_status['output_skill'] == 'parsed'
+        assert run.output_skill_snapshot['parsed'] == {'total_output': 100.0}
+        assert 'output_skill' not in run.source_errors
+    finally:
+        db.close()
+
+
+def test_create_run_marks_unsupported_only_output_skill_as_missing_source(tmp_path) -> None:
+    root = tmp_path / 'output-skill'
+    root.mkdir()
+    (root / '2026-06-18-截图.png').write_bytes(b'not-a-real-png')
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            output_skill_root=root,
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        assert run.status == 'completed_with_missing_source'
+        assert run.source_status['output_skill'] in {'missing', 'unsupported'}
+        assert run.output_skill_snapshot['parsed'] == {}
+        assert run.source_errors in ({}, {'output_skill': 'output_skill_source_missing'})
+    finally:
+        db.close()
+
+
 def test_create_run_uses_default_fields_when_fields_missing() -> None:
     db = _db_session()
     try:
