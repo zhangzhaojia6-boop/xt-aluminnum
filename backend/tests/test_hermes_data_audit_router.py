@@ -422,6 +422,73 @@ def test_get_hermes_data_audit_run_does_not_mark_failed_action_as_ready_to_apply
     assert payload['decision_gate']['reason'] != 'ready_to_apply'
 
 
+def test_get_hermes_data_audit_run_keeps_blocked_reason_when_only_high_risk_blocked_action_exists(monkeypatch) -> None:
+    monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-completed-high-risk-blocked',
+        business_date=date(2026, 6, 18),
+        status='completed',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={'records_count_by_source': {'stock_records': 3}},
+        hub_snapshot={'field_count': 1},
+        output_skill_snapshot={'parsed': {'total_output': 10}},
+        diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
+        suggested_actions=[],
+        match_rate=Decimal('0.5000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.flush()
+    db.add(
+        HermesCorrectionAction(
+            audit_run_id=run.id,
+            idempotency_key='high-risk-blocked:1',
+            action_type='mapping_alias_upsert',
+            risk_level='high',
+            target_table='master_code_aliases',
+            target_key='workshop:精整',
+            before_value={
+                'entity_type': 'workshop',
+                'canonical_code': '精整',
+                'alias_code': '精整车间',
+                'alias_name': '精整车间',
+                'source_type': 'manual',
+                'is_active': True,
+            },
+            after_value={
+                'entity_type': 'workshop',
+                'canonical_code': '精整',
+                'alias_code': '精整',
+                'alias_name': '精整',
+                'source_type': 'hermes',
+                'is_active': True,
+            },
+            evidence={'blocked_reason': 'high_risk', 'reason': 'manual review required'},
+            status='high_risk_blocked',
+            rollback_payload={'restore_before_value': {'alias_code': '精整车间'}},
+        )
+    )
+    db.commit()
+    previous_overrides = _install_overrides(db=db, user_role='user')
+
+    try:
+        client = TestClient(app)
+        response = client.get(f'/api/v1/hermes/data-audit/runs/{run.id}')
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['decision_gate']['can_apply'] is False
+    assert payload['decision_gate']['reason'] == 'high_risk'
+    assert payload['decision_gate']['reason'] != 'no_pending_correction_actions'
+
+
 def test_get_hermes_data_audit_run_keeps_pending_suggestion_when_failed_row_exists(monkeypatch) -> None:
     monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
     engine = _make_engine()

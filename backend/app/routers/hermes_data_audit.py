@@ -37,6 +37,8 @@ _ACTION_GATE_REASON_PRIORITY = {
     'unsupported_action_type': 3,
     'incomplete_correction_audit_payload': 4,
     'high_risk': 5,
+    'blocked_correction_action': 6,
+    'blocked_duplicate': 7,
 }
 
 
@@ -293,6 +295,28 @@ def _pending_action_gate_reason(pending_actions: list[dict[str, Any]]) -> str | 
     return min(block_reasons, key=lambda reason: _ACTION_GATE_REASON_PRIORITY.get(reason, 999))
 
 
+def _blocked_action_gate_reason(correction_actions: list[dict[str, Any]]) -> str | None:
+    block_reasons: list[str] = []
+    for item in correction_actions:
+        status_name = str(item.get('status') or '').strip().lower()
+        evidence = item.get('evidence') if isinstance(item.get('evidence'), dict) else {}
+        blocked_reason = str(evidence.get('blocked_reason') or '').strip()
+        if status_name == 'high_risk_blocked':
+            block_reasons.append(blocked_reason or 'high_risk')
+            continue
+        if status_name == 'blocked':
+            block_reasons.append(blocked_reason or 'blocked_correction_action')
+            continue
+        if status_name == 'blocked_duplicate':
+            block_reasons.append(blocked_reason or 'blocked_duplicate')
+            continue
+        if status_name == 'failed' and blocked_reason:
+            block_reasons.append(blocked_reason)
+    if not block_reasons:
+        return None
+    return min(block_reasons, key=lambda reason: _ACTION_GATE_REASON_PRIORITY.get(reason, 999))
+
+
 def _source_gate_reason(run: HermesDataAuditRun) -> str | None:
     source_errors = run.source_errors or {}
     if source_errors.get('output_skill') == 'output_skill_source_missing':
@@ -327,6 +351,9 @@ def _build_decision_gate(
         return {'can_apply': False, 'reason': 'no_correction_actions', 'apply_enabled': apply_enabled}
     pending_actions = _pending_correction_actions(correction_actions)
     if not pending_actions:
+        blocked_reason = _blocked_action_gate_reason(correction_actions)
+        if blocked_reason is not None:
+            return {'can_apply': False, 'reason': blocked_reason, 'apply_enabled': apply_enabled}
         return {'can_apply': False, 'reason': 'no_pending_correction_actions', 'apply_enabled': apply_enabled}
     pending_gate_reason = _pending_action_gate_reason(pending_actions)
     if pending_gate_reason is not None:
