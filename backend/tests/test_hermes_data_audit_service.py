@@ -726,7 +726,7 @@ def test_read_dingtalk_text_evidence_prefers_source_payload_business_time_over_c
         _add_dingtalk_text_message(
             db,
             text='6月18日夜班总产量100吨',
-            created_at=_dingtalk_created_at(day=19, hour=9, minute=5),
+            created_at=_dingtalk_created_at(day=18, hour=8),
             source_payload={'sent_at': '2026-06-18T20:00:00+08:00'},
         )
         service = HermesDataAuditService(db, output_skill_root=None)
@@ -737,7 +737,7 @@ def test_read_dingtalk_text_evidence_prefers_source_payload_business_time_over_c
         assert status == 'ok'
         assert len(items) == 1
         assert items[0]['sent_at'] == '2026-06-18T20:00:00+08:00'
-        assert items[0]['created_at'].startswith('2026-06-19T09:05:00')
+        assert items[0]['created_at'].startswith('2026-06-18T08:00:00')
     finally:
         db.close()
 
