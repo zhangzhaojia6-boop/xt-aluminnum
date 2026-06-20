@@ -282,6 +282,52 @@ def test_run_backfill_apply_corrections_calls_real_apply_once() -> None:
     assert summaries[0]['next'] == 'rerun_audit_to_verify'
 
 
+def test_run_backfill_marks_blocked_apply_summary_as_failure() -> None:
+    module = _load_script_module()
+    run = _make_run(run_id=9, status='corrected')
+    service = _FakeService({date(2026, 6, 18): run})
+
+    def _blocked_apply(*, audit_run_id: int, actions, dry_run=True, applied_by_id=None):
+        service.apply_calls.append(
+            {
+                'audit_run_id': audit_run_id,
+                'actions': list(actions),
+                'dry_run': dry_run,
+                'applied_by_id': applied_by_id,
+            }
+        )
+        return {
+            'audit_run_id': audit_run_id,
+            'apply_enabled': True,
+            'reason': 'rerun_audit_required',
+            'created_count': 0,
+            'dry_run_count': 0,
+            'applied_count': 0,
+            'blocked_count': 1,
+            'skipped_count': 0,
+            'failed_count': 0,
+            'action_statuses': [],
+        }
+
+    service.apply_corrections = _blocked_apply
+
+    summaries = module.run_backfill(
+        start_date=date(2026, 6, 18),
+        end_date=date(2026, 6, 18),
+        fields=['total_output'],
+        dry_run=False,
+        apply_corrections=True,
+        sessionmaker_factory=lambda: _FakeSessionFactory(),
+        service_factory=lambda _db: service,
+    )
+
+    assert summaries[0]['status'] == 'correction_blocked'
+    assert summaries[0]['apply'] == 'no'
+    assert module._summary_is_failed(summaries[0]) is True
+    assert 'rerun_audit_required' in summaries[0]['detail']
+    assert '\n' not in summaries[0]['detail']
+
+
 def test_main_dry_run_prints_header_and_rows(monkeypatch) -> None:
     module = _load_script_module()
     captured = StringIO()

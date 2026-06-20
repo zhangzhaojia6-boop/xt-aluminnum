@@ -141,13 +141,54 @@ def _next_step_from_run(run: Any, *, apply_summary: dict[str, Any] | None = None
     return 'ready_for_hermes_test'
 
 
+def _apply_summary_count(apply_summary: dict[str, Any] | None, key: str) -> int:
+    if not apply_summary:
+        return 0
+    return int(apply_summary.get(key, 0) or 0)
+
+
+def _status_from_apply_summary(run_status: str, apply_summary: dict[str, Any] | None) -> str:
+    if not apply_summary:
+        return run_status
+    applied_count = _apply_summary_count(apply_summary, 'applied_count')
+    blocked_count = _apply_summary_count(apply_summary, 'blocked_count')
+    failed_count = _apply_summary_count(apply_summary, 'failed_count')
+
+    if failed_count > 0 and (blocked_count > 0 or applied_count > 0):
+        return 'correction_partial_failed'
+    if applied_count > 0 and blocked_count > 0:
+        return 'correction_partial_failed'
+    if failed_count > 0:
+        return 'correction_failed'
+    if blocked_count > 0:
+        return 'correction_blocked'
+    return run_status
+
+
+def _detail_from_apply_summary(apply_summary: dict[str, Any] | None) -> str:
+    if not apply_summary:
+        return ''
+    reason = str(apply_summary.get('reason') or '').strip()
+    blocked_count = _apply_summary_count(apply_summary, 'blocked_count')
+    failed_count = _apply_summary_count(apply_summary, 'failed_count')
+    if not reason and blocked_count == 0 and failed_count == 0:
+        return ''
+    parts: list[str] = []
+    if reason:
+        parts.append(f'apply_reason={reason}')
+    parts.append(f'blocked={blocked_count}')
+    parts.append(f'failed={failed_count}')
+    return _safe_single_line_text(' '.join(parts))
+
+
 def summarize_run(run: Any, apply_summary: dict[str, Any] | None = None) -> dict[str, Any]:
     business_date = getattr(run, 'business_date', None)
     match_rate = _float_or_none(getattr(run, 'match_rate', None))
     applied_count = int((apply_summary or {}).get('applied_count', 0) or 0)
+    run_status = str(getattr(run, 'status', 'unknown') or 'unknown')
     summary = {
         'date': business_date.isoformat() if isinstance(business_date, date) else str(business_date or '--'),
-        'status': str(getattr(run, 'status', 'unknown') or 'unknown'),
+        'status': _status_from_apply_summary(run_status, apply_summary),
         'apply': 'yes' if applied_count > 0 else 'no',
         'match': match_rate,
         'mes': _source_status(run, 'mes'),
@@ -156,7 +197,7 @@ def summarize_run(run: Any, apply_summary: dict[str, Any] | None = None) -> dict
         'diffs': _count_diffs(getattr(run, 'diffs', {})),
         'correction_action_count': len(getattr(run, 'suggested_actions', []) or []),
         'next': _next_step_from_run(run, apply_summary=apply_summary),
-        'detail': '',
+        'detail': _detail_from_apply_summary(apply_summary),
     }
     return summary
 
