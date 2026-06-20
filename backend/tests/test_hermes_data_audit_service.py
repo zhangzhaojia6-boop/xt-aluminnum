@@ -104,13 +104,14 @@ def _add_dingtalk_text_message(
     *,
     text: str,
     created_at: datetime,
+    channel: str = 'dingtalk_group',
     group_id: str = 'ding-group-001',
     trace_id: str = 'trace-ding-text-001',
     sender_external_id: str = 'ding-user-001',
     source_payload: dict | None = None,
 ) -> ChatInboxMessage:
     message = ChatInboxMessage(
-        channel='dingtalk_group',
+        channel=channel,
         group_id=group_id,
         sender_external_id=sender_external_id,
         text=text,
@@ -714,6 +715,14 @@ def test_create_run_records_dingtalk_read_failure_without_interrupting_compariso
 def test_read_dingtalk_text_evidence_prefers_source_payload_business_time_over_created_at() -> None:
     db = _db_session()
     try:
+        for offset in range(25):
+            _add_dingtalk_text_message(
+                db,
+                text=f'不属于6月18业务日的晚到消息 {offset}',
+                created_at=_dingtalk_created_at(day=19, hour=9, minute=offset),
+                trace_id=f'trace-late-noise-{offset}',
+                source_payload={'sent_at': f'2026-06-19T09:{offset:02d}:00+08:00'},
+            )
         _add_dingtalk_text_message(
             db,
             text='6月18日夜班总产量100吨',
@@ -729,6 +738,40 @@ def test_read_dingtalk_text_evidence_prefers_source_payload_business_time_over_c
         assert len(items) == 1
         assert items[0]['sent_at'] == '2026-06-18T20:00:00+08:00'
         assert items[0]['created_at'].startswith('2026-06-19T09:05:00')
+    finally:
+        db.close()
+
+
+def test_read_dingtalk_text_evidence_ignores_non_group_channel_and_uses_created_at_fallback() -> None:
+    db = _db_session()
+    try:
+        _add_dingtalk_text_message(
+            db,
+            text='单聊消息不能进入群证据',
+            channel='dingtalk_single',
+            created_at=_dingtalk_created_at(day=18, hour=9),
+            trace_id='trace-single-channel',
+        )
+        _add_dingtalk_text_message(
+            db,
+            text='6月18业务日内，无sent_at时用created_at兜底',
+            created_at=_dingtalk_created_at(day=19, hour=7, minute=40),
+            trace_id='trace-created-at-fallback-in-window',
+        )
+        _add_dingtalk_text_message(
+            db,
+            text='6月18业务日前十分钟，不应进入',
+            created_at=_dingtalk_created_at(day=18, hour=7, minute=40),
+            trace_id='trace-created-at-before-window',
+        )
+        service = HermesDataAuditService(db, output_skill_root=None)
+
+        items, status, error = service._read_dingtalk_text_evidence(business_date=date(2026, 6, 18))
+
+        assert error is None
+        assert status == 'ok'
+        assert [item['trace_id'] for item in items] == ['trace-created-at-fallback-in-window']
+        assert items[0]['sent_at'].startswith('2026-06-19T07:40:00')
     finally:
         db.close()
 
@@ -752,6 +795,16 @@ def test_read_dingtalk_file_evidence_requires_active_dingtalk_ingestion_and_caps
             document_metadata={'source': 'dingtalk_file', 'channel': 'dingtalk_group'},
             ingestion_metadata={'channel': 'manual_upload'},
         )
+        for offset in range(12):
+            _add_dingtalk_file_document(
+                db,
+                created_at=_dingtalk_created_at(hour=11, minute=offset),
+                filename=f'manual-noise-{offset}.xlsx',
+                source_type='rag_upload',
+                source_ref=f'upload://manual-noise-{offset}.xlsx',
+                document_metadata={'source': 'dingtalk_file', 'channel': 'dingtalk_group'},
+                ingestion_metadata={'channel': 'manual_upload'},
+            )
         valid_document_ids: list[int] = []
         for offset in range(6):
             document, _ = _add_dingtalk_file_document(

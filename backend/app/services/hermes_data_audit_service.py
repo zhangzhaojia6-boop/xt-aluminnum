@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
 from app.core.business_time import production_business_window
@@ -849,7 +850,6 @@ class HermesDataAuditService:
                     ChatInboxMessage.created_at < candidate_end,
                 )
                 .order_by(ChatInboxMessage.created_at.desc(), ChatInboxMessage.id.desc())
-                .limit(_DINGTALK_EVIDENCE_LIMIT * 4)
                 .all()
             )
         except Exception as exc:
@@ -889,6 +889,7 @@ class HermesDataAuditService:
                     RagSourceIngestion.status == 'active',
                     RagSourceIngestion.created_at >= window_start,
                     RagSourceIngestion.created_at < window_end,
+                    self._dingtalk_ingestion_marker_clause(),
                 )
                 .order_by(RagSourceIngestion.created_at.desc(), RagSourceIngestion.id.desc(), RagDocument.id.desc())
                 .limit(_DINGTALK_EVIDENCE_LIMIT * 2)
@@ -1310,6 +1311,17 @@ class HermesDataAuditService:
             getattr(ingestion, 'source_type', None),
             getattr(ingestion, 'source_ref', None),
             getattr(ingestion, 'metadata_payload', None),
+        )
+
+    @staticmethod
+    def _dingtalk_ingestion_marker_clause() -> Any:
+        metadata_text = cast(RagSourceIngestion.metadata_payload, String)
+        return or_(
+            RagSourceIngestion.source_type.in_(('dingtalk', 'dingtalk_file', 'dingtalk_text', 'dingtalk_group')),
+            RagSourceIngestion.source_type.ilike('dingtalk_%'),
+            RagSourceIngestion.source_ref.ilike('dingtalk:%'),
+            metadata_text.ilike('%dingtalk_file%'),
+            metadata_text.ilike('%dingtalk_group%'),
         )
 
     @staticmethod
