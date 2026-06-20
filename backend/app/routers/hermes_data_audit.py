@@ -20,6 +20,7 @@ from app.schemas.hermes_data_audit import (
 from app.services.hermes_data_audit_service import (
     ACTION_TARGET_TABLE_ALLOWLIST,
     REAL_APPLY_EXECUTOR_ACTIONS,
+    RERUN_REQUIRED_AUDIT_STATUSES,
     SUPPORTED_ACTION_TYPES,
     HermesDataAuditService,
     NoComparableDataError,
@@ -345,7 +346,7 @@ def _build_decision_gate(
     reason = _source_gate_reason(run)
     if reason:
         return {'can_apply': False, 'reason': reason, 'apply_enabled': apply_enabled}
-    if run.status == 'corrected':
+    if run.status in RERUN_REQUIRED_AUDIT_STATUSES:
         return {'can_apply': False, 'reason': 'rerun_audit_required', 'apply_enabled': apply_enabled}
     if not correction_actions:
         return {'can_apply': False, 'reason': 'no_correction_actions', 'apply_enabled': apply_enabled}
@@ -364,7 +365,7 @@ def _build_decision_gate(
 
 
 def _recommended_next_step(*, run: HermesDataAuditRun, decision_gate: dict[str, Any], apply_summary: dict[str, Any] | None = None) -> str:
-    if run.status == 'corrected':
+    if run.status in RERUN_REQUIRED_AUDIT_STATUSES:
         return 'rerun_audit_to_verify'
     if apply_summary is not None and int(apply_summary.get('applied_count', 0) or 0) > 0:
         return 'rerun_audit_to_verify'

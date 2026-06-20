@@ -1135,6 +1135,88 @@ def test_apply_corrections_allows_dry_run_preview_for_corrected_run() -> None:
         db.close()
 
 
+def test_apply_corrections_blocks_real_apply_for_partial_failed_run_without_side_effects() -> None:
+    db = _db_session()
+    executor_called = {'value': False}
+    try:
+        run = _make_run(db)
+        run.status = 'correction_partial_failed'
+        db.commit()
+        service = HermesDataAuditService(db, apply_enabled=True)
+
+        def _unexpected_executor(action):
+            executor_called['value'] = True
+            return {'evidence': {'handler': 'should-not-run'}}
+
+        service._execute_mapping_alias_upsert = _unexpected_executor
+        action = _supported_action('partial-failed-real-apply-blocked')
+        action['target_key'] = 'workshop:cold-roll-2050:partial-failed'
+        action['before_value'] = {
+            'entity_type': 'workshop',
+            'canonical_code': 'cold-roll-2050',
+            'alias_code': 'partial-failed',
+            'source_type': 'hermes',
+        }
+        action['after_value'] = {
+            'entity_type': 'workshop',
+            'canonical_code': 'cold-roll-2050',
+            'alias_code': 'partial-failed',
+            'alias_name': '部分失败别名',
+            'source_type': 'hermes',
+            'is_active': True,
+        }
+        action['evidence'] = {
+            'source': 'mes',
+            'reason': 'partial failed run must rerun before real apply',
+            'field': 'alias_code',
+            'field_name': 'alias_code',
+            'evidence_ref': 'partial-failed-run:2026-06-18',
+            'values': {'alias_code': 'partial-failed', 'canonical_code': 'cold-roll-2050'},
+        }
+        action['rollback_payload'] = {
+            'mode': 'manual',
+            'reason': 'restore alias before audit correction',
+            'restore_before_value': {
+                'entity_type': 'workshop',
+                'alias_code': 'partial-failed',
+                'source_type': 'hermes',
+                'record_existed': False,
+            },
+            'rollback_available': True,
+            'rollback_unavailable_reason': '',
+        }
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=9,
+        )
+
+        assert result['reason'] == 'rerun_audit_required'
+        assert result['blocked_count'] == 1
+        assert result['applied_count'] == 0
+        assert result['action_statuses'] == [
+            {
+                'idempotency_key': 'partial-failed-real-apply-blocked',
+                'status': 'blocked',
+                'reason': 'rerun_audit_required',
+            }
+        ]
+        assert executor_called['value'] is False
+        assert db.query(HermesCorrectionAction).count() == 0
+        assert (
+            db.query(MasterCodeAlias)
+            .filter_by(entity_type='workshop', alias_code='partial-failed', source_type='hermes')
+            .count()
+            == 0
+        )
+        db.refresh(run)
+        assert run.status == 'correction_partial_failed'
+    finally:
+        db.close()
+
+
 def test_apply_corrections_blocks_unsupported_action_type() -> None:
     db = _db_session()
     called = {'value': False}

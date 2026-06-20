@@ -77,6 +77,7 @@ ACTION_TARGET_TABLE_ALLOWLIST = {
 }
 REAL_APPLY_EXECUTOR_ACTIONS = {'mapping_alias_upsert'}
 REUSABLE_ACTION_STATUSES = {'pending', 'dry_run'}
+RERUN_REQUIRED_AUDIT_STATUSES = {'corrected', 'correction_partial_failed'}
 
 TEXT_RAW_EXTENSIONS = {'.txt', '.md', '.log'}
 CSV_EXTENSIONS = {'.csv'}
@@ -487,7 +488,7 @@ class HermesDataAuditService:
         now = datetime.now(timezone.utc)
         planned_idempotency_keys: list[str] = []
 
-        if not dry_run and run.status == 'corrected':
+        if not dry_run and run.status in RERUN_REQUIRED_AUDIT_STATUSES:
             summary['reason'] = 'rerun_audit_required'
             for payload in actions:
                 idempotency_key = str(payload.get('idempotency_key') or '').strip()
