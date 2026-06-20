@@ -958,6 +958,27 @@ def test_apply_corrections_blocks_non_dry_run_when_apply_flag_disabled() -> None
         db.close()
 
 
+def test_apply_corrections_allows_dry_run_when_apply_flag_disabled() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        service = HermesDataAuditService(db, apply_enabled=False)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_supported_action('dry-run-flag-off')],
+            dry_run=True,
+            applied_by_id=9,
+        )
+
+        assert result['dry_run_count'] == 1
+        assert result['blocked_count'] == 0
+        assert result['action_statuses'] == [{'idempotency_key': 'dry-run-flag-off', 'status': 'dry_run'}]
+        assert db.query(HermesCorrectionAction).count() == 0
+    finally:
+        db.close()
+
+
 def test_apply_corrections_blocks_unsupported_action_type() -> None:
     db = _db_session()
     called = {'value': False}

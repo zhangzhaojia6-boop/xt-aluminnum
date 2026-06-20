@@ -1308,7 +1308,7 @@ class HermesDataAuditService:
             return 'blocked', 'executor_not_supported'
         if action.risk_level.lower() != 'low':
             return 'high_risk_blocked', 'high_risk'
-        if not self._apply_enabled:
+        if not dry_run and not self._apply_enabled:
             return 'blocked', 'apply_disabled'
         return 'executable', None
 

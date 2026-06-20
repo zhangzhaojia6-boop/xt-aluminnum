@@ -35,7 +35,8 @@ _ACTION_GATE_REASON_PRIORITY = {
     'mes_target_read_only': 1,
     'target_table_not_allowed_for_action': 2,
     'unsupported_action_type': 3,
-    'high_risk': 4,
+    'incomplete_correction_audit_payload': 4,
+    'high_risk': 5,
 }
 
 
@@ -136,6 +137,10 @@ def _serialize_action_payload(payload: dict[str, Any]) -> dict[str, Any]:
         'status': payload.get('status') or 'suggested',
         'target_table': payload.get('target_table'),
         'target_key': payload.get('target_key'),
+        'before_value': payload.get('before_value'),
+        'after_value': payload.get('after_value'),
+        'evidence': payload.get('evidence'),
+        'rollback_payload': payload.get('rollback_payload'),
         'rollback_available': _rollback_available(payload.get('rollback_payload')),
     }
 
@@ -171,6 +176,10 @@ def _serialize_correction_actions(db: Session, run: HermesDataAuditRun) -> list[
             'status': row.status,
             'target_table': row.target_table,
             'target_key': row.target_key,
+            'before_value': row.before_value,
+            'after_value': row.after_value,
+            'evidence': row.evidence,
+            'rollback_payload': row.rollback_payload,
             'rollback_available': _rollback_available(row.rollback_payload),
         }
         for row in rows
@@ -232,11 +241,45 @@ def _action_gate_block_reason(action: dict[str, Any]) -> str | None:
         if target_table.startswith('mes_'):
             return 'mes_target_read_only'
         return 'target_table_not_allowed_for_action'
+    if not _has_complete_action_audit_payload(action):
+        return 'incomplete_correction_audit_payload'
     if action_type not in REAL_APPLY_EXECUTOR_ACTIONS:
         return 'executor_not_supported'
     if (action.get('risk_level') or '').lower() != 'low':
         return 'high_risk'
     return None
+
+
+def _has_complete_action_audit_payload(action: dict[str, Any]) -> bool:
+    if not action.get('idempotency_key') or not action.get('target_table') or not action.get('target_key'):
+        return False
+    if not action.get('risk_level'):
+        return False
+    if action.get('before_value') in (None, {}) or action.get('after_value') in (None, {}):
+        return False
+    evidence = action.get('evidence')
+    if evidence in (None, {}) or not isinstance(evidence, dict):
+        return False
+    if not any(
+        evidence.get(key) not in (None, '', {}, [])
+        for key in ('reason', 'source', 'evidence_ref', 'field', 'field_name', 'values', 'handler')
+    ):
+        return False
+    rollback_payload = action.get('rollback_payload')
+    if rollback_payload in (None, {}):
+        return False
+    if isinstance(rollback_payload, dict):
+        if rollback_payload.get('restore_before_value') not in (None, {}):
+            return True
+        if rollback_payload.get('reason') or rollback_payload.get('mode') == 'not_available':
+            return True
+        rollback_unavailable_reason = str(rollback_payload.get('rollback_unavailable_reason') or '').strip()
+        rollback_available = rollback_payload.get('rollback_available')
+        rollback_available_false = rollback_available is False or (
+            isinstance(rollback_available, str) and rollback_available.strip().lower() == 'false'
+        )
+        return bool(rollback_available_false and rollback_unavailable_reason)
+    return True
 
 
 def _pending_action_gate_reason(pending_actions: list[dict[str, Any]]) -> str | None:

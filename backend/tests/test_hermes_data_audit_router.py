@@ -155,6 +155,18 @@ def _install_overrides(*, db: Session, user_role: str, service: FakeHermesDataAu
     return previous_overrides
 
 
+def _install_db_override_only(*, db: Session):
+    def fake_get_db():
+        yield db
+
+    previous_overrides = dict(app.dependency_overrides)
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides.pop(get_current_user, None)
+    if get_hermes_data_audit_service is not None:
+        app.dependency_overrides.pop(get_hermes_data_audit_service, None)
+    return previous_overrides
+
+
 def _restore_overrides(previous_overrides) -> None:
     app.dependency_overrides.clear()
     app.dependency_overrides.update(previous_overrides)
@@ -432,6 +444,16 @@ def test_get_hermes_data_audit_run_keeps_pending_suggestion_when_failed_row_exis
                 'risk_level': 'low',
                 'target_table': 'master_code_aliases',
                 'target_key': 'workshop:拉矫',
+                'before_value': {'alias_code': '拉矫车间'},
+                'after_value': {
+                    'entity_type': 'workshop',
+                    'canonical_code': '拉矫',
+                    'alias_code': '拉矫车间',
+                    'alias_name': '拉矫车间',
+                    'source_type': 'hermes',
+                    'is_active': True,
+                },
+                'evidence': {'reason': 'matched', 'field': 'alias_code'},
                 'rollback_payload': {'restore_before_value': {'alias_code': '拉矫车间'}},
             }
         ],
@@ -473,6 +495,67 @@ def test_get_hermes_data_audit_run_keeps_pending_suggestion_when_failed_row_exis
     assert payload['decision_gate']['reason'] != 'no_pending_correction_actions'
     assert payload['decision_gate']['can_apply'] is True
     assert payload['decision_gate']['reason'] == 'ready_to_apply'
+
+
+def test_get_hermes_data_audit_run_blocks_incomplete_correction_audit_payload(monkeypatch) -> None:
+    monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-incomplete-audit-payload',
+        business_date=date(2026, 6, 18),
+        status='completed',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={'records_count_by_source': {'stock_records': 3}},
+        hub_snapshot={'field_count': 1},
+        output_skill_snapshot={'parsed': {'total_output': 10}},
+        diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
+        suggested_actions=[
+            {
+                'idempotency_key': 'incomplete:1',
+                'action_type': 'mapping_alias_upsert',
+                'risk_level': 'low',
+                'target_table': 'master_code_aliases',
+                'target_key': 'workshop:精整',
+                'field_name': 'alias_code',
+                'before_value': {'alias_code': '精整车间'},
+                'after_value': {
+                    'entity_type': 'workshop',
+                    'canonical_code': '精整',
+                    'alias_code': '精整车间',
+                    'alias_name': '精整车间',
+                    'source_type': 'hermes',
+                    'is_active': True,
+                },
+                'evidence': {'reason': 'match mes', 'field': 'alias_code'},
+            }
+        ],
+        match_rate=Decimal('0.5000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    previous_overrides = _install_overrides(db=db, user_role='user')
+
+    try:
+        client = TestClient(app)
+        response = client.get(f'/api/v1/hermes/data-audit/runs/{run.id}')
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['decision_gate']['can_apply'] is False
+    assert payload['decision_gate']['reason'] == 'incomplete_correction_audit_payload'
+    assert payload['decision_gate']['reason'] != 'ready_to_apply'
+    assert 'before_value' not in payload['correction_actions'][0]
+    assert 'after_value' not in payload['correction_actions'][0]
+    assert 'evidence' not in payload['correction_actions'][0]
+    assert 'rollback_payload' not in payload['correction_actions'][0]
 
 
 def test_get_hermes_data_audit_run_returns_404_when_missing() -> None:
@@ -585,6 +668,9 @@ def test_get_hermes_data_audit_run_blocks_executor_unsupported_suggestion(monkey
                 'risk_level': 'low',
                 'target_table': 'data_hub_snapshot',
                 'target_key': '2026-06-18',
+                'before_value': {'business_date': '2026-06-18', 'status': 'pending'},
+                'after_value': {'business_date': '2026-06-18', 'status': 'suggested'},
+                'evidence': {'reason': 'needs reconcile', 'field': 'business_date'},
                 'rollback_payload': {'restore_before_value': {'business_date': '2026-06-18'}},
             }
         ],
@@ -733,3 +819,35 @@ def test_non_admin_cannot_apply_hermes_data_audit_corrections() -> None:
         db.close()
 
     assert response.status_code == 403
+
+
+def test_anonymous_get_hermes_data_audit_run_requires_authentication() -> None:
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    previous_overrides = _install_db_override_only(db=db)
+
+    try:
+        client = TestClient(app)
+        response = client.get('/api/v1/hermes/data-audit/runs/1')
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code in {401, 403}
+
+
+def test_anonymous_apply_hermes_data_audit_corrections_requires_authentication() -> None:
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    previous_overrides = _install_db_override_only(db=db)
+
+    try:
+        client = TestClient(app)
+        response = client.post('/api/v1/hermes/data-audit/runs/1/corrections', json={})
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code in {401, 403}
