@@ -751,10 +751,15 @@ def test_apply_corrections_dry_run_keeps_existing_pending_action_unchanged() -> 
             applied_by_id=9,
         )
 
+        db.commit()
         db.refresh(existing)
         assert called['value'] is False
         assert result['dry_run_count'] == 1
         assert existing.status == 'pending'
+        assert existing.before_value == {'hub': 95.0}
+        assert existing.after_value == {'hub': 100.0}
+        assert existing.evidence == {'source': 'mes'}
+        assert existing.rollback_payload == {'mode': 'manual', 'restore_before_value': {'hub': 95.0}}
         assert db.query(HermesCorrectionAction).count() == 1
     finally:
         db.close()

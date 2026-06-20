@@ -332,12 +332,7 @@ class HermesDataAuditService:
                 idempotency_key = str(payload.get('idempotency_key') or '').strip()
                 if not idempotency_key:
                     raise ValueError('idempotency_key is required')
-                preview_action = existing_actions.get(idempotency_key) or HermesCorrectionAction(
-                    audit_run_id=audit_run_id,
-                    idempotency_key=idempotency_key,
-                    rollback_status='not_requested',
-                )
-                self._sync_action_from_payload(preview_action, audit_run_id=audit_run_id, payload=payload)
+                _ = existing_actions.get(idempotency_key)
                 summary['dry_run_count'] += 1
                 summary['action_statuses'].append({'idempotency_key': idempotency_key, 'status': 'dry_run'})
             return summary
