@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.models import Base, HermesCorrectionAction, HermesDataAuditRun, User
+from app.models import Base, HermesCorrectionAction, HermesDataAuditRun, MasterCodeAlias, User
 from app.services.hermes_data_audit_service import (
     DEFAULT_AUDIT_FIELDS,
     HermesDataAuditService,
@@ -26,6 +26,7 @@ def _db_session() -> Session:
             User.__table__,
             HermesDataAuditRun.__table__,
             HermesCorrectionAction.__table__,
+            MasterCodeAlias.__table__,
         ],
     )
     return Session(engine)
@@ -123,6 +124,63 @@ def _supported_action_with_machine_audit_fields(idempotency_key: str) -> dict:
         'rollback_unavailable_reason': '',
     }
     return action
+
+
+def _mapping_alias_action(
+    idempotency_key: str,
+    *,
+    after_value: dict | None = None,
+    before_value: dict | None = None,
+    evidence: dict | None = None,
+    rollback_payload: dict | None = None,
+    risk_level: str = 'low',
+) -> dict:
+    return {
+        'idempotency_key': idempotency_key,
+        'action_type': 'mapping_alias_upsert',
+        'risk_level': risk_level,
+        'target_table': 'master_code_aliases',
+        'target_key': 'workshop:cold-roll-2050:2050',
+        'field_name': 'alias_code',
+        'before_value': before_value
+        or {
+            'entity_type': 'workshop',
+            'canonical_code': 'cold-roll-2050',
+            'alias_code': '2050',
+            'source_type': 'hermes',
+        },
+        'after_value': after_value
+        or {
+            'entity_type': 'workshop',
+            'canonical_code': 'cold-roll-2050',
+            'alias_code': '2050',
+            'alias_name': '冷轧2050',
+            'source_type': 'hermes',
+            'is_active': True,
+        },
+        'evidence': evidence
+        or {
+            'source': 'mes',
+            'reason': 'alias reconciliation',
+            'field': 'alias_code',
+            'field_name': 'alias_code',
+            'evidence_ref': 'alias:2026-06-18',
+            'values': {'alias_code': '2050', 'canonical_code': 'cold-roll-2050'},
+        },
+        'rollback_payload': rollback_payload
+        or {
+            'mode': 'manual',
+            'reason': 'restore alias before audit correction',
+            'restore_before_value': {
+                'entity_type': 'workshop',
+                'alias_code': '2050',
+                'source_type': 'hermes',
+                'record_existed': False,
+            },
+            'rollback_available': True,
+            'rollback_unavailable_reason': '',
+        },
+    }
 
 
 def _large_raw_text() -> str:
@@ -1121,7 +1179,7 @@ def test_apply_corrections_allows_real_apply_after_dry_run() -> None:
 
         _handler.hermes_controlled_transaction = True
         service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
-        action = _supported_action('dry-then-apply')
+        action = _mapping_alias_action('dry-then-apply')
 
         preview = service.apply_corrections(
             audit_run_id=run.id,
@@ -1138,10 +1196,12 @@ def test_apply_corrections_allows_real_apply_after_dry_run() -> None:
         )
 
         action_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='dry-then-apply').one()
+        alias_row = db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').one()
         assert preview['action_statuses'] == [{'idempotency_key': 'dry-then-apply', 'status': 'dry_run'}]
         assert applied['action_statuses'] == [{'idempotency_key': 'dry-then-apply', 'status': 'applied'}]
-        assert len(handler_calls) == 1
+        assert len(handler_calls) == 0
         assert action_row.status == 'applied'
+        assert alias_row.canonical_code == 'cold-roll-2050'
     finally:
         db.close()
 
@@ -1158,7 +1218,7 @@ def test_apply_corrections_skips_duplicate_real_apply_after_applied() -> None:
 
         _handler.hermes_controlled_transaction = True
         service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
-        action = _supported_action('repeat-real-apply')
+        action = _mapping_alias_action('repeat-real-apply')
 
         first = service.apply_corrections(
             audit_run_id=run.id,
@@ -1174,12 +1234,14 @@ def test_apply_corrections_skips_duplicate_real_apply_after_applied() -> None:
         )
 
         action_row = db.query(HermesCorrectionAction).filter_by(idempotency_key='repeat-real-apply').one()
+        alias_rows = db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').all()
         assert first['action_statuses'] == [{'idempotency_key': 'repeat-real-apply', 'status': 'applied'}]
         assert second['action_statuses'] == [{'idempotency_key': 'repeat-real-apply', 'status': 'skipped_duplicate'}]
         assert second['applied_count'] == 0
         assert second['skipped_count'] == 1
-        assert len(handler_calls) == 1
+        assert len(handler_calls) == 0
         assert action_row.status == 'applied'
+        assert len(alias_rows) == 1
     finally:
         db.close()
 
@@ -1188,13 +1250,8 @@ def test_apply_corrections_duplicate_real_apply_does_not_report_applied_and_skip
     db = _db_session()
     try:
         run = _make_run(db)
-
-        def _handler(action):
-            return {'evidence': {'handler': 'applied'}}
-
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
-        action = _supported_action('repeat-status-check')
+        service = HermesDataAuditService(db, apply_enabled=True)
+        action = _mapping_alias_action('repeat-status-check')
 
         service.apply_corrections(
             audit_run_id=run.id,
@@ -1215,43 +1272,45 @@ def test_apply_corrections_duplicate_real_apply_does_not_report_applied_and_skip
         db.close()
 
 
-def test_apply_corrections_blocks_uncontrolled_handler_without_calling_it(tmp_path) -> None:
+def test_apply_corrections_ignores_external_controlled_handler_in_real_apply(tmp_path) -> None:
     db = _db_session()
     external_engine = create_engine(f"sqlite:///{tmp_path / 'external-handler.db'}", future=True)
     Base.metadata.create_all(bind=external_engine, tables=[User.__table__])
     external_db = Session(external_engine)
-    called = {'value': False}
+    called = {'value': 0}
     try:
         run = _make_run(db)
 
-        def _uncontrolled_handler(action):
-            called['value'] = True
+        def _controlled_handler(action):
+            called['value'] += 1
             external_db.add(User(username='external-user', name='External User', password_hash='x'))
             external_db.commit()
             raise RuntimeError('should never run')
 
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_uncontrolled_handler)
+        _controlled_handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_controlled_handler)
         result = service.apply_corrections(
             audit_run_id=run.id,
-            actions=[_supported_action('uncontrolled-handler')],
+            actions=[_mapping_alias_action('ignore-external-handler')],
             dry_run=False,
             applied_by_id=3,
         )
 
         action = db.query(HermesCorrectionAction).one()
-        assert called['value'] is False
-        assert result['blocked_count'] == 1
-        assert action.status == 'blocked'
-        assert action.evidence['blocked_reason'] == 'handler_not_controlled'
+        alias_row = db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').one()
+        assert called['value'] == 0
+        assert result['applied_count'] == 1
+        assert action.status == 'applied'
+        assert alias_row.canonical_code == 'cold-roll-2050'
         assert external_db.query(User).filter_by(username='external-user').count() == 0
         db.refresh(run)
-        assert run.status == 'correction_blocked'
+        assert run.status == 'corrected'
     finally:
         external_db.close()
         db.close()
 
 
-def test_apply_corrections_marks_blocked_when_handler_missing() -> None:
+def test_apply_corrections_blocks_action_without_internal_executor() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
@@ -1259,7 +1318,7 @@ def test_apply_corrections_marks_blocked_when_handler_missing() -> None:
 
         result = service.apply_corrections(
             audit_run_id=run.id,
-            actions=[_supported_action('action-without-handler')],
+            actions=[_supported_action('action-without-executor', action_type='mapping_field_rule_upsert')],
             dry_run=False,
             applied_by_id=3,
         )
@@ -1267,31 +1326,31 @@ def test_apply_corrections_marks_blocked_when_handler_missing() -> None:
         action = db.query(HermesCorrectionAction).one()
         assert result['blocked_count'] == 1
         assert action.status == 'blocked'
-        assert action.evidence['blocked_reason'] == 'handler_missing'
+        assert action.evidence['blocked_reason'] == 'executor_not_supported'
     finally:
         db.close()
 
 
-def test_apply_corrections_rolls_back_whole_batch_when_one_controlled_write_fails() -> None:
+def test_apply_corrections_rolls_back_whole_batch_when_one_alias_upsert_fails() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
-
-        def _handler(action):
-            if action['idempotency_key'] == 'will-pass':
-                db.add(User(username='batch-user-1', name='Batch User 1', password_hash='x'))
-                return {'evidence': {'handler': 'ok'}}
-            db.add(User(username='batch-user-2', name='Batch User 2', password_hash='x'))
-            raise RuntimeError('boom')
-
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
 
         result = service.apply_corrections(
             audit_run_id=run.id,
             actions=[
-                _supported_action('will-pass'),
-                _supported_action('will-fail', action_type='mapping_field_rule_upsert'),
+                _mapping_alias_action('will-pass'),
+                _mapping_alias_action(
+                    'will-fail',
+                    after_value={
+                        'entity_type': 'workshop',
+                        'canonical_code': 'cold-roll-2050',
+                        'alias_name': '冷轧2050',
+                        'source_type': 'hermes',
+                        'is_active': True,
+                    },
+                ),
             ],
             dry_run=False,
             applied_by_id=3,
@@ -1301,7 +1360,7 @@ def test_apply_corrections_rolls_back_whole_batch_when_one_controlled_write_fail
         assert result['applied_count'] == 0
         assert result['failed_count'] == 2
         assert [row.status for row in rows] == ['failed', 'failed']
-        assert db.query(User).filter(User.username.in_(['batch-user-1', 'batch-user-2'])).count() == 0
+        assert db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').count() == 0
         db.refresh(run)
         assert run.status == 'correction_failed'
     finally:
@@ -1312,18 +1371,22 @@ def test_apply_corrections_marks_partial_failure_for_mixed_blocked_and_failed() 
     db = _db_session()
     try:
         run = _make_run(db)
-
-        def _handler(action):
-            raise RuntimeError('boom')
-
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
 
         result = service.apply_corrections(
             audit_run_id=run.id,
             actions=[
-                _supported_action('will-block', risk_level='high'),
-                _supported_action('will-fail'),
+                _supported_action('will-block', action_type='mapping_field_rule_upsert'),
+                _mapping_alias_action(
+                    'will-fail',
+                    after_value={
+                        'entity_type': 'workshop',
+                        'alias_code': '2050',
+                        'alias_name': '冷轧2050',
+                        'source_type': 'hermes',
+                        'is_active': True,
+                    },
+                ),
             ],
             dry_run=False,
             applied_by_id=3,
@@ -1337,47 +1400,46 @@ def test_apply_corrections_marks_partial_failure_for_mixed_blocked_and_failed() 
         db.close()
 
 
-def test_apply_corrections_marks_applied_when_controlled_handler_succeeds() -> None:
+def test_apply_corrections_marks_applied_when_internal_alias_executor_succeeds() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
-
-        def _handler(action):
-            return {
-                'before_value': {'hub': 95.0},
-                'after_value': {'hub': 96.5},
-                'evidence': {'handler': 'ok'},
-                'rollback_payload': {'handler_ref': 'rollback:ok'},
-            }
-
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
 
         result = service.apply_corrections(
             audit_run_id=run.id,
-            actions=[_supported_action_with_machine_audit_fields('applied-action')],
+            actions=[_mapping_alias_action('applied-action')],
             dry_run=False,
             applied_by_id=3,
         )
 
         action = db.query(HermesCorrectionAction).one()
+        alias_row = db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').one()
         assert result['applied_count'] == 1
         assert action.status == 'applied'
-        assert action.before_value == {'hub': 95.0}
-        assert action.after_value == {'hub': 96.5}
+        assert action.before_value['entity_type'] == 'workshop'
+        assert action.before_value['alias_code'] == '2050'
+        assert action.before_value['record_existed'] is False
+        assert action.after_value['entity_type'] == 'workshop'
+        assert action.after_value['canonical_code'] == 'cold-roll-2050'
+        assert action.after_value['alias_code'] == '2050'
+        assert action.after_value['source_type'] == 'hermes'
+        assert action.after_value['is_active'] is True
         assert action.evidence['source'] == 'mes'
-        assert action.evidence['reason'] == 'source-of-truth mismatch'
-        assert action.evidence['field'] == 'workshop_output'
-        assert action.evidence['field_name'] == 'workshop_output'
-        assert action.evidence['evidence_ref'] == 'report:2026-06-18'
-        assert action.evidence['values'] == {'before': 95.0, 'after': 100.0}
-        assert action.evidence['handler'] == 'ok'
+        assert action.evidence['reason'] == 'alias reconciliation'
+        assert action.evidence['field'] == 'alias_code'
+        assert action.evidence['field_name'] == 'alias_code'
+        assert action.evidence['evidence_ref'] == 'alias:2026-06-18'
+        assert action.evidence['values'] == {'alias_code': '2050', 'canonical_code': 'cold-roll-2050'}
+        assert action.evidence['executor'] == 'mapping_alias_upsert'
         assert action.rollback_payload['mode'] == 'manual'
-        assert action.rollback_payload['reason'] == 'restore previous hub value'
-        assert action.rollback_payload['restore_before_value'] == {'hub': 95.0}
+        assert action.rollback_payload['reason'] == 'restore alias before audit correction'
+        assert action.rollback_payload['restore_before_value']['record_existed'] is False
         assert action.rollback_payload['rollback_available'] is True
         assert action.rollback_payload['rollback_unavailable_reason'] == ''
-        assert action.rollback_payload['handler_ref'] == 'rollback:ok'
+        assert action.rollback_payload['executor'] == 'mapping_alias_upsert'
+        assert alias_row.canonical_code == 'cold-roll-2050'
+        assert alias_row.alias_name == '冷轧2050'
         db.refresh(run)
         assert run.status == 'corrected'
     finally:
@@ -1523,12 +1585,12 @@ def test_apply_corrections_keeps_large_top_level_before_after_machine_fields() -
         db.close()
 
 
-def test_apply_corrections_slims_large_handler_result_payloads_before_persisting() -> None:
+def test_apply_corrections_slims_large_executor_result_payloads_before_persisting() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
 
-        def _handler(action):
+        def _executor(action):
             return {
                 'before_value': {
                     'hub': 95.0,
@@ -1557,8 +1619,8 @@ def test_apply_corrections_slims_large_handler_result_payloads_before_persisting
                 },
             }
 
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        service._execute_mapping_alias_upsert = _executor
 
         result = service.apply_corrections(
             audit_run_id=run.id,
@@ -1595,12 +1657,12 @@ def test_apply_corrections_slims_large_handler_result_payloads_before_persisting
         db.close()
 
 
-def test_apply_corrections_merges_handler_rollback_payload_without_losing_machine_fields() -> None:
+def test_apply_corrections_merges_executor_rollback_payload_without_losing_machine_fields() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
 
-        def _handler(action):
+        def _executor(action):
             return {
                 'before_value': {'hub': 95.0},
                 'after_value': {'hub': 96.5},
@@ -1608,8 +1670,8 @@ def test_apply_corrections_merges_handler_rollback_payload_without_losing_machin
                 'rollback_payload': {'handler_ref': 'rollback:ok'},
             }
 
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        service._execute_mapping_alias_upsert = _executor
 
         result = service.apply_corrections(
             audit_run_id=run.id,
@@ -1631,12 +1693,12 @@ def test_apply_corrections_merges_handler_rollback_payload_without_losing_machin
         db.close()
 
 
-def test_apply_corrections_keeps_large_handler_result_before_after_machine_fields() -> None:
+def test_apply_corrections_keeps_large_executor_result_before_after_machine_fields() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
 
-        def _handler(action):
+        def _executor(action):
             return {
                 'before_value': _large_top_level_before_after_value(95.0, source='hub', reason='handler previous snapshot'),
                 'after_value': _large_top_level_before_after_value(96.5, source='mes', reason='handler mes source of truth'),
@@ -1644,8 +1706,8 @@ def test_apply_corrections_keeps_large_handler_result_before_after_machine_field
                 'rollback_payload': {'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
             }
 
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        service._execute_mapping_alias_upsert = _executor
 
         result = service.apply_corrections(
             audit_run_id=run.id,
@@ -1685,12 +1747,12 @@ def test_apply_corrections_keeps_large_handler_result_before_after_machine_field
         db.close()
 
 
-def test_apply_corrections_keeps_large_handler_result_audit_machine_fields() -> None:
+def test_apply_corrections_keeps_large_executor_result_audit_machine_fields() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
 
-        def _handler(action):
+        def _executor(action):
             return {
                 'before_value': {'hub': 95.0},
                 'after_value': {'hub': 96.5},
@@ -1729,8 +1791,8 @@ def test_apply_corrections_keeps_large_handler_result_audit_machine_fields() -> 
                 },
             }
 
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        service._execute_mapping_alias_upsert = _executor
 
         result = service.apply_corrections(
             audit_run_id=run.id,
@@ -1793,12 +1855,12 @@ def test_apply_corrections_redacts_sensitive_text_inside_slim_summaries() -> Non
         db.close()
 
 
-def test_apply_corrections_fails_when_handler_clears_evidence() -> None:
+def test_apply_corrections_fails_when_executor_clears_evidence() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
 
-        def _handler(action):
+        def _executor(action):
             return {
                 'before_value': {'hub': 95.0},
                 'after_value': {'hub': 96.5},
@@ -1806,8 +1868,8 @@ def test_apply_corrections_fails_when_handler_clears_evidence() -> None:
                 'rollback_payload': {'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
             }
 
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        service._execute_mapping_alias_upsert = _executor
 
         result = service.apply_corrections(
             audit_run_id=run.id,
@@ -1820,19 +1882,19 @@ def test_apply_corrections_fails_when_handler_clears_evidence() -> None:
         assert result['applied_count'] == 0
         assert result['failed_count'] == 1
         assert action.status == 'failed'
-        assert action.evidence['error'] in {'invalid_handler_audit_payload', 'incomplete_correction_audit_payload'}
+        assert action.evidence['error'] in {'invalid_executor_audit_payload', 'incomplete_correction_audit_payload'}
         db.refresh(run)
         assert run.status == 'correction_failed'
     finally:
         db.close()
 
 
-def test_apply_corrections_fails_when_handler_clears_rollback_payload() -> None:
+def test_apply_corrections_fails_when_executor_clears_rollback_payload() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
 
-        def _handler(action):
+        def _executor(action):
             return {
                 'before_value': {'hub': 95.0},
                 'after_value': {'hub': 96.5},
@@ -1840,8 +1902,8 @@ def test_apply_corrections_fails_when_handler_clears_rollback_payload() -> None:
                 'rollback_payload': {},
             }
 
-        _handler.hermes_controlled_transaction = True
-        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        service._execute_mapping_alias_upsert = _executor
 
         result = service.apply_corrections(
             audit_run_id=run.id,
@@ -1854,7 +1916,7 @@ def test_apply_corrections_fails_when_handler_clears_rollback_payload() -> None:
         assert result['applied_count'] == 0
         assert result['failed_count'] == 1
         assert action.status == 'failed'
-        assert action.evidence['error'] in {'invalid_handler_audit_payload', 'incomplete_correction_audit_payload'}
+        assert action.evidence['error'] in {'invalid_executor_audit_payload', 'incomplete_correction_audit_payload'}
         db.refresh(run)
         assert run.status == 'correction_failed'
     finally:

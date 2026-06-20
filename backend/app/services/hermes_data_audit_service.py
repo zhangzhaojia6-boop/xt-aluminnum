@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
+from app.models import MasterCodeAlias
 from app.models.hermes_data_audit import HermesCorrectionAction, HermesDataAuditRun
 from app.services.mapping_reconciliation_service import parse_output_skill_reference_file
 
@@ -74,6 +75,7 @@ ACTION_TARGET_TABLE_ALLOWLIST = {
     'mapping_reconciliation_run': {'mapping_reconciliation_runs', 'data_hub_snapshot'},
     'daily_report_recalculate': {'daily_report_runs'},
 }
+REAL_APPLY_EXECUTOR_ACTIONS = {'mapping_alias_upsert'}
 
 TEXT_RAW_EXTENSIONS = {'.txt', '.md', '.log'}
 CSV_EXTENSIONS = {'.csv'}
@@ -559,27 +561,29 @@ class HermesDataAuditService:
         if not dry_run and executable_actions:
             handler_new_ids = {id(item) for item in self._db.new}
             savepoint = self._db.begin_nested()
-            handler_results: dict[str, Mapping[str, Any]] = {}
+            execution_results: dict[str, Mapping[str, Any]] = {}
             projected_actions: dict[str, HermesCorrectionAction] = {}
             batch_error: str | None = None
             try:
                 for action in executable_actions:
-                    handler_result = _json_safe(self._correction_handler(_json_safe(self._action_payload(action))) or {})
-                    handler_results[action.idempotency_key] = handler_result if isinstance(handler_result, Mapping) else {}
+                    execution_result = _json_safe(self._execute_correction_action(action) or {})
+                    execution_results[action.idempotency_key] = (
+                        execution_result if isinstance(execution_result, Mapping) else {}
+                    )
                 for action in executable_actions:
-                    projected_action = self._project_action_with_handler_result(
+                    projected_action = self._project_action_with_execution_result(
                         action=action,
-                        handler_result=handler_results.get(action.idempotency_key, {}),
+                        execution_result=execution_results.get(action.idempotency_key, {}),
                     )
                     projected_actions[action.idempotency_key] = projected_action
                     if not self._has_complete_correction_audit_payload(projected_action):
-                        raise ValueError('invalid_handler_audit_payload')
+                        raise ValueError('invalid_executor_audit_payload')
                 savepoint.commit()
             except Exception as exc:
                 savepoint.rollback()
                 self._cleanup_failed_handler_side_effects(existing_new_ids=handler_new_ids)
-                if str(exc) == 'invalid_handler_audit_payload':
-                    batch_error = 'invalid_handler_audit_payload'
+                if str(exc) == 'invalid_executor_audit_payload':
+                    batch_error = 'invalid_executor_audit_payload'
                 else:
                     batch_error = redact_secret_text(str(exc))
 
@@ -1174,10 +1178,6 @@ class HermesDataAuditService:
         self._db.expire_all()
 
     @staticmethod
-    def _is_controlled_handler(handler: Callable[[Mapping[str, Any]], Mapping[str, Any] | None]) -> bool:
-        return bool(getattr(handler, 'hermes_controlled_transaction', False))
-
-    @staticmethod
     def _sync_action_from_payload(
         action: HermesCorrectionAction,
         *,
@@ -1247,12 +1247,10 @@ class HermesDataAuditService:
             if str(action.target_table).strip().startswith('mes_'):
                 return 'blocked', 'mes_target_read_only'
             return 'blocked', 'target_table_not_allowed_for_action'
-        if self._correction_handler is None:
-            return 'blocked', 'handler_missing'
-        if not self._is_controlled_handler(self._correction_handler):
-            return 'blocked', 'handler_not_controlled'
         if not self._has_complete_correction_audit_payload(action):
             return 'blocked', 'incomplete_correction_audit_payload'
+        if not self._has_internal_executor(action.action_type):
+            return 'blocked', 'executor_not_supported'
         return 'executable', None
 
     @staticmethod
@@ -1271,10 +1269,10 @@ class HermesDataAuditService:
         }
 
     @staticmethod
-    def _project_action_with_handler_result(
+    def _project_action_with_execution_result(
         *,
         action: HermesCorrectionAction,
-        handler_result: Mapping[str, Any],
+        execution_result: Mapping[str, Any],
     ) -> HermesCorrectionAction:
         projected = HermesCorrectionAction(
             audit_run_id=action.audit_run_id,
@@ -1291,23 +1289,136 @@ class HermesDataAuditService:
             rollback_status=action.rollback_status,
             status=action.status,
         )
-        if 'before_value' in handler_result:
-            projected.before_value = _json_safe(handler_result.get('before_value'))
-        if 'after_value' in handler_result:
-            projected.after_value = _json_safe(handler_result.get('after_value'))
-        if 'evidence' in handler_result:
+        if 'before_value' in execution_result:
+            projected.before_value = _merge_audit_metadata_mapping(
+                action.before_value,
+                execution_result.get('before_value'),
+                preserve_keys=set(),
+            )
+        if 'after_value' in execution_result:
+            projected.after_value = _merge_audit_metadata_mapping(
+                action.after_value,
+                execution_result.get('after_value'),
+                preserve_keys=set(),
+            )
+        if 'evidence' in execution_result:
             projected.evidence = _merge_audit_metadata_mapping(
                 action.evidence,
-                handler_result.get('evidence'),
+                execution_result.get('evidence'),
                 preserve_keys=_EVIDENCE_PRESERVE_KEYS,
             )
-        if 'rollback_payload' in handler_result:
+        if 'rollback_payload' in execution_result:
             projected.rollback_payload = _merge_audit_metadata_mapping(
                 action.rollback_payload,
-                handler_result.get('rollback_payload'),
+                execution_result.get('rollback_payload'),
                 preserve_keys=_ROLLBACK_PRESERVE_KEYS,
             )
         return projected
+
+    @staticmethod
+    def _has_internal_executor(action_type: str | None) -> bool:
+        return str(action_type or '').strip() in REAL_APPLY_EXECUTOR_ACTIONS
+
+    def _execute_correction_action(self, action: HermesCorrectionAction) -> Mapping[str, Any]:
+        if action.action_type == 'mapping_alias_upsert':
+            return self._execute_mapping_alias_upsert(action)
+        raise ValueError('executor_not_supported')
+
+    def _execute_mapping_alias_upsert(self, action: HermesCorrectionAction) -> Mapping[str, Any]:
+        after_value = action.after_value or {}
+        if not isinstance(after_value, Mapping):
+            raise ValueError('invalid_after_value')
+
+        entity_type = str(after_value.get('entity_type') or '').strip()
+        canonical_code = str(after_value.get('canonical_code') or '').strip()
+        alias_code = str(after_value.get('alias_code') or '').strip()
+        source_type = str(after_value.get('source_type') or 'hermes').strip() or 'hermes'
+        alias_name_raw = after_value.get('alias_name')
+        alias_name = str(alias_name_raw).strip() if alias_name_raw not in (None, '') else None
+        is_active_raw = after_value.get('is_active', True)
+        if isinstance(is_active_raw, str):
+            is_active = is_active_raw.strip().lower() in _TRUE_VALUES
+        else:
+            is_active = bool(is_active_raw)
+
+        missing_fields = [
+            field_name
+            for field_name, value in (
+                ('entity_type', entity_type),
+                ('canonical_code', canonical_code),
+                ('alias_code', alias_code),
+            )
+            if not value
+        ]
+        if missing_fields:
+            raise ValueError(f"missing_after_value_fields:{','.join(missing_fields)}")
+
+        alias_row = (
+            self._db.query(MasterCodeAlias)
+            .filter(MasterCodeAlias.entity_type == entity_type)
+            .filter(MasterCodeAlias.alias_code == alias_code)
+            .filter(MasterCodeAlias.source_type == source_type)
+            .one_or_none()
+        )
+        operation = 'update' if alias_row is not None else 'insert'
+        before_value = self._serialize_master_code_alias(alias_row) if alias_row is not None else None
+        if alias_row is None:
+            alias_row = MasterCodeAlias(
+                entity_type=entity_type,
+                canonical_code=canonical_code,
+                alias_code=alias_code,
+                alias_name=alias_name,
+                source_type=source_type,
+                is_active=is_active,
+            )
+            self._db.add(alias_row)
+        else:
+            alias_row.canonical_code = canonical_code
+            alias_row.alias_name = alias_name
+            alias_row.is_active = is_active
+
+        self._db.flush()
+
+        restore_before_value = before_value or {
+            'record_existed': False,
+            'entity_type': entity_type,
+            'alias_code': alias_code,
+            'source_type': source_type,
+        }
+        return {
+            'before_value': restore_before_value,
+            'after_value': self._serialize_master_code_alias(alias_row),
+            'evidence': {
+                'executor': 'mapping_alias_upsert',
+                'operation': operation,
+                'table': 'master_code_aliases',
+                'row_id': alias_row.id,
+            },
+            'rollback_payload': {
+                'mode': 'manual',
+                'reason': 'restore alias before audit correction',
+                'executor': 'mapping_alias_upsert',
+                'table': 'master_code_aliases',
+                'restore_before_value': restore_before_value,
+                'rollback_available': True,
+                'rollback_unavailable_reason': '',
+            },
+        }
+
+    @staticmethod
+    def _serialize_master_code_alias(alias_row: MasterCodeAlias | None) -> dict[str, Any]:
+        if alias_row is None:
+            return {}
+        return {
+            'id': alias_row.id,
+            'entity_type': alias_row.entity_type,
+            'canonical_code': alias_row.canonical_code,
+            'alias_code': alias_row.alias_code,
+            'alias_name': alias_row.alias_name,
+            'source_type': alias_row.source_type,
+            'is_active': alias_row.is_active,
+            'record_existed': True,
+        }
 
     @staticmethod
     def _has_complete_correction_audit_payload(action: HermesCorrectionAction) -> bool:
