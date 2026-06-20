@@ -288,7 +288,72 @@ def test_get_hermes_data_audit_run_hides_apply_gate_after_applied_action(monkeyp
     assert response.status_code == 200
     payload = response.json()
     assert payload['decision_gate']['can_apply'] is False
-    assert payload['decision_gate']['reason'] == 'no_pending_correction_actions'
+    assert payload['decision_gate']['reason'] == 'rerun_audit_required'
+    assert payload['recommended_next_step'] == 'rerun_audit_to_verify'
+
+
+def test_get_hermes_data_audit_run_blocks_apply_when_corrected_run_keeps_residual_suggestion(monkeypatch) -> None:
+    monkeypatch.setenv('HERMES_DATA_AUDIT_APPLY_ENABLED', 'true')
+    engine = _make_engine()
+    Base.metadata.create_all(engine, tables=ROUTER_TABLES)
+    db = Session(engine)
+    run = HermesDataAuditRun(
+        run_key='run-corrected-residual-suggestion',
+        business_date=date(2026, 6, 18),
+        status='corrected',
+        source_status={'mes': 'ok', 'hub': 'ok', 'output_skill': 'ok'},
+        source_errors={},
+        mes_snapshot={'records_count_by_source': {'stock_records': 3}},
+        hub_snapshot={'field_count': 1},
+        output_skill_snapshot={'parsed': {'total_output': 10}},
+        diffs={'total_output': {'status': 'hub_mismatch', 'values': {'mes': 10, 'hub': 8, 'output_skill': 10}}},
+        suggested_actions=[
+            {
+                'idempotency_key': 'suggested-after-corrected:1',
+                'action_type': 'mapping_alias_upsert',
+                'risk_level': 'low',
+                'target_table': 'master_code_aliases',
+                'target_key': 'workshop:拉矫',
+                'rollback_payload': {'restore_before_value': {'alias_code': '拉矫车间'}},
+            }
+        ],
+        match_rate=Decimal('0.5000'),
+        created_by_id=1,
+    )
+    db.add(run)
+    db.flush()
+    db.add(
+        HermesCorrectionAction(
+            audit_run_id=run.id,
+            idempotency_key='applied-before-rerun:1',
+            action_type='mapping_alias_upsert',
+            risk_level='low',
+            target_table='master_code_aliases',
+            target_key='workshop:精整',
+            before_value={'alias_code': '精整车间'},
+            after_value={'alias_code': '精整'},
+            evidence={'reason': 'matched'},
+            status='applied',
+            rollback_payload={'restore_before_value': {'alias_code': '精整车间'}},
+        )
+    )
+    db.commit()
+    previous_overrides = _install_overrides(db=db, user_role='user')
+
+    try:
+        client = TestClient(app)
+        response = client.get(f'/api/v1/hermes/data-audit/runs/{run.id}')
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    correction_action_keys = {item['idempotency_key'] for item in payload['correction_actions']}
+    assert 'applied-before-rerun:1' in correction_action_keys
+    assert 'suggested-after-corrected:1' in correction_action_keys
+    assert payload['decision_gate']['can_apply'] is False
+    assert payload['decision_gate']['reason'] == 'rerun_audit_required'
     assert payload['recommended_next_step'] == 'rerun_audit_to_verify'
 
 

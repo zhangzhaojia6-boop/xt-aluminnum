@@ -223,6 +223,8 @@ def _build_decision_gate(
     reason = _source_gate_reason(run)
     if reason:
         return {'can_apply': False, 'reason': reason, 'apply_enabled': apply_enabled}
+    if run.status == 'corrected':
+        return {'can_apply': False, 'reason': 'rerun_audit_required', 'apply_enabled': apply_enabled}
     if not correction_actions:
         return {'can_apply': False, 'reason': 'no_correction_actions', 'apply_enabled': apply_enabled}
     pending_actions = _pending_correction_actions(correction_actions)
