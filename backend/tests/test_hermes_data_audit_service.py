@@ -965,6 +965,55 @@ def test_apply_corrections_blocks_when_rollback_metadata_is_missing() -> None:
         db.close()
 
 
+def test_apply_corrections_blocks_when_rollback_payload_is_empty() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        action = _supported_action('empty-rollback-payload')
+        action['rollback_payload'] = {}
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        row = db.query(HermesCorrectionAction).one()
+        assert result['blocked_count'] == 1
+        assert row.status == 'blocked'
+        assert row.evidence['blocked_reason'] == 'incomplete_correction_audit_payload'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_accepts_rollback_unavailable_reason_metadata() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        service = HermesDataAuditService(db, apply_enabled=True)
+        action = _supported_action('rollback-unavailable', action_type='mapping_field_rule_upsert')
+        action['rollback_payload'] = {
+            'rollback_available': False,
+            'rollback_unavailable_reason': 'external side effect',
+        }
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[action],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        row = db.query(HermesCorrectionAction).one()
+        assert result['blocked_count'] == 1
+        assert row.status == 'blocked'
+        assert row.evidence['blocked_reason'] == 'executor_not_supported'
+    finally:
+        db.close()
+
+
 def test_apply_corrections_blocks_when_evidence_is_empty() -> None:
     db = _db_session()
     called = {'value': False}
@@ -1367,7 +1416,7 @@ def test_apply_corrections_rolls_back_whole_batch_when_one_alias_upsert_fails() 
         db.close()
 
 
-def test_apply_corrections_marks_partial_failure_for_mixed_blocked_and_failed() -> None:
+def test_apply_corrections_blocks_whole_batch_when_mixed_with_unsupported_executor_action() -> None:
     db = _db_session()
     try:
         run = _make_run(db)
@@ -1376,26 +1425,24 @@ def test_apply_corrections_marks_partial_failure_for_mixed_blocked_and_failed() 
         result = service.apply_corrections(
             audit_run_id=run.id,
             actions=[
+                _mapping_alias_action('would-otherwise-apply'),
                 _supported_action('will-block', action_type='mapping_field_rule_upsert'),
-                _mapping_alias_action(
-                    'will-fail',
-                    after_value={
-                        'entity_type': 'workshop',
-                        'alias_code': '2050',
-                        'alias_name': '冷轧2050',
-                        'source_type': 'hermes',
-                        'is_active': True,
-                    },
-                ),
             ],
             dry_run=False,
             applied_by_id=3,
         )
 
-        assert result['blocked_count'] == 1
-        assert result['failed_count'] == 1
+        rows = db.query(HermesCorrectionAction).order_by(HermesCorrectionAction.id).all()
+        assert result['applied_count'] == 0
+        assert result['blocked_count'] == 2
+        assert result['failed_count'] == 0
+        assert [row.status for row in rows] == ['blocked', 'blocked']
+        assert rows[0].evidence['blocked_reason'] == 'batch_not_all_executable'
+        assert rows[1].evidence['blocked_reason'] == 'executor_not_supported'
+        assert db.query(MasterCodeAlias).filter_by(entity_type='workshop', alias_code='2050', source_type='hermes').count() == 0
         db.refresh(run)
-        assert run.status == 'correction_partial_failed'
+        assert run.status == 'correction_blocked'
+        assert run.status != 'corrected'
     finally:
         db.close()
 

@@ -542,11 +542,13 @@ class HermesDataAuditService:
             )
 
         executable_actions: list[HermesCorrectionAction] = []
+        batch_has_non_executable_action = False
         for action in planned_actions:
             status, blocked_reason = self._determine_action_status(action=action, dry_run=dry_run)
             if status == 'executable':
                 executable_actions.append(action)
                 continue
+            batch_has_non_executable_action = True
             action.status = status
             if blocked_reason:
                 action.evidence = {**(action.evidence or {}), 'blocked_reason': blocked_reason}
@@ -557,6 +559,19 @@ class HermesDataAuditService:
                 if blocked_reason == 'apply_disabled':
                     summary['reason'] = 'apply_disabled'
             summary['action_statuses'].append({'idempotency_key': action.idempotency_key, 'status': status})
+
+        batch_has_gate_issue = bool(summary['skipped_count']) or batch_has_non_executable_action
+        if not dry_run and executable_actions and batch_has_gate_issue:
+            if summary['reason'] is None:
+                summary['reason'] = 'batch_not_all_executable'
+            for action in executable_actions:
+                action.status = 'blocked'
+                action.evidence = {**(action.evidence or {}), 'blocked_reason': 'batch_not_all_executable'}
+                summary['blocked_count'] += 1
+                summary['action_statuses'].append(
+                    {'idempotency_key': action.idempotency_key, 'status': 'blocked'}
+                )
+            executable_actions = []
 
         if not dry_run and executable_actions:
             handler_new_ids = {id(item) for item in self._db.new}
@@ -1443,6 +1458,13 @@ class HermesDataAuditService:
             if rollback_payload.get('restore_before_value') not in (None, {}):
                 return True
             if rollback_payload.get('reason') or rollback_payload.get('mode') == 'not_available':
+                return True
+            rollback_unavailable_reason = str(rollback_payload.get('rollback_unavailable_reason') or '').strip()
+            rollback_available = rollback_payload.get('rollback_available')
+            rollback_available_false = rollback_available is False or (
+                isinstance(rollback_available, str) and rollback_available.strip().lower() == 'false'
+            )
+            if rollback_available_false and rollback_unavailable_reason:
                 return True
             return False
         return True
