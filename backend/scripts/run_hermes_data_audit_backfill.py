@@ -30,6 +30,13 @@ DEFAULT_BACKFILL_FIELDS = (
 TABLE_HEADER = (
     'DATE        STATUS                         APPLY  MATCH   MES  HUB  OUTSKILL  DIFFS  NEXT'
 )
+FAILED_SUMMARY_STATUSES = {
+    'failed',
+    'no_comparable_data',
+    'correction_blocked',
+    'correction_failed',
+    'correction_partial_failed',
+}
 
 
 def _parse_date(raw: str) -> date:
@@ -48,11 +55,10 @@ def _date_range(start: date, end: date) -> list[date]:
     return [date.fromordinal(day) for day in range(start.toordinal(), end.toordinal() + 1)]
 
 
-def _default_service_factory(db: Any, apply_enabled: bool) -> HermesDataAuditService:
+def _default_service_factory(db: Any) -> HermesDataAuditService:
     return HermesDataAuditService(
         db,
         mes_read_service=HermesMesReadService(get_mes_adapter()),
-        apply_enabled=apply_enabled,
     )
 
 
@@ -191,6 +197,10 @@ def _error_summary(*, business_date: date, status: str, detail: str, next_step: 
     }
 
 
+def _summary_is_failed(summary: dict[str, Any]) -> bool:
+    return str(summary.get('status') or '').strip() in FAILED_SUMMARY_STATUSES
+
+
 def run_backfill(
     *,
     start_date: date,
@@ -200,7 +210,7 @@ def run_backfill(
     dry_run: bool = True,
     apply_corrections: bool = False,
     sessionmaker_factory: Callable[[], Any] | None = None,
-    service_factory: Callable[[Any, bool], Any] | None = None,
+    service_factory: Callable[[Any], Any] | None = None,
 ) -> list[dict[str, Any]]:
     if apply_corrections and dry_run:
         dry_run = False
@@ -216,7 +226,7 @@ def run_backfill(
     for business_date in _date_range(start_date, end_date):
         try:
             with session_factory() as db:
-                service = resolved_service_factory(db, apply_corrections)
+                service = resolved_service_factory(db)
                 run = service.create_run(
                     business_date=business_date,
                     fields=resolved_fields,
@@ -290,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
     for summary in summaries:
         print(format_backfill_row(summary))
 
-    has_failures = any(summary.get('status') in {'failed', 'no_comparable_data'} for summary in summaries)
+    has_failures = any(_summary_is_failed(summary) for summary in summaries)
     return 1 if has_failures else 0
 
 

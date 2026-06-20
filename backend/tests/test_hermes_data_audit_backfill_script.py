@@ -129,6 +129,28 @@ def test_parse_csv_list_trims_and_splits_values() -> None:
     assert values == ['total_output', 'inbound_total', 'yield_rate']
 
 
+def test_default_service_factory_leaves_apply_gate_to_service(monkeypatch) -> None:
+    module = _load_script_module()
+    captured: dict = {}
+
+    class _CapturedHermesDataAuditService:
+        def __init__(self, db, **kwargs):
+            captured['db'] = db
+            captured['kwargs'] = kwargs
+
+    monkeypatch.setattr(module, 'get_mes_adapter', lambda: 'mes-adapter')
+    monkeypatch.setattr(module, 'HermesMesReadService', lambda adapter: {'adapter': adapter})
+    monkeypatch.setattr(module, 'HermesDataAuditService', _CapturedHermesDataAuditService)
+
+    db = object()
+    service = module._default_service_factory(db)
+
+    assert isinstance(service, _CapturedHermesDataAuditService)
+    assert captured['db'] is db
+    assert captured['kwargs']['mes_read_service'] == {'adapter': 'mes-adapter'}
+    assert 'apply_enabled' not in captured['kwargs']
+
+
 def test_format_backfill_row_contains_table_values_and_redacts_sensitive_text() -> None:
     module = _load_script_module()
     summary = {
@@ -187,7 +209,7 @@ def test_run_backfill_continues_after_day_errors() -> None:
         end_date=date(2026, 6, 18),
         fields=['total_output'],
         sessionmaker_factory=lambda: _FakeSessionFactory(),
-        service_factory=lambda _db, apply_enabled: service,
+        service_factory=lambda _db: service,
     )
 
     assert [item['status'] for item in summaries] == ['no_comparable_data', 'failed', 'completed_with_missing_source']
@@ -213,7 +235,7 @@ def test_run_backfill_default_dry_run_does_not_apply_corrections() -> None:
         end_date=date(2026, 6, 18),
         fields=None,
         sessionmaker_factory=lambda: _FakeSessionFactory(),
-        service_factory=lambda _db, apply_enabled: service,
+        service_factory=lambda _db: service,
     )
 
     assert service.create_calls[0]['fields'] == list(module.DEFAULT_BACKFILL_FIELDS)
@@ -231,7 +253,7 @@ def test_run_backfill_passes_mes_query_keys_to_create_run() -> None:
         fields=['total_output'],
         mes_query_keys=['stock_records', 'yield_records'],
         sessionmaker_factory=lambda: _FakeSessionFactory(),
-        service_factory=lambda _db, apply_enabled: service,
+        service_factory=lambda _db: service,
     )
 
     assert service.create_calls[0]['mes_query_keys'] == ['stock_records', 'yield_records']
@@ -249,7 +271,7 @@ def test_run_backfill_apply_corrections_calls_real_apply_once() -> None:
         dry_run=False,
         apply_corrections=True,
         sessionmaker_factory=lambda: _FakeSessionFactory(),
-        service_factory=lambda _db, apply_enabled: service,
+        service_factory=lambda _db: service,
     )
 
     assert len(service.apply_calls) == 1
@@ -292,3 +314,33 @@ def test_main_dry_run_prints_header_and_rows(monkeypatch) -> None:
     assert 'STATUS' in output
     assert '2026-06-16' in output
     assert 'mount_output_skill_reference_and_rerun' in output
+
+
+def test_main_returns_failure_for_correction_blocked(monkeypatch) -> None:
+    module = _load_script_module()
+    captured = StringIO()
+
+    monkeypatch.setattr(
+        module,
+        'run_backfill',
+        lambda **kwargs: [
+            {
+                'date': '2026-06-16',
+                'status': 'correction_blocked',
+                'apply': 'no',
+                'match': 0.5,
+                'mes': 'ok',
+                'hub': 'ok',
+                'outskill': 'parsed',
+                'diffs': 1,
+                'next': 'review_low_risk_actions',
+                'detail': '',
+            }
+        ],
+    )
+    monkeypatch.setattr(module.sys, 'stdout', captured)
+
+    exit_code = module.main(['--start-date', '2026-06-16', '--end-date', '2026-06-16', '--apply-corrections'])
+
+    assert exit_code == 1
+    assert 'correction_blocked' in captured.getvalue()
