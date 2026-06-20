@@ -223,6 +223,22 @@ def test_run_backfill_default_dry_run_does_not_apply_corrections() -> None:
     assert summaries[0]['apply'] == 'no'
 
 
+def test_run_backfill_passes_mes_query_keys_to_create_run() -> None:
+    module = _load_script_module()
+    service = _FakeService({date(2026, 6, 18): _make_run()})
+
+    module.run_backfill(
+        start_date=date(2026, 6, 18),
+        end_date=date(2026, 6, 18),
+        fields=['total_output'],
+        mes_query_keys=['stock_records', 'yield_records'],
+        sessionmaker_factory=lambda: _FakeSessionFactory(),
+        service_factory=lambda _db, apply_enabled: service,
+    )
+
+    assert service.create_calls[0]['mes_query_keys'] == ['stock_records', 'yield_records']
+
+
 def test_run_backfill_apply_corrections_calls_real_apply_once() -> None:
     module = _load_script_module()
     run = _make_run(run_id=9)
