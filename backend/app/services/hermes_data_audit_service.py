@@ -113,6 +113,13 @@ _CSV_HEADER_ALIASES = {
     '成材率': 'yield_rate',
     '日成品率': 'yield_rate',
 }
+_AUDIT_HEAVY_KEY_TOKENS = {'raw', 'raw_text', 'records', 'rows', 'items', 'payload', 'content'}
+_AUDIT_SAFE_ROOT_KEYS = {'before_value', 'after_value', 'evidence', 'rollback_payload'}
+_AUDIT_TEXT_SAMPLE_LIMIT = 160
+_AUDIT_INLINE_TEXT_LIMIT = 200
+_AUDIT_MAPPING_SUMMARY_LIMIT = 8
+_AUDIT_LIST_SUMMARY_LIMIT = 4
+_AUDIT_SAMPLE_ITEM_LIMIT = 2
 
 
 def _json_safe(value: Any) -> Any:
@@ -155,6 +162,11 @@ def _payload_hash(value: Any) -> str:
     return hashlib.sha1(encoded).hexdigest()
 
 
+def _payload_sha256(value: Any) -> str:
+    encoded = json.dumps(_json_safe(value), ensure_ascii=False, sort_keys=True).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _numeric_value(value: Any) -> float | None:
     if value is None or value == '':
         return None
@@ -178,6 +190,75 @@ def _values_match(left: Any, right: Any) -> bool:
         tolerance = max(0.01, max(abs(left_number), abs(right_number)) * 0.001)
         return abs(left_number - right_number) <= tolerance
     return str(left).strip() == str(right).strip()
+
+
+def _is_high_risk_audit_key(field_name: str | None) -> bool:
+    if field_name is None:
+        return False
+    normalized = str(field_name).strip().lower()
+    if normalized in _AUDIT_SAFE_ROOT_KEYS:
+        return False
+    if normalized in _AUDIT_HEAVY_KEY_TOKENS:
+        return True
+    tokens = [token for token in re.split(r'[^a-z0-9]+', normalized) if token]
+    return any(token in _AUDIT_HEAVY_KEY_TOKENS for token in tokens)
+
+
+def _summarize_audit_text(value: str) -> dict[str, Any]:
+    redacted = redact_secret_text(value)
+    sample = redacted[:_AUDIT_TEXT_SAMPLE_LIMIT]
+    if '<redacted>' in redacted and '<redacted>' not in sample:
+        marker = ' <redacted>'
+        sample = f"{sample[: max(_AUDIT_TEXT_SAMPLE_LIMIT - len(marker), 0)]}{marker}"
+    return {
+        'summary_type': 'text',
+        'length': len(redacted),
+        'sha256': hashlib.sha256(redacted.encode('utf-8')).hexdigest(),
+        'sample': sample,
+        'summarized': True,
+        'truncated': len(redacted) > _AUDIT_TEXT_SAMPLE_LIMIT,
+    }
+
+
+def _slim_correction_audit_value(value: Any, *, field_name: str | None = None, depth: int = 0) -> Any:
+    safe_value = _json_safe(value)
+    if isinstance(safe_value, Mapping):
+        if _is_high_risk_audit_key(field_name) or len(safe_value) > _AUDIT_MAPPING_SUMMARY_LIMIT:
+            sample: dict[str, Any] = {}
+            for index, (key, item) in enumerate(safe_value.items()):
+                if index >= _AUDIT_SAMPLE_ITEM_LIMIT:
+                    break
+                sample[str(key)] = _slim_correction_audit_value(item, field_name=str(key), depth=depth + 1)
+            return {
+                'summary_type': 'mapping',
+                'count': len(safe_value),
+                'sha256': _payload_sha256(safe_value),
+                'sample': sample,
+                'summarized': True,
+            }
+        return {
+            str(key): _slim_correction_audit_value(item, field_name=str(key), depth=depth + 1)
+            for key, item in safe_value.items()
+        }
+    if isinstance(safe_value, list):
+        if _is_high_risk_audit_key(field_name) or len(safe_value) > _AUDIT_LIST_SUMMARY_LIMIT:
+            return {
+                'summary_type': 'list',
+                'count': len(safe_value),
+                'sha256': _payload_sha256(safe_value),
+                'sample': [
+                    _slim_correction_audit_value(item, depth=depth + 1)
+                    for item in safe_value[:_AUDIT_SAMPLE_ITEM_LIMIT]
+                ],
+                'summarized': True,
+            }
+        return [_slim_correction_audit_value(item, depth=depth + 1) for item in safe_value]
+    if isinstance(safe_value, str):
+        redacted = redact_secret_text(safe_value)
+        if _is_high_risk_audit_key(field_name) or len(redacted) > _AUDIT_INLINE_TEXT_LIMIT:
+            return _summarize_audit_text(redacted)
+        return redacted
+    return safe_value
 
 
 class HermesDataAuditService:
@@ -425,13 +506,25 @@ class HermesDataAuditService:
                 for action in executable_actions:
                     handler_result = handler_results.get(action.idempotency_key, {})
                     if 'before_value' in handler_result:
-                        action.before_value = _json_safe(handler_result.get('before_value'))
+                        action.before_value = _slim_correction_audit_value(
+                            handler_result.get('before_value'),
+                            field_name='before_value',
+                        )
                     if 'after_value' in handler_result:
-                        action.after_value = _json_safe(handler_result.get('after_value'))
+                        action.after_value = _slim_correction_audit_value(
+                            handler_result.get('after_value'),
+                            field_name='after_value',
+                        )
                     if 'evidence' in handler_result:
-                        action.evidence = _json_safe(handler_result.get('evidence') or {})
+                        action.evidence = _slim_correction_audit_value(
+                            handler_result.get('evidence') or {},
+                            field_name='evidence',
+                        )
                     if 'rollback_payload' in handler_result:
-                        action.rollback_payload = _json_safe(handler_result.get('rollback_payload'))
+                        action.rollback_payload = _slim_correction_audit_value(
+                            handler_result.get('rollback_payload'),
+                            field_name='rollback_payload',
+                        )
                     action.status = 'applied'
                     action.applied_by_id = applied_by_id
                     action.applied_at = now
@@ -1002,10 +1095,13 @@ class HermesDataAuditService:
         action.target_table = str(payload.get('target_table') or '')
         action.target_key = str(payload.get('target_key') or '')
         action.field_name = str(payload.get('field_name')) if payload.get('field_name') is not None else None
-        action.before_value = _json_safe(payload.get('before_value'))
-        action.after_value = _json_safe(payload.get('after_value'))
-        action.evidence = _json_safe(payload.get('evidence') or {})
-        action.rollback_payload = _json_safe(payload.get('rollback_payload'))
+        action.before_value = _slim_correction_audit_value(payload.get('before_value'), field_name='before_value')
+        action.after_value = _slim_correction_audit_value(payload.get('after_value'), field_name='after_value')
+        action.evidence = _slim_correction_audit_value(payload.get('evidence') or {}, field_name='evidence')
+        action.rollback_payload = _slim_correction_audit_value(
+            payload.get('rollback_payload'),
+            field_name='rollback_payload',
+        )
 
     @staticmethod
     def _normalize_fields(fields: Sequence[str] | None) -> list[str]:
@@ -1100,13 +1196,25 @@ class HermesDataAuditService:
             status=action.status,
         )
         if 'before_value' in handler_result:
-            projected.before_value = _json_safe(handler_result.get('before_value'))
+            projected.before_value = _slim_correction_audit_value(
+                handler_result.get('before_value'),
+                field_name='before_value',
+            )
         if 'after_value' in handler_result:
-            projected.after_value = _json_safe(handler_result.get('after_value'))
+            projected.after_value = _slim_correction_audit_value(
+                handler_result.get('after_value'),
+                field_name='after_value',
+            )
         if 'evidence' in handler_result:
-            projected.evidence = _json_safe(handler_result.get('evidence') or {})
+            projected.evidence = _slim_correction_audit_value(
+                handler_result.get('evidence') or {},
+                field_name='evidence',
+            )
         if 'rollback_payload' in handler_result:
-            projected.rollback_payload = _json_safe(handler_result.get('rollback_payload'))
+            projected.rollback_payload = _slim_correction_audit_value(
+                handler_result.get('rollback_payload'),
+                field_name='rollback_payload',
+            )
         return projected
 
     @staticmethod

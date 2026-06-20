@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+import json
 
 import pytest
 from sqlalchemy import create_engine
@@ -102,6 +103,66 @@ def _supported_action(
         'evidence': {'source': 'mes'},
         'rollback_payload': {'mode': 'manual', 'restore_before_value': {'hub': 95.0}},
     }
+
+
+def _large_raw_text() -> str:
+    return ('RAW-ROW-' * 250) + ' token=secret-token password=top-secret'
+
+
+def _action_with_large_audit_payload(idempotency_key: str) -> dict:
+    large_text = _large_raw_text()
+    action = _supported_action(idempotency_key)
+    action['before_value'] = {
+        'hub': 95.0,
+        'rows': [{'raw': large_text, 'raw_text': large_text, 'value': 95.0}],
+    }
+    action['after_value'] = {
+        'hub': 100.0,
+        'content': large_text,
+        'items': [{'raw_text': large_text, 'value': 100.0}],
+    }
+    action['evidence'] = {
+        'source': 'mes',
+        'field_name': 'workshop_output',
+        'values': {
+            'before': 95.0,
+            'after': 100.0,
+            'rows': [{'raw': large_text}],
+            'raw_text': large_text,
+        },
+    }
+    action['rollback_payload'] = {
+        'mode': 'manual',
+        'reason': 'restore previous hub value',
+        'restore_before_value': {'hub': 95.0},
+        'rows': [{'raw': large_text}],
+        'content': large_text,
+    }
+    return action
+
+
+def _assert_payload_slimmed(payload: dict) -> None:
+    large_text = _large_raw_text()
+    serialized = json.dumps(payload, ensure_ascii=False)
+    assert large_text not in serialized
+    assert 'secret-token' not in serialized
+    assert 'top-secret' not in serialized
+    assert '<redacted>' in serialized
+
+
+def _assert_text_summary(summary: dict) -> None:
+    assert summary['summarized'] is True
+    assert summary['truncated'] is True
+    assert summary['length'] >= 2000
+    assert summary['sha256']
+    assert summary['sample']
+
+
+def _assert_collection_summary(summary: dict) -> None:
+    assert summary['summarized'] is True
+    assert summary['count'] >= 1
+    assert summary['sha256']
+    assert summary['sample']
 
 
 def test_read_output_skill_business_date_returns_missing_when_root_unconfigured(monkeypatch) -> None:
@@ -1031,6 +1092,130 @@ def test_apply_corrections_marks_applied_when_controlled_handler_succeeds() -> N
         assert action.evidence == {'handler': 'ok'}
         db.refresh(run)
         assert run.status == 'corrected'
+    finally:
+        db.close()
+
+
+def test_apply_corrections_slims_large_initial_audit_payloads_before_persisting() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        service = HermesDataAuditService(db, apply_enabled=False)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_action_with_large_audit_payload('slim-initial-payload')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).one()
+        assert result['blocked_count'] == 1
+        assert action.before_value['hub'] == 95.0
+        assert action.after_value['hub'] == 100.0
+        assert action.evidence['source'] == 'mes'
+        assert action.evidence['field_name'] == 'workshop_output'
+        assert action.rollback_payload['mode'] == 'manual'
+        assert action.rollback_payload['restore_before_value'] == {'hub': 95.0}
+        _assert_collection_summary(action.before_value['rows'])
+        _assert_text_summary(action.after_value['content'])
+        _assert_collection_summary(action.after_value['items'])
+        _assert_collection_summary(action.evidence['values']['rows'])
+        _assert_text_summary(action.evidence['values']['raw_text'])
+        _assert_collection_summary(action.rollback_payload['rows'])
+        _assert_text_summary(action.rollback_payload['content'])
+        _assert_payload_slimmed(action.before_value)
+        _assert_payload_slimmed(action.after_value)
+        _assert_payload_slimmed(action.evidence)
+        _assert_payload_slimmed(action.rollback_payload)
+    finally:
+        db.close()
+
+
+def test_apply_corrections_slims_large_handler_result_payloads_before_persisting() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+
+        def _handler(action):
+            return {
+                'before_value': {
+                    'hub': 95.0,
+                    'rows': [{'raw': _large_raw_text(), 'raw_text': _large_raw_text(), 'value': 95.0}],
+                },
+                'after_value': {
+                    'hub': 96.5,
+                    'content': _large_raw_text(),
+                },
+                'evidence': {
+                    'handler': 'ok',
+                    'source': 'mes',
+                    'field_name': 'workshop_output',
+                    'values': {'rows': [{'raw': _large_raw_text()}], 'raw_text': _large_raw_text()},
+                },
+                'rollback_payload': {
+                    'mode': 'manual',
+                    'reason': 'restore previous hub value',
+                    'restore_before_value': {'hub': 95.0},
+                    'payload': {'raw_text': _large_raw_text()},
+                },
+            }
+
+        _handler.hermes_controlled_transaction = True
+        service = HermesDataAuditService(db, apply_enabled=True, correction_handler=_handler)
+
+        result = service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_supported_action('slim-handler-result')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).one()
+        assert result['applied_count'] == 1
+        assert action.status == 'applied'
+        assert action.before_value['hub'] == 95.0
+        assert action.after_value['hub'] == 96.5
+        assert action.evidence['source'] == 'mes'
+        assert action.evidence['field_name'] == 'workshop_output'
+        assert action.rollback_payload['mode'] == 'manual'
+        assert action.rollback_payload['restore_before_value'] == {'hub': 95.0}
+        _assert_collection_summary(action.before_value['rows'])
+        _assert_text_summary(action.after_value['content'])
+        _assert_collection_summary(action.evidence['values']['rows'])
+        _assert_text_summary(action.evidence['values']['raw_text'])
+        _assert_collection_summary(action.rollback_payload['payload'])
+        _assert_payload_slimmed(action.before_value)
+        _assert_payload_slimmed(action.after_value)
+        _assert_payload_slimmed(action.evidence)
+        _assert_payload_slimmed(action.rollback_payload)
+    finally:
+        db.close()
+
+
+def test_apply_corrections_redacts_sensitive_text_inside_slim_summaries() -> None:
+    db = _db_session()
+    try:
+        run = _make_run(db)
+        service = HermesDataAuditService(db, apply_enabled=False)
+
+        service.apply_corrections(
+            audit_run_id=run.id,
+            actions=[_action_with_large_audit_payload('redacted-summary')],
+            dry_run=False,
+            applied_by_id=3,
+        )
+
+        action = db.query(HermesCorrectionAction).one()
+        rows_summary = action.before_value['rows']
+        content_summary = action.after_value['content']
+        raw_text_summary = action.evidence['values']['raw_text']
+        rollback_content_summary = action.rollback_payload['content']
+        for summary in (rows_summary, content_summary, raw_text_summary, rollback_content_summary):
+            serialized = json.dumps(summary, ensure_ascii=False)
+            assert 'secret-token' not in serialized
+            assert 'top-secret' not in serialized
+            assert '<redacted>' in serialized
     finally:
         db.close()
 
