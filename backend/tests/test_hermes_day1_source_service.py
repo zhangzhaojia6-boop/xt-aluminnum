@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models import Base
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
+from app.models.hermes_data_audit import HermesDataAuditRun
 from app.models.reports import DailyReport
 
 
@@ -124,7 +125,11 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         'query_keys': service.DAY1_MES_QUERY_KEYS,
     }
     assert calls['audit_init']['db'] is db
-    assert calls['audit_init']['mes_read_service'].__class__ is _MesReaderFake
+    audit_mes_reader = calls['audit_init']['mes_read_service']
+    assert audit_mes_reader.read_sources(
+        business_date=business_date,
+        query_keys=service.DAY1_MES_QUERY_KEYS,
+    ) == mes_payload
     assert calls['audit_create_run'] == {
         'business_date': business_date,
         'fields': service.DEFAULT_AUDIT_FIELDS,
@@ -137,6 +142,74 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         'limit': 5,
         'user': actor,
     }
+
+
+def test_collect_day1_sources_reads_mes_once_when_audit_reads_sources(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    business_date = date(2026, 6, 21)
+    mes_calls: list[dict] = []
+
+    class _MesReaderFake:
+        def __init__(self, adapter) -> None:
+            self.adapter = adapter
+
+        def read_sources(self, **kwargs):
+            mes_calls.append(kwargs)
+            return {
+                'business_date': kwargs['business_date'].isoformat(),
+                'records': {'summary': [{'field': 'total_output', 'value': 100.0}]},
+                'source_status': {'mes': 'ok', 'sources': {'summary': {'status': 'ok', 'count': 1}}},
+                'source_errors': {},
+            }
+
+    class _AuditServiceFake:
+        def __init__(self, db_arg, **kwargs) -> None:
+            self.mes_read_service = kwargs['mes_read_service']
+
+        def create_run(self, **kwargs):
+            audit_mes_payload = self.mes_read_service.read_sources(
+                business_date=kwargs['business_date'],
+                query_keys=kwargs['mes_query_keys'],
+            )
+            assert audit_mes_payload['records']['summary'][0]['value'] == 100.0
+            return SimpleNamespace(
+                id=7,
+                status='completed',
+                match_rate=1,
+                source_status={'mes': 'ok'},
+                source_errors={},
+                diffs={},
+                suggested_actions=[],
+                output_skill_snapshot={'status': 'missing'},
+            )
+
+    monkeypatch.setattr(
+        service.template_daily_report,
+        'build_template_daily_report_payload',
+        lambda db, *, target_date: {'status': 'ready', 'facts': {'values': {'total_output': 100.0}}},
+    )
+    monkeypatch.setattr(service, 'get_mes_adapter', lambda: 'adapter')
+    monkeypatch.setattr(service, 'HermesMesReadService', _MesReaderFake)
+    monkeypatch.setattr(service, 'HermesDataAuditService', _AuditServiceFake)
+    monkeypatch.setattr(service, 'query_knowledge', lambda *args, **kwargs: {'answer': 'ok', 'citations': []})
+
+    try:
+        service.collect_day1_sources(
+            db,
+            business_date=business_date,
+            actor=None,
+            trace_id='trace-day1-001',
+        )
+    finally:
+        db.close()
+
+    assert mes_calls == [
+        {
+            'business_date': business_date,
+            'query_keys': service.DAY1_MES_QUERY_KEYS,
+        }
+    ]
 
 
 def test_collect_day1_sources_filters_dingtalk_evidence_for_target_daily_sample(monkeypatch) -> None:
@@ -272,6 +345,87 @@ def test_collect_day1_sources_returns_failed_audit_payload_with_redacted_error(m
     assert audit_payload['source_errors']['audit'] == 'audit failed password=<redacted> token=<redacted>'
 
 
+def test_collect_day1_sources_preserves_failed_audit_run_for_no_comparable_data(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    business_date = date(2026, 6, 21)
+
+    class _AuditServiceFake:
+        def __init__(self, db_arg, **kwargs) -> None:
+            self.db = db_arg
+
+        def create_run(self, **kwargs):
+            run = HermesDataAuditRun(
+                run_key='run-no-comparable',
+                business_date=business_date,
+                status='failed',
+                source_status={'mes': 'empty', 'hub': 'ok', 'output_skill': 'missing'},
+                source_errors={'output_skill': 'output_skill_source_missing'},
+                mes_snapshot={},
+                hub_snapshot={},
+                output_skill_snapshot={'status': 'missing', 'raw_payload_truncated': True},
+                diffs={'total_output': {'status': 'mes_missing'}},
+                suggested_actions=[],
+            )
+            self.db.add(run)
+            self.db.commit()
+            self.db.refresh(run)
+            raise service.NoComparableDataError(f'No comparable data for audit run {run.id}')
+
+    _patch_collect_dependencies(monkeypatch, service)
+    monkeypatch.setattr(service, 'HermesDataAuditService', _AuditServiceFake)
+
+    try:
+        payload = service.collect_day1_sources(
+            db,
+            business_date=business_date,
+            actor=None,
+            trace_id='trace-day1-001',
+        )
+    finally:
+        db.close()
+
+    audit_payload = payload['audit_run']
+    assert audit_payload['id'] == 1
+    assert audit_payload['status'] == 'failed'
+    assert audit_payload['source_status'] == {'mes': 'empty', 'hub': 'ok', 'output_skill': 'missing'}
+    assert audit_payload['diffs'] == {'total_output': {'status': 'mes_missing'}}
+    assert audit_payload['output_skill_snapshot'] == {
+        'status': 'missing',
+        'raw_payload_truncated': True,
+    }
+
+
+def test_collect_day1_sources_returns_failed_rag_payload_with_redacted_error(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    _patch_collect_dependencies(monkeypatch, service)
+
+    def _query_knowledge(*args, **kwargs):
+        raise RuntimeError('rag failed password=plain-pass token=plain-token')
+
+    monkeypatch.setattr(service, 'query_knowledge', _query_knowledge)
+
+    try:
+        payload = service.collect_day1_sources(
+            db,
+            business_date=date(2026, 6, 21),
+            actor=None,
+            trace_id='trace-day1-001',
+        )
+    finally:
+        db.close()
+
+    assert payload['rag'] == {
+        'answer': None,
+        'citations': [],
+        'status': 'failed',
+        'source_errors': {'rag': 'rag failed password=<redacted> token=<redacted>'},
+    }
+    assert 'plain-pass' not in str(payload)
+    assert 'plain-token' not in str(payload)
+
+
 def test_collect_day1_sources_lists_relevant_chat_messages_with_cap(monkeypatch) -> None:
     service = _source_service()
     db = _db_session()
@@ -324,6 +478,45 @@ def test_collect_day1_sources_lists_relevant_chat_messages_with_cap(monkeypatch)
         'trace_id',
         'created_at',
     }
+
+
+def test_collect_day1_sources_does_not_return_unmatched_recent_chat_messages(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    _patch_collect_dependencies(monkeypatch, service)
+    db.add_all(
+        [
+            ChatInboxMessage(
+                channel='private',
+                group_id='private-group',
+                sender_external_id='private-user',
+                text='私聊消息不能泄漏',
+                trace_id='trace-private',
+                source_payload={'business_date': '2026-06-20'},
+            ),
+            ChatInboxMessage(
+                channel='dingtalk',
+                group_id='other-group',
+                sender_external_id='other-user',
+                text='无关钉钉消息也不能泄漏',
+                trace_id='trace-other',
+                source_payload={'business_date': '2026-06-20'},
+            ),
+        ]
+    )
+    db.commit()
+
+    try:
+        payload = service.collect_day1_sources(
+            db,
+            business_date=date(2026, 6, 21),
+            actor=None,
+            trace_id='trace-missing',
+        )
+    finally:
+        db.close()
+
+    assert payload['dingtalk_messages'] == []
 
 
 def test_collect_day1_sources_excludes_raw_output_skill_text_and_redacts_snapshot(monkeypatch) -> None:

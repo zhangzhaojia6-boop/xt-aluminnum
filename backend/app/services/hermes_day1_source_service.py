@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from decimal import Decimal
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.adapters import get_mes_adapter
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
+from app.models.hermes_data_audit import HermesDataAuditRun
 from app.models.reports import DailyReport
 from app.models.system import User
 from app.services.hermes_data_audit_service import (
@@ -37,6 +39,25 @@ _DINGTALK_MESSAGE_LIMIT = 20
 _HISTORICAL_REPORT_LIMIT = 7
 
 
+class _PreloadedMesReadService:
+    def __init__(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        business_date: date,
+        query_keys: Sequence[str],
+    ) -> None:
+        self._payload = payload
+        self._business_date = business_date
+        self._query_keys = tuple(query_keys)
+
+    def read_sources(self, *, business_date: date, query_keys: Sequence[str], **kwargs: Any) -> Mapping[str, Any]:
+        _ = kwargs
+        if business_date != self._business_date or tuple(query_keys) != self._query_keys:
+            raise ValueError('preloaded_mes_payload_mismatch')
+        return self._payload
+
+
 def collect_day1_sources(
     db: Session,
     *,
@@ -54,15 +75,14 @@ def collect_day1_sources(
         db,
         business_date=business_date,
         actor=actor,
-        mes_reader=mes_reader,
+        mes_reader=_PreloadedMesReadService(
+            mes_payload,
+            business_date=business_date,
+            query_keys=DAY1_MES_QUERY_KEYS,
+        ),
         template_payload=template_payload,
     )
-    rag_payload = query_knowledge(
-        db,
-        query=f'{business_date.isoformat()} 日报 模板 WMS_InStock MES 路线 数据来源',
-        limit=5,
-        user=actor,
-    )
+    rag_payload = _query_day1_rag(db, business_date=business_date, actor=actor)
 
     return {
         'trace_id': trace_id,
@@ -73,10 +93,7 @@ def collect_day1_sources(
         'dingtalk_evidence': _list_dingtalk_evidence(db, business_date=business_date),
         'dingtalk_messages': _list_dingtalk_messages(db, business_date=business_date, trace_id=trace_id),
         'historical_reports': _list_historical_reports(db, business_date=business_date),
-        'rag': {
-            'answer': rag_payload.get('answer'),
-            'citations': rag_payload.get('citations') or [],
-        },
+        'rag': rag_payload,
     }
 
 
@@ -87,6 +104,27 @@ def _build_hub_snapshot_reader(template_payload: Mapping[str, Any]):
         return {field: values.get(field) for field in fields if field in values}
 
     return _reader
+
+
+def _query_day1_rag(db: Session, *, business_date: date, actor: User | None) -> dict[str, Any]:
+    try:
+        rag_payload = query_knowledge(
+            db,
+            query=f'{business_date.isoformat()} 日报 模板 WMS_InStock MES 路线 数据来源',
+            limit=5,
+            user=actor,
+        )
+    except Exception as exc:
+        return {
+            'answer': None,
+            'citations': [],
+            'status': 'failed',
+            'source_errors': {'rag': redact_secret_text(str(exc))},
+        }
+    return {
+        'answer': rag_payload.get('answer'),
+        'citations': rag_payload.get('citations') or [],
+    }
 
 
 def _create_audit_payload(
@@ -110,7 +148,8 @@ def _create_audit_payload(
         )
         return _audit_run_payload(run)
     except NoComparableDataError as exc:
-        return _failed_audit_payload(exc)
+        persisted_payload = _persisted_failed_audit_payload(db, business_date=business_date, exc=exc)
+        return persisted_payload or _failed_audit_payload(exc)
     except Exception as exc:
         return _failed_audit_payload(exc)
 
@@ -129,6 +168,33 @@ def _audit_run_payload(run: Any) -> dict[str, Any]:
     if output_skill_snapshot is not None:
         payload['output_skill_snapshot'] = _safe_output_skill_snapshot(output_skill_snapshot)
     return payload
+
+
+def _persisted_failed_audit_payload(
+    db: Session,
+    *,
+    business_date: date,
+    exc: NoComparableDataError,
+) -> dict[str, Any] | None:
+    run_id = _audit_run_id_from_error(exc)
+    run = db.get(HermesDataAuditRun, run_id) if run_id is not None else None
+    if run is not None and run.business_date == business_date:
+        return _audit_run_payload(run)
+    run = (
+        db.query(HermesDataAuditRun)
+        .filter(HermesDataAuditRun.business_date == business_date)
+        .filter(HermesDataAuditRun.status == 'failed')
+        .order_by(HermesDataAuditRun.id.desc())
+        .first()
+    )
+    return _audit_run_payload(run) if run is not None else None
+
+
+def _audit_run_id_from_error(exc: NoComparableDataError) -> int | None:
+    match = re.search(r'audit run (\d+)', str(exc))
+    if not match:
+        return None
+    return int(match.group(1))
 
 
 def _failed_audit_payload(exc: Exception) -> dict[str, Any]:
@@ -193,6 +259,7 @@ def _list_dingtalk_messages(db: Session, *, business_date: date, trace_id: str) 
     business_date_text = business_date.isoformat()
     rows = (
         db.query(ChatInboxMessage)
+        .filter(ChatInboxMessage.channel.ilike('%dingtalk%'))
         .order_by(ChatInboxMessage.created_at.desc(), ChatInboxMessage.id.desc())
         .limit(_DINGTALK_SCAN_LIMIT)
         .all()
@@ -202,8 +269,7 @@ def _list_dingtalk_messages(db: Session, *, business_date: date, trace_id: str) 
         for row in rows
         if row.trace_id == trace_id or _source_payload_business_date(row.source_payload) == business_date_text
     ]
-    selected_rows = matched_rows if matched_rows else rows
-    return [_chat_message_payload(row) for row in selected_rows[:_DINGTALK_MESSAGE_LIMIT]]
+    return [_chat_message_payload(row) for row in matched_rows[:_DINGTALK_MESSAGE_LIMIT]]
 
 
 def _source_payload_business_date(payload: Mapping[str, Any] | None) -> str | None:
