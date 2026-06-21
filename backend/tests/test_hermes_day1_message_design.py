@@ -44,6 +44,7 @@ def _sources(
     text: str | None = '6月21日，车间总产量日合计366吨。',
     field_match_rate: float | None = 98.5,
     audit_match_rate: float | None = 0.99,
+    audit_run: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     values = _values()
     alignment = {} if field_match_rate is None else {'field_match_rate': field_match_rate}
@@ -59,7 +60,8 @@ def _sources(
                 'sources': {key: {'source_type': '数据中枢 facts'} for key in values},
             },
         },
-        'audit_run': {
+        'audit_run': audit_run
+        or {
             'status': 'completed',
             'match_rate': audit_match_rate,
             'source_status': {'mes': 'ok', 'hub': 'ok'},
@@ -107,6 +109,29 @@ def test_dingtalk_review_label_is_used_when_match_rate_low_or_report_blocked() -
     assert '状态：已对齐' not in low_match['dingtalk_messages'][0]
     assert '状态：需复核' in blocked['dingtalk_messages'][0]
     assert '状态：已对齐' not in blocked['dingtalk_messages'][0]
+
+
+def test_dingtalk_review_label_is_used_when_source_is_partial_failed() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            field_match_rate=99.0,
+            audit_run={
+                'status': 'completed_with_source_error',
+                'match_rate': 0.99,
+                'source_status': {'mes': 'partial_failed', 'hub': 'ok', 'output_skill': 'parsed'},
+                'source_errors': {'mes': {'stock_records': 'timeout'}},
+                'diffs': {},
+                'suggested_actions': [],
+            },
+        ),
+    )
+
+    first = result['dingtalk_messages'][0]
+    assert '状态：需复核' in first
+    assert '状态：已对齐' not in first
 
 
 def test_dingtalk_field_match_rate_falls_back_to_audit_match_rate_percent() -> None:

@@ -105,7 +105,7 @@ def _sources(
             'diffs': {},
             'suggested_actions': ['继续核对异常吨耗'],
         },
-        'output_skill_alignment': output_skill_alignment or {'field_match_rate': 98.5},
+        'output_skill_alignment': output_skill_alignment if output_skill_alignment is not None else {'field_match_rate': 98.5},
         'dingtalk_evidence': [],
         'dingtalk_messages': [],
         'rag': {'answer': '模板说明', 'citations': []},
@@ -231,6 +231,100 @@ def test_conflicts_and_source_errors_are_visible_in_judgment_and_text() -> None:
     assert 'mismatch' in conflict_text
     assert '发现冲突' in result['text']
     assert '复核输出 skill 的总产量' in result['text']
+
+
+def test_suggested_action_dicts_render_as_readable_text_without_raw_repr() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            audit_run={
+                'status': 'completed',
+                'match_rate': 0.99,
+                'source_status': {'mes': 'ok', 'hub': 'ok', 'output_skill': 'parsed'},
+                'source_errors': {},
+                'diffs': {},
+                'suggested_actions': [
+                    {
+                        'action_type': 'mapping_alias_upsert',
+                        'risk_level': 'low',
+                        'target_key': 'cold-roll:2050',
+                        'field_name': 'workshop_output',
+                        'before_value': {'hub': 95.0},
+                        'after_value': {'hub': 100.0},
+                        'evidence': {'source': 'mes'},
+                    }
+                ],
+            },
+        ),
+    )
+
+    assert '动作=mapping_alias_upsert' in result['text']
+    assert '风险=low' in result['text']
+    assert '字段=workshop_output' in result['text']
+    assert '目标=cold-roll:2050' in result['text']
+    assert 'action_type' not in result['text']
+    assert "{'action_type'" not in result['text']
+    assert '{' not in result['text']
+    assert '}' not in result['text']
+
+
+def test_realistic_audit_diff_values_are_rendered_in_conflicts() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            audit_run={
+                'status': 'completed',
+                'match_rate': 0.66,
+                'source_status': {'mes': 'ok', 'hub': 'ok', 'output_skill': 'parsed'},
+                'source_errors': {},
+                'diffs': {
+                    'total_output': {
+                        'status': 'hub_mismatch',
+                        'values': {'hub': 95.0, 'mes': 100.0, 'output_skill': 98.0},
+                    }
+                },
+                'suggested_actions': [],
+            },
+            output_skill_alignment={},
+        ),
+    )
+
+    assert 'total_output' in result['text']
+    assert 'hub_mismatch' in result['text']
+    assert '数据中枢=95' in result['text']
+    assert '外部 MES=100' in result['text']
+    assert '输出 skill=98' in result['text']
+    assert "{'hub'" not in result['text']
+
+
+def test_empty_optional_sources_are_not_listed_as_checked_sources() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            output_skill_alignment={},
+            extra={
+                'dingtalk_evidence': [],
+                'dingtalk_messages': [],
+                'historical_reports': [],
+                'rag': {'answer': None, 'citations': [], 'status': 'failed'},
+            },
+        ),
+    )
+
+    source_names = result['brain_judgment']['source_names']
+    assert '模板正式日报' in source_names
+    assert 'Hermes 数据审计' in source_names
+    assert '钉钉证据' not in source_names
+    assert '钉钉文本' not in source_names
+    assert 'RAG 知识库' not in source_names
+    assert '历史日报' not in source_names
+    assert '输出 skill 对齐' not in source_names
 
 
 def test_workshop_details_use_template_facts_not_rag_or_dingtalk_numbers() -> None:

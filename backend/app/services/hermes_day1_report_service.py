@@ -84,6 +84,7 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
         formal_text=formal_section_text,
         workshop_details=workshop_details,
         trace_id=_trace_id(sources),
+        requires_review=_requires_review(brain_judgment),
     )
     return {
         'status': status,
@@ -122,8 +123,13 @@ def render_dingtalk_day1_reply(
     formal_text: str,
     workshop_details: list[dict[str, Any]],
     trace_id: str,
+    requires_review: bool = False,
 ) -> list[str]:
-    status_label = '已对齐' if status == 'ready' and field_match_rate is not None and field_match_rate >= 95.0 else '需复核'
+    status_label = (
+        '已对齐'
+        if status == 'ready' and not requires_review and field_match_rate is not None and field_match_rate >= 95.0
+        else '需复核'
+    )
     match_text = _field_match_rate_text(field_match_rate)
     text = '\n\n'.join(
         [
@@ -200,7 +206,7 @@ def _build_brain_judgment(
     if field_match_rate is not None and field_match_rate < 95.0:
         risks.append(f'字段匹配率低于 95%：{_field_match_rate_text(field_match_rate)}')
 
-    actions = [str(item) for item in _as_list(audit.get('suggested_actions')) if str(item).strip()]
+    actions = [text for item in _as_list(audit.get('suggested_actions')) if (text := _action_text(item))]
     actions.insert(0, '已生成三段式日报' if status == 'ready' else '已阻断正式正文并列出缺失字段')
 
     return {
@@ -226,6 +232,7 @@ def _collect_conflicts(sources: dict[str, Any]) -> list[dict[str, Any]]:
     audit = _as_mapping(sources.get('audit_run'))
     for field, diff in _as_mapping(audit.get('diffs')).items():
         diff_payload = _as_mapping(diff)
+        diff_values = _as_mapping(diff_payload.get('values'))
         diff_status = str(diff_payload.get('status') or '').strip()
         if diff_status and diff_status.lower() not in _OK_DIFF_STATUSES:
             conflicts.append(
@@ -234,9 +241,14 @@ def _collect_conflicts(sources: dict[str, Any]) -> list[dict[str, Any]]:
                     'source': 'audit_run',
                     'field': str(field),
                     'status': diff_status,
-                    'hub_value': diff_payload.get('hub_value'),
-                    'mes_value': diff_payload.get('mes_value'),
-                    'output_skill_value': diff_payload.get('output_skill_value'),
+                    'hub_value': _diff_value(diff_payload, diff_values, direct_key='hub_value', values_key='hub'),
+                    'mes_value': _diff_value(diff_payload, diff_values, direct_key='mes_value', values_key='mes'),
+                    'output_skill_value': _diff_value(
+                        diff_payload,
+                        diff_values,
+                        direct_key='output_skill_value',
+                        values_key='output_skill',
+                    ),
                 }
             )
 
@@ -270,6 +282,14 @@ def _append_source_errors(conflicts: list[dict[str, Any]], source: str, errors: 
                 'message': _plain_text(value),
             }
         )
+
+
+def _diff_value(diff_payload: Mapping[str, Any], diff_values: Mapping[str, Any], *, direct_key: str, values_key: str) -> Any:
+    if direct_key in diff_payload and diff_payload.get(direct_key) is not None:
+        return diff_payload.get(direct_key)
+    if values_key in diff_values:
+        return diff_values.get(values_key)
+    return None
 
 
 def _dedupe_conflicts(conflicts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -475,8 +495,48 @@ def _summary_text(*, business_date: date, status: str, risks: list[str]) -> str:
 
 
 def _source_names(sources: dict[str, Any]) -> list[str]:
-    names = [_SOURCE_LABELS[key] for key in _SOURCE_LABELS if key in sources]
+    names = [
+        _SOURCE_LABELS[key]
+        for key in _SOURCE_LABELS
+        if key in sources and _source_has_meaningful_content(key, sources.get(key))
+    ]
     return names or ['暂无明确来源']
+
+
+def _source_has_meaningful_content(key: str, payload: Any) -> bool:
+    if key in {'dingtalk_evidence', 'dingtalk_messages', 'historical_reports'}:
+        return bool(payload)
+    if key == 'output_skill_alignment':
+        return isinstance(payload, Mapping) and payload.get('field_match_rate') is not None
+    if key == 'rag':
+        if not isinstance(payload, Mapping) or _source_incomplete(payload.get('status')):
+            return False
+        return bool(payload.get('answer') or payload.get('citations') or payload.get('items'))
+    if key == 'mes_wms':
+        if not isinstance(payload, Mapping):
+            return False
+        source_status = _as_mapping(payload.get('source_status'))
+        return _has_non_empty_payload(payload.get('records')) or str(source_status.get('mes') or '').lower() == 'ok'
+    if key == 'audit_run':
+        if not isinstance(payload, Mapping):
+            return False
+        return any(payload.get(name) not in (None, '', [], {}) for name in ('status', 'id', 'match_rate', 'diffs', 'source_status'))
+    if key == 'template_daily_report':
+        if not isinstance(payload, Mapping):
+            return False
+        facts = _as_mapping(payload.get('facts'))
+        return bool(payload.get('status') or payload.get('text') or _as_mapping(facts.get('values')))
+    return payload not in (None, '', [], {})
+
+
+def _has_non_empty_payload(value: Any) -> bool:
+    if value in (None, '', [], {}):
+        return False
+    if isinstance(value, Mapping):
+        return any(_has_non_empty_payload(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_has_non_empty_payload(item) for item in value)
+    return True
 
 
 def _source_incomplete(value: Any) -> bool:
@@ -486,6 +546,29 @@ def _source_incomplete(value: Any) -> bool:
 def _field_match_rate_text(value: Any) -> str:
     rate = _normalise_rate(value)
     return '暂无' if rate is None else f'{rate:.1f}%'
+
+
+def _action_text(action: Any) -> str:
+    if isinstance(action, Mapping):
+        parts = []
+        action_type = action.get('action_type')
+        risk_level = action.get('risk_level')
+        field_name = action.get('field_name') or action.get('field')
+        target_key = action.get('target_key') or action.get('target_table')
+        if action_type not in (None, ''):
+            parts.append(f'动作={_plain_text(action_type)}')
+        if risk_level not in (None, ''):
+            parts.append(f'风险={_plain_text(risk_level)}')
+        if field_name not in (None, ''):
+            parts.append(f'字段={_plain_text(field_name)}')
+        if target_key not in (None, ''):
+            parts.append(f'目标={_plain_text(target_key)}')
+        return '，'.join(parts) if parts else '待复核动作'
+    return str(action).strip()
+
+
+def _requires_review(judgment: Mapping[str, Any]) -> bool:
+    return bool(_as_list(judgment.get('risks')))
 
 
 def _trace_id(sources: dict[str, Any]) -> str:
