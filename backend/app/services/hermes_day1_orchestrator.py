@@ -16,7 +16,7 @@ from app.services import hermes_memory_service, hermes_rag_service
 from app.services.audit_service import log_action
 from app.services.hermes_day1_harness_service import evaluate_day1_run_payload, summarize_harness_results
 from app.services.hermes_day1_intent_service import HermesDay1Command
-from app.services.hermes_day1_report_service import build_day1_three_part_report
+from app.services.hermes_day1_report_service import build_day1_three_part_report, _alignment_threshold as _report_alignment_threshold
 from app.services.hermes_day1_source_service import collect_day1_sources
 from app.services.hermes_governance_service import FACTORY_PROFILE_CODE
 
@@ -445,10 +445,7 @@ def _output_skill_alignment_payload(value: Any, *, include_differences: bool = T
 
 def _alignment_threshold(sources: dict[str, Any]) -> float:
     alignment = _as_mapping(sources.get('output_skill_alignment'))
-    try:
-        return float(alignment.get('threshold') or 95.0)
-    except (TypeError, ValueError):
-        return 95.0
+    return _report_alignment_threshold(alignment)
 
 
 def _source_status(payload: Any) -> str:

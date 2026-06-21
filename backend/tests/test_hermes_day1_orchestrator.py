@@ -508,3 +508,52 @@ def test_low_output_skill_match_rate_blocks_final_release_even_with_formal_text(
         assert run.result_payload['hermes_day1']['output_skill_alignment']['field_match_rate'] == 94.9
     finally:
         db.close()
+
+
+def test_missing_output_skill_alignment_blocks_final_release_even_if_audit_match_rate_is_perfect(monkeypatch) -> None:
+    service = _service()
+    db = _db_session()
+    actor = _actor(db)
+    missing_alignment_sources = _sources()
+    missing_alignment_sources['audit_run'] = {
+        'status': 'completed',
+        'match_rate': 1.0,
+        'source_status': {'mes': 'ok', 'hub': 'ok', 'output_skill': 'missing'},
+    }
+    missing_alignment_sources['output_skill_alignment'] = {
+        'status': 'missing',
+        'file_name': None,
+        'field_match_rate': None,
+        'matched_fields': None,
+        'expected_fields': None,
+        'difference_count': None,
+        'differences': [],
+        'char_match_rate': None,
+        'exact_match': False,
+        'threshold': 95.0,
+    }
+    _patch_audit(monkeypatch, service)
+
+    def _collect(db_arg, **kwargs):
+        return missing_alignment_sources
+
+    monkeypatch.setattr(service, 'collect_day1_sources', _collect)
+
+    try:
+        result = service.run_day1_super_brain(
+            db,
+            command=_command(),
+            actor=actor,
+            trace_id='trace-day1-missing-alignment',
+        )
+
+        report = db.get(DailyReport, result.report_id)
+        run = db.get(AgentRun, result.agent_run_id)
+        assert result.status == 'blocked'
+        assert report.quality_gate_status == 'blocked'
+        assert report.final_text_summary is None
+        assert report.delivery_ready is False
+        assert run.status == 'blocked'
+        assert '状态：已对齐' not in run.answer
+    finally:
+        db.close()

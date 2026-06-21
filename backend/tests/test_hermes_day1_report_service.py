@@ -426,3 +426,87 @@ def test_low_output_skill_match_rate_blocks_ready_template_and_lists_difference_
     assert '字段匹配率低于 95.0%' in result['text']
     assert '状态：需复核' in result['dingtalk_messages'][0]
     assert '状态：已对齐' not in result['dingtalk_messages'][0]
+
+
+def test_missing_output_skill_alignment_does_not_fallback_to_audit_match_rate() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            audit_run={
+                'status': 'completed',
+                'match_rate': 1.0,
+                'source_status': {'mes': 'ok', 'hub': 'ok', 'output_skill': 'missing'},
+                'source_errors': {},
+                'diffs': {},
+                'suggested_actions': [],
+            },
+            output_skill_alignment={
+                'status': 'missing',
+                'file_name': None,
+                'field_match_rate': None,
+                'matched_fields': None,
+                'expected_fields': None,
+                'difference_count': None,
+                'differences': [],
+                'char_match_rate': None,
+                'exact_match': False,
+                'threshold': 95.0,
+            },
+        ),
+    )
+
+    assert result['status'] == 'blocked'
+    assert BLOCKED_SENTENCE in result['text']
+    assert '状态：已对齐' not in result['dingtalk_messages'][0]
+    assert '状态：需复核' in result['dingtalk_messages'][0]
+
+
+def test_threshold_can_be_custom_percent_and_still_allow_publish() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            output_skill_alignment={
+                'status': 'passed',
+                'field_match_rate': 92.0,
+                'matched_fields': 18,
+                'expected_fields': 20,
+                'difference_count': 0,
+                'differences': [],
+                'char_match_rate': 97.0,
+                'exact_match': False,
+                'threshold': 90.0,
+            },
+        ),
+    )
+
+    assert result['status'] == 'ready'
+    assert BLOCKED_SENTENCE not in result['text']
+    assert '状态：已对齐' in result['dingtalk_messages'][0]
+
+
+def test_threshold_accepts_ratio_value_for_release_gate() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            output_skill_alignment={
+                'status': 'review_needed',
+                'field_match_rate': 94.9,
+                'matched_fields': 19,
+                'expected_fields': 20,
+                'difference_count': 0,
+                'differences': [],
+                'char_match_rate': 95.2,
+                'exact_match': False,
+                'threshold': 0.95,
+            },
+        ),
+    )
+
+    assert result['status'] == 'blocked'
+    assert '字段匹配率低于 95.0%' in result['text']

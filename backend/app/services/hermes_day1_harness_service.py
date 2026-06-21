@@ -90,17 +90,18 @@ def build_output_skill_alignment(
     business_date: date,
     min_field_match_rate: float = 95.0,
 ) -> dict[str, Any]:
+    threshold = _normalise_threshold(min_field_match_rate)
     matched_file = _find_output_skill_daily_file(root, business_date)
     if matched_file is None:
-        return _missing_alignment_summary(min_field_match_rate)
+        return _missing_alignment_summary(threshold)
 
     expected_text = _read_text_file(matched_file)
     if expected_text is None:
-        return _missing_alignment_summary(min_field_match_rate)
+        return _missing_alignment_summary(threshold)
 
     reconciled = reconcile_rendered_daily_report(actual_text or '', expected_text)
     field_match_rate = _normalise_rate(reconciled.get('field_match_rate'))
-    status = 'passed' if field_match_rate is not None and field_match_rate >= float(min_field_match_rate) else 'review_needed'
+    status = 'passed' if field_match_rate is not None and field_match_rate >= threshold else 'review_needed'
     return {
         'status': status,
         'file_name': matched_file.name,
@@ -118,7 +119,7 @@ def build_output_skill_alignment(
         ],
         'char_match_rate': _normalise_rate(reconciled.get('char_match_rate')),
         'exact_match': bool(reconciled.get('exact_match')),
-        'threshold': float(min_field_match_rate),
+        'threshold': threshold,
     }
 
 
@@ -226,12 +227,13 @@ def _evaluate_output_skill_alignment(
     answer: str,
     min_field_match_rate: float,
 ) -> HarnessCaseResult:
+    threshold = _normalise_threshold(min_field_match_rate)
     field_match_rate = _normalise_rate(alignment.get('field_match_rate'))
     if field_match_rate is None:
         return HarnessCaseResult('output_skill_alignment', False, '没有可用的输出 skill 对齐结果。')
-    if field_match_rate >= float(min_field_match_rate):
+    if field_match_rate >= threshold:
         return HarnessCaseResult('output_skill_alignment', True, f'字段匹配率 {field_match_rate:.1f}% 达到阈值。')
-    detail = f'字段匹配率 {field_match_rate:.1f}% 低于阈值 {float(min_field_match_rate):.1f}%。'
+    detail = f'字段匹配率 {field_match_rate:.1f}% 低于阈值 {threshold:.1f}%。'
     difference_fields = [
         str(item.get('field'))
         for item in _as_list(alignment.get('differences'))
@@ -275,7 +277,7 @@ def _resolve_alignment(
     formal_text = _extract_section(answer, '正式日报正文', '各车间明细') or answer
     reconciled = reconcile_rendered_daily_report(formal_text, output_skill_expected_text)
     return {
-        'status': 'passed' if _normalise_rate(reconciled.get('field_match_rate')) >= float(min_field_match_rate) else 'review_needed',
+        'status': 'passed' if _normalise_rate(reconciled.get('field_match_rate')) >= _normalise_threshold(min_field_match_rate) else 'review_needed',
         'file_name': None,
         'field_match_rate': _normalise_rate(reconciled.get('field_match_rate')),
         'matched_fields': reconciled.get('matched_fields'),
@@ -284,7 +286,7 @@ def _resolve_alignment(
         'differences': reconciled.get('differences') or [],
         'char_match_rate': _normalise_rate(reconciled.get('char_match_rate')),
         'exact_match': bool(reconciled.get('exact_match')),
-        'threshold': float(min_field_match_rate),
+        'threshold': _normalise_threshold(min_field_match_rate),
     }
 
 
@@ -356,7 +358,7 @@ def _missing_alignment_summary(min_field_match_rate: float) -> dict[str, Any]:
         'differences': [],
         'char_match_rate': None,
         'exact_match': False,
-        'threshold': float(min_field_match_rate),
+        'threshold': _normalise_threshold(min_field_match_rate),
     }
 
 
@@ -381,6 +383,16 @@ def _normalise_rate(value: Any) -> float | None:
         number = float(value)
     except (TypeError, ValueError):
         return None
+    if number <= 1.0:
+        return round(number * 100, 3)
+    return round(number, 3)
+
+
+def _normalise_threshold(value: Any) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 95.0
     if number <= 1.0:
         return round(number * 100, 3)
     return round(number, 3)

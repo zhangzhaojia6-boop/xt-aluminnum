@@ -85,6 +85,7 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
         business_date_label=_date_label(business_date),
         status=status,
         field_match_rate=field_match_rate,
+        alignment_threshold=alignment_threshold,
         judgment_summary=str(brain_judgment['summary']),
         formal_text=formal_section_text,
         workshop_details=workshop_details,
@@ -124,6 +125,7 @@ def render_dingtalk_day1_reply(
     business_date_label: str,
     status: str,
     field_match_rate: float | None,
+    alignment_threshold: float,
     judgment_summary: str,
     formal_text: str,
     workshop_details: list[dict[str, Any]],
@@ -132,7 +134,7 @@ def render_dingtalk_day1_reply(
 ) -> list[str]:
     status_label = (
         '已对齐'
-        if status == 'ready' and not requires_review and field_match_rate is not None and field_match_rate >= 95.0
+        if status == 'ready' and not requires_review and field_match_rate is not None and field_match_rate >= alignment_threshold
         else '需复核'
     )
     match_text = _field_match_rate_text(field_match_rate)
@@ -411,10 +413,12 @@ def _workshop_source_text(prefix: str, *, values: Mapping[str, Any], sources: Ma
 
 
 def _field_match_rate(sources: dict[str, Any]) -> float | None:
-    alignment = _as_mapping(sources.get('output_skill_alignment'))
-    value = alignment.get('field_match_rate')
-    if value is not None:
-        return _normalise_rate(value)
+    if 'output_skill_alignment' in sources:
+        alignment = _as_mapping(sources.get('output_skill_alignment'))
+        value = alignment.get('field_match_rate')
+        if value is not None:
+            return _normalise_rate(value)
+        return None
 
     audit = _as_mapping(sources.get('audit_run'))
     audit_rate = audit.get('match_rate')
@@ -424,10 +428,7 @@ def _field_match_rate(sources: dict[str, Any]) -> float | None:
 
 
 def _alignment_threshold(alignment: Mapping[str, Any]) -> float:
-    try:
-        return float(alignment.get('threshold') or 95.0)
-    except (TypeError, ValueError):
-        return 95.0
+    return _normalise_threshold(alignment.get('threshold'))
 
 
 def _alignment_blocks_release(
@@ -436,10 +437,13 @@ def _alignment_blocks_release(
     field_match_rate: float | None,
     threshold: float,
 ) -> bool:
-    if field_match_rate is None:
-        return False
     if not alignment:
         return False
+    status = str(alignment.get('status') or '').strip().lower()
+    if status in {'missing', 'failed', 'review_needed', 'review-needed', 'blocked'}:
+        return True
+    if field_match_rate is None:
+        return True
     return field_match_rate < threshold
 
 
@@ -459,6 +463,16 @@ def _normalise_rate(value: Any) -> float | None:
         number = float(value)
     except (TypeError, ValueError):
         return None
+    if number <= 1.0:
+        return round(number * 100, 3)
+    return round(number, 3)
+
+
+def _normalise_threshold(value: Any) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 95.0
     if number <= 1.0:
         return round(number * 100, 3)
     return round(number, 3)

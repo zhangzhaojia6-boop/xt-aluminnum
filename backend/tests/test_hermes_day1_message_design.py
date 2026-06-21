@@ -182,10 +182,12 @@ def test_dingtalk_review_label_is_used_when_non_mes_source_failed() -> None:
 
 def test_dingtalk_field_match_rate_falls_back_to_audit_match_rate_percent() -> None:
     service = _service()
+    sources = _sources(field_match_rate=None, audit_match_rate=0.975)
+    sources.pop('output_skill_alignment', None)
 
     result = service.build_day1_three_part_report(
         business_date=BUSINESS_DATE,
-        sources=_sources(field_match_rate=None, audit_match_rate=0.975),
+        sources=sources,
     )
 
     assert '字段匹配率：97.5%' in result['dingtalk_messages'][0]
@@ -202,6 +204,44 @@ def test_dingtalk_missing_field_match_rate_displays_placeholder() -> None:
 
     assert '字段匹配率：暂无' in result['dingtalk_messages'][0]
     assert '状态：需复核' in result['dingtalk_messages'][0]
+
+
+def test_dingtalk_missing_output_skill_alignment_never_shows_aligned_even_if_audit_is_perfect() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            field_match_rate=None,
+            audit_match_rate=1.0,
+            audit_run={
+                'status': 'completed',
+                'match_rate': 1.0,
+                'source_status': {'mes': 'ok', 'hub': 'ok', 'output_skill': 'missing'},
+                'source_errors': {},
+                'diffs': {},
+                'suggested_actions': [],
+            },
+        )
+        | {
+            'output_skill_alignment': {
+                'status': 'missing',
+                'field_match_rate': None,
+                'matched_fields': None,
+                'expected_fields': None,
+                'difference_count': None,
+                'differences': [],
+                'char_match_rate': None,
+                'exact_match': False,
+                'threshold': 95.0,
+            }
+        },
+    )
+
+    first = result['dingtalk_messages'][0]
+    assert '状态：需复核' in first
+    assert '状态：已对齐' not in first
+    assert '字段匹配率：暂无' in first
 
 
 def test_long_dingtalk_output_splits_cleanly_without_engineering_artifacts() -> None:
