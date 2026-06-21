@@ -5,6 +5,7 @@ import hashlib
 from importlib import import_module
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -130,6 +131,92 @@ def test_record_day1_dingtalk_evidence_records_attachment_hash_without_raw_file_
         db.close()
 
 
+def test_record_day1_dingtalk_attachment_without_text_marks_text_unavailable() -> None:
+    service = _day1_service()
+    db = _db_session()
+    raw_file_id = 'media-raw-empty-text'
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={
+                'fileName': '每日产量.xlsx',
+                'mediaId': raw_file_id,
+            },
+            actor=None,
+            business_date=None,
+            channel='dingtalk_group',
+            group_id=None,
+            trace_id='trace-file-no-text',
+            recognized_text='   ',
+        )
+
+        assert evidence is not None
+        assert evidence.evidence_type == 'attachment'
+        assert evidence.payload['parse_status'] == 'text_unavailable'
+        assert evidence.payload['evidence_kind'] == 'fact'
+    finally:
+        db.close()
+
+
+def test_record_day1_dingtalk_file_name_without_media_id_raises_error() -> None:
+    service = _day1_service()
+    db = _db_session()
+    try:
+        with pytest.raises(service.Day1EvidenceError, match='file_media_id_missing'):
+            service.record_day1_dingtalk_evidence(
+                db,
+                payload={'fileName': '每日产量.xlsx'},
+                actor=None,
+                business_date=None,
+                channel='dingtalk_group',
+                group_id=None,
+                trace_id='trace-file-missing-media',
+                recognized_text='日报产量 32 吨',
+            )
+
+        assert db.query(MultimodalEvidence).count() == 0
+    finally:
+        db.close()
+
+
+def test_record_day1_dingtalk_evidence_stores_audit_metadata_and_filters_sensitive_keys() -> None:
+    service = _day1_service()
+    db = _db_session()
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={
+                'senderStaffId': 'staff-001',
+                'senderUnionId': 'union-001',
+                'receivedAt': '2026-06-21T08:30:00+08:00',
+                'messageTime': '2026-06-21T08:29:59+08:00',
+                'password': 'plain-password',
+                'token': 'plain-token',
+                'cookie': 'plain-cookie',
+            },
+            actor=SimpleNamespace(id=23),
+            business_date=date(2026, 6, 21),
+            channel='group_chat',
+            group_id='group-001',
+            trace_id='trace-audit-001',
+            recognized_text='日报产量 32 吨',
+        )
+
+        assert evidence is not None
+        assert evidence.payload['dingtalk_sender_id'] == 'staff-001'
+        assert evidence.payload['dingtalk_sender_union_id'] == 'union-001'
+        assert evidence.payload['dingtalk_received_at'] == '2026-06-21T08:30:00+08:00'
+        assert evidence.payload['dingtalk_message_time'] == '2026-06-21T08:29:59+08:00'
+        assert 'password' not in evidence.payload
+        assert 'token' not in evidence.payload
+        assert 'cookie' not in evidence.payload
+        assert 'plain-password' not in str(evidence.payload)
+        assert 'plain-token' not in str(evidence.payload)
+        assert 'plain-cookie' not in str(evidence.payload)
+    finally:
+        db.close()
+
+
 def test_record_day1_dingtalk_evidence_ignores_noise_without_adding_evidence() -> None:
     service = _day1_service()
     db = _db_session()
@@ -159,6 +246,7 @@ def test_record_day1_dingtalk_evidence_drops_sensitive_input_payload_keys() -> N
             db,
             payload={
                 'file_name': '日报.txt',
+                'mediaId': 'media-secret-001',
                 'password': 'plain-password',
                 'token': 'plain-token',
                 'cookie': 'plain-cookie',
