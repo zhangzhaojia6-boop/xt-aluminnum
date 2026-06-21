@@ -223,6 +223,40 @@ def test_day1_report_invalid_date_has_actionable_detail(tmp_path, monkeypatch, c
         get_sessionmaker.cache_clear()
 
 
+def test_day1_report_invalid_target_date_has_actionable_detail(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        _add_user(db, user_id=9, name='张兆嘉', dingtalk_user_id='dt-owner')
+
+        code, payload = _run_cli(
+            [
+                'day1-report',
+                '--doctor',
+                '--target-date',
+                '2026-99-99',
+                '--text',
+                '生成 6月19日正式日报',
+                '--dingtalk-user-id',
+                'dt-owner',
+                '--trace-id',
+                'trace-invalid-target-date-001',
+            ],
+            capsys,
+        )
+
+        assert code == 1
+        assert payload['ok'] is False
+        assert payload['error'] == 'invalid_date'
+        assert payload['detail']['trace_id'] == 'trace-invalid-target-date-001'
+        assert '日期非法' in payload['detail']['cause']
+        assert '2026-06-19' in payload['detail']['fix']
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
 def test_day1_report_chinese_date_uses_business_date_year(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     output_skill_root = tmp_path / 'output-skill'

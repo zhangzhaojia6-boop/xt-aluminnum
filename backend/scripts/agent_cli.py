@@ -1003,7 +1003,10 @@ def _day1_enabled() -> bool:
 
 
 def _day1_default_year(args: argparse.Namespace) -> int:
-    return _target_date(args).year
+    try:
+        return _target_date(args).year
+    except ValueError as exc:
+        raise AgentCliError('invalid_date') from exc
 
 
 def _output_skill_root_path() -> Path | None:
