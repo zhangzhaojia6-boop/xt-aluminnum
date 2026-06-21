@@ -1017,6 +1017,107 @@ def test_dingtalk_agent_inbound_day1_non_root_owner_persists_evidence_before_403
         _restore_db_override(previous_overrides, db)
 
 
+def test_dingtalk_agent_inbound_day1_non_root_owner_dedupes_evidence_only_trace_id(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=191,
+            username='allowed-fact-not-owner-duplicate',
+            password_hash='x',
+            name='授权用户',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-allowed-fact-dup-001',
+            dingtalk_union_id='union-allowed-fact-dup-001',
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DAY1_ENABLED', True, raising=False)
+    monkeypatch.setenv('HERMES_ALLOWED_DINGTALK_USER_IDS', 'dt-allowed-fact-dup-001')
+
+    payload = {
+        'senderStaffId': 'dt-allowed-fact-dup-001',
+        'senderUnionId': 'union-allowed-fact-dup-001',
+        'text': {'content': '生成 6月19日正式日报，产量 32 吨'},
+        'agentCode': 'factory_dispatch',
+        'traceId': 'trace-dingtalk-day1-fact-403-dup-001',
+    }
+
+    try:
+        client = TestClient(app)
+        first = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+        second = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+
+        assert first.status_code == 403
+        assert second.status_code == 403
+        assert first.json()['detail'] == 'owner_required'
+        assert second.json()['detail'] == 'owner_required'
+        assert db.query(MultimodalEvidence).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_day1_disabled_dedupes_evidence_only_trace_id(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=192,
+            username='root-owner-disabled-duplicate',
+            password_hash='x',
+            name='张兆嘉',
+            role='admin',
+            is_active=True,
+            dingtalk_user_id='dt-root-disabled-dup-001',
+            dingtalk_union_id='union-root-disabled-dup-001',
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DAY1_ENABLED', False, raising=False)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-root-disabled-dup-001')
+
+    payload = {
+        'senderStaffId': 'dt-root-disabled-dup-001',
+        'senderUnionId': 'union-root-disabled-dup-001',
+        'text': {'content': '生成 6月19日正式日报，产量 32 吨'},
+        'agentCode': 'factory_dispatch',
+        'traceId': 'trace-dingtalk-day1-disabled-dup-001',
+    }
+
+    try:
+        client = TestClient(app)
+        first = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+        second = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.json()['code'] == 'hermes_day1_disabled'
+        assert second.json()['code'] == 'hermes_day1_disabled'
+        assert db.query(MultimodalEvidence).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
 def test_dingtalk_agent_inbound_authorized_fact_message_records_evidence_then_calls_legacy_agent(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add(
@@ -1264,5 +1365,54 @@ def test_dingtalk_agent_inbound_dedupes_same_message_trace_id(monkeypatch) -> No
         assert duplicate['should_reply'] is False
         assert db.query(ChatInboxMessage).count() == 1
         assert db.query(AgentRun).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_duplicate_chat_message_does_not_duplicate_evidence(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=193,
+            username='manager-dedupe-evidence',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-dedupe-evidence-001',
+            dingtalk_union_id='union-manager-dedupe-evidence-001',
+        )
+    )
+    db.commit()
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+
+    try:
+        client = TestClient(app)
+        payload = {
+            'conversationId': 'cid-dedupe-evidence-test',
+            'conversationType': 'group',
+            'senderStaffId': 'dt-manager-dedupe-evidence-001',
+            'senderUnionId': 'union-manager-dedupe-evidence-001',
+            'text': {'content': '今日产量 32 吨'},
+            'agentCode': 'factory_dispatch',
+            'traceId': 'trace-dingtalk-chat-evidence-dedupe-001',
+            'queueOutbox': 'false',
+        }
+        first = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+        second = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.json()['action'] == 'dingtalk-duplicate'
+        assert db.query(MultimodalEvidence).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)

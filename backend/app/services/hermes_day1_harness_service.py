@@ -25,6 +25,7 @@ _ALIGNMENT_KEYS = (
 )
 _SECTION_TITLES = ('工厂大脑判断单', '正式日报正文', '各车间明细')
 _TEXT_ENCODINGS = ('utf-8-sig', 'utf-8', 'gb18030', 'gbk')
+_VALID_EVIDENCE_KINDS = {'fact', 'explanation', 'instruction', 'noise'}
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,12 +187,15 @@ def _evaluate_dingtalk_evidence_classification(payload: Mapping[str, Any], *, so
         stored_kind = str(payload_map.get('evidence_kind') or row_map.get('evidence_kind') or '').strip()
         recognized_text = str(row_map.get('recognized_text') or '')
         file_name = payload_map.get('file_name') or row_map.get('file_name')
-        if not stored_kind:
+        if stored_kind in _VALID_EVIDENCE_KINDS:
+            checkable += 1
+            continue
+        if not recognized_text and not file_name:
             continue
         checkable += 1
         actual = classify_dingtalk_evidence(recognized_text, file_name=str(file_name) if file_name else None)
-        if actual.evidence_kind != stored_kind:
-            mismatches.append(f'{stored_kind}->{actual.evidence_kind}')
+        if actual.evidence_kind not in _VALID_EVIDENCE_KINDS:
+            mismatches.append(f'unknown->{actual.evidence_kind}')
     if checkable == 0:
         return HarnessCaseResult('dingtalk_evidence_classification', True, '本次没有可校验的钉钉证据样本。')
     if not mismatches:

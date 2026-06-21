@@ -234,3 +234,20 @@ def test_evaluate_day1_run_payload_requires_difference_fields_when_alignment_low
     assert 'output_skill_alignment' in failed
     assert 'total_output_daily' in failed['output_skill_alignment']
     assert 'cost_per_ton' in failed['output_skill_alignment']
+
+
+def test_evaluate_day1_run_payload_prefers_stored_evidence_kind_over_truncated_snippet() -> None:
+    service = _service()
+    payload = _payload()
+    payload['sources']['dingtalk_evidence'][2] = {
+        'recognized_text': '以后这份日报...',
+        'payload': {'evidence_kind': 'instruction'},
+    }
+
+    results = service.evaluate_day1_run_payload(
+        payload,
+        answer=_answer(),
+    )
+
+    by_name = {item.name: item for item in results}
+    assert by_name['dingtalk_evidence_classification'].passed is True

@@ -23,7 +23,13 @@ from app.core.auth import create_access_token
 from app.core.redaction import redact_secret_text
 from app.core.scope import build_scope_summary
 from app.database import get_db
-from app.models.agent_communication import AgentChannelBinding, AgentProfile, ChatInboxMessage, CommunicationChannel
+from app.models.agent_communication import (
+    AgentChannelBinding,
+    AgentProfile,
+    ChatInboxMessage,
+    CommunicationChannel,
+    MultimodalEvidence,
+)
 from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.auth import LoginResponse, UserInfo
@@ -401,6 +407,38 @@ def _find_duplicate_inbound_message(
     return query.order_by(ChatInboxMessage.id.asc()).first()
 
 
+def _find_duplicate_inbound_evidence(
+    db: Session,
+    *,
+    channel: str,
+    group_id: str | None,
+    trace_id: str,
+) -> MultimodalEvidence | None:
+    clean_trace_id = _clean_text(trace_id)
+    if not clean_trace_id:
+        return None
+    clean_channel = _clean_text(channel)
+    clean_group_id = _clean_text(group_id)
+    rows = (
+        db.query(MultimodalEvidence)
+        .filter(MultimodalEvidence.payload.isnot(None))
+        .order_by(MultimodalEvidence.id.asc())
+        .all()
+    )
+    for row in rows:
+        payload = row.payload if isinstance(row.payload, dict) else {}
+        if _clean_text(payload.get('source')) != 'dingtalk':
+            continue
+        if _clean_text(payload.get('trace_id')) != clean_trace_id:
+            continue
+        if _clean_text(payload.get('channel')) != clean_channel:
+            continue
+        if _clean_text(payload.get('group_id')) != clean_group_id:
+            continue
+        return row
+    return None
+
+
 def _ensure_inbound_token(header_token: str | None) -> None:
     accepted_tokens = {
         token
@@ -493,20 +531,27 @@ def dingtalk_agent_inbound(
             day1_command = parse_day1_command(text, default_year=datetime.now().year)
     except Day1CommandParseError as exc:
         raise HTTPException(status_code=400, detail=exc.code) from exc
-    try:
-        record_day1_dingtalk_evidence(
-            db,
-            payload=source_payload,
-            actor=user,
-            business_date=day1_command.business_date if day1_command is not None else None,
-            channel=channel,
-            group_id=group_id or None,
-            trace_id=trace_id,
-            recognized_text=text,
-        )
-    except Day1EvidenceError as exc:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
+    evidence_duplicate = _find_duplicate_inbound_evidence(
+        db,
+        channel=channel,
+        group_id=group_id or None,
+        trace_id=trace_id,
+    )
+    if evidence_duplicate is None:
+        try:
+            record_day1_dingtalk_evidence(
+                db,
+                payload=source_payload,
+                actor=user,
+                business_date=day1_command.business_date if day1_command is not None else None,
+                channel=channel,
+                group_id=group_id or None,
+                trace_id=trace_id,
+                recognized_text=text,
+            )
+        except Day1EvidenceError as exc:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
 
     if day1_command is not None:
         decision = classify_day1_actor(
