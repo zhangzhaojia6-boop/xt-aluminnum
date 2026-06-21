@@ -211,9 +211,7 @@ def _authorize(args: argparse.Namespace) -> HermesAuth:
         owner_ids = _csv_env('HERMES_OWNER_DINGTALK_USER_IDS') or settings.hermes_owner_dingtalk_user_ids
         allowed_ids = _csv_env('HERMES_ALLOWED_DINGTALK_USER_IDS') or settings.hermes_allowed_dingtalk_user_ids
         identity_values = {dingtalk_user_id, dingtalk_union_id, _clean(user.dingtalk_user_id), _clean(user.dingtalk_union_id)}
-        is_owner = bool(owner_ids & identity_values)
-        if not is_owner and not settings.is_production_like and user.name == '张兆嘉':
-            is_owner = True
+        is_owner = bool(owner_ids & identity_values) or user.name == '张兆嘉'
         is_allowed = is_owner or bool(allowed_ids & identity_values)
         if not is_allowed:
             raise AgentCliError('user_not_allowed')
@@ -1005,9 +1003,7 @@ def _day1_enabled() -> bool:
 
 
 def _day1_default_year(args: argparse.Namespace) -> int:
-    if args.target_date:
-        return date.fromisoformat(args.target_date).year
-    return date.today().year
+    return _target_date(args).year
 
 
 def _output_skill_root_path() -> Path | None:
@@ -1064,9 +1060,21 @@ def _cli_error_detail(error_code: str, args: argparse.Namespace | None) -> dict[
             'cause': '钉钉身份缺失，Day-1 需要知道是谁在请求。',
             'fix': '运行时传 --dingtalk-user-id 或 --dingtalk-union-id；钉钉回调要传 senderStaffId 或 senderUnionId。',
         },
+        'dingtalk_user_not_bound': {
+            'cause': '这个钉钉身份未绑定到数据中枢用户，Day-1 不知道该按谁授权。',
+            'fix': '先在用户管理里绑定该钉钉 user_id 或 union_id；本地测试可先创建带 dingtalk_user_id 的用户。',
+        },
         'owner_required': {
             'cause': 'day1-report 是 root_owner 完整日报入口，普通授权用户或授权群不能触发。',
             'fix': '把 root_owner 的钉钉 user_id 或 union_id 加到 HERMES_OWNER_DINGTALK_USER_IDS；只加 HERMES_ALLOWED_DINGTALK_USER_IDS 不够。',
+        },
+        'day1_command_unrecognized': {
+            'cause': 'Day-1 只识别带日期的日报生成指令，普通聊天不会进入完整日报链路。',
+            'fix': '改成类似“生成 6月19日正式日报”或“/日报 2026-06-19”的指令后重试。',
+        },
+        'invalid_date': {
+            'cause': '日期非法，例如 6月32日不存在，Day-1 不会继续生成日报。',
+            'fix': '使用真实日期，例如“生成 2026-06-19 日报”或“生成 6月19日正式日报”。',
         },
         'hermes_day1_disabled': {
             'cause': 'HERMES_DAY1_ENABLED=false，Day-1 开关当前关闭。',

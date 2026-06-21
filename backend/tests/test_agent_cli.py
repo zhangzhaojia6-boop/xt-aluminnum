@@ -119,6 +119,43 @@ def test_agent_cli_allowed_user_cannot_run_owner_command(tmp_path, monkeypatch, 
         get_sessionmaker.cache_clear()
 
 
+def test_agent_cli_keeps_name_owner_fallback_for_existing_commands(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.delenv('HERMES_OWNER_DINGTALK_USER_IDS', raising=False)
+    monkeypatch.delenv('HERMES_ALLOWED_DINGTALK_USER_IDS', raising=False)
+    monkeypatch.setattr(agent_cli.settings, 'APP_ENV', 'production', raising=False)
+    try:
+        db.add(
+            User(
+                id=30,
+                username='name-owner',
+                password_hash='x',
+                name='张兆嘉',
+                role='admin',
+                is_active=True,
+                dingtalk_user_id='dt-name-owner',
+            )
+        )
+        db.commit()
+
+        code, payload = _run_cli(
+            [
+                'rag-rebuild-index',
+                '--dingtalk-user-id',
+                'dt-name-owner',
+            ],
+            capsys,
+        )
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'rag-rebuild-index'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
 def test_agent_cli_ingests_safe_system_understanding_copy(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')

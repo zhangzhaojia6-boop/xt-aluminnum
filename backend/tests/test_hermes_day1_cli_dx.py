@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 
 import pytest
 from sqlalchemy import create_engine
@@ -126,6 +127,134 @@ def test_day1_report_missing_dingtalk_identity_has_actionable_detail(capsys) -> 
     assert payload['detail']['trace_id'] == 'trace-missing-identity-001'
     assert '钉钉' in payload['detail']['cause']
     assert '--dingtalk-user-id' in payload['detail']['fix']
+
+
+def test_day1_report_unbound_user_has_actionable_detail(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        code, payload = _run_cli(
+            [
+                'day1-report',
+                '--doctor',
+                '--text',
+                '生成 6月19日正式日报',
+                '--dingtalk-user-id',
+                'dt-missing',
+                '--trace-id',
+                'trace-unbound-user-001',
+            ],
+            capsys,
+        )
+
+        assert code == 1
+        assert payload['ok'] is False
+        assert payload['error'] == 'dingtalk_user_not_bound'
+        assert payload['detail']['trace_id'] == 'trace-unbound-user-001'
+        assert '未绑定' in payload['detail']['cause']
+        assert '用户管理' in payload['detail']['fix']
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_day1_report_unrecognized_command_has_actionable_detail(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        _add_user(db, user_id=6, name='张兆嘉', dingtalk_user_id='dt-owner')
+
+        code, payload = _run_cli(
+            [
+                'day1-report',
+                '--doctor',
+                '--text',
+                '今天辛苦了',
+                '--dingtalk-user-id',
+                'dt-owner',
+                '--trace-id',
+                'trace-command-unrecognized-001',
+            ],
+            capsys,
+        )
+
+        assert code == 1
+        assert payload['ok'] is False
+        assert payload['error'] == 'day1_command_unrecognized'
+        assert payload['detail']['trace_id'] == 'trace-command-unrecognized-001'
+        assert '日报' in payload['detail']['cause']
+        assert '生成 6月19日正式日报' in payload['detail']['fix']
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_day1_report_invalid_date_has_actionable_detail(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        _add_user(db, user_id=7, name='张兆嘉', dingtalk_user_id='dt-owner')
+
+        code, payload = _run_cli(
+            [
+                'day1-report',
+                '--doctor',
+                '--text',
+                '生成 6月32日正式日报',
+                '--dingtalk-user-id',
+                'dt-owner',
+                '--trace-id',
+                'trace-invalid-date-001',
+            ],
+            capsys,
+        )
+
+        assert code == 1
+        assert payload['ok'] is False
+        assert payload['error'] == 'invalid_date'
+        assert payload['detail']['trace_id'] == 'trace-invalid-date-001'
+        assert '日期非法' in payload['detail']['cause']
+        assert '2026-06-19' in payload['detail']['fix']
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_day1_report_chinese_date_uses_business_date_year(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    output_skill_root = tmp_path / 'output-skill'
+    output_skill_root.mkdir()
+    monkeypatch.setenv('HERMES_DAY1_ENABLED', 'true')
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    monkeypatch.setenv('OUTPUT_SKILL_ROOT', str(output_skill_root))
+    monkeypatch.setattr(agent_cli, 'last_completed_production_business_date', lambda: date(2025, 12, 31))
+    try:
+        _add_user(db, user_id=8, name='张兆嘉', dingtalk_user_id='dt-owner')
+
+        code, payload = _run_cli(
+            [
+                'day1-report',
+                '--doctor',
+                '--text',
+                '生成 6月19日正式日报',
+                '--dingtalk-user-id',
+                'dt-owner',
+                '--trace-id',
+                'trace-business-year-001',
+            ],
+            capsys,
+        )
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['data']['business_date'] == '2025-06-19'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
 
 
 def test_day1_report_allowed_user_gets_owner_required_detail(tmp_path, monkeypatch, capsys) -> None:
