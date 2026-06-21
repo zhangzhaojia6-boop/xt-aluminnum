@@ -327,6 +327,52 @@ def test_empty_optional_sources_are_not_listed_as_checked_sources() -> None:
     assert '输出 skill 对齐' not in source_names
 
 
+def test_failed_historical_report_without_final_text_is_not_listed_as_checked_source() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            extra={
+                'historical_reports': [
+                    {
+                        'report_date': '2026-06-20',
+                        'status': 'failed',
+                        'quality_gate_status': 'failed',
+                        'has_final_text': False,
+                        'delivery_ready': False,
+                    }
+                ]
+            },
+        ),
+    )
+
+    assert '历史日报' not in result['brain_judgment']['source_names']
+
+
+def test_meaningful_historical_report_is_listed_as_checked_source() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            extra={
+                'historical_reports': [
+                    {
+                        'report_date': '2026-06-20',
+                        'status': 'published',
+                        'quality_gate_status': 'passed',
+                        'has_final_text': True,
+                        'delivery_ready': True,
+                    }
+                ]
+            },
+        ),
+    )
+
+    assert '历史日报' in result['brain_judgment']['source_names']
+
+
 def test_workshop_details_use_template_facts_not_rag_or_dingtalk_numbers() -> None:
     service = _service()
 

@@ -134,6 +134,52 @@ def test_dingtalk_review_label_is_used_when_source_is_partial_failed() -> None:
     assert '状态：已对齐' not in first
 
 
+def test_dingtalk_review_label_is_used_when_audit_run_failed() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            field_match_rate=99.0,
+            audit_run={
+                'status': 'failed',
+                'match_rate': 0.99,
+                'source_status': {'mes': 'ok', 'hub': 'ok'},
+                'source_errors': {},
+                'diffs': {},
+                'suggested_actions': [],
+            },
+        ),
+    )
+
+    first = result['dingtalk_messages'][0]
+    assert '状态：需复核' in first
+    assert '状态：已对齐' not in first
+
+
+def test_dingtalk_review_label_is_used_when_non_mes_source_failed() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            field_match_rate=99.0,
+            audit_run={
+                'status': 'completed',
+                'match_rate': 0.99,
+                'source_status': {'mes': 'ok', 'hub': 'failed', 'output_skill': 'parsed'},
+                'source_errors': {},
+                'diffs': {},
+                'suggested_actions': [],
+            },
+        ),
+    )
+
+    first = result['dingtalk_messages'][0]
+    assert '状态：需复核' in first
+    assert '状态：已对齐' not in first
+
+
 def test_dingtalk_field_match_rate_falls_back_to_audit_match_rate_percent() -> None:
     service = _service()
 

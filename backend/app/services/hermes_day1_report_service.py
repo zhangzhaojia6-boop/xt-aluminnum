@@ -25,6 +25,7 @@ BLOCKED_FORMAL_TEXT = '当前关键字段缺失，Hermes 未生成正式日报�
 DINGTALK_MAX_CHARS = 3500
 
 _OK_DIFF_STATUSES = {'matched', 'match', 'same', 'equal', 'ok', 'ready', 'passed'}
+_REVIEW_STATUS_MARKERS = ('failed', 'partial', 'error', 'empty', 'missing', 'review-needed', 'review_needed')
 _SOURCE_LABELS = {
     'template_daily_report': '模板正式日报',
     'mes_wms': '外部 MES/WMS 只读源',
@@ -193,12 +194,21 @@ def _build_brain_judgment(
     audit = _as_mapping(sources.get('audit_run'))
     source_status = _as_mapping(audit.get('source_status'))
     risks: list[str] = []
+    audit_status = audit.get('status')
     if status != 'ready':
         risks.append('正式日报正文被阻断')
     if missing_fields:
         risks.append(f'缺失字段 {len(missing_fields)} 个：{_join_text(missing_fields)}')
     if conflicts:
         risks.append(f'发现冲突 {len(conflicts)} 条：{_render_conflicts_inline(conflicts)}')
+    if _source_incomplete(audit_status):
+        risks.append(f'审计状态需复核：{_plain_text(audit_status)}')
+    source_status_risks = [
+        *_source_status_risks(source_status, skip_keys={'mes'}),
+        *_source_status_risks(_as_mapping(_as_mapping(sources.get('mes_wms')).get('source_status')), skip_keys={'mes'}),
+    ]
+    if source_status_risks:
+        risks.append(f'数据源状态需复核：{_join_text(source_status_risks)}')
     if _source_incomplete(source_status.get('mes')) or _source_incomplete(
         _as_mapping(_as_mapping(sources.get('mes_wms')).get('source_status')).get('mes')
     ):
@@ -504,8 +514,10 @@ def _source_names(sources: dict[str, Any]) -> list[str]:
 
 
 def _source_has_meaningful_content(key: str, payload: Any) -> bool:
-    if key in {'dingtalk_evidence', 'dingtalk_messages', 'historical_reports'}:
+    if key in {'dingtalk_evidence', 'dingtalk_messages'}:
         return bool(payload)
+    if key == 'historical_reports':
+        return any(_historical_report_usable(row) for row in _as_list(payload))
     if key == 'output_skill_alignment':
         return isinstance(payload, Mapping) and payload.get('field_match_rate') is not None
     if key == 'rag':
@@ -539,8 +551,40 @@ def _has_non_empty_payload(value: Any) -> bool:
     return True
 
 
+def _historical_report_usable(row: Any) -> bool:
+    if not isinstance(row, Mapping):
+        return False
+    status = str(row.get('status') or '').lower()
+    quality_gate_status = str(row.get('quality_gate_status') or '').lower()
+    return bool(
+        row.get('has_final_text')
+        or row.get('delivery_ready')
+        or status in {'published', 'generated', 'approved'}
+        or quality_gate_status == 'passed'
+    )
+
+
+def _source_status_risks(statuses: Mapping[str, Any], *, skip_keys: set[str] | None = None, prefix: str = '') -> list[str]:
+    skip = skip_keys or set()
+    risks: list[str] = []
+    for key, value in statuses.items():
+        key_text = str(key)
+        if key_text in skip:
+            continue
+        name = f'{prefix}.{key_text}' if prefix else key_text
+        if isinstance(value, Mapping):
+            status_value = value.get('status')
+            if _source_incomplete(status_value):
+                risks.append(f'{name}={_plain_text(status_value)}')
+            risks.extend(_source_status_risks(value, skip_keys=skip, prefix=name))
+        elif _source_incomplete(value):
+            risks.append(f'{name}={_plain_text(value)}')
+    return risks
+
+
 def _source_incomplete(value: Any) -> bool:
-    return str(value or '').lower() in {'failed', 'partial_failed', 'empty', 'missing', 'error'}
+    normalized = str(value or '').lower()
+    return any(marker in normalized for marker in _REVIEW_STATUS_MARKERS)
 
 
 def _field_match_rate_text(value: Any) -> str:
