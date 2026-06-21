@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from importlib import import_module
 from typing import Any
 
@@ -233,6 +233,55 @@ def test_blocked_run_updates_report_without_final_or_delivery_and_marks_agent_bl
         db.close()
 
 
+def test_blocked_rerun_clears_existing_review_publish_and_final_fields(monkeypatch) -> None:
+    service = _service()
+    db = _db_session()
+    actor = _actor(db)
+    existing = DailyReport(
+        report_date=BUSINESS_DATE,
+        report_type='production',
+        text_summary='旧正式日报',
+        status='published',
+        reviewed_by=actor.id,
+        reviewed_at=datetime(2026, 6, 21, 9, 0, tzinfo=timezone.utc),
+        published_by=actor.id,
+        published_at=datetime(2026, 6, 21, 10, 0, tzinfo=timezone.utc),
+        final_text_summary='旧最终正文',
+        final_confirmed_by=actor.id,
+        final_confirmed_at=datetime(2026, 6, 21, 8, 30, tzinfo=timezone.utc),
+        is_final_version=True,
+        delivery_ready=True,
+        quality_gate_status='passed',
+    )
+    db.add(existing)
+    db.flush()
+    _patch_pipeline(monkeypatch, service, product=_blocked_product())
+    _patch_audit(monkeypatch, service)
+
+    try:
+        result = service.run_day1_super_brain(
+            db,
+            command=_command(),
+            actor=actor,
+            trace_id='trace-day1-blocked-rerun',
+        )
+
+        report = db.get(DailyReport, result.report_id)
+        assert report.status == 'draft'
+        assert report.quality_gate_status == 'blocked'
+        assert report.reviewed_by is None
+        assert report.reviewed_at is None
+        assert report.published_by is None
+        assert report.published_at is None
+        assert report.final_text_summary is None
+        assert report.final_confirmed_by is None
+        assert report.final_confirmed_at is None
+        assert report.is_final_version is False
+        assert report.delivery_ready is False
+    finally:
+        db.close()
+
+
 def test_existing_daily_report_is_updated_instead_of_duplicated(monkeypatch) -> None:
     service = _service()
     db = _db_session()
@@ -307,7 +356,61 @@ def test_chat_inbox_rag_count_command_summary_and_reply_metadata_are_recorded(mo
         assert command_summary['output_style'] == 'three_part'
         assert reply['message_count'] == 2
         assert reply['first_message_chars'] == len('第一条回复')
-        assert payload['sources'] == _sources()
+        assert payload['sources']['trace_id'] == 'trace-day1-001'
+        assert payload['sources']['template_daily_report']['status'] == 'ready'
+        assert payload['sources']['mes_wms']['record_groups'] == 1
+        assert payload['sources']['audit_run']['match_rate'] == 0.99
+        assert payload['sources']['rag']['citation_count'] == 2
         assert payload['report_id'] == result.report_id
+    finally:
+        db.close()
+
+
+def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> None:
+    service = _service()
+    db = _db_session()
+    actor = _actor(db)
+    long_evidence_text = '现场原始图片识别文字' * 80
+    long_chat_text = '钉钉群原始长消息' * 80
+    sources = _sources()
+    sources['dingtalk_evidence'] = [
+        {
+            'id': 11,
+            'file_uri': 'dingtalk://media/abc',
+            'recognized_text': long_evidence_text,
+            'payload': {'hash': 'evidence-hash-1', 'business_date': BUSINESS_DATE.isoformat()},
+        }
+    ]
+    sources['dingtalk_messages'] = [
+        {
+            'id': 22,
+            'trace_id': 'trace-day1-raw',
+            'text': long_chat_text,
+            'source_payload': {'hash': 'message-hash-1'},
+        }
+    ]
+    _patch_pipeline(monkeypatch, service, sources=sources)
+    _patch_audit(monkeypatch, service)
+
+    try:
+        result = service.run_day1_super_brain(
+            db,
+            command=_command(),
+            actor=actor,
+            trace_id='trace-day1-summary',
+        )
+
+        run = db.get(AgentRun, result.agent_run_id)
+        payload_text = str(run.result_payload)
+        summary = run.result_payload['hermes_day1']['sources']
+        assert long_evidence_text not in payload_text
+        assert long_chat_text not in payload_text
+        assert summary['trace_id'] == 'trace-day1-001'
+        assert summary['business_date'] == BUSINESS_DATE.isoformat()
+        assert summary['dingtalk_evidence']['count'] == 1
+        assert summary['dingtalk_evidence']['items'] == [{'id': 11, 'file_uri': 'dingtalk://media/abc', 'hash': 'evidence-hash-1'}]
+        assert summary['dingtalk_messages']['count'] == 1
+        assert summary['dingtalk_messages']['items'] == [{'id': 22, 'hash': 'message-hash-1'}]
+        assert summary['rag']['citation_count'] == 2
     finally:
         db.close()

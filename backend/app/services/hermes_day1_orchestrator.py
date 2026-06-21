@@ -183,6 +183,10 @@ def _upsert_daily_report(
         report.is_final_version = True
         report.delivery_ready = True
     else:
+        report.reviewed_by = None
+        report.reviewed_at = None
+        report.published_by = None
+        report.published_at = None
         report.final_text_summary = None
         report.final_confirmed_by = None
         report.final_confirmed_at = None
@@ -207,7 +211,7 @@ def _agent_result_payload(
                 'command': _command_summary(command),
                 'status': product.get('status'),
                 'report_id': report_id,
-                'sources': sources,
+                'sources': _source_summary(sources),
                 'missing_fields': product.get('missing_fields'),
                 'conflicts': product.get('conflicts'),
                 'brain_judgment': product.get('brain_judgment'),
@@ -233,6 +237,87 @@ def _command_summary(command: HermesDay1Command) -> dict[str, Any]:
 
 def _command_raw_text(command: HermesDay1Command) -> str:
     return str(getattr(command, 'raw_text', None) or getattr(command, 'source_text', '') or '').strip()
+
+
+def _source_summary(sources: dict[str, Any]) -> dict[str, Any]:
+    template = _as_mapping(sources.get('template_daily_report'))
+    mes_wms = _as_mapping(sources.get('mes_wms'))
+    audit = _as_mapping(sources.get('audit_run'))
+    rag = _as_mapping(sources.get('rag'))
+    return {
+        'trace_id': _summary_safe(sources.get('trace_id')),
+        'business_date': _summary_safe(sources.get('business_date')),
+        'template_daily_report': {
+            'status': _summary_safe(template.get('status')),
+            'missing_count': len(template.get('missing_fields') or []),
+            'conflict_count': len(template.get('conflicts') or []),
+        },
+        'mes_wms': {
+            'status': _source_status(mes_wms),
+            'source_status': _summary_safe(mes_wms.get('source_status')),
+            'source_errors': _summary_safe(mes_wms.get('source_errors')),
+            'record_groups': len(_as_mapping(mes_wms.get('records'))),
+        },
+        'audit_run': {
+            'id': audit.get('id'),
+            'status': _summary_safe(audit.get('status')),
+            'source_status': _summary_safe(audit.get('source_status')),
+            'source_errors': _summary_safe(audit.get('source_errors')),
+            'match_rate': _summary_safe(audit.get('match_rate')),
+        },
+        'rag': {
+            'status': _source_status(rag),
+            'source_status': _summary_safe(rag.get('source_status')),
+            'source_errors': _summary_safe(rag.get('source_errors')),
+            'citation_count': len(rag.get('citations') or []),
+        },
+        'dingtalk_evidence': _evidence_summary(sources.get('dingtalk_evidence')),
+        'dingtalk_messages': _message_summary(sources.get('dingtalk_messages')),
+        'historical_reports': _historical_report_summary(sources.get('historical_reports')),
+    }
+
+
+def _evidence_summary(value: Any) -> dict[str, Any]:
+    rows = value if isinstance(value, list) else []
+    return {
+        'count': len(rows),
+        'items': [_pointer_item(row, keys=('id', 'file_uri')) for row in rows[:20] if isinstance(row, Mapping)],
+    }
+
+
+def _message_summary(value: Any) -> dict[str, Any]:
+    rows = value if isinstance(value, list) else []
+    return {
+        'count': len(rows),
+        'items': [_pointer_item(row, keys=('id',)) for row in rows[:20] if isinstance(row, Mapping)],
+    }
+
+
+def _historical_report_summary(value: Any) -> dict[str, Any]:
+    rows = value if isinstance(value, list) else []
+    return {
+        'count': len(rows),
+        'items': [_pointer_item(row, keys=('id', 'file_uri')) for row in rows[:20] if isinstance(row, Mapping)],
+    }
+
+
+def _pointer_item(item: Mapping[str, Any], *, keys: tuple[str, ...]) -> dict[str, Any]:
+    pointer = {
+        key: _summary_safe(item.get(key))
+        for key in keys
+        if item.get(key) not in (None, '')
+    }
+    pointer.update(_hash_from_payload(item))
+    return pointer
+
+
+def _hash_from_payload(item: Mapping[str, Any]) -> dict[str, Any]:
+    payload = _as_mapping(item.get('payload')) or _as_mapping(item.get('source_payload'))
+    for key in ('hash', 'payload_hash', 'content_hash'):
+        value = payload.get(key)
+        if value not in (None, ''):
+            return {'hash': _summary_safe(value)}
+    return {}
 
 
 def _growth_feedback_text(*, command: HermesDay1Command, product: dict[str, Any]) -> str:
@@ -308,6 +393,29 @@ def _json_safe(value: Any) -> Any:
     if value is None or isinstance(value, (int, float, bool)):
         return value
     return redact_secret_text(str(value))
+
+
+def _summary_safe(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _summary_safe(item)
+            for key, item in filter_sensitive_mapping(dict(value)).items()
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [_summary_safe(item) for item in list(value)[:20] if item not in (None, '')]
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, str):
+        return _truncate_summary(redact_secret_text(value))
+    if value is None or isinstance(value, (int, float, bool)):
+        return value
+    return _truncate_summary(redact_secret_text(str(value)))
+
+
+def _truncate_summary(value: str) -> str:
+    return value if len(value) <= 160 else value[:157] + '...'
 
 
 def _as_mapping(value: Any) -> Mapping[str, Any]:
