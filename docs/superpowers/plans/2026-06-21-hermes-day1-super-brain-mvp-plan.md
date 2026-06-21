@@ -4,7 +4,7 @@
 
 **Goal:** 张兆嘉在钉钉私聊 Hermes 一句话，Hermes 能主动查 MES、数据中枢、WMS、钉钉文本/文件、RAG、历史日报和输出 skill 样本，生成 root_owner 完整版三段式日报，并把证据、冲突和成长反馈发回钉钉。
 
-**Architecture:** Day-1 先做一个确定性后台闭环：钉钉入口识别 root_owner 和日报指令，Hermes 编排服务统一调用现有数据读取、日报模板、审计、RAG、记忆和 outbox 能力，最后把三段式结果写回现有表。代码结构预留 LangGraph/LangChain/ReAct/Harness 的状态和工具边界，但第一版不引入新工作流框架，避免把 MVP 做成大平台。
+**Architecture:** Day-1 直接落到生产服务层：钉钉入口识别 root_owner 和日报指令，Hermes 超级大脑服务用“感知、取数、推理、交付/学习”四层 engine 串起现有数据读取、日报模板、审计、RAG、记忆、Harness 和 outbox 能力，最后把三段式结果、证据、对齐分数和学习事件写回现有表。LangGraph/LangChain/ReAct 不先作为外部框架硬依赖，但必须在代码里落出等价的状态图、工具注册表和思考循环，后续能平滑替换成框架。
 
 **Tech Stack:** FastAPI, SQLAlchemy, Alembic not required for Day-1, pytest, existing DingTalk inbound route, existing `AgentRun` / `ChatInboxMessage` / `MultimodalEvidence` / `DailyReport` / `HermesLearningEvent`, existing `HermesMesReadService`, existing `HermesDataAuditService`, existing `template_daily_report`, existing `agent_cli.py`.
 
@@ -17,6 +17,8 @@
 - RAG 只用于稳定知识、口径、模板、历史经验，不把 RAG 历史数字当今天最终事实。
 - Day-1 只处理 root_owner 私聊和 root_owner 授权群/通道，不扫描全部钉钉群。
 - Day-1 必须有独立开关，建议配置名为 `HERMES_DAY1_ENABLED`，默认关闭。
+- Harness 不再只是测试 helper，必须进入生产服务层，用来记录每次日报的成熟度、真实值对齐分数和失败原因。
+- `D:\输出skill` 里的 txt 每日日报是真实值参考源，只读读取，不修改，不提交原始内容到 Git。
 - 三段式输出标题固定为：`工厂大脑判断单`、`正式日报正文`、`各车间明细`。
 - 如果数据不足，Hermes 必须说清楚缺什么，不能编数字。
 - 所有写动作必须留痕：`chat_inbox`、`agent_runs`、`daily_reports.report_data`、`multimodal_evidence`、`hermes_learning_events`、`audit_logs` 至少覆盖一处。
@@ -62,32 +64,33 @@ Day-1 目标不扩大
 | 当前工作区 | 存在多处既有未提交改动和删除 | 实施时必须只暂存 Day-1 相关文件，不能 `git add -A` |
 | TODO | 当前 `TODOS.md` 主要是低优先级前端/死代码清理 | Day-1 不依赖现有 TODO，不应顺手清理 |
 | 高频文件 | `template_daily_report`、`agent_command_service`、`mapping_reconciliation_service`、`daily_overview_builder` 高频变动 | 这些是热区，实施必须小步提交和精确测试 |
-| 计划复杂度 | 原计划新增 7 个生产/测试模块 | 优化为 5 个生产服务 + 1 个测试 helper，减少维护面 |
+| 计划复杂度 | 原计划新增 7 个生产/测试模块 | CEO Review 曾建议 5 个生产服务 + 1 个测试 helper；Eng Review 后改为生产 Harness 服务 |
 
 ### 实施方案对比
 
 | 方案 | 内容 | 完整度 | 风险 | 结论 |
 |---|---|---:|---|---|
 | A. 最小补丁 | 只在 `agent_cli.py` 和 `dingtalk.py` 里拼接现有日报 | 5/10 | 快，但证据、审计、成长和失败路径散乱 | 不选 |
-| B. 聚焦服务束 | 5 个 Day-1 服务串起现有底座，测试 helper 不进生产 | 8.5/10 | 文件数可控，能形成上线闭环 | 采用 |
+| B. 聚焦服务束 | 5 个 Day-1 服务串起现有底座，Harness 原建议不进生产 | 8.5/10 | 文件数可控，能形成上线闭环 | 已被 Eng Review 扩展 |
 | C. 完整平台 | 直接落 LangGraph、LangChain 工具注册、前端面板、多角色分发 | 10/10 | 太大，会拖慢 root_owner 私聊闭环 | 后续阶段 |
 
-推荐 B。原因是它最符合当前目标：先让 Hermes 拿到可信原始数据并生成能用的三段式日报，同时不给 Day-1 背上完整平台负担。
+CEO Review 当时推荐 B。原因是它最符合“先上线 root_owner 私聊闭环”的目标。
+
+Eng Review 后，本计划按用户新要求升级：**Harness 进入生产服务层，Day-1 要能直接支撑超级大脑 agent 构建**。也就是说，仍不做前端成长面板和全厂自动分发，但后端服务层必须把状态图、工具注册、ReAct 思考循环、真实值对齐、学习反馈一次性设计完整。
 
 ### CEO Review 后的范围修正
 
 接受进入本 plan：
 
 - 合并 root_owner 权限判断和命令解析为 `backend/app/services/hermes_day1_intent_service.py`。
-- Harness 只做 `backend/tests/helpers/hermes_day1_harness.py`，不做生产服务。
+- Harness 升级为 `backend/app/services/hermes_day1_harness_service.py` 生产服务，用测试覆盖它。
 - 增加 `HERMES_DAY1_ENABLED` 或等价配置门禁，默认关闭，生产验证通过后开启。
 - 增加错误与失败模式登记表，禁止静默失败。
 - 增加部署、回滚、首小时观测步骤。
 
 仍然不进入 Day-1：
 
-- 完整 LangGraph 状态图引擎。
-- 完整 LangChain Tool Registry。
+- 外部 LangGraph/LangChain 框架强依赖。
 - 前端成长面板。
 - 多角色自动分发。
 - 直连 `wms.xintaily.com` 页面或未知接口。
@@ -105,6 +108,131 @@ Day-1 本计划
 12 个月理想态
   Hermes 成为工厂超级大脑：自动感知现场、解释异常、推动补录/修正、按角色分发、长期学习，且每一步可追责
 ```
+
+---
+
+## 0B. Eng Review 最终架构结论
+
+本轮按 `plan-eng-review` 复核后，结论是：**完整建设生产服务层，先用确定性 Python 服务实现超级大脑骨架，再把 LangGraph/LangChain 作为可替换执行后端。**
+
+通俗理解：先把“大脑的骨架、手脚、记忆、验收标准”做进系统，而不是只写一个能回复日报的脚本。这样 Hermes 后续要换成 LangGraph、接更多工具、做主动学习，都不用推翻 Day-1。
+
+### 0B.1 Scope Challenge
+
+| 检查项 | 工程判断 | 处理 |
+|---|---|---|
+| 现有能力能否复用 | 已有钉钉入口、Agent 收发、日报模板、MES 只读、输出 skill 解析、Hermes 审计、RAG、记忆 | 必须复用，禁止重建平行链路 |
+| 文件数量是否过大 | 会超过 8 个文件、超过 2 个生产服务 | 用户明确要求完整方案和生产服务层，接受复杂度 |
+| 最小可交付 | root_owner 私聊生成三段式日报并落库 | 仍保留为最小 smoke |
+| 完整可交付 | 生产 service 层具备 state graph、tool registry、ReAct loop、Harness、真实值对齐 | 进入本 plan |
+| 分发架构 | 没有新制品，不新增独立二进制/容器 | 沿用后端部署和现有云端发布流程 |
+| TODO 交叉检查 | `TODOS.md` 当前是 P4 前端/死代码问题 | 不阻塞本 plan，不捆绑处理 |
+
+### 0B.2 四层 Engine
+
+```text
+Hermes Super Brain
+  1. Perception Engine 感知层
+     - 钉钉私聊/授权群
+     - 钉钉文本和文件元数据
+     - CLI smoke
+     - 历史日报和输出 skill 文件
+
+  2. Data Engine 取数层
+     - 数据中枢日报模板
+     - MES SQL Server 只读
+     - WMS 投影/只读数据
+     - HermesDataAuditService
+     - RAG 稳定知识
+     - DailyReport 历史记录
+
+  3. Reasoning Engine 推理层
+     - 状态图
+     - 工具注册表
+     - ReAct 思考循环
+     - 冲突、缺字段、风险、置信度判断
+
+  4. Delivery & Learning Engine 交付/学习层
+     - 三段式日报
+     - Harness 成熟度评分
+     - 输出 skill 真实值对齐分数
+     - DailyReport / AgentRun / HermesLearningEvent / AuditLog
+     - 钉钉回复 root_owner
+```
+
+### 0B.3 生产状态图
+
+```text
+received
+  -> identified_actor
+  -> parsed_intent
+  -> planned_tools
+  -> collected_sources
+  -> reasoned_findings
+  -> rendered_report
+  -> aligned_with_output_skill
+  -> scored_by_harness
+  -> persisted
+  -> replied
+
+blocked:
+  disabled
+  unauthorized
+  command_unrecognized
+  source_failed_visible
+  missing_required_facts
+  output_skill_alignment_failed
+  persistence_failed
+```
+
+### 0B.4 ReAct 循环
+
+```text
+Thought: 这份日报要用哪些数据证明？
+Action: 调用 tool registry 中的一个只读工具
+Observation: 得到数据、缺失、冲突或错误
+Thought: 这份观察是否足够生成正式正文？
+Action: 不足则继续查证，足够则生成判断单和日报
+Final: 三段式日报 + 证据 + 对齐分数 + 学习事件
+```
+
+Day-1 不让大模型自由选择任意工具。工具必须来自白名单，且每次调用写入 `tool_trace`：
+
+| 工具名 | 来源 | 写权限 | 作用 |
+|---|---|---|---|
+| `template_daily_report` | `backend/app/services/report/template_daily_report.py` | 无 | 生成数据中枢标准日报 facts |
+| `mes_wms_read` | `HermesMesReadService` / WMS 投影 | MES 只读 | 读取生产、入库、库存、在制等原始事实 |
+| `data_audit` | `HermesDataAuditService` | 写审计表 | 对比 MES、数据中枢、输出 skill |
+| `dingtalk_evidence` | `agent_multimodal_evidence_service.py` | 写证据表 | 收集文本、文件、说明和指令 |
+| `rag_context` | `query_knowledge()` / `HermesRagService` | 写查询日志 | 查稳定口径和模板说明 |
+| `history_report` | `DailyReport` | 无 | 查前一天、月累计、历史最终版 |
+| `output_skill_alignment` | `output_skill_report_parser.py` / `output_skill_reconciliation.py` | 无 | 和 `D:\输出skill` txt 真实日报对齐 |
+| `harness_score` | `hermes_day1_harness_service.py` | 写运行结果 | 判断 Hermes 是否像工厂大脑 |
+
+### 0B.5 What Already Exists
+
+| 子问题 | 已有代码 | 是否复用 |
+|---|---|---|
+| 钉钉入站 | `backend/app/routers/dingtalk.py::dingtalk_agent_inbound` | 复用，在旧逻辑前插入 Day-1 分流 |
+| Agent 收发记录 | `backend/app/services/agent_command_service.py`、`AgentRun`、`ChatInboxMessage` | 复用 |
+| RAG | `backend/app/services/rag_service.py::query_knowledge` | 复用，只做稳定知识 |
+| MES 只读 | `backend/app/services/hermes_mes_read_service.py` | 复用 |
+| 审计和修正建议 | `backend/app/services/hermes_data_audit_service.py` | 复用，Day-1 默认 dry-run |
+| 输出 skill 解析 | `backend/app/services/report/output_skill_report_parser.py` | 复用 |
+| 输出 skill 对齐 | `backend/app/services/report/output_skill_reconciliation.py` | 复用并扩展到真实 txt |
+| 数据映射审计 | `backend/app/services/mapping_reconciliation_service.py` | 复用字段/单位/别名思想 |
+| 钉钉外发记录 | `backend/app/services/dingtalk_daily_report.py`、`external_message_logs` | 复用 |
+
+### 0B.6 NOT In Scope
+
+| 不做 | 原因 |
+|---|---|
+| 不写 MES | MES 是外部生产系统，Day-1 只读 |
+| 不修改 `D:\输出skill` | 这是真实值基准，只读使用 |
+| 不新增前端成长面板 | 本轮目标是后端超级大脑生产服务层 |
+| 不做未知协议的 `wms.xintaily.com` 页面抓取 | 没有稳定 API/页面协议，先用现有 WMS 投影 |
+| 不自动批量修正数据中枢原始数据 | Day-1 只给 dry-run 建议和审计证据 |
+| 不全厂自动群发 | 先只回复最高权限者，后续再按钉钉权限分发 |
 
 ---
 
@@ -142,7 +270,7 @@ Day-1 新增文件：
 | `backend/app/services/hermes_day1_source_service.py` | 主动收集 MES、WMS、数据中枢、钉钉、RAG、历史日报、输出 skill 证据 |
 | `backend/app/services/hermes_day1_report_service.py` | 生成三段式日报文本 |
 | `backend/app/services/hermes_day1_orchestrator.py` | 串起 Day-1 全流程 |
-| `backend/tests/helpers/hermes_day1_harness.py` | 成熟度测试 helper，不进生产服务层 |
+| `backend/app/services/hermes_day1_harness_service.py` | 生产成熟度评分、真实日报对齐评分、工具调用覆盖检查 |
 
 Day-1 不新增数据库表。理由很简单：现有表已经能承载第一版闭环，新增表会拖慢上线并增加迁移风险。
 
@@ -179,9 +307,10 @@ Day-1 的结果按下面方式落库：
 - [ ] 新增 `backend/tests/test_hermes_day1_evidence_service.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_report_service.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_orchestrator.py`
+- [ ] 新增 `backend/tests/test_hermes_day1_harness_service.py`
+- [ ] 新增 `backend/tests/test_hermes_day1_output_skill_alignment.py`
 - [ ] 扩展 `backend/tests/test_dingtalk_agent_inbound_route.py`
 - [ ] 扩展 `backend/tests/test_agent_cli.py`
-- [ ] 新增 `backend/tests/test_hermes_day1_harness.py`
 
 命令解析测试至少覆盖：
 
@@ -1354,11 +1483,15 @@ def _cmd_day1_report(db: Session, args: argparse.Namespace, auth: HermesAuth) ->
 python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_agent_cli.py -q
 ```
 
-### Task 9: 实现 Harness 成熟度测试执行器
+### Task 9: 实现生产 Harness 成熟度与真实值对齐服务
 
-新增 `backend/tests/helpers/hermes_day1_harness.py`。
+新增 `backend/app/services/hermes_day1_harness_service.py`。
 
-它不是生产流程，只是测试 Hermes 是否像“工厂超级大脑”，不是只会统计。
+它是生产服务层，不是测试 helper。作用是让 Hermes 每次生成日报后，都能自己回答三个问题：
+
+1. 我有没有主动查证足够多的数据源？
+2. 我有没有把冲突、缺字段、风险讲清楚？
+3. 我的正式日报正文和 `D:\输出skill` txt 真实日报对齐到什么程度？
 
 测试类型：
 
@@ -1369,6 +1502,7 @@ python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/test
 | 缺数据追问 | `missing_fields` 非空时正式正文不能编造 |
 | 钉钉证据分类 | fact/explanation/instruction/noise 分类正确 |
 | 记忆成长 | 生成 `HermesLearningEvent` |
+| 真实值对齐 | `field_match_rate` 必须达到阈值；低于阈值时阻断正式发布 |
 | 高自主可追责 | L5 修正不在 Day-1 默认执行，但 correction action 必须有审计设计 |
 
 实现骨架：
@@ -1377,7 +1511,11 @@ python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/test
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
 from typing import Any
+
+from app.services.report.output_skill_reconciliation import reconcile_rendered_daily_report
 
 
 @dataclass(frozen=True, slots=True)
@@ -1387,14 +1525,25 @@ class HarnessCaseResult:
     detail: str
 
 
-def evaluate_day1_run_payload(payload: dict[str, Any], *, answer: str) -> list[HarnessCaseResult]:
+def evaluate_day1_run_payload(
+    payload: dict[str, Any],
+    *,
+    answer: str,
+    output_skill_expected_text: str | None = None,
+    min_field_match_rate: float = 95.0,
+) -> list[HarnessCaseResult]:
     day1 = dict(payload.get("hermes_day1") or {})
     sources = dict(day1.get("sources") or {})
+    alignment = (
+        reconcile_rendered_daily_report(answer, output_skill_expected_text)
+        if output_skill_expected_text
+        else {"field_match_rate": 0.0, "expected_fields": 0, "differences": []}
+    )
     results = [
         HarnessCaseResult(
             "active_verification",
-            all(key in sources for key in ("template_daily_report", "mes_wms", "audit_run", "dingtalk_evidence", "historical_reports", "rag")),
-            "需要查数据中枢、MES/WMS、审计、钉钉、历史日报和 RAG",
+            all(key in sources for key in ("template_daily_report", "mes_wms", "audit_run", "dingtalk_evidence", "historical_reports", "rag", "output_skill_alignment")),
+            "需要查数据中枢、MES/WMS、审计、钉钉、历史日报、RAG 和输出 skill",
         ),
         HarnessCaseResult(
             "three_part_output",
@@ -1411,14 +1560,35 @@ def evaluate_day1_run_payload(payload: dict[str, Any], *, answer: str) -> list[H
             (not day1.get("missing_fields")) or "缺失" in answer or "缺字段" in answer,
             "缺字段时必须明说",
         ),
+        HarnessCaseResult(
+            "output_skill_alignment",
+            alignment["expected_fields"] == 0 or alignment["field_match_rate"] >= min_field_match_rate,
+            f"真实日报字段匹配率 {alignment['field_match_rate']}%，低于 {min_field_match_rate}% 时不能说已对齐",
+        ),
     ]
     return results
+
+
+def load_output_skill_daily_text(root: str | Path, business_date: date) -> str | None:
+    root_path = Path(root)
+    # Day-1 只读读取，匹配 2026-6-19_日报正文.txt / 2026-06-19_日报正文.txt 等常见命名。
+    patterns = [
+        f"{business_date.year}-{business_date.month}-{business_date.day}_日报正文.txt",
+        f"{business_date.year}-{business_date.month:02d}-{business_date.day:02d}_日报正文.txt",
+        f"{business_date.year}-{business_date.month}-{business_date.day}*日报*.txt",
+        f"{business_date.year}-{business_date.month:02d}-{business_date.day:02d}*日报*.txt",
+    ]
+    for pattern in patterns:
+        matches = sorted(root_path.glob(pattern))
+        if matches:
+            return matches[0].read_text(encoding="utf-8")
+    return None
 ```
 
 测试：
 
 ```python
-from tests.helpers.hermes_day1_harness import evaluate_day1_run_payload
+from app.services.hermes_day1_harness_service import evaluate_day1_run_payload
 
 
 def test_day1_harness_requires_three_part_output() -> None:
@@ -1432,6 +1602,7 @@ def test_day1_harness_requires_three_part_output() -> None:
                     "dingtalk_evidence": [],
                     "historical_reports": [],
                     "rag": {},
+                    "output_skill_alignment": {},
                 },
                 "conflicts": [],
                 "missing_fields": [],
@@ -1446,7 +1617,7 @@ def test_day1_harness_requires_three_part_output() -> None:
 验证：
 
 ```bash
-python -m pytest backend/tests/test_hermes_day1_harness.py -q
+python -m pytest backend/tests/test_hermes_day1_harness_service.py backend/tests/test_hermes_day1_output_skill_alignment.py -q
 ```
 
 ### Task 10: 端到端验收
@@ -1459,7 +1630,8 @@ python -m pytest \
   backend/tests/test_hermes_day1_evidence_service.py \
   backend/tests/test_hermes_day1_report_service.py \
   backend/tests/test_hermes_day1_orchestrator.py \
-  backend/tests/test_hermes_day1_harness.py \
+  backend/tests/test_hermes_day1_harness_service.py \
+  backend/tests/test_hermes_day1_output_skill_alignment.py \
   backend/tests/test_dingtalk_agent_inbound_route.py \
   backend/tests/test_agent_cli.py \
   -q
@@ -1475,8 +1647,32 @@ python -m pytest \
   backend/tests/test_hermes_mes_read_service.py \
   backend/tests/test_hermes_learning_loop.py \
   backend/tests/test_agent_multimodal_evidence_service.py \
+  backend/tests/test_output_skill_report_parser.py \
+  backend/tests/test_output_skill_reconciliation.py \
+  backend/tests/test_mapping_reconciliation_service.py \
   -q
 ```
+
+真实值对齐 smoke：
+
+```bash
+set OUTPUT_SKILL_ROOT=D:\输出skill
+python backend/scripts/agent_cli.py day1-report \
+  --dingtalk-user-id dt-owner \
+  --text "生成 6月19日 root_owner 完整版三段式日报" \
+  --target-date 2026-06-19 \
+  --channel dingtalk_private \
+  --trace-id day1-output-skill-align-20260619
+```
+
+验收规则：
+
+- 只读读取 `D:\输出skill` 对应日期的 `*_日报正文.txt`。
+- 用 `parse_output_skill_daily_report()` 提取真实日报字段。
+- 用 `reconcile_rendered_daily_report()` 对比 Hermes 生成的正式日报正文。
+- `field_match_rate >= 95.0` 才算对齐通过。
+- 低于 95.0 时，`工厂大脑判断单` 必须列出差异字段，正式正文不能标记为已对齐。
+- 测试和日志里不能保存 `D:\输出skill` 原文全文，只保存文件名、字段数、匹配率、差异字段和脱敏摘要。
 
 最后做 CLI smoke：
 
@@ -1492,6 +1688,8 @@ python backend/scripts/agent_cli.py day1-report \
 验收点：
 
 - 返回文本包含 `工厂大脑判断单`、`正式日报正文`、`各车间明细`。
+- `agent_runs.result_payload["hermes_day1"]["harness"]` 有成熟度评分。
+- `agent_runs.result_payload["hermes_day1"]["output_skill_alignment"]["field_match_rate"] >= 95.0`，或明确说明未对齐字段。
 - `agent_runs` 有一条 `agent_code='xt-factory-controller'` 的记录。
 - `daily_reports.report_data["hermes_day1_super_brain"]` 有完整三段式产物。
 - 如果模板字段 ready，`daily_reports.final_text_summary` 写入正式日报正文。
@@ -1511,6 +1709,7 @@ HERMES_ALLOWED_DINGTALK_USER_IDS=<允许普通查询的钉钉身份，逗号分�
 HERMES_ALLOWED_GROUP_IDS=<root_owner 授权的钉钉群 conversationId，逗号分隔>
 HERMES_DINGTALK_INBOUND_TOKEN=<钉钉入站 token>
 HERMES_DAY1_ENABLED=false
+HERMES_DAY1_MIN_OUTPUT_SKILL_FIELD_MATCH_RATE=95.0
 MES_ADAPTER=sqlserver
 OUTPUT_SKILL_ROOT=D:\输出skill
 ```
@@ -1547,6 +1746,8 @@ OUTPUT_SKILL_ROOT=D:\输出skill
 | root_owner 身份拿不到 staffId/unionId | 先用开发兜底验证；生产上线前必须补真实身份 |
 | MES/WMS adapter 未配置 | 输出 `source_status`，日报可阻断，不能编数 |
 | 输出 skill 目录不存在 | 记录 `output_skill_source_missing`，不能 500 |
+| 输出 skill 有真实 txt，但字段匹配率低于 95% | 判断单列出差异字段，`final_text_summary` 不标记为已对齐 |
+| 输出 skill 文件名日期格式不统一 | Harness 用多 pattern 只读匹配，并在结果里记录命中文件名 |
 | 钉钉文件只能拿到 mediaId，不能下载正文 | 先记录文件证据元数据；正文解析状态写 `text_unavailable` |
 | 模板日报字段缺失 | 三段式仍输出判断单和缺字段清单，正式正文写阻断说明 |
 | `record_evidence()` 当前会 commit | 增加 `commit=False` 可选参数，旧调用默认不变 |
@@ -1588,6 +1789,8 @@ Day-1 不允许“失败了但看起来成功”。下面每一类错误都要�
 | MES/WMS 查询 | adapter null | 是 | 是 | 判断单显示数据源缺失 | 是 |
 | MES/WMS 查询 | 超时或 SQL Server 异常 | 是 | 是 | 判断单显示读取失败 | 是 |
 | 输出 skill | `OUTPUT_SKILL_ROOT` 不存在 | 是 | 是 | 判断单显示缺少输出 skill | 是 |
+| 输出 skill | 真实 txt 可读但匹配率低 | 是 | 是 | 判断单列差异字段 | 是 |
+| Harness | 工具调用覆盖不足 | 是 | 是 | 判断单显示“查证不足” | 是 |
 | 模板日报 | required fields 缺失 | 是 | 是 | 不生成假正文 | 是 |
 | 日报落库 | `daily_reports` 唯一键冲突 | 是 | 是 | 读取已有日报后更新 | 是 |
 | AgentRun 落库 | 数据库异常 | 否，回滚 | 是 | 返回失败 | 是 |
@@ -1612,6 +1815,9 @@ Day-1 不允许“失败了但看起来成功”。下面每一类错误都要�
           -> query_knowledge -> RAG 稳定知识
           -> DailyReport 历史记录
       -> hermes_day1_report_service.py
+      -> hermes_day1_harness_service.py
+          -> output_skill_reconciliation.py
+          -> D:\输出skill 只读 txt 真实值
       -> DailyReport / AgentRun / HermesLearningEvent / AuditLog
   -> 钉钉回复 root_owner
 ```
@@ -1633,6 +1839,9 @@ Day-1 不允许“失败了但看起来成功”。下面每一类错误都要�
   -> 三段式生成
       -> 模板 ready：写正式正文
       -> 模板 blocked：不编数，只列缺字段
+  -> Harness 和真实值对齐
+      -> 对齐通过：允许标记已对齐
+      -> 对齐失败：判断单列差异，不伪装成功
   -> 落库和回复
       -> 落库成功：回复 root_owner
       -> 落库失败：回滚并返回失败
@@ -1645,6 +1854,8 @@ received
   -> authorized
   -> collecting_sources
   -> composing
+  -> aligning_output_skill
+  -> scoring_harness
   -> persisted
   -> replied
 
@@ -1653,6 +1864,7 @@ blocked states:
   command_unrecognized
   source_failed_but_visible
   report_blocked_missing_fields
+  output_skill_alignment_failed
   persistence_failed
 ```
 
@@ -1681,6 +1893,128 @@ blocked states:
 
 ---
 
+## 6D. Eng Review Test Coverage Diagram
+
+```text
+CODE PATHS                                                   USER FLOWS
+[+] dingtalk.py / hermes.py                                  [+] root_owner 私聊生成日报
+  ├── [GAP] Day-1 disabled -> disabled response                 ├── [GAP] [->E2E] 私聊 /日报 2026-06-19
+  ├── [GAP] root_owner -> Day-1 orchestrator                    ├── [GAP] 非 root_owner 被拒绝
+  ├── [GAP] authorized group -> evidence only                   └── [GAP] 普通消息走旧 agent
+  └── [GAP] parser miss -> handle_agent_command()
+
+[+] hermes_day1_intent_service.py                            [+] 指令理解
+  ├── [GAP] ISO 日期 2026-06-19                                ├── [GAP] 生成 6月19日正式日报
+  ├── [GAP] 中文日期 6月19日                                   ├── [GAP] /日报 2026-06-19
+  ├── [GAP] 非日报文本 -> None                                  └── [GAP] 6月32日 -> clear error
+  └── [GAP] root_owner / authorized_user / denied
+
+[+] hermes_day1_source_service.py                            [+] 主动查证
+  ├── [GAP] template_daily_report ready                         ├── [GAP] 查数据中枢
+  ├── [GAP] MES/WMS ok / missing / timeout                      ├── [GAP] 查 MES/WMS 只读
+  ├── [GAP] data_audit ok / no comparable data                  ├── [GAP] 查钉钉证据
+  ├── [GAP] RAG no hit / citations                              └── [GAP] 查历史日报和输出 skill
+  └── [GAP] output skill root missing / parsed
+
+[+] hermes_day1_report_service.py                            [+] 三段式输出
+  ├── [GAP] ready -> formal report text                         ├── [GAP] 工厂大脑判断单在最前
+  ├── [GAP] missing fields -> no fake numbers                   ├── [GAP] 正式日报正文沿用模板口径
+  ├── [GAP] conflicts -> visible in judgment                    └── [GAP] 各车间明细包含车间级指标
+  └── [GAP] workshop detail empty -> explain
+
+[+] hermes_day1_harness_service.py                            [+] 真实值对齐
+  ├── [GAP] tools_called complete                               ├── [GAP] 读取 D:\输出skill txt
+  ├── [GAP] output_skill field_match_rate >= 95                 ├── [GAP] 字段匹配率 >= 95 通过
+  ├── [GAP] output_skill field_match_rate < 95                  └── [GAP] 低于 95 列差异并阻断已对齐状态
+  └── [GAP] no expected txt -> visible missing source
+
+[+] hermes_day1_orchestrator.py                               [+] 落库和回复
+  ├── [GAP] persist ChatInboxMessage / AgentRun / DailyReport   ├── [GAP] 钉钉返回三段式文本
+  ├── [GAP] duplicate trace/message -> duplicate                ├── [GAP] 数据库异常时返回失败
+  ├── [GAP] SQLAlchemyError -> rollback                         └── [GAP] 审计日志能追查本次运行
+  └── [GAP] HermesLearningEvent created
+
+COVERAGE TARGET: 0/45 Day-1 planned paths currently covered because implementation does not exist yet.
+QUALITY TARGET: every GAP above must become at least ★★, and persistence/security/alignment paths must become ★★★.
+E2E/EVAL: root_owner 私聊、CLI smoke、真实输出 skill 对齐属于 integration/eval 级验收。
+```
+
+测试要求：
+
+- 新增测试必须先红后绿。
+- 每个 `Error & Rescue Registry` 行至少一个失败路径测试。
+- 每个 `Failure Modes Registry` 行至少一个用户可见结果断言。
+- 真实 `D:\输出skill` 对齐测试只能读文件名和字段，不把原文写入 fixture 或 Git。
+- 允许用 `backend/tests/fixtures/output_skill_daily_reports` 做单元测试基线，但最终 smoke 必须能读取本机 `D:\输出skill`。
+
+## 6E. Eng Review Failure Modes
+
+| Codepath | 生产失败方式 | 测试 | 错误处理 | 用户是否看得懂 |
+|---|---|---|---|---|
+| `dingtalk_agent_inbound` | 钉钉 payload 缺 senderStaffId/senderUnionId | 必须有 | 返回身份缺失 | 是 |
+| `parse_day1_command` | 日期非法，例如 `6月32日` | 必须有 | 返回日期非法，不走旧日报 | 是 |
+| `classify_day1_actor` | 误把普通用户当 root_owner | 必须有 | root_owner 白名单硬校验 | 是 |
+| `collect_day1_sources` | MES SQL Server 超时 | 必须有 | `source_status.mes=failed` | 是 |
+| `collect_day1_sources` | WMS 投影缺表或无数据 | 必须有 | `source_status.wms=missing` | 是 |
+| `collect_day1_sources` | RAG 查不到口径 | 必须有 | RAG 标 empty，不影响事实 | 是 |
+| `load_output_skill_daily_text` | `D:\输出skill` 日期命名不统一 | 必须有 | 多 pattern 匹配并记录 missing | 是 |
+| `evaluate_day1_run_payload` | 工具调用不完整 | 必须有 | Harness 标查证不足 | 是 |
+| `reconcile_rendered_daily_report` | 字段匹配率低于 95% | 必须有 | 阻断“已对齐”状态 | 是 |
+| `run_day1_super_brain` | `DailyReport` 唯一键冲突 | 必须有 | 读取已有日报后更新 | 是 |
+| `run_day1_super_brain` | `AgentRun` 写库失败 | 必须有 | 回滚并返回失败 | 是 |
+
+Critical gaps: 0 after this plan update。原因是：每个失败方式都已经要求有测试、有处理方式、用户能看懂。
+
+## 6F. Worktree Parallelization Strategy
+
+| Step | Modules touched | Depends on |
+|---|---|---|
+| Lane A: intent + config gate | `backend/app/config.py`, `backend/app/services/`, `backend/tests/` | — |
+| Lane B: evidence + source collection | `backend/app/services/`, `backend/tests/` | Lane A types |
+| Lane C: report + harness + output skill alignment | `backend/app/services/report/`, `backend/app/services/`, `backend/tests/` | Lane A types |
+| Lane D: orchestrator + route + CLI | `backend/app/routers/`, `backend/scripts/`, `backend/app/services/` | Lane A+B+C |
+| Lane E: integration smoke docs/tests | `backend/tests/`, `docs/` | Lane D |
+
+并行建议：
+
+- 先顺序完成 Lane A，因为后面都依赖 command、actor、配置门禁的数据结构。
+- Lane B 和 Lane C 可以并行，但都要避免同时改 `hermes_day1_orchestrator.py`。
+- Lane D 必须等 B+C 合并后再做。
+- Lane E 最后跑真实 `D:\输出skill` 对齐和钉钉 dry-run。
+
+冲突提醒：Lane B/C/D 都会碰 `backend/app/services/`，并行时只适合拆 worktree，不适合多人随手改同一个文件。
+
+## 6G. Eng Review Implementation Tasks
+
+Synthesized from `plan-eng-review`. These tasks are additions or corrections to the build plan above.
+
+- [ ] **E1 (P1, human: ~2h / CC: ~20min)** — 生产大脑状态 — Implement Day-1 state graph and tool trace as production payload.
+  - Surfaced by: Architecture Review — plan needs a real state graph, not only a linear script.
+  - Files: `backend/app/services/hermes_day1_orchestrator.py`, `backend/tests/test_hermes_day1_orchestrator.py`
+  - Verify: every state transition appears in `agent_runs.result_payload["hermes_day1"]["state_trace"]`.
+
+- [ ] **E2 (P1, human: ~2h / CC: ~20min)** — Harness 生产化 — Move maturity evaluation into `hermes_day1_harness_service.py`.
+  - Surfaced by: Code Quality Review — test helper would not give production accountability.
+  - Files: `backend/app/services/hermes_day1_harness_service.py`, `backend/tests/test_hermes_day1_harness_service.py`
+  - Verify: harness score is persisted in `agent_runs.result_payload`.
+
+- [ ] **E3 (P1, human: ~2h / CC: ~20min)** — 真实值对齐 — Read `D:\输出skill` txt and compare field values.
+  - Surfaced by: Test Review — user requires real txt daily report alignment.
+  - Files: `backend/app/services/hermes_day1_harness_service.py`, `backend/tests/test_hermes_day1_output_skill_alignment.py`, `backend/app/services/report/output_skill_reconciliation.py`
+  - Verify: `field_match_rate >= 95.0` passes; lower rate lists fields and blocks aligned status.
+
+- [ ] **E4 (P1, human: ~1h / CC: ~15min)** — Tool whitelist — Add explicit tool registry inside source/orchestrator layer.
+  - Surfaced by: Architecture Review — ReAct without a whitelist can call wrong sources or trust RAG as facts.
+  - Files: `backend/app/services/hermes_day1_source_service.py`, `backend/app/services/hermes_day1_orchestrator.py`
+  - Verify: `tools_called` exactly records allowed tools, and unregistered tool names are rejected.
+
+- [ ] **E5 (P2, human: ~1h / CC: ~10min)** — Test artifact — Keep an eng-review test plan artifact for QA.
+  - Surfaced by: Test Review — QA needs a direct list of paths and interactions.
+  - Files: `~/.gstack/projects/aluminum-bypass/*-eng-review-test-plan-*.md`
+  - Verify: artifact exists and names root_owner private report, CLI smoke, output skill alignment.
+
+---
+
 ## 7. 自检清单
 
 实施完成前，执行者必须确认：
@@ -1688,6 +2022,8 @@ blocked states:
 - [ ] 三段式标题完全一致：`工厂大脑判断单`、`正式日报正文`、`各车间明细`。
 - [ ] `MES` 在代码里只读，没有 insert/update/delete。
 - [ ] 日报数字来自 `template_daily_report` 和数据审计结果，不来自 RAG 猜测。
+- [ ] Harness 在生产服务层执行，并把成熟度评分写入 `agent_runs.result_payload`。
+- [ ] Hermes 正式日报正文和 `D:\输出skill` txt 真实值对齐，字段匹配率达到配置阈值或清楚列出差异。
 - [ ] root_owner 完整版日报只能由 root_owner 触发。
 - [ ] `HERMES_DAY1_ENABLED=false` 时，钉钉入口不会触发 Day-1。
 - [ ] 授权群消息可以入证据池，但不能直接触发高权限日报。
@@ -1720,6 +2056,8 @@ blocked states:
 
 - root_owner 私聊输入 `生成 6月19日 root_owner 完整版三段式日报` 能得到三段式输出。
 - 输出能解释用了哪些数据源、哪些字段缺失、哪些来源冲突。
+- Harness 生产服务能给出主动查证、三段式、冲突可见、缺字段可见、真实值对齐评分。
+- `D:\输出skill` 对应日期 txt 能作为只读真实值基准，Hermes 输出字段匹配率达到 `HERMES_DAY1_MIN_OUTPUT_SKILL_FIELD_MATCH_RATE`。
 - 钉钉文本/文件能按 fact/explanation/instruction/noise 分类，业务证据能入库。
 - `DailyReport`、`AgentRun`、`HermesLearningEvent`、`AuditLog` 都有记录。
 - `HERMES_DAY1_ENABLED` 支持一键关闭 Day-1。
@@ -1762,11 +2100,11 @@ Synthesized from `plan-ceo-review`. These tasks are additions or corrections to 
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | SELECTIVE + HOLD: scope held, 5 implementation corrections accepted, 0 unresolved |
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | SELECTIVE + HOLD reviewed; Eng Review supersedes harness placement per user direction |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | not run | Outside voice not run in this pass |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | required | Fresh eng review required after CEO changes |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 5 issues converted to tasks; 0 critical gaps after adding production Harness, state graph, tool whitelist, output skill alignment |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | skipped | No frontend UI scope in Day-1 MVP |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | not run | Not required for this backend-first plan |
 
 - **UNRESOLVED:** 0
-- **VERDICT:** CEO CLEARED — plan is sharper, but eng review is still required before implementation.
+- **VERDICT:** CEO + ENG CLEARED — ready for implementation of the production service layer.
