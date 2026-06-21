@@ -268,3 +268,39 @@ def test_record_day1_dingtalk_evidence_drops_sensitive_input_payload_keys() -> N
         assert 'plain-cookie' not in str(evidence.payload)
     finally:
         db.close()
+
+
+def test_record_day1_dingtalk_evidence_stores_safe_snippet_for_long_sensitive_text() -> None:
+    service = _day1_service()
+    db = _db_session()
+    unique_tail_marker = 'UNIQUE-MARKER-SHOULD-NOT-SURVIVE'
+    recognized_text = (
+        '今日日报：产量 32 吨；password=plain-password；token=plain-token；'
+        + ('前半段说明' * 40)
+        + unique_tail_marker
+    )
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={'msgtype': 'text'},
+            actor=SimpleNamespace(id=23),
+            business_date=date(2026, 6, 21),
+            channel='group_chat',
+            group_id='group-001',
+            trace_id='trace-long-sensitive-001',
+            recognized_text=recognized_text,
+        )
+
+        assert evidence is not None
+        assert evidence.recognized_text != recognized_text
+        assert len(evidence.recognized_text) <= 123
+        assert unique_tail_marker not in evidence.recognized_text
+        assert 'plain-password' not in evidence.recognized_text
+        assert 'plain-token' not in evidence.recognized_text
+        assert 'plain-password' not in str(evidence.payload)
+        assert 'plain-token' not in str(evidence.payload)
+        assert evidence.payload['recognized_text_hash'] == hashlib.sha1(recognized_text.encode('utf-8')).hexdigest()
+        assert evidence.payload['recognized_text_chars'] == len(recognized_text)
+        assert evidence.payload['recognized_text_truncated'] is True
+    finally:
+        db.close()

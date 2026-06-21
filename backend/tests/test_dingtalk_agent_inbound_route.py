@@ -899,6 +899,256 @@ def test_dingtalk_agent_inbound_day1_rejects_non_root_owner(monkeypatch) -> None
         _restore_db_override(previous_overrides, db)
 
 
+def test_dingtalk_agent_inbound_slash_daily_report_stays_on_legacy_handler(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=18,
+            username='manager-legacy-slash',
+            password_hash='x',
+            name='授权用户',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-legacy-slash-001',
+            dingtalk_union_id='union-legacy-slash-001',
+        )
+    )
+    db.commit()
+
+    seen: dict[str, object] = {}
+
+    def fake_handle_agent_command(*_args, **kwargs):
+        seen['text'] = kwargs['text']
+        seen['channel'] = kwargs['channel']
+        return type(
+            'FakeAgentCommandResult',
+            (),
+            {
+                'trace_id': kwargs['trace_id'],
+                'status_color': 'green',
+                'intent': 'legacy_daily_report',
+                'facts': {},
+                'answer': 'legacy /日报 handled',
+                'rag': {},
+                'chat_inbox_id': 701,
+                'agent_run_id': 702,
+                'outbox_message_id': None,
+            },
+        )()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DAY1_ENABLED', False, raising=False)
+    monkeypatch.setenv('HERMES_ALLOWED_DINGTALK_USER_IDS', 'dt-legacy-slash-001')
+    monkeypatch.setattr(dingtalk_router, 'handle_agent_command', fake_handle_agent_command)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'senderStaffId': 'dt-legacy-slash-001',
+                'senderUnionId': 'union-legacy-slash-001',
+                'text': {'content': '/日报 2026-06-19'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-legacy-slash-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['status'] == 'answered'
+        assert payload['intent'] == 'legacy_daily_report'
+        assert payload['answer'] == 'legacy /日报 handled'
+        assert seen == {
+            'text': '/日报 2026-06-19',
+            'channel': 'dingtalk_private',
+        }
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_day1_non_root_owner_persists_evidence_before_403(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=19,
+            username='allowed-fact-not-owner',
+            password_hash='x',
+            name='授权用户',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-allowed-fact-001',
+            dingtalk_union_id='union-allowed-fact-001',
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DAY1_ENABLED', True, raising=False)
+    monkeypatch.setenv('HERMES_ALLOWED_DINGTALK_USER_IDS', 'dt-allowed-fact-001')
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'senderStaffId': 'dt-allowed-fact-001',
+                'senderUnionId': 'union-allowed-fact-001',
+                'text': {'content': '生成 6月19日正式日报，产量 32 吨'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-day1-fact-403-001',
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'owner_required'
+        assert db.query(MultimodalEvidence).count() == 1
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['business_date'] == '2026-06-19'
+        assert evidence.payload['evidence_kind'] == 'fact'
+        assert db.query(DailyReport).count() == 0
+        assert db.query(AgentRun).count() == 0
+        assert db.query(ChatInboxMessage).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_authorized_fact_message_records_evidence_then_calls_legacy_agent(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=20,
+            username='allowed-fact-message',
+            password_hash='x',
+            name='授权用户',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-allowed-fact-message-001',
+            dingtalk_union_id='union-allowed-fact-message-001',
+        )
+    )
+    db.commit()
+
+    seen: dict[str, object] = {}
+
+    def fake_handle_agent_command(*_args, **kwargs):
+        seen['text'] = kwargs['text']
+        return type(
+            'FakeAgentCommandResult',
+            (),
+            {
+                'trace_id': kwargs['trace_id'],
+                'status_color': 'green',
+                'intent': 'production_today',
+                'facts': {},
+                'answer': 'legacy fact handled',
+                'rag': {},
+                'chat_inbox_id': 801,
+                'agent_run_id': 802,
+                'outbox_message_id': None,
+            },
+        )()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setenv('HERMES_ALLOWED_DINGTALK_USER_IDS', 'dt-allowed-fact-message-001')
+    monkeypatch.setattr(dingtalk_router, 'handle_agent_command', fake_handle_agent_command)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'senderStaffId': 'dt-allowed-fact-message-001',
+                'senderUnionId': 'union-allowed-fact-message-001',
+                'text': {'content': '今日产量 32 吨'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-authorized-fact-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['status'] == 'answered'
+        assert payload['answer'] == 'legacy fact handled'
+        assert seen['text'] == '今日产量 32 吨'
+        assert db.query(MultimodalEvidence).count() == 1
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['evidence_kind'] == 'fact'
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_authorized_noise_message_skips_evidence_and_calls_legacy_agent(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=21,
+            username='allowed-noise-message',
+            password_hash='x',
+            name='授权用户',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-allowed-noise-message-001',
+            dingtalk_union_id='union-allowed-noise-message-001',
+        )
+    )
+    db.commit()
+
+    seen: dict[str, object] = {}
+
+    def fake_handle_agent_command(*_args, **kwargs):
+        seen['text'] = kwargs['text']
+        return type(
+            'FakeAgentCommandResult',
+            (),
+            {
+                'trace_id': kwargs['trace_id'],
+                'status_color': 'green',
+                'intent': 'noise_reply',
+                'facts': {},
+                'answer': 'legacy noise handled',
+                'rag': {},
+                'chat_inbox_id': 901,
+                'agent_run_id': 902,
+                'outbox_message_id': None,
+            },
+        )()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setenv('HERMES_ALLOWED_DINGTALK_USER_IDS', 'dt-allowed-noise-message-001')
+    monkeypatch.setattr(dingtalk_router, 'handle_agent_command', fake_handle_agent_command)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'senderStaffId': 'dt-allowed-noise-message-001',
+                'senderUnionId': 'union-allowed-noise-message-001',
+                'text': {'content': '收到，谢谢'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-authorized-noise-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['status'] == 'answered'
+        assert payload['answer'] == 'legacy noise handled'
+        assert seen['text'] == '收到，谢谢'
+        assert db.query(MultimodalEvidence).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
 def test_dingtalk_agent_inbound_treats_string_false_as_no_outbox(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add(

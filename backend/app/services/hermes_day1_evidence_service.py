@@ -5,6 +5,7 @@ from datetime import date
 import hashlib
 from typing import Any
 
+from app.core.redaction import redact_secret_text
 from sqlalchemy.orm import Session
 
 from app.core.redaction import filter_sensitive_mapping
@@ -20,6 +21,7 @@ class Day1EvidenceError(RuntimeError):
 FACT_KEYWORDS = ('日报', '产量', '每日产量', '库存', '发货', '入库', '在制', '电耗', '气耗', '成品率', '成本')
 EXPLANATION_KEYWORDS = ('异常', '停机', '原因', '影响', '维修', '换辊', '故障')
 INSTRUCTION_KEYWORDS = ('补录', '重发', '以这个为准', '改成', '修正', '替换')
+SAFE_RECOGNIZED_TEXT_LIMIT = 120
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +59,27 @@ def _clean_payload_text(payload: dict[str, Any], *keys: str) -> str | None:
     return None
 
 
+def _build_safe_recognized_text(recognized_text: str) -> tuple[str | None, dict[str, Any]]:
+    clean_text = str(recognized_text or '').strip()
+    if not clean_text:
+        return None, {
+            'recognized_text_hash': None,
+            'recognized_text_chars': 0,
+            'recognized_text_truncated': False,
+        }
+
+    redacted_text = ' '.join(redact_secret_text(clean_text).split())
+    truncated = len(clean_text) > SAFE_RECOGNIZED_TEXT_LIMIT or len(redacted_text) > SAFE_RECOGNIZED_TEXT_LIMIT
+    snippet = redacted_text[:SAFE_RECOGNIZED_TEXT_LIMIT].rstrip()
+    if truncated:
+        snippet = f'{snippet}...'
+    return snippet, {
+        'recognized_text_hash': hashlib.sha1(clean_text.encode('utf-8')).hexdigest(),
+        'recognized_text_chars': len(clean_text),
+        'recognized_text_truncated': truncated,
+    }
+
+
 def record_day1_dingtalk_evidence(
     db: Session,
     *,
@@ -80,6 +103,7 @@ def record_day1_dingtalk_evidence(
     file_hash = hashlib.sha1(raw_file_id.encode('utf-8')).hexdigest() if raw_file_id else None
     evidence_type = 'attachment' if file_name or raw_file_id else 'text'
     parse_status = 'text_captured' if str(recognized_text or '').strip() else 'text_unavailable'
+    safe_recognized_text, recognized_text_metadata = _build_safe_recognized_text(recognized_text)
     evidence_payload = filter_sensitive_mapping(
         {
             'source': 'dingtalk',
@@ -95,6 +119,7 @@ def record_day1_dingtalk_evidence(
             'evidence_grade': classification.evidence_grade,
             'include_in_daily_sample': classification.include_in_daily_sample,
             'matched_keywords': classification.matched_keywords,
+            **recognized_text_metadata,
             'dingtalk_sender_id': _clean_payload_text(
                 payload,
                 'senderStaffId',
@@ -118,7 +143,7 @@ def record_day1_dingtalk_evidence(
         evidence_type=evidence_type,
         file_uri=f'dingtalk://media/{raw_file_id}' if raw_file_id else None,
         source_user_id=getattr(actor, 'id', None) if actor is not None else None,
-        recognized_text=recognized_text,
+        recognized_text=safe_recognized_text,
         confirmation_status='machine_only',
         payload=evidence_payload,
         commit=False,

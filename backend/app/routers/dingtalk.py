@@ -235,6 +235,14 @@ def _clean_text(value: Any) -> str:
     return str(value or '').strip()
 
 
+def _is_legacy_slash_daily_report_command(text: str) -> bool:
+    clean_text = _clean_text(text)
+    if not clean_text.startswith('/'):
+        return False
+    command = clean_text.split(maxsplit=1)[0].lstrip('/')
+    return command in {'日报', '发日报'}
+
+
 def _first_payload_value(payload: dict[str, Any], *keys: str) -> Any:
     for key in keys:
         value = payload.get(key)
@@ -478,10 +486,27 @@ def dingtalk_agent_inbound(
     )
     channel_scope = _resolve_inbound_channel_scope(db, group_id=scoped_group_id, payload=payload)
     _ensure_inbound_channel_scope_access(user, channel_scope)
+    source_payload = _sanitize_inbound_payload(payload)
     try:
-        day1_command = parse_day1_command(text, default_year=datetime.now().year)
+        day1_command = None
+        if not _is_legacy_slash_daily_report_command(text):
+            day1_command = parse_day1_command(text, default_year=datetime.now().year)
     except Day1CommandParseError as exc:
         raise HTTPException(status_code=400, detail=exc.code) from exc
+    try:
+        record_day1_dingtalk_evidence(
+            db,
+            payload=source_payload,
+            actor=user,
+            business_date=day1_command.business_date if day1_command is not None else None,
+            channel=channel,
+            group_id=group_id or None,
+            trace_id=trace_id,
+            recognized_text=text,
+        )
+    except Day1EvidenceError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
 
     if day1_command is not None:
         decision = classify_day1_actor(
@@ -494,9 +519,11 @@ def dingtalk_agent_inbound(
         try:
             require_root_owner_for_day1_report(decision)
         except PermissionError as exc:
+            db.commit()
             raise HTTPException(status_code=403, detail=str(exc)) from exc
 
         if not settings.HERMES_DAY1_ENABLED:
+            db.commit()
             answer = 'Hermes Day-1 当前未开启，已关闭完整版日报生成。'
             return {
                 'errcode': 0,
@@ -511,7 +538,6 @@ def dingtalk_agent_inbound(
                 'report_id': None,
             }
 
-        source_payload = _sanitize_inbound_payload(payload)
         chat_inbox = ChatInboxMessage(
             channel=channel,
             group_id=group_id or None,
@@ -530,16 +556,6 @@ def dingtalk_agent_inbound(
         db.flush()
 
         try:
-            record_day1_dingtalk_evidence(
-                db,
-                payload=source_payload,
-                actor=user,
-                business_date=day1_command.business_date,
-                channel=channel,
-                group_id=group_id or None,
-                trace_id=trace_id,
-                recognized_text=text,
-            )
             result = run_day1_super_brain(
                 db,
                 command=day1_command,
@@ -579,7 +595,7 @@ def dingtalk_agent_inbound(
             workshop=channel_scope['workshop'],
             machine_code=channel_scope['machine_code'],
             queue_outbox=queue_outbox,
-            source_payload=_sanitize_inbound_payload(payload),
+            source_payload=source_payload,
             current_user=user,
         )
         db.commit()
