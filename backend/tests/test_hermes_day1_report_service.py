@@ -394,3 +394,35 @@ def test_workshop_details_use_template_facts_not_rag_or_dingtalk_numbers() -> No
     assert '999吨' not in text
     assert '888吨' not in text
     assert '777吨' not in text
+
+
+def test_low_output_skill_match_rate_blocks_ready_template_and_lists_difference_fields() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            output_skill_alignment={
+                'status': 'review_needed',
+                'field_match_rate': 94.9,
+                'matched_fields': 19,
+                'expected_fields': 20,
+                'difference_count': 2,
+                'differences': [
+                    {'field': 'total_output_daily', 'actual': 366, 'expected': 360},
+                    {'field': 'cost_per_ton', 'actual': 1044, 'expected': 999},
+                ],
+                'char_match_rate': 95.2,
+                'exact_match': False,
+                'threshold': 95.0,
+            },
+        ),
+    )
+
+    assert result['status'] == 'blocked'
+    assert result['formal_text'] == '6月21日，车间总产量日合计366吨。'
+    assert BLOCKED_SENTENCE in result['text']
+    assert '输出 skill 差异字段：total_output_daily、cost_per_ton' in result['text']
+    assert '字段匹配率低于 95.0%' in result['text']
+    assert '状态：需复核' in result['dingtalk_messages'][0]
+    assert '状态：已对齐' not in result['dingtalk_messages'][0]

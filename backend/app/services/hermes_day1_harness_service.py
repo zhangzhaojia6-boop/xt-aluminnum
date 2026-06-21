@@ -201,8 +201,22 @@ def _evaluate_dingtalk_evidence_classification(payload: Mapping[str, Any], *, so
 def _evaluate_learning_trace(learning: Mapping[str, Any]) -> HarnessCaseResult:
     tools_called = [str(item) for item in _as_list(learning.get('tools_called')) if str(item).strip()]
     source_trace = [str(item) for item in _as_list(learning.get('source_trace')) if str(item).strip()]
-    if learning.get('event_recorded') and tools_called and source_trace:
+    required_tools = (
+        'template_daily_report',
+        'mes_wms_read',
+        'hermes_data_audit',
+        'dingtalk_evidence_scan',
+        'dingtalk_message_scan',
+        'historical_reports_scan',
+        'rag_query',
+        'output_skill_alignment',
+        'build_day1_three_part_report',
+    )
+    missing_tools = [name for name in required_tools if name not in tools_called]
+    if learning.get('event_recorded') and tools_called and source_trace and not missing_tools:
         return HarnessCaseResult('learning_trace_recorded', True, 'payload 已记录学习事件和工具调用路径。')
+    if missing_tools:
+        return HarnessCaseResult('learning_trace_recorded', False, f'tools_called 缺少必需来源级工具：{"、".join(missing_tools)}。')
     return HarnessCaseResult('learning_trace_recorded', False, 'payload 没有完整记录 learning event 或 tools_called/source_trace。')
 
 
@@ -218,6 +232,16 @@ def _evaluate_output_skill_alignment(
     if field_match_rate >= float(min_field_match_rate):
         return HarnessCaseResult('output_skill_alignment', True, f'字段匹配率 {field_match_rate:.1f}% 达到阈值。')
     detail = f'字段匹配率 {field_match_rate:.1f}% 低于阈值 {float(min_field_match_rate):.1f}%。'
+    difference_fields = [
+        str(item.get('field'))
+        for item in _as_list(alignment.get('differences'))
+        if isinstance(item, Mapping) and str(item.get('field') or '').strip()
+    ]
+    if difference_fields:
+        detail += f' 差异字段：{"、".join(difference_fields)}。'
+        missing_names = [name for name in difference_fields if name not in answer]
+        if missing_names:
+            detail += f' 判断单缺少字段名：{"、".join(missing_names)}。'
     if '已对齐' in answer:
         detail += ' 低于阈值时不能写“已对齐”。'
     return HarnessCaseResult('output_skill_alignment', False, detail)

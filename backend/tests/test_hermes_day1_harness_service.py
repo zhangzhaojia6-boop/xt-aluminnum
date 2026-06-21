@@ -80,7 +80,17 @@ def _payload() -> dict:
         },
         'learning': {
             'event_recorded': True,
-            'tools_called': ['collect_day1_sources', 'build_day1_three_part_report'],
+            'tools_called': [
+                'template_daily_report',
+                'mes_wms_read',
+                'hermes_data_audit',
+                'dingtalk_evidence_scan',
+                'dingtalk_message_scan',
+                'historical_reports_scan',
+                'rag_query',
+                'output_skill_alignment',
+                'build_day1_three_part_report',
+            ],
             'source_trace': [
                 'template_daily_report',
                 'mes_wms',
@@ -169,3 +179,58 @@ def test_evaluate_day1_run_payload_requires_missing_field_note() -> None:
     failed = {item.name: item.detail for item in results if not item.passed}
     assert 'missing_fields_visible' in failed
     assert '缺失' in failed['missing_fields_visible'] or '缺字段' in failed['missing_fields_visible']
+
+
+def test_evaluate_day1_run_payload_fails_when_required_tools_missing() -> None:
+    service = _service()
+    payload = _payload()
+    payload['learning']['tools_called'] = [
+        'template_daily_report',
+        'hermes_data_audit',
+        'dingtalk_evidence_scan',
+        'dingtalk_message_scan',
+        'historical_reports_scan',
+        'rag_query',
+        'build_day1_three_part_report',
+    ]
+
+    results = service.evaluate_day1_run_payload(
+        payload,
+        answer=_answer(),
+    )
+
+    failed = {item.name: item.detail for item in results if not item.passed}
+    assert 'learning_trace_recorded' in failed
+    assert 'mes_wms_read' in failed['learning_trace_recorded']
+    assert 'output_skill_alignment' in failed['learning_trace_recorded']
+
+
+def test_evaluate_day1_run_payload_requires_difference_fields_when_alignment_low() -> None:
+    service = _service()
+    payload = _payload()
+    payload['sources']['output_skill_alignment'] = {
+        'status': 'review_needed',
+        'file_name': '2026-6-16_日报正文.txt',
+        'field_match_rate': 82.0,
+        'matched_fields': 2,
+        'expected_fields': 4,
+        'difference_count': 2,
+        'differences': [
+            {'field': 'total_output_daily', 'actual': 328, 'expected': 320},
+            {'field': 'cost_per_ton', 'actual': 1044, 'expected': 999},
+        ],
+        'char_match_rate': 91.0,
+        'exact_match': False,
+        'threshold': 95.0,
+    }
+    payload['output_skill_alignment'] = payload['sources']['output_skill_alignment']
+
+    results = service.evaluate_day1_run_payload(
+        payload,
+        answer='工厂大脑判断单\n字段匹配率低于 95%。\n\n正式日报正文\n这里仍然给正文。\n\n各车间明细\n暂无。',
+    )
+
+    failed = {item.name: item.detail for item in results if not item.passed}
+    assert 'output_skill_alignment' in failed
+    assert 'total_output_daily' in failed['output_skill_alignment']
+    assert 'cost_per_ton' in failed['output_skill_alignment']

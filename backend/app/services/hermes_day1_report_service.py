@@ -58,8 +58,11 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
     formal_text = _text_or_empty(template_payload.get('text'))
     missing_fields = [str(item) for item in _as_list(template_payload.get('missing_fields'))]
     conflicts = _collect_conflicts(sources)
-    status = 'ready' if template_payload.get('status') == 'ready' and formal_text else 'blocked'
     field_match_rate = _field_match_rate(sources)
+    alignment = _as_mapping(sources.get('output_skill_alignment'))
+    alignment_threshold = _alignment_threshold(alignment)
+    alignment_blocked = _alignment_blocks_release(alignment, field_match_rate=field_match_rate, threshold=alignment_threshold)
+    status = 'ready' if template_payload.get('status') == 'ready' and formal_text and not alignment_blocked else 'blocked'
 
     brain_judgment = _build_brain_judgment(
         business_date=business_date,
@@ -68,6 +71,7 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
         conflicts=conflicts,
         status=status,
         field_match_rate=field_match_rate,
+        alignment_threshold=alignment_threshold,
     )
     workshop_details = _build_workshop_details(values=values, sources=fact_sources)
     formal_section_text = formal_text if status == 'ready' else BLOCKED_FORMAL_TEXT
@@ -190,8 +194,10 @@ def _build_brain_judgment(
     conflicts: list[dict[str, Any]],
     status: str,
     field_match_rate: float | None,
+    alignment_threshold: float,
 ) -> dict[str, Any]:
     audit = _as_mapping(sources.get('audit_run'))
+    alignment = _as_mapping(sources.get('output_skill_alignment'))
     source_status = _as_mapping(audit.get('source_status'))
     risks: list[str] = []
     audit_status = audit.get('status')
@@ -213,8 +219,11 @@ def _build_brain_judgment(
         _as_mapping(_as_mapping(sources.get('mes_wms')).get('source_status')).get('mes')
     ):
         risks.append('MES 只读数据源读取不完整')
-    if field_match_rate is not None and field_match_rate < 95.0:
-        risks.append(f'字段匹配率低于 95%：{_field_match_rate_text(field_match_rate)}')
+    if field_match_rate is not None and field_match_rate < alignment_threshold:
+        risks.append(f'字段匹配率低于 {alignment_threshold:.1f}%：{_field_match_rate_text(field_match_rate)}')
+        difference_fields = _alignment_difference_fields(alignment)
+        if difference_fields:
+            risks.append(f'输出 skill 差异字段：{"、".join(difference_fields)}')
 
     actions = [text for item in _as_list(audit.get('suggested_actions')) if (text := _action_text(item))]
     actions.insert(0, '已生成三段式日报' if status == 'ready' else '已阻断正式正文并列出缺失字段')
@@ -412,6 +421,37 @@ def _field_match_rate(sources: dict[str, Any]) -> float | None:
     if audit_rate is None:
         return None
     return _normalise_rate(audit_rate)
+
+
+def _alignment_threshold(alignment: Mapping[str, Any]) -> float:
+    try:
+        return float(alignment.get('threshold') or 95.0)
+    except (TypeError, ValueError):
+        return 95.0
+
+
+def _alignment_blocks_release(
+    alignment: Mapping[str, Any],
+    *,
+    field_match_rate: float | None,
+    threshold: float,
+) -> bool:
+    if field_match_rate is None:
+        return False
+    if not alignment:
+        return False
+    return field_match_rate < threshold
+
+
+def _alignment_difference_fields(alignment: Mapping[str, Any]) -> list[str]:
+    fields: list[str] = []
+    for item in _as_list(alignment.get('differences')):
+        if not isinstance(item, Mapping):
+            continue
+        field = str(item.get('field') or '').strip()
+        if field and field not in fields:
+            fields.append(field)
+    return fields
 
 
 def _normalise_rate(value: Any) -> float | None:

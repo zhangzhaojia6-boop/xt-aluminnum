@@ -20,7 +20,17 @@ from app.services.hermes_day1_report_service import build_day1_three_part_report
 from app.services.hermes_day1_source_service import collect_day1_sources
 from app.services.hermes_governance_service import FACTORY_PROFILE_CODE
 
-DAY1_TOOLS_CALLED = ['collect_day1_sources', 'build_day1_three_part_report']
+DAY1_TOOLS_CALLED = [
+    'template_daily_report',
+    'mes_wms_read',
+    'hermes_data_audit',
+    'dingtalk_evidence_scan',
+    'dingtalk_message_scan',
+    'historical_reports_scan',
+    'rag_query',
+    'output_skill_alignment',
+    'build_day1_three_part_report',
+]
 
 
 @dataclass(frozen=True, slots=True)

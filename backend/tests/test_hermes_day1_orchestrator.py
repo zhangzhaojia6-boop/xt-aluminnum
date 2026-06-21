@@ -166,7 +166,7 @@ def test_ready_run_persists_report_agent_memory_learning_audit_and_returns_resul
         assert memory.memory_value['report_id'] == report.id
         assert event.status == 'candidate'
         assert event.question == command.source_text
-        assert event.tools_called == ['collect_day1_sources', 'build_day1_three_part_report']
+        assert event.tools_called == service.DAY1_TOOLS_CALLED
         assert event.sources
         assert audit_log.action == 'hermes_day1_super_brain_report'
         assert audit_calls[0]['auto_commit'] is False
@@ -457,5 +457,54 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
         ]
         assert '现场补充：无异常' not in payload_text
         assert '日报路线说明' not in payload_text
+    finally:
+        db.close()
+
+
+def test_low_output_skill_match_rate_blocks_final_release_even_with_formal_text(monkeypatch) -> None:
+    service = _service()
+    db = _db_session()
+    actor = _actor(db)
+    low_match_sources = _sources()
+    low_match_sources['output_skill_alignment'] = {
+        'status': 'review_needed',
+        'file_name': '2026-06-21_日报正文.txt',
+        'field_match_rate': 94.9,
+        'matched_fields': 19,
+        'expected_fields': 20,
+        'difference_count': 2,
+        'differences': [
+            {'field': 'total_output_daily', 'actual': 366, 'expected': 360},
+            {'field': 'cost_per_ton', 'actual': 1044, 'expected': 999},
+        ],
+        'char_match_rate': 95.2,
+        'exact_match': False,
+        'threshold': 95.0,
+    }
+    _patch_audit(monkeypatch, service)
+
+    def _collect(db_arg, **kwargs):
+        return low_match_sources
+
+    monkeypatch.setattr(service, 'collect_day1_sources', _collect)
+
+    try:
+        result = service.run_day1_super_brain(
+            db,
+            command=_command(),
+            actor=actor,
+            trace_id='trace-day1-low-match',
+        )
+
+        report = db.get(DailyReport, result.report_id)
+        run = db.get(AgentRun, result.agent_run_id)
+        assert result.status == 'blocked'
+        assert report.quality_gate_status == 'blocked'
+        assert report.final_text_summary is None
+        assert report.is_final_version is False
+        assert report.delivery_ready is False
+        assert run.status == 'blocked'
+        assert run.status_color == 'yellow'
+        assert run.result_payload['hermes_day1']['output_skill_alignment']['field_match_rate'] == 94.9
     finally:
         db.close()
