@@ -236,6 +236,194 @@ Day-1 不让大模型自由选择任意工具。工具必须来自白名单，�
 
 ---
 
+## 0C. Design Review 最终体验方案
+
+本轮按 `plan-design-review` 复核后，设计范围不是网页 UI，而是 **root_owner 在钉钉里看到的超级大脑输出体验**。
+
+设计完整度评分：
+
+| Pass | 初始 | 修正后 | 结论 |
+|---|---:|---:|---|
+| 信息架构 | 6/10 | 9/10 | 补齐“先看结论、再看日报、最后看明细和证据”的阅读顺序 |
+| 交互状态 | 5/10 | 9/10 | 补齐处理中、成功、部分成功、阻断、失败、重复请求状态 |
+| 用户旅程 | 6/10 | 9/10 | 补齐 root_owner 从发指令到追责复盘的情绪路径 |
+| AI 味风险 | 6/10 | 9/10 | 明确禁止空话、口号、泛泛 AI 解释和大段 JSON |
+| 设计系统 | 5/10 | 8/10 | 没有 `DESIGN.md`，但复用数据中枢的克制、生产、可追责语气 |
+| 响应式/可访问性 | 5/10 | 8/10 | 钉钉移动端按短行、分段、纯文本、可复制设计 |
+| 未决设计决策 | 5/10 | 9/10 | 明确长日报拆分、状态文案、证据呈现、差异呈现规则 |
+
+### 0C.1 设计范围
+
+| 范围 | 是否进入 Day-1 | 说明 |
+|---|---|---|
+| 钉钉私聊最终回复 | 是 | root_owner 的主要体验 |
+| 钉钉处理中提示 | 是 | 超过 8 秒必须先给可追踪提示 |
+| 钉钉失败/阻断提示 | 是 | 不能只返回 500 或英文错误码 |
+| 长日报分段发送 | 是 | 直接在钉钉输出，但可以拆成多条 |
+| 前端成长面板 | 否 | 后续阶段 |
+| 可视化 mockup | 否 | 本轮无网页 UI，且 gstack designer 不可用 |
+
+### 0C.2 钉钉回复信息架构
+
+root_owner 收到的第一屏只服务一个目标：**3 秒内知道今天能不能信、哪里有风险、要不要追问**。
+
+```text
+第一眼：状态行
+  - 已对齐 / 待确认 / 已阻断 / 生成失败
+  - 日期、字段匹配率、trace_id
+
+第二眼：工厂大脑判断单
+  - 今日一句判断
+  - 3 个最重要风险
+  - 缺字段和冲突
+  - Hermes 建议下一步
+
+第三眼：正式日报正文
+  - 按 D:\输出skill 模板口径输出
+  - 不插入系统解释
+
+第四眼：各车间明细
+  - 车间级产量、月累计、道次、能耗、在制、异常
+  - 只列关键字段，不展开原始 JSON
+
+最后：证据和追责尾巴
+  - 使用了哪些数据源
+  - 哪些源失败或缺失
+  - 本次 agent_run_id / report_id / trace_id
+```
+
+### 0C.3 钉钉消息模板
+
+最终回复必须是纯文本或钉钉 Markdown，不依赖颜色、图片、卡片或 hover。
+
+```text
+Hermes 工厂大脑日报
+状态：已对齐
+日期：2026-06-19
+真实值匹配率：97.3%
+追踪：trace_id=day1-output-skill-align-20260619
+
+工厂大脑判断单
+1. 今日总产量上升，主要由铸锭和冷轧贡献。
+2. 2050 吨电耗高于月均，需要复核电耗分母和当日投料。
+3. 输出 skill 与数据中枢有 2 个字段差异，已列在下方。
+
+正式日报正文
+6月19日，车间总产量日合计...
+
+各车间明细
+铸轧分厂：日产量...，月累计...
+铸锭车间：日产量...，月累计...
+
+数据源和追踪
+已用：数据中枢日报模板、MES/WMS 只读、输出 skill、历史日报、钉钉证据、RAG 口径。
+异常：WMS 库存明细缺 1 项；输出 skill 差异字段 2 项。
+记录：agent_run_id=...，report_id=...
+```
+
+禁止事项：
+
+- 不用“作为一个 AI”“我认为可能”“以下是综合分析”这类泛化话术。
+- 不把 Python dict、JSON、SQL 错误、token、手机号、数据库名直接显示给用户。
+- 不用 emoji、装饰符、营销式标题。
+- 不在第一屏塞满所有车间明细。
+- 不说“已对齐”，除非 `field_match_rate` 达到阈值。
+
+### 0C.4 长日报拆分规则
+
+日报必须直接在钉钉输出，但长文本可以拆成多条，避免手机端一屏不可读。
+
+| 条件 | 输出方式 |
+|---|---|
+| 总文本不超过 3500 字 | 一条消息直接回复 |
+| 超过 3500 字 | 按三段式拆成 2 到 4 条，标题写 `[1/3]`、`[2/3]` |
+| 正式日报正文很长 | 正式日报正文单独一条，判断单仍放第一条 |
+| 各车间明细很长 | 每条最多 8 个车间，继续编号 |
+| 发送失败 | 回复一条短失败消息，写 trace_id 和已落库位置 |
+
+拆分后仍必须满足：
+
+- 第一条一定包含状态、日期、匹配率、判断单。
+- 每条都带简短标题，不让用户猜这是第几段。
+- 不拆断一个车间明细。
+- 不拆断一个成本核算段。
+
+### 0C.5 交互状态表
+
+| 状态 | 用户看到 | 设计要求 |
+|---|---|---|
+| 处理中 | `Hermes 正在查证 2026-06-19 日报，trace_id=...` | 超过 8 秒先发，避免用户以为没响应 |
+| 成功已对齐 | `状态：已对齐` + 匹配率 | 第一屏显示匹配率和风险摘要 |
+| 成功但待确认 | `状态：待确认` + 差异字段 | 正式正文可给，但不能写“已对齐” |
+| 阻断 | `状态：已阻断` + 缺字段 | 不生成假日报正文 |
+| 无权限 | `状态：无权限` | 只说需要 root_owner，不暴露白名单 |
+| 功能关闭 | `状态：未开启` | 写 `HERMES_DAY1_ENABLED=false`，不进入 Day-1 |
+| 重复请求 | `状态：已处理过` | 返回原 trace_id 或 report_id |
+| 系统失败 | `状态：生成失败` | 给 trace_id 和下一步，不输出堆栈 |
+
+### 0C.6 用户旅程
+
+| 步骤 | 用户做什么 | 用户需要的感觉 | Plan 必须支持 |
+|---|---|---|---|
+| 1 | 张兆嘉发“生成 6月19日日报” | 这事交给 Hermes 能放心 | 立刻识别身份和日期 |
+| 2 | 等待查证 | 系统在认真查，不是卡死 | 超时 8 秒有处理中提示 |
+| 3 | 收到第一条 | 先知道结论，不被明细淹没 | 第一屏放状态、匹配率、风险 |
+| 4 | 看正式正文 | 能直接转发或复用 | 正文不掺杂系统解释 |
+| 5 | 看车间明细 | 能追问某个车间 | 每个车间字段稳定排列 |
+| 6 | 发现差异 | 知道差异来自哪里 | 差异字段、来源、建议动作可见 |
+| 7 | 事后复盘 | 找得到证据和记录 | trace_id、agent_run_id、report_id 可查 |
+
+### 0C.7 各车间明细设计
+
+各车间明细必须像生产日报，不像数据库导出。
+
+每个车间优先顺序：
+
+```text
+车间名：日产量 X 吨，月累计 Y 吨；日道次 A 道，月累计 B 道；日吨电耗 C 度，月吨电耗 D 度；异常/缺失：...
+```
+
+规则：
+
+- 没有的字段不写 `None`、`null`、`0?`。
+- 真实为 0 的字段写 `0`，并保留单位。
+- 缺失字段写在句尾：`缺：月吨气耗、异常说明`。
+- 车间名用业务名，不用内部 code。
+- 数字按输出 skill 口径保留小数，不随意补零。
+
+### 0C.8 可访问性和手机阅读
+
+- 每行尽量不超过 32 个中文字符。
+- 关键标签固定用 `状态：`、`日期：`、`真实值匹配率：`、`追踪：`。
+- 不依赖颜色表达成功或失败。
+- 不使用宽表格作为钉钉正文主体，表格只允许出现在测试/文档中。
+- trace_id 放尾部也要保留，便于复制。
+- 用户可直接复制 `正式日报正文` 段落，不混入判断单文字。
+
+### 0C.9 Design Review Implementation Tasks
+
+- [ ] **D1 (P1, human: ~1h / CC: ~10min)** — 钉钉消息结构 — Add a DingTalk reply envelope for status, match rate, trace, judgment, formal text, workshop details, evidence tail.
+  - Surfaced by: Design Review Pass 1 — first screen needs clear reading hierarchy.
+  - Files: `backend/app/services/hermes_day1_report_service.py`, `backend/tests/test_hermes_day1_message_design.py`
+  - Verify: first 8 lines include status, date, match rate, and trace id.
+
+- [ ] **D2 (P1, human: ~1h / CC: ~10min)** — 交互状态文案 — Cover processing, success, partial, blocked, unauthorized, disabled, duplicate, failed states.
+  - Surfaced by: Design Review Pass 2 — every backend state needs a human-readable DingTalk state.
+  - Files: `backend/app/services/hermes_day1_report_service.py`, `backend/tests/test_hermes_day1_message_design.py`
+  - Verify: each state renders without raw exception text or JSON.
+
+- [ ] **D3 (P1, human: ~1h / CC: ~10min)** — 长日报拆分 — Split long DingTalk output by section without breaking workshop/cost paragraphs.
+  - Surfaced by: Design Review Pass 3 — a full factory daily report can be too long for one mobile message.
+  - Files: `backend/app/services/hermes_day1_report_service.py`, `backend/tests/test_hermes_day1_message_design.py`
+  - Verify: over-limit text returns numbered chunks and first chunk contains judgment.
+
+- [ ] **D4 (P2, human: ~45min / CC: ~8min)** — 车间明细排版 — Keep workshop lines stable, compact, and copyable.
+  - Surfaced by: Design Review Pass 4 — workshop details should read like a production report, not a dump.
+  - Files: `backend/app/services/hermes_day1_report_service.py`, `backend/tests/test_hermes_day1_report_service.py`
+  - Verify: no `None` / `null` / internal code leaks into workshop details.
+
+---
+
 ## 1. 当前代码结构映射
 
 这些文件已经存在，实施时优先复用：
@@ -306,6 +494,7 @@ Day-1 的结果按下面方式落库：
 - [ ] 新增 `backend/tests/test_hermes_day1_intent_service.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_evidence_service.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_report_service.py`
+- [ ] 新增 `backend/tests/test_hermes_day1_message_design.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_orchestrator.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_harness_service.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_output_skill_alignment.py`
@@ -399,10 +588,36 @@ def test_three_part_report_has_fixed_titles() -> None:
     assert text.index("工厂大脑判断单") < text.index("正式日报正文") < text.index("各车间明细")
 ```
 
+钉钉输出体验测试至少覆盖：
+
+```python
+from app.services.hermes_day1_report_service import render_dingtalk_day1_reply
+
+
+def test_dingtalk_reply_first_screen_is_readable_and_clean() -> None:
+    messages = render_dingtalk_day1_reply(
+        business_date_label="6月19日",
+        status="ready",
+        field_match_rate=98.2,
+        judgment_summary="总产量上升，2050 吨电耗需要复核。",
+        formal_text="6月19日，车间总产量日合计366吨。",
+        workshop_details=[{"title": "2050车间", "lines": ["日产量：80吨。"]}],
+        trace_id="day1-design-test",
+    )
+
+    assert messages
+    assert messages[0].startswith("Hermes 工厂大脑日报｜6月19日")
+    assert "状态：已对齐" in messages[0]
+    assert "字段匹配率：98.2%" in messages[0]
+    assert "{" not in messages[0]
+    assert "None" not in messages[0]
+    assert "null" not in messages[0].lower()
+```
+
 验证：
 
 ```bash
-python -m pytest backend/tests/test_hermes_day1_intent_service.py backend/tests/test_hermes_day1_report_service.py -q
+python -m pytest backend/tests/test_hermes_day1_intent_service.py backend/tests/test_hermes_day1_report_service.py backend/tests/test_hermes_day1_message_design.py -q
 ```
 
 预期：这些测试先失败，因为实现文件还不存在。
@@ -967,6 +1182,8 @@ python -m pytest backend/tests/test_hermes_day1_orchestrator.py backend/tests/te
     "formal_text": "...正式日报正文...",
     "brain_judgment": {...},
     "workshop_details": [...],
+    "dingtalk_answer": "...钉钉实际回复文本...",
+    "dingtalk_messages": ["...可能拆分后的钉钉消息..."],
     "missing_fields": [...],
     "conflicts": [...],
 }
@@ -1021,7 +1238,7 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
         judgment=brain_judgment,
     )
 
-    return {
+    result = {
         "status": status,
         "text": text,
         "formal_text": formal_text,
@@ -1030,6 +1247,17 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
         "missing_fields": missing_fields,
         "conflicts": conflicts,
     }
+    result["dingtalk_messages"] = render_dingtalk_day1_reply(
+        business_date_label=f"{business_date.month}月{business_date.day}日",
+        status=status,
+        field_match_rate=_field_match_rate(sources),
+        judgment_summary=brain_judgment["summary"],
+        formal_text=formal_text if formal_text else "当前关键字段缺失，Hermes 未生成正式日报正文；请先补齐缺失字段后重跑。",
+        workshop_details=workshop_details,
+        trace_id=str((sources.get("audit_run") or {}).get("trace_id") or ""),
+    )
+    result["dingtalk_answer"] = "\n\n".join(result["dingtalk_messages"])
+    return result
 
 
 def render_three_part_daily_report(
@@ -1046,6 +1274,68 @@ def render_three_part_daily_report(
             "各车间明细\n" + _render_workshop_details(workshop_details),
         ]
     )
+
+
+def render_dingtalk_day1_reply(
+    *,
+    business_date_label: str,
+    status: str,
+    field_match_rate: float | None,
+    judgment_summary: str,
+    formal_text: str,
+    workshop_details: list[dict[str, Any]],
+    trace_id: str,
+) -> list[str]:
+    status_label = "已对齐" if status == "ready" and (field_match_rate or 0) >= 95.0 else "需复核"
+    match_text = "暂无" if field_match_rate is None else f"{field_match_rate:.1f}%"
+    text = "\n".join(
+        [
+            f"Hermes 工厂大脑日报｜{business_date_label}",
+            f"状态：{status_label}",
+            f"字段匹配率：{match_text}",
+            f"判断：{judgment_summary}",
+            "",
+            "正式日报正文",
+            formal_text.strip(),
+            "",
+            "各车间明细",
+            _render_workshop_details(workshop_details),
+            "",
+            f"追踪ID：{trace_id}",
+        ]
+    )
+    return split_dingtalk_messages(text)
+
+
+def split_dingtalk_messages(text: str, *, max_chars: int = 3500) -> list[str]:
+    clean = text.strip()
+    if len(clean) <= max_chars:
+        return [clean]
+    chunks = _split_on_paragraph_boundary(clean, max_chars=max_chars)
+    return [f"[{index}/{len(chunks)}]\n{chunk}" for index, chunk in enumerate(chunks, start=1)]
+
+
+def _field_match_rate(sources: dict[str, Any]) -> float | None:
+    alignment = dict(sources.get("output_skill_alignment") or {})
+    value = alignment.get("field_match_rate")
+    return float(value) if value is not None else None
+
+
+def _split_on_paragraph_boundary(text: str, *, max_chars: int) -> list[str]:
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    for paragraph in text.split("\n\n"):
+        paragraph_len = len(paragraph) + 2
+        if current and current_len + paragraph_len > max_chars:
+            chunks.append("\n\n".join(current))
+            current = []
+            current_len = 0
+        current.append(paragraph)
+        current_len += paragraph_len
+    if current:
+        chunks.append("\n\n".join(current))
+    return chunks
 
 
 def _build_brain_judgment(
@@ -1100,10 +1390,17 @@ def _build_workshop_details(*, values: dict[str, Any], sources: dict[str, Any]) 
     return details
 ```
 
+钉钉输出规则：
+
+- 第一条消息必须同时包含日期、状态、字段匹配率、Hermes 判断和 `trace_id`。
+- 长日报按段落拆分，不能把同一个车间明细拆到两条消息里。
+- 输出不能出现 Python/JSON 原始结构，不能出现 `None`、`null`、空数组这类工程痕迹。
+- `status != ready` 或字段匹配率低于阈值时，状态只能写 `需复核`，不能写 `已对齐`。
+
 验证：
 
 ```bash
-python -m pytest backend/tests/test_hermes_day1_report_service.py backend/tests/test_template_daily_report.py -q
+python -m pytest backend/tests/test_hermes_day1_report_service.py backend/tests/test_hermes_day1_message_design.py backend/tests/test_template_daily_report.py -q
 ```
 
 ### Task 7: 实现 Day-1 Orchestrator
@@ -1119,7 +1416,7 @@ python -m pytest backend/tests/test_hermes_day1_report_service.py backend/tests/
 - 写 `DailyReport`。
 - 写成长候选。
 - 写审计日志。
-- 返回钉钉可回复文本。
+- 返回钉钉可回复文本；如果长日报被拆分，要返回完整消息列表。
 
 实现骨架：
 
@@ -1148,6 +1445,7 @@ class HermesDay1Result:
     trace_id: str
     status: str
     answer: str
+    reply_messages: list[str]
     agent_run_id: int
     report_id: int
     payload: dict[str, Any]
@@ -1184,7 +1482,7 @@ def run_day1_super_brain(
         chat_inbox_id=getattr(chat_inbox, "id", None),
         status="answered" if product["status"] == "ready" else "blocked",
         status_color="green" if product["status"] == "ready" else "yellow",
-        answer=product["text"],
+        answer=product["dingtalk_answer"],
         rag_citation_count=len((sources.get("rag") or {}).get("citations") or []),
         result_payload={
             "hermes_day1": {
@@ -1200,6 +1498,10 @@ def run_day1_super_brain(
                 "missing_fields": product["missing_fields"],
                 "conflicts": product["conflicts"],
                 "brain_judgment": product["brain_judgment"],
+                "dingtalk_reply": {
+                    "message_count": len(product["dingtalk_messages"]),
+                    "first_message_chars": len(product["dingtalk_messages"][0]) if product["dingtalk_messages"] else 0,
+                },
             }
         },
     )
@@ -1248,7 +1550,8 @@ def run_day1_super_brain(
     return HermesDay1Result(
         trace_id=trace_id,
         status=product["status"],
-        answer=product["text"] + "\n\n" + _growth_feedback_text(command=command, product=product),
+        answer=product["dingtalk_answer"],
+        reply_messages=product["dingtalk_messages"],
         agent_run_id=run.id,
         report_id=report.id,
         payload=run.result_payload,
@@ -1291,6 +1594,7 @@ def _upsert_daily_report(
         "three_part_text": product["text"],
         "brain_judgment": product["brain_judgment"],
         "workshop_details": product["workshop_details"],
+        "dingtalk_messages": product["dingtalk_messages"],
         "missing_fields": product["missing_fields"],
         "conflicts": product["conflicts"],
         "source_status": (sources.get("audit_run") or {}).get("source_status"),
@@ -1403,6 +1707,7 @@ if command is not None:
         "trace_id": result.trace_id,
         "status": result.status,
         "answer": result.answer,
+        "messages": result.reply_messages,
         "chat_inbox_id": inbox.id,
         "agent_run_id": result.agent_run_id,
         "report_id": result.report_id,
@@ -1629,6 +1934,7 @@ python -m pytest \
   backend/tests/test_hermes_day1_intent_service.py \
   backend/tests/test_hermes_day1_evidence_service.py \
   backend/tests/test_hermes_day1_report_service.py \
+  backend/tests/test_hermes_day1_message_design.py \
   backend/tests/test_hermes_day1_orchestrator.py \
   backend/tests/test_hermes_day1_harness_service.py \
   backend/tests/test_hermes_day1_output_skill_alignment.py \
@@ -1688,6 +1994,9 @@ python backend/scripts/agent_cli.py day1-report \
 验收点：
 
 - 返回文本包含 `工厂大脑判断单`、`正式日报正文`、`各车间明细`。
+- 钉钉第一条消息包含日期、状态、字段匹配率、判断摘要和 `trace_id`。
+- 长日报拆分后，每条消息有 `[1/3]` 这类序号，且不会拆断一个车间段落。
+- 钉钉消息里不出现原始 JSON、`None`、`null`、空数组。
 - `agent_runs.result_payload["hermes_day1"]["harness"]` 有成熟度评分。
 - `agent_runs.result_payload["hermes_day1"]["output_skill_alignment"]["field_match_rate"] >= 95.0`，或明确说明未对齐字段。
 - `agent_runs` 有一条 `agent_code='xt-factory-controller'` 的记录。
@@ -2024,6 +2333,9 @@ Synthesized from `plan-eng-review`. These tasks are additions or corrections to 
 - [ ] 日报数字来自 `template_daily_report` 和数据审计结果，不来自 RAG 猜测。
 - [ ] Harness 在生产服务层执行，并把成熟度评分写入 `agent_runs.result_payload`。
 - [ ] Hermes 正式日报正文和 `D:\输出skill` txt 真实值对齐，字段匹配率达到配置阈值或清楚列出差异。
+- [ ] 钉钉第一条消息首屏能看清：日期、状态、字段匹配率、判断摘要、`trace_id`。
+- [ ] 长日报自动拆分，拆分后不打断车间明细和成本段落。
+- [ ] 钉钉输出没有原始 JSON、`None`、`null`、空数组。
 - [ ] root_owner 完整版日报只能由 root_owner 触发。
 - [ ] `HERMES_DAY1_ENABLED=false` 时，钉钉入口不会触发 Day-1。
 - [ ] 授权群消息可以入证据池，但不能直接触发高权限日报。
@@ -2042,7 +2354,7 @@ Synthesized from `plan-eng-review`. These tasks are additions or corrections to 
 3. Task 3：做命令解析。
 4. Task 4：做钉钉证据分类。
 5. Task 5：做多源收集。
-6. Task 6：做三段式生成。
+6. Task 6：做三段式生成，同时完成 `0C.9` 的 D1-D4 钉钉输出体验任务。
 7. Task 7：做 orchestrator。
 8. Task 8：接钉钉和 CLI。
 9. Task 9：做 harness。
@@ -2055,6 +2367,7 @@ Synthesized from `plan-eng-review`. These tasks are additions or corrections to 
 当下面事情都成立，Day-1 MVP 才算完成：
 
 - root_owner 私聊输入 `生成 6月19日 root_owner 完整版三段式日报` 能得到三段式输出。
+- 钉钉回复首屏清楚，长日报能拆分，手机上能读，不暴露工程格式。
 - 输出能解释用了哪些数据源、哪些字段缺失、哪些来源冲突。
 - Harness 生产服务能给出主动查证、三段式、冲突可见、缺字段可见、真实值对齐评分。
 - `D:\输出skill` 对应日期 txt 能作为只读真实值基准，Hermes 输出字段匹配率达到 `HERMES_DAY1_MIN_OUTPUT_SKILL_FIELD_MATCH_RATE`。
@@ -2103,8 +2416,8 @@ Synthesized from `plan-ceo-review`. These tasks are additions or corrections to 
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | SELECTIVE + HOLD reviewed; Eng Review supersedes harness placement per user direction |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | not run | Outside voice not run in this pass |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 5 issues converted to tasks; 0 critical gaps after adding production Harness, state graph, tool whitelist, output skill alignment |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | skipped | No frontend UI scope in Day-1 MVP |
+| Design Review | `/plan-design-review` | DingTalk output UX | 1 | CLEAR | Day-1 score raised from 5/10 to 9/10; added first-screen hierarchy, state copy, long-report chunking, workshop detail layout, and message design tests |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | not run | Not required for this backend-first plan |
 
 - **UNRESOLVED:** 0
-- **VERDICT:** CEO + ENG CLEARED — ready for implementation of the production service layer.
+- **VERDICT:** CEO + ENG + DESIGN CLEARED — ready for implementation of the production service layer.
