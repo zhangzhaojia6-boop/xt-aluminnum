@@ -1,0 +1,314 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import date, datetime, time, timezone
+from decimal import Decimal
+from typing import Any
+
+from sqlalchemy.orm import Session
+
+from app.core.redaction import filter_sensitive_mapping, redact_secret_text
+from app.models.agent_communication import AgentRun, ChatInboxMessage
+from app.models.reports import DailyReport
+from app.models.system import User
+from app.services import hermes_memory_service, hermes_rag_service
+from app.services.audit_service import log_action
+from app.services.hermes_day1_intent_service import HermesDay1Command
+from app.services.hermes_day1_report_service import build_day1_three_part_report
+from app.services.hermes_day1_source_service import collect_day1_sources
+from app.services.hermes_governance_service import FACTORY_PROFILE_CODE
+
+
+@dataclass(frozen=True, slots=True)
+class HermesDay1Result:
+    trace_id: str
+    status: str
+    answer: str
+    reply_messages: list[str]
+    agent_run_id: int
+    report_id: int
+    payload: dict[str, Any]
+
+
+def run_day1_super_brain(
+    db: Session,
+    *,
+    command: HermesDay1Command,
+    actor: User,
+    trace_id: str,
+    chat_inbox: ChatInboxMessage | None = None,
+) -> HermesDay1Result:
+    sources = collect_day1_sources(
+        db,
+        business_date=command.business_date,
+        actor=actor,
+        trace_id=trace_id,
+    )
+    product = build_day1_three_part_report(
+        business_date=command.business_date,
+        sources=sources,
+    )
+    report = _upsert_daily_report(
+        db,
+        command=command,
+        actor=actor,
+        product=product,
+        sources=sources,
+    )
+
+    payload = _agent_result_payload(command=command, product=product, sources=sources, report_id=report.id)
+    run = AgentRun(
+        trace_id=trace_id,
+        agent_code=FACTORY_PROFILE_CODE,
+        chat_inbox_id=getattr(chat_inbox, 'id', None),
+        status='answered' if product.get('status') == 'ready' else 'blocked',
+        status_color='green' if product.get('status') == 'ready' else 'yellow',
+        answer=str(product.get('dingtalk_answer') or ''),
+        rag_citation_count=len((_as_mapping(sources.get('rag')).get('citations') or [])),
+        result_payload=payload,
+    )
+    db.add(run)
+    db.flush()
+
+    hermes_memory_service.remember_short_term(
+        db,
+        conversation_key=f'user:{actor.id}',
+        memory_key='last_day1_super_brain_report',
+        memory_value={
+            'business_date': command.business_date.isoformat(),
+            'status': str(product.get('status') or ''),
+            'report_id': report.id,
+            'agent_run_id': run.id,
+        },
+        actor=actor,
+        trace_id=trace_id,
+    )
+    hermes_rag_service.record_learning_event(
+        db,
+        question=_command_raw_text(command),
+        answer=_growth_feedback_text(command=command, product=product),
+        trace_id=trace_id,
+        tools_called=['collect_day1_sources', 'build_day1_three_part_report'],
+        sources=_learning_sources(sources),
+        actor=actor,
+    )
+    log_action(
+        db,
+        user_id=actor.id,
+        user_name=actor.name,
+        action='hermes_day1_super_brain_report',
+        module='hermes',
+        table_name='daily_reports',
+        record_id=report.id,
+        old_value=None,
+        new_value={
+            'trace_id': trace_id,
+            'status': str(product.get('status') or ''),
+            'business_date': command.business_date.isoformat(),
+        },
+        reason='root_owner 触发 Hermes Day-1 Super Brain MVP',
+        auto_commit=False,
+    )
+    db.flush()
+
+    return HermesDay1Result(
+        trace_id=trace_id,
+        status=str(product.get('status') or ''),
+        answer=str(product.get('dingtalk_answer') or ''),
+        reply_messages=[str(message) for message in product.get('dingtalk_messages') or []],
+        agent_run_id=run.id,
+        report_id=report.id,
+        payload=run.result_payload or {},
+    )
+
+
+def _upsert_daily_report(
+    db: Session,
+    *,
+    command: HermesDay1Command,
+    actor: User,
+    product: dict[str, Any],
+    sources: dict[str, Any],
+) -> DailyReport:
+    report = (
+        db.query(DailyReport)
+        .filter(
+            DailyReport.report_date == command.business_date,
+            DailyReport.report_type == 'production',
+        )
+        .one_or_none()
+    )
+    if report is None:
+        report = DailyReport(
+            report_date=command.business_date,
+            report_type='production',
+            generated_scope='hermes_day1',
+            output_mode='text',
+            status='draft',
+        )
+        db.add(report)
+        db.flush()
+
+    report_data = dict(report.report_data or {})
+    report_data['hermes_day1_super_brain'] = _json_safe(
+        {
+            'status': product.get('status'),
+            'three_part_text': product.get('text'),
+            'brain_judgment': product.get('brain_judgment'),
+            'workshop_details': product.get('workshop_details'),
+            'dingtalk_messages': product.get('dingtalk_messages'),
+            'missing_fields': product.get('missing_fields'),
+            'conflicts': product.get('conflicts'),
+            'source_status': _as_mapping(sources.get('audit_run')).get('source_status'),
+        }
+    )
+    report.report_data = report_data
+    report.text_summary = str(product.get('text') or '')
+    report.generated_at = datetime.now(timezone.utc)
+
+    is_ready = product.get('status') == 'ready'
+    has_formal_text = bool(str(product.get('formal_text') or '').strip())
+    report.status = 'generated' if is_ready else 'draft'
+    report.quality_gate_status = 'passed' if is_ready else 'blocked'
+    report.quality_gate_summary = (
+        'Hermes Day-1 三段式日报已生成'
+        if is_ready
+        else '缺字段或冲突，未生成正式日报正文'
+    )
+    if is_ready and has_formal_text:
+        report.final_text_summary = str(product.get('formal_text') or '').strip()
+        report.final_confirmed_by = actor.id
+        report.final_confirmed_at = datetime.now(timezone.utc)
+        report.is_final_version = True
+        report.delivery_ready = True
+    else:
+        report.final_text_summary = None
+        report.final_confirmed_by = None
+        report.final_confirmed_at = None
+        report.is_final_version = False
+        report.delivery_ready = False
+
+    db.flush()
+    return report
+
+
+def _agent_result_payload(
+    *,
+    command: HermesDay1Command,
+    product: dict[str, Any],
+    sources: dict[str, Any],
+    report_id: int,
+) -> dict[str, Any]:
+    messages = [str(message) for message in product.get('dingtalk_messages') or []]
+    return {
+        'hermes_day1': _json_safe(
+            {
+                'command': _command_summary(command),
+                'status': product.get('status'),
+                'report_id': report_id,
+                'sources': sources,
+                'missing_fields': product.get('missing_fields'),
+                'conflicts': product.get('conflicts'),
+                'brain_judgment': product.get('brain_judgment'),
+                'dingtalk_reply': {
+                    'message_count': len(messages),
+                    'first_message_chars': len(messages[0]) if messages else 0,
+                },
+            }
+        )
+    }
+
+
+def _command_summary(command: HermesDay1Command) -> dict[str, Any]:
+    return {
+        'raw_text': _command_raw_text(command),
+        'business_date': command.business_date.isoformat(),
+        'report_type': getattr(command, 'report_type', None),
+        'audience': getattr(command, 'audience', None),
+        'output_style': getattr(command, 'output_style', None) or getattr(command, 'output_format', None),
+        'intent': getattr(command, 'intent', None) or getattr(command, 'report_type', None),
+    }
+
+
+def _command_raw_text(command: HermesDay1Command) -> str:
+    return str(getattr(command, 'raw_text', None) or getattr(command, 'source_text', '') or '').strip()
+
+
+def _growth_feedback_text(*, command: HermesDay1Command, product: dict[str, Any]) -> str:
+    status = str(product.get('status') or 'unknown')
+    summary = _as_mapping(product.get('brain_judgment')).get('summary') or '暂无判断摘要'
+    missing_fields = [str(item) for item in product.get('missing_fields') or [] if str(item).strip()]
+    conflicts = product.get('conflicts') or []
+    pieces = [
+        f"{command.business_date.isoformat()} Day-1 三段式日报生成状态：{status}。",
+        f"Hermes 判断：{summary}。",
+    ]
+    if missing_fields:
+        pieces.append(f"缺失字段：{'、'.join(missing_fields)}。")
+    if conflicts:
+        pieces.append(f"冲突数量：{len(conflicts)}。")
+    pieces.append('已记录本次来源收集和三段式生成路径，后续同类日报可复用该查证流程。')
+    return redact_secret_text(''.join(pieces))
+
+
+def _learning_sources(sources: dict[str, Any]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for name, payload in sources.items():
+        if name in {'trace_id', 'business_date'}:
+            continue
+        item = {'name': str(name), 'status': _source_status(payload)}
+        if isinstance(payload, Mapping):
+            citations = payload.get('citations')
+            records = payload.get('records')
+            if isinstance(citations, list):
+                item['citation_count'] = len(citations)
+            if isinstance(records, Mapping):
+                item['record_groups'] = len(records)
+            if 'source_status' in payload:
+                item['source_status'] = _json_safe(payload.get('source_status'))
+        elif isinstance(payload, list):
+            item['item_count'] = len(payload)
+        result.append(item)
+    return result
+
+
+def _source_status(payload: Any) -> str:
+    if isinstance(payload, Mapping):
+        status = payload.get('status')
+        if status not in (None, ''):
+            return str(status)
+        source_status = payload.get('source_status')
+        if isinstance(source_status, Mapping):
+            values = [str(value) for value in source_status.values() if value not in (None, '')]
+            if values:
+                return ','.join(values[:3])
+        if payload:
+            return 'available'
+        return 'empty'
+    if isinstance(payload, list):
+        return 'available' if payload else 'empty'
+    return 'available' if payload not in (None, '') else 'empty'
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _json_safe(item)
+            for key, item in filter_sensitive_mapping(dict(value)).items()
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, str):
+        return redact_secret_text(value)
+    if value is None or isinstance(value, (int, float, bool)):
+        return value
+    return redact_secret_text(str(value))
+
+
+def _as_mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
