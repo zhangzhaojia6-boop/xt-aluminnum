@@ -88,9 +88,35 @@ def test_day1_orchestrator_records_learning_candidate_with_tools_and_sources(mon
 
         sources = {
             'trace_id': 'trace-learning-day1',
+            'business_date': '2026-06-21',
             'template_daily_report': {'status': 'ready', 'text': '模板日报'},
+            'mes_wms': {
+                'source_status': {'mes': 'ok'},
+                'records': {'summary': [{'field': 'total_output', 'value': 366.0}]},
+            },
             'audit_run': {'status': 'completed', 'source_status': {'mes': 'ok', 'hub': 'ok'}},
+            'dingtalk_evidence': [
+                {
+                    'id': 11,
+                    'recognized_text': '日报产量 366 吨',
+                    'payload': {'evidence_kind': 'fact'},
+                }
+            ],
+            'dingtalk_messages': [{'id': 21, 'text': '现场无异常'}],
+            'historical_reports': [{'id': 31, 'report_date': '2026-06-20', 'status': 'published'}],
             'rag': {'answer': '路线说明', 'citations': [{'source_ref': 'doc#1'}]},
+            'output_skill_alignment': {
+                'status': 'passed',
+                'file_name': '2026-06-21_日报正文.txt',
+                'field_match_rate': 98.5,
+                'matched_fields': 20,
+                'expected_fields': 20,
+                'difference_count': 0,
+                'differences': [],
+                'char_match_rate': 99.1,
+                'exact_match': False,
+                'threshold': 95.0,
+            },
         }
         product = {
             'status': 'ready',
@@ -115,8 +141,21 @@ def test_day1_orchestrator_records_learning_candidate_with_tools_and_sources(mon
 
         event = db.query(HermesLearningEvent).one()
         assert event.status == 'candidate'
-        assert event.tools_called == ['collect_day1_sources', 'build_day1_three_part_report']
+        assert event.tools_called == service.DAY1_TOOLS_CALLED
         assert event.sources
+        assert {item['name'] for item in event.sources} >= {
+            'template_daily_report',
+            'mes_wms',
+            'audit_run',
+            'dingtalk_evidence',
+            'dingtalk_messages',
+            'historical_reports',
+            'rag',
+            'output_skill_alignment',
+        }
+        assert any(item['name'] == 'mes_wms' and item.get('record_groups') == 1 for item in event.sources)
+        assert any(item['name'] == 'rag' and item.get('citation_count') == 1 for item in event.sources)
+        assert any(item['name'] == 'output_skill_alignment' and item.get('status') == 'passed' for item in event.sources)
         assert event.actor_user_id == actor.id
         assert db.query(DailyReport).count() == 1
         assert db.query(AgentRun).count() == 1
