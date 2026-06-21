@@ -239,6 +239,53 @@ def test_dingtalk_daily_report_outputs_finished_text(tmp_path, monkeypatch, caps
         get_sessionmaker.cache_clear()
 
 
+def test_dingtalk_slash_daily_report_with_date_stays_on_legacy_path(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    seen: dict[str, str] = {}
+
+    def fake_build_daily_report_product(*_args, **_kwargs):
+        seen['legacy_path'] = 'yes'
+        return {
+            'status': 'ready',
+            'business_date': '2026-06-19',
+            'report_id': 99,
+            'text': '6月19日，车间总产量日合计305吨。',
+            'missing_fields': [],
+            'conflicts': [],
+            'scheduled_at': '07:30',
+        }
+
+    def fail_day1_report(*_args, **_kwargs):
+        raise AssertionError('slash /日报 不应该走 day1-report')
+
+    monkeypatch.setattr(agent_cli.daily_report_task, 'build_daily_report_product', fake_build_daily_report_product)
+    monkeypatch.setattr(agent_cli, '_cmd_day1_report', fail_day1_report)
+    try:
+        db.add(User(id=42, username='zzj-legacy-report', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '/日报 2026-06-19',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'hermes-test',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'daily-report'
+        assert payload['data']['business_date'] == '2026-06-19'
+        assert seen['legacy_path'] == 'yes'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
 def test_dingtalk_command_natural_language_day1_routes_to_day1_report(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')

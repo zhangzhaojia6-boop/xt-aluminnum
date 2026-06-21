@@ -397,6 +397,40 @@ def test_day1_report_disabled_has_actionable_detail(tmp_path, monkeypatch, capsy
         get_sessionmaker.cache_clear()
 
 
+def test_dingtalk_command_natural_day1_disabled_has_actionable_detail(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_DAY1_ENABLED', 'false')
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        _add_user(db, user_id=31, name='张兆嘉', dingtalk_user_id='dt-owner')
+
+        code, payload = _run_cli(
+            [
+                'dingtalk-command',
+                '--text',
+                '生成 6月19日正式日报',
+                '--dingtalk-user-id',
+                'dt-owner',
+                '--trace-id',
+                'trace-dingtalk-day1-disabled-001',
+            ],
+            capsys,
+        )
+
+        assert code == 1
+        assert payload['ok'] is False
+        assert payload['error'] == 'hermes_day1_disabled'
+        assert payload['detail']['trace_id'] == 'trace-dingtalk-day1-disabled-001'
+        assert 'HERMES_DAY1_ENABLED=false' in payload['detail']['cause']
+        assert 'HERMES_DAY1_ENABLED=true' in payload['detail']['fix']
+        assert db.query(DailyReport).count() == 0
+        assert db.query(AgentRun).count() == 0
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
 def test_day1_report_missing_output_skill_source_has_actionable_detail(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_DAY1_ENABLED', 'true')

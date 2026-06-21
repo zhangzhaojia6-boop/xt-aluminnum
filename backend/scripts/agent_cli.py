@@ -236,16 +236,18 @@ def _cmd_dingtalk_command(db: Session, args: argparse.Namespace, auth: HermesAut
             'data': {'should_reply': False, 'reason': 'duplicate_message'},
         }
 
-    try:
-        day1_command = parse_day1_command(text, default_year=_day1_default_year(args))
-    except Day1CommandParseError as exc:
-        raise AgentCliError(exc.code) from exc
-    if day1_command is not None:
-        return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
-
     is_slash = text.startswith('/')
     is_direct = is_slash or _is_direct_dingtalk_mention(args.text)
     command, rest = _split_slash_command(text) if is_slash or is_direct else ('', '')
+
+    if _is_natural_language_day1_text(text):
+        try:
+            day1_command = parse_day1_command(text, default_year=_day1_default_year(args))
+        except Day1CommandParseError as exc:
+            raise AgentCliError(exc.code) from exc
+        if day1_command is not None:
+            return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
+
     if command in {'查知识', '字段', '口径', 'MES路线', 'mes路线', '缺陷原因', '工艺解释'}:
         inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='rag_query')
         query_text = rest or text
@@ -1051,6 +1053,11 @@ def _resolved_dingtalk_channel(args: argparse.Namespace) -> str:
     return 'dingtalk_group' if _clean(args.group_id) else 'dingtalk_private'
 
 
+def _is_natural_language_day1_text(text: str) -> bool:
+    clean = str(text or '').strip()
+    return bool(clean) and not clean.startswith('/') and '日报' in clean
+
+
 def _day1_default_year(args: argparse.Namespace) -> int:
     try:
         return _target_date(args).year
@@ -1104,7 +1111,7 @@ def _safe_url(url: str | None) -> str | None:
 
 
 def _cli_error_detail(error_code: str, args: argparse.Namespace | None) -> dict[str, str] | None:
-    if args is None or getattr(args, 'command', None) != 'day1-report':
+    if args is None or not _should_use_day1_cli_detail(args):
         return None
     trace_id = _trace_id(args)
     details = {
@@ -1145,6 +1152,15 @@ def _cli_error_detail(error_code: str, args: argparse.Namespace | None) -> dict[
     if detail is None:
         return None
     return {'trace_id': trace_id, **detail}
+
+
+def _should_use_day1_cli_detail(args: argparse.Namespace) -> bool:
+    command = getattr(args, 'command', None)
+    if command == 'day1-report':
+        return True
+    if command != 'dingtalk-command':
+        return False
+    return _is_natural_language_day1_text(_normalize_dingtalk_text(getattr(args, 'text', '')))
 
 
 def _emit(payload: dict[str, Any]) -> None:

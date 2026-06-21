@@ -117,6 +117,7 @@ def test_dingtalk_agent_inbound_forwards_bound_manager_message_to_agent(monkeypa
             headers={'x-dingtalk-inbound-token': 'inbound-test'},
             json={
                 'conversationId': 'cid-production-test',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-manager-001',
                 'senderUnionId': 'union-manager-001',
                 'text': {'content': '@鑫泰助手 今日产量'},
@@ -194,6 +195,8 @@ def test_dingtalk_agent_inbound_records_private_message_as_private_channel(monke
             '/api/v1/dingtalk/agent-inbound',
             headers={'x-dingtalk-inbound-token': 'inbound-test'},
             json={
+                'conversationId': 'cid-private-001',
+                'conversationType': '1',
                 'senderStaffId': 'dt-manager-private-001',
                 'senderUnionId': 'union-manager-private-001',
                 'text': {'content': '今日产量'},
@@ -209,9 +212,74 @@ def test_dingtalk_agent_inbound_records_private_message_as_private_channel(monke
 
         inbox = db.query(ChatInboxMessage).one()
         assert inbox.channel == 'dingtalk_private'
-        assert inbox.group_id is None
+        assert inbox.group_id == 'cid-private-001'
         run = db.query(AgentRun).one()
         assert run.trace_id == 'trace-dingtalk-private-001'
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_keeps_private_channel_when_conversation_id_exists_without_group_type(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=14,
+            username='manager-private-conversation',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-private-conversation-001',
+            dingtalk_union_id='union-manager-private-conversation-001',
+        )
+    )
+    db.commit()
+
+    def fake_live_aggregation(*_args, **_kwargs):
+        return {
+            'business_date': '2026-06-09',
+            'factory_total': {
+                'daily_output': 42.5,
+                'packaging_output': 42.5,
+                'finished_inbound_output': 39.25,
+                'daily_output_source': 'mes_stock_records',
+                'finished_inbound_source': 'storage_owner_daily_entry',
+                'business_day_start': '07:50',
+            },
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-private-with-conversation-id',
+                'senderStaffId': 'dt-manager-private-conversation-001',
+                'senderUnionId': 'union-manager-private-conversation-001',
+                'text': {'content': '今日产量'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-private-conversation-id-001',
+            },
+        )
+
+        assert response.status_code == 200
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.channel == 'dingtalk_private'
+        assert inbox.group_id == 'cid-private-with-conversation-id'
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -265,6 +333,7 @@ def test_dingtalk_agent_inbound_queues_reply_when_group_channel_is_bound_by_defa
             headers={'x-dingtalk-inbound-token': 'inbound-test'},
             json={
                 'conversationId': 'cid-production-test',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-manager-001',
                 'senderUnionId': 'union-manager-001',
                 'text': {'content': '@鑫泰助手 点检资料怎么查'},
@@ -344,6 +413,7 @@ def test_dingtalk_agent_inbound_scopes_rag_by_bound_channel_workshop(monkeypatch
             headers={'x-dingtalk-inbound-token': 'inbound-test'},
             json={
                 'conversationId': 'cid-hot-roll',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-manager-001',
                 'senderUnionId': 'union-manager-001',
                 'text': {'content': '@鑫泰助手 点检标准怎么做'},
@@ -403,6 +473,7 @@ def test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop(monkeypatc
             headers={'x-dingtalk-inbound-token': 'inbound-test'},
             json={
                 'conversationId': 'cid-hot-roll',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-cold-director-001',
                 'senderUnionId': 'union-cold-director-001',
                 'text': {'content': '@鑫泰助手 点检标准怎么做'},
@@ -479,11 +550,81 @@ def test_dingtalk_agent_inbound_day1_disabled_does_not_write_report_or_run(monke
         payload = response.json()
         assert payload['errcode'] == 0
         assert payload['status'] == 'disabled'
+        assert payload['code'] == 'hermes_day1_disabled'
         assert payload['trace_id'] == 'trace-dingtalk-day1-disabled-001'
+        assert '未开启' in payload['answer'] or '已关闭' in payload['answer']
         assert payload['agent_run_id'] is None
         assert payload['report_id'] is None
         assert db.query(ChatInboxMessage).count() == 0
         assert db.query(AgentRun).count() == 0
+        assert db.query(DailyReport).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_day1_disabled_still_allows_normal_messages(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=15,
+            username='manager-disabled-normal',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-disabled-normal-001',
+            dingtalk_union_id='union-manager-disabled-normal-001',
+        )
+    )
+    db.commit()
+
+    def fake_live_aggregation(*_args, **_kwargs):
+        return {
+            'business_date': '2026-06-09',
+            'factory_total': {
+                'daily_output': 42.5,
+                'packaging_output': 42.5,
+                'finished_inbound_output': 39.25,
+                'daily_output_source': 'mes_stock_records',
+                'finished_inbound_source': 'storage_owner_daily_entry',
+                'business_day_start': '07:50',
+            },
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DAY1_ENABLED', False, raising=False)
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'senderStaffId': 'dt-manager-disabled-normal-001',
+                'senderUnionId': 'union-manager-disabled-normal-001',
+                'text': {'content': '今日产量'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-disabled-normal-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['status'] == 'answered'
+        assert payload['intent'] == 'production_today'
+        assert db.query(ChatInboxMessage).count() == 1
+        assert db.query(AgentRun).count() == 1
         assert db.query(DailyReport).count() == 0
     finally:
         _restore_db_override(previous_overrides, db)
@@ -516,6 +657,7 @@ def test_dingtalk_agent_inbound_accepts_hermes_token_without_replacing_legacy_to
             headers={'x-dingtalk-inbound-token': 'hermes-inbound'},
             json={
                 'conversationId': 'cid-hermes-test',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-manager-001',
                 'senderUnionId': 'union-manager-001',
                 'text': {'content': '@Hermes 点检资料怎么查'},
@@ -558,6 +700,7 @@ def test_hermes_dingtalk_inbound_alias_reuses_agent_inbound_contract(monkeypatch
             headers={'x-dingtalk-inbound-token': 'hermes-inbound'},
             json={
                 'conversationId': 'cid-hermes-test',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-manager-001',
                 'senderUnionId': 'union-manager-001',
                 'text': {'content': '@Hermes 点检资料怎么查'},
@@ -712,6 +855,50 @@ def test_dingtalk_agent_inbound_day1_root_owner_calls_orchestrator_without_forci
         _restore_db_override(previous_overrides, db)
 
 
+def test_dingtalk_agent_inbound_day1_rejects_non_root_owner(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=16,
+            username='allowed-not-owner',
+            password_hash='x',
+            name='授权用户',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-allowed-not-owner-001',
+            dingtalk_union_id='union-allowed-not-owner-001',
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DAY1_ENABLED', True, raising=False)
+    monkeypatch.setenv('HERMES_ALLOWED_DINGTALK_USER_IDS', 'dt-allowed-not-owner-001')
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'senderStaffId': 'dt-allowed-not-owner-001',
+                'senderUnionId': 'union-allowed-not-owner-001',
+                'text': {'content': '生成 6月19日正式日报'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-day1-non-owner-001',
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'owner_required'
+        assert db.query(ChatInboxMessage).count() == 0
+        assert db.query(AgentRun).count() == 0
+        assert db.query(DailyReport).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
 def test_dingtalk_agent_inbound_treats_string_false_as_no_outbox(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add(
@@ -801,6 +988,7 @@ def test_dingtalk_agent_inbound_dedupes_same_message_trace_id(monkeypatch) -> No
         client = TestClient(app)
         payload = {
             'conversationId': 'cid-production-test',
+            'conversationType': 'group',
             'senderStaffId': 'dt-manager-001',
             'senderUnionId': 'union-manager-001',
             'text': {'content': '@鑫泰助手 今日产量'},

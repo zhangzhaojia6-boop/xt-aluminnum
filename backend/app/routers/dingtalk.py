@@ -334,9 +334,11 @@ def _resolve_inbound_channel_type(payload: dict[str, Any], *, group_id: str) -> 
             'chat_type',
         )
     ).lower()
-    if conversation_type in {'single', 'private', '1v1', 'private_chat'}:
+    if conversation_type in {'group', 'chat', '2', 'group_chat', 'groupchat', 'chat_group'}:
+        return 'dingtalk_group'
+    if conversation_type in {'single', 'private', '1v1', 'private_chat', '1', 'one_to_one'}:
         return 'dingtalk_private'
-    return 'dingtalk_group'
+    return 'dingtalk_private'
 
 
 def _ensure_inbound_channel_scope_access(user: User, channel_scope: dict[str, Any]) -> None:
@@ -467,13 +469,14 @@ def dingtalk_agent_inbound(
             'report_id': None,
         }
     agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
+    scoped_group_id = group_id if channel == 'dingtalk_group' else ''
     queue_outbox_value = _first_payload_value(payload, 'queueOutbox', 'queue_outbox')
     queue_outbox = (
-        _has_bound_inbound_outbox_channel(db, group_id=group_id, agent_code=agent_code)
+        _has_bound_inbound_outbox_channel(db, group_id=scoped_group_id, agent_code=agent_code)
         if queue_outbox_value is None
         else _parse_inbound_bool(queue_outbox_value)
     )
-    channel_scope = _resolve_inbound_channel_scope(db, group_id=group_id, payload=payload)
+    channel_scope = _resolve_inbound_channel_scope(db, group_id=scoped_group_id, payload=payload)
     _ensure_inbound_channel_scope_access(user, channel_scope)
     try:
         day1_command = parse_day1_command(text, default_year=datetime.now().year)
@@ -494,12 +497,14 @@ def dingtalk_agent_inbound(
             raise HTTPException(status_code=403, detail=str(exc)) from exc
 
         if not settings.HERMES_DAY1_ENABLED:
+            answer = 'Hermes Day-1 当前未开启，已关闭完整版日报生成。'
             return {
                 'errcode': 0,
                 'errmsg': 'ok',
                 'trace_id': trace_id,
                 'status': 'disabled',
-                'answer': '',
+                'code': 'hermes_day1_disabled',
+                'answer': answer,
                 'messages': [],
                 'chat_inbox_id': None,
                 'agent_run_id': None,
