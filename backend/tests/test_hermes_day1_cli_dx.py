@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from importlib import import_module
 
 import pytest
 from sqlalchemy import create_engine
@@ -10,8 +11,9 @@ from sqlalchemy.orm import Session
 from app.database import Base, get_engine, get_sessionmaker
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.master import Workshop
+from app.models.rag import HermesLearningEvent, HermesShortTermMemory
 from app.models.reports import DailyReport
-from app.models.system import User
+from app.models.system import AuditLog, User
 from scripts import agent_cli
 
 
@@ -21,6 +23,9 @@ TABLES = [
     DailyReport.__table__,
     ChatInboxMessage.__table__,
     AgentRun.__table__,
+    HermesLearningEvent.__table__,
+    HermesShortTermMemory.__table__,
+    AuditLog.__table__,
 ]
 
 
@@ -51,6 +56,40 @@ def _run_cli(args, capsys):
     code = agent_cli.main(args)
     output = capsys.readouterr().out.strip()
     return code, json.loads(output)
+
+
+def _patch_day1_orchestrator_pipeline(monkeypatch) -> None:
+    service = import_module('app.services.hermes_day1_orchestrator')
+    monkeypatch.setattr(
+        service,
+        'collect_day1_sources',
+        lambda *_args, **_kwargs: {
+            'trace_id': 'trace-day1-cli-source-001',
+            'business_date': '2026-06-19',
+            'template_daily_report': {'status': 'ready', 'text': '模板日报正文'},
+            'mes_wms': {'source_status': {'mes': 'ok'}, 'records': {'summary': [{'field': 'total_output'}]}},
+            'audit_run': {'status': 'completed', 'match_rate': 0.98, 'source_status': {'mes': 'ok', 'hub': 'ok'}},
+            'dingtalk_evidence': [],
+            'dingtalk_messages': [],
+            'historical_reports': [],
+            'rag': {'answer': '日报口径', 'citations': [{'source_ref': 'doc#1'}]},
+        },
+    )
+    monkeypatch.setattr(
+        service,
+        'build_day1_three_part_report',
+        lambda **_kwargs: {
+            'status': 'ready',
+            'text': '工厂大脑判断单\n正式日报正文\n各车间明细',
+            'formal_text': '6月19日正式日报正文',
+            'brain_judgment': {'summary': '可以发布', 'risks': []},
+            'workshop_details': [{'title': '2050车间', 'lines': ['日产量：80吨。']}],
+            'dingtalk_answer': '工厂大脑判断单\n正式日报正文',
+            'dingtalk_messages': ['工厂大脑判断单', '正式日报正文'],
+            'missing_fields': [],
+            'conflicts': [],
+        },
+    )
 
 
 def _add_user(db: Session, *, user_id: int, name: str, dingtalk_user_id: str) -> None:
@@ -393,13 +432,14 @@ def test_day1_report_missing_output_skill_source_has_actionable_detail(tmp_path,
         get_sessionmaker.cache_clear()
 
 
-def test_day1_report_without_doctor_is_clear_until_orchestrator_exists(tmp_path, monkeypatch, capsys) -> None:
+def test_day1_report_runs_real_orchestrator_and_writes_report_run_and_inbox(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     output_skill_root = tmp_path / 'output-skill'
     output_skill_root.mkdir()
     monkeypatch.setenv('HERMES_DAY1_ENABLED', 'true')
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
     monkeypatch.setenv('OUTPUT_SKILL_ROOT', str(output_skill_root))
+    _patch_day1_orchestrator_pipeline(monkeypatch)
     try:
         _add_user(db, user_id=5, name='张兆嘉', dingtalk_user_id='dt-owner')
 
@@ -411,19 +451,27 @@ def test_day1_report_without_doctor_is_clear_until_orchestrator_exists(tmp_path,
                 '--dingtalk-user-id',
                 'dt-owner',
                 '--trace-id',
-                'trace-orchestrator-missing-001',
+                'trace-day1-cli-run-001',
             ],
             capsys,
         )
 
-        assert code == 1
-        assert payload['ok'] is False
-        assert payload['error'] == 'hermes_day1_orchestrator_not_implemented'
-        assert payload['detail']['trace_id'] == 'trace-orchestrator-missing-001'
-        assert 'orchestrator' in payload['detail']['cause']
-        assert '--doctor' in payload['detail']['fix']
-        assert db.query(DailyReport).count() == 0
-        assert db.query(AgentRun).count() == 0
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'day1-report'
+        assert payload['trace_id'] == 'trace-day1-cli-run-001'
+        assert payload['reply'] == '工厂大脑判断单\n正式日报正文'
+        assert payload['data']['status'] == 'ready'
+        assert payload['data']['message_count'] == 2
+        assert payload['data']['chat_inbox_id'] is not None
+        assert payload['data']['agent_run_id'] is not None
+        assert payload['data']['report_id'] is not None
+        assert db.query(DailyReport).count() == 1
+        assert db.query(AgentRun).count() == 1
+        assert db.query(ChatInboxMessage).count() == 1
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.channel == 'dingtalk_private'
+        assert inbox.trace_id == 'trace-day1-cli-run-001'
     finally:
         db.close()
         get_engine.cache_clear()

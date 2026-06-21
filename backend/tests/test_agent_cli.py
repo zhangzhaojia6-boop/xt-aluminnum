@@ -239,6 +239,54 @@ def test_dingtalk_daily_report_outputs_finished_text(tmp_path, monkeypatch, caps
         get_sessionmaker.cache_clear()
 
 
+def test_dingtalk_command_natural_language_day1_routes_to_day1_report(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    seen: dict[str, str] = {}
+
+    def fake_day1_report(_db, args, auth, **_kwargs):
+        seen['text'] = args.text
+        seen['user'] = auth.user.dingtalk_user_id
+        return {
+            'action': 'day1-report',
+            'reply': '6月19日正式日报正文',
+            'trace_id': 'trace-day1-route-001',
+            'data': {
+                'status': 'ready',
+                'agent_run_id': 21,
+                'report_id': 11,
+                'chat_inbox_id': 7,
+                'message_count': 2,
+            },
+        }
+
+    monkeypatch.setattr(agent_cli, '_cmd_day1_report', fake_day1_report)
+    try:
+        db.add(User(id=41, username='zzj-day1', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '生成 6月19日正式日报',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--trace-id',
+            'trace-day1-route-001',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'day1-report'
+        assert payload['reply'] == '6月19日正式日报正文'
+        assert payload['data']['status'] == 'ready'
+        assert seen == {'text': '生成 6月19日正式日报', 'user': 'dt-owner'}
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
 def test_dingtalk_command_records_unrelated_group_chat_without_reply(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')

@@ -40,6 +40,7 @@ from app.services.hermes_day1_intent_service import (
     parse_day1_command,
     require_root_owner_for_day1_report,
 )
+from app.services.hermes_day1_orchestrator import run_day1_super_brain
 from app.services.rag_service import query_knowledge
 from app.tasks import daily_report as daily_report_task
 from app.tasks import mes_sync
@@ -235,6 +236,13 @@ def _cmd_dingtalk_command(db: Session, args: argparse.Namespace, auth: HermesAut
             'data': {'should_reply': False, 'reason': 'duplicate_message'},
         }
 
+    try:
+        day1_command = parse_day1_command(text, default_year=_day1_default_year(args))
+    except Day1CommandParseError as exc:
+        raise AgentCliError(exc.code) from exc
+    if day1_command is not None:
+        return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
+
     is_slash = text.startswith('/')
     is_direct = is_slash or _is_direct_dingtalk_mention(args.text)
     command, rest = _split_slash_command(text) if is_slash or is_direct else ('', '')
@@ -292,7 +300,7 @@ def _cmd_agent_ask(
     _reject_if_sql(text)
     result = handle_agent_command(
         db,
-        channel=args.channel,
+        channel=_resolved_dingtalk_channel(args),
         group_id=args.group_id or None,
         sender_external_id=args.dingtalk_user_id or args.dingtalk_union_id,
         text=text,
@@ -605,9 +613,15 @@ def _cmd_visual_inspect(db: Session, args: argparse.Namespace, auth: HermesAuth)
     return {'action': 'visual-inspect', 'reply': '已生成视觉巡检工具契约，等待 Hermes 浏览器环境执行', 'trace_id': _trace_id(args), 'evidence': evidence, 'data': evidence}
 
 
-def _cmd_day1_report(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+def _cmd_day1_report(
+    db: Session,
+    args: argparse.Namespace,
+    auth: HermesAuth,
+    *,
+    parsed_command=None,
+) -> dict[str, Any]:
     try:
-        command = parse_day1_command(args.text or args.query, default_year=_day1_default_year(args))
+        command = parsed_command or parse_day1_command(args.text or args.query, default_year=_day1_default_year(args))
     except Day1CommandParseError as exc:
         raise AgentCliError(exc.code) from exc
     if command is None:
@@ -617,7 +631,7 @@ def _cmd_day1_report(db: Session, args: argparse.Namespace, auth: HermesAuth) ->
         auth.user,
         sender_user_id=args.dingtalk_user_id,
         sender_union_id=args.dingtalk_union_id,
-        channel=args.channel,
+        channel=_resolved_dingtalk_channel(args),
         group_id=args.group_id,
     )
     try:
@@ -632,7 +646,35 @@ def _cmd_day1_report(db: Session, args: argparse.Namespace, auth: HermesAuth) ->
         raise AgentCliError('hermes_day1_disabled')
     if _output_skill_root_path() is None:
         raise AgentCliError('output_skill_source_missing')
-    raise AgentCliError('hermes_day1_orchestrator_not_implemented')
+
+    trace_id = _trace_id(args)
+    inbox = _record_dingtalk_command_inbox(
+        db,
+        args,
+        auth,
+        text=str(command.source_text or args.text or args.query),
+        handling='day1_report',
+        trace_id=trace_id,
+    )
+    result = run_day1_super_brain(
+        db,
+        command=command,
+        actor=auth.user,
+        trace_id=trace_id,
+        chat_inbox=inbox,
+    )
+    return {
+        'action': 'day1-report',
+        'reply': result.answer,
+        'trace_id': result.trace_id,
+        'data': {
+            'status': result.status,
+            'agent_run_id': result.agent_run_id,
+            'report_id': result.report_id,
+            'chat_inbox_id': inbox.id,
+            'message_count': len(result.reply_messages),
+        },
+    }
 
 
 def _cmd_day1_report_doctor(
@@ -734,7 +776,7 @@ def _is_duplicate_dingtalk_message(db: Session, args: argparse.Namespace) -> boo
     if not trace_id:
         return False
     query = db.query(ChatInboxMessage.id).filter(
-        ChatInboxMessage.channel == (args.channel or 'dingtalk_group'),
+        ChatInboxMessage.channel == _resolved_dingtalk_channel(args),
         ChatInboxMessage.trace_id == trace_id,
     )
     group_id = _clean(args.group_id)
@@ -782,7 +824,7 @@ def _record_dingtalk_command_inbox(
     trace_id: str | None = None,
 ) -> ChatInboxMessage:
     inbox = ChatInboxMessage(
-        channel=args.channel or 'dingtalk_group',
+        channel=_resolved_dingtalk_channel(args),
         group_id=_clean(args.group_id) or None,
         sender_external_id=_clean(args.dingtalk_user_id) or _clean(args.dingtalk_union_id) or None,
         text=text,
@@ -1000,6 +1042,13 @@ def _day1_enabled() -> bool:
     if raw is not None:
         return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
     return bool(settings.hermes_day1_enabled)
+
+
+def _resolved_dingtalk_channel(args: argparse.Namespace) -> str:
+    channel = _clean(args.channel)
+    if channel and channel != 'dingtalk_group':
+        return channel
+    return 'dingtalk_group' if _clean(args.group_id) else 'dingtalk_private'
 
 
 def _day1_default_year(args: argparse.Namespace) -> int:

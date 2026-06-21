@@ -11,6 +11,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from urllib import request as urllib_request
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
@@ -29,6 +30,14 @@ from app.schemas.auth import LoginResponse, UserInfo
 from app.services.audit_service import log_action
 from app.services import dingtalk_service
 from app.services.agent_command_service import AgentCommandError, handle_agent_command
+from app.services.hermes_day1_evidence_service import Day1EvidenceError, record_day1_dingtalk_evidence
+from app.services.hermes_day1_intent_service import (
+    Day1CommandParseError,
+    classify_day1_actor,
+    parse_day1_command,
+    require_root_owner_for_day1_report,
+)
+from app.services.hermes_day1_orchestrator import run_day1_super_brain
 
 logger = logging.getLogger(__name__)
 
@@ -312,6 +321,24 @@ def _resolve_inbound_channel_scope(db: Session, *, group_id: str, payload: dict[
     return {'workshop': workshop, 'machine_code': machine_code, 'workshop_id': channel.workshop_id}
 
 
+def _resolve_inbound_channel_type(payload: dict[str, Any], *, group_id: str) -> str:
+    if not group_id:
+        return 'dingtalk_private'
+
+    conversation_type = _clean_text(
+        _first_payload_value(
+            payload,
+            'conversationType',
+            'conversation_type',
+            'chatType',
+            'chat_type',
+        )
+    ).lower()
+    if conversation_type in {'single', 'private', '1v1', 'private_chat'}:
+        return 'dingtalk_private'
+    return 'dingtalk_group'
+
+
 def _ensure_inbound_channel_scope_access(user: User, channel_scope: dict[str, Any]) -> None:
     workshop_id = channel_scope.get('workshop_id')
     if workshop_id is None:
@@ -346,11 +373,17 @@ def _has_bound_inbound_outbox_channel(db: Session, *, group_id: str, agent_code:
     )
 
 
-def _find_duplicate_inbound_message(db: Session, *, group_id: str, trace_id: str) -> ChatInboxMessage | None:
+def _find_duplicate_inbound_message(
+    db: Session,
+    *,
+    channel: str,
+    group_id: str,
+    trace_id: str,
+) -> ChatInboxMessage | None:
     if not trace_id:
         return None
     query = db.query(ChatInboxMessage).filter(
-        ChatInboxMessage.channel == 'dingtalk_group',
+        ChatInboxMessage.channel == channel,
         ChatInboxMessage.trace_id == trace_id,
     )
     if group_id:
@@ -413,20 +446,25 @@ def dingtalk_agent_inbound(
 
     user = _resolve_inbound_user(db, payload)
     group_id = _clean_text(_first_payload_value(payload, 'conversationId', 'conversation_id', 'chatId', 'openConversationId'))
+    channel = _resolve_inbound_channel_type(payload, group_id=group_id)
     sender_external_id = _clean_text(
         _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
     )
-    trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId'))
-    duplicate = _find_duplicate_inbound_message(db, group_id=group_id, trace_id=trace_id)
+    trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId')) or uuid4().hex
+    duplicate = _find_duplicate_inbound_message(db, channel=channel, group_id=group_id, trace_id=trace_id)
     if duplicate is not None:
         return {
             'errcode': 0,
             'errmsg': 'ok',
             'action': 'dingtalk-duplicate',
+            'status': 'duplicate',
             'trace_id': trace_id,
             'answer': '',
+            'messages': [],
             'should_reply': False,
             'chat_inbox_id': duplicate.id,
+            'agent_run_id': None,
+            'report_id': None,
         }
     agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
     queue_outbox_value = _first_payload_value(payload, 'queueOutbox', 'queue_outbox')
@@ -437,11 +475,97 @@ def dingtalk_agent_inbound(
     )
     channel_scope = _resolve_inbound_channel_scope(db, group_id=group_id, payload=payload)
     _ensure_inbound_channel_scope_access(user, channel_scope)
+    try:
+        day1_command = parse_day1_command(text, default_year=datetime.now().year)
+    except Day1CommandParseError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from exc
+
+    if day1_command is not None:
+        decision = classify_day1_actor(
+            user,
+            sender_user_id=sender_external_id,
+            sender_union_id=_clean_text(_first_payload_value(payload, 'senderUnionId', 'unionId')),
+            channel=channel,
+            group_id=group_id,
+        )
+        try:
+            require_root_owner_for_day1_report(decision)
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+        if not settings.HERMES_DAY1_ENABLED:
+            return {
+                'errcode': 0,
+                'errmsg': 'ok',
+                'trace_id': trace_id,
+                'status': 'disabled',
+                'answer': '',
+                'messages': [],
+                'chat_inbox_id': None,
+                'agent_run_id': None,
+                'report_id': None,
+            }
+
+        source_payload = _sanitize_inbound_payload(payload)
+        chat_inbox = ChatInboxMessage(
+            channel=channel,
+            group_id=group_id or None,
+            sender_external_id=sender_external_id or None,
+            text=text,
+            agent_code=agent_code,
+            trace_id=trace_id,
+            source_payload={
+                **source_payload,
+                'source': 'dingtalk_inbound',
+                'day1_super_brain': True,
+                'channel': channel,
+            },
+        )
+        db.add(chat_inbox)
+        db.flush()
+
+        try:
+            record_day1_dingtalk_evidence(
+                db,
+                payload=source_payload,
+                actor=user,
+                business_date=day1_command.business_date,
+                channel=channel,
+                group_id=group_id or None,
+                trace_id=trace_id,
+                recognized_text=text,
+            )
+            result = run_day1_super_brain(
+                db,
+                command=day1_command,
+                actor=user,
+                trace_id=trace_id,
+                chat_inbox=chat_inbox,
+            )
+            db.commit()
+        except Day1EvidenceError as exc:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
+        except Exception:
+            db.rollback()
+            raise
+
+        return {
+            'errcode': 0,
+            'errmsg': 'ok',
+            'trace_id': result.trace_id,
+            'status': result.status,
+            'answer': result.answer,
+            'messages': result.reply_messages,
+            'chat_inbox_id': chat_inbox.id,
+            'agent_run_id': result.agent_run_id,
+            'report_id': result.report_id,
+        }
 
     try:
         result = handle_agent_command(
             db,
-            channel='dingtalk_group',
+            channel=channel,
             group_id=group_id or None,
             sender_external_id=sender_external_id or None,
             text=text,
@@ -465,10 +589,13 @@ def dingtalk_agent_inbound(
         'errcode': 0,
         'errmsg': 'ok',
         'trace_id': result.trace_id,
+        'status': 'answered',
         'status_color': result.status_color,
         'intent': result.intent,
         'answer': result.answer,
+        'messages': [result.answer] if result.answer else [],
         'chat_inbox_id': result.chat_inbox_id,
         'agent_run_id': result.agent_run_id,
+        'report_id': None,
         'outbox_message_id': result.outbox_message_id,
     }
