@@ -1,0 +1,182 @@
+from __future__ import annotations
+
+from datetime import date
+import hashlib
+from importlib import import_module
+from types import SimpleNamespace
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.models import Base
+from app.models.agent_communication import MultimodalEvidence
+
+
+def _day1_service():
+    return import_module('app.services.hermes_day1_evidence_service')
+
+
+def _db_session():
+    engine = create_engine('sqlite:///:memory:', future=True)
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine, future=True)
+    return Session()
+
+
+def test_classify_dingtalk_evidence_covers_fact_explanation_instruction_and_noise() -> None:
+    service = _day1_service()
+
+    fact = service.classify_dingtalk_evidence('今日日报：冷轧产量 32 吨')
+    explanation = service.classify_dingtalk_evidence('热轧停机，原因是设备故障')
+    instruction = service.classify_dingtalk_evidence('日报产量按这个附件补录，以这个为准')
+    noise = service.classify_dingtalk_evidence('收到，谢谢')
+
+    assert fact.evidence_kind == 'fact'
+    assert fact.evidence_grade == 'high'
+    assert fact.include_in_daily_sample is True
+    assert {'日报', '产量'}.issubset(set(fact.matched_keywords))
+
+    assert explanation.evidence_kind == 'explanation'
+    assert explanation.evidence_grade == 'medium'
+    assert explanation.include_in_daily_sample is True
+    assert {'停机', '原因', '故障'}.issubset(set(explanation.matched_keywords))
+
+    assert instruction.evidence_kind == 'instruction'
+    assert instruction.evidence_grade == 'high'
+    assert instruction.include_in_daily_sample is True
+    assert {'日报', '产量', '补录', '以这个为准'}.issubset(set(instruction.matched_keywords))
+
+    assert noise.evidence_kind == 'noise'
+    assert noise.evidence_grade == 'low'
+    assert noise.include_in_daily_sample is False
+    assert noise.matched_keywords == []
+
+
+def test_record_day1_dingtalk_evidence_records_text_fact_payload() -> None:
+    service = _day1_service()
+    db = _db_session()
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={'msgtype': 'text'},
+            actor=SimpleNamespace(id=23),
+            business_date=date(2026, 6, 21),
+            channel='group_chat',
+            group_id='group-001',
+            trace_id='trace-001',
+            recognized_text='今日日报：产量 32 吨',
+        )
+
+        assert evidence is not None
+        assert evidence.id is not None
+        assert evidence.evidence_type == 'text'
+        assert evidence.file_uri is None
+        assert evidence.source_user_id == 23
+        assert evidence.recognized_text == '今日日报：产量 32 吨'
+        assert evidence.confirmation_status == 'machine_only'
+        assert evidence.payload['source'] == 'dingtalk'
+        assert evidence.payload['day1_super_brain'] is True
+        assert evidence.payload['channel'] == 'group_chat'
+        assert evidence.payload['group_id'] == 'group-001'
+        assert evidence.payload['trace_id'] == 'trace-001'
+        assert evidence.payload['business_date'] == '2026-06-21'
+        assert evidence.payload['file_name'] is None
+        assert evidence.payload['file_hash'] is None
+        assert evidence.payload['parse_status'] == 'text_captured'
+        assert evidence.payload['evidence_kind'] == 'fact'
+        assert evidence.payload['evidence_grade'] == 'high'
+        assert evidence.payload['include_in_daily_sample'] is True
+        assert {'日报', '产量'}.issubset(set(evidence.payload['matched_keywords']))
+        assert evidence.payload['metric_write_allowed'] is False
+        assert db.query(MultimodalEvidence).count() == 1
+    finally:
+        db.close()
+
+
+def test_record_day1_dingtalk_evidence_records_attachment_hash_without_raw_file_id() -> None:
+    service = _day1_service()
+    db = _db_session()
+    raw_file_id = 'media-raw-001'
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={
+                'fileName': '每日产量.xlsx',
+                'mediaId': raw_file_id,
+                'fileId': 'secondary-file-id',
+                'file_id': 'third-file-id',
+            },
+            actor=None,
+            business_date=None,
+            channel='dingtalk_group',
+            group_id=None,
+            trace_id='trace-file-001',
+            recognized_text='',
+        )
+
+        assert evidence is not None
+        assert evidence.evidence_type == 'attachment'
+        assert evidence.file_uri == f'dingtalk://media/{raw_file_id}'
+        assert evidence.source_user_id is None
+        assert evidence.payload['file_name'] == '每日产量.xlsx'
+        assert evidence.payload['file_hash'] == hashlib.sha1(raw_file_id.encode('utf-8')).hexdigest()
+        assert evidence.payload['business_date'] is None
+        assert evidence.payload['evidence_kind'] == 'fact'
+        assert 'mediaId' not in evidence.payload
+        assert 'fileId' not in evidence.payload
+        assert 'file_id' not in evidence.payload
+        assert raw_file_id not in str(evidence.payload)
+    finally:
+        db.close()
+
+
+def test_record_day1_dingtalk_evidence_ignores_noise_without_adding_evidence() -> None:
+    service = _day1_service()
+    db = _db_session()
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={'msgtype': 'text'},
+            actor=SimpleNamespace(id=23),
+            business_date=date(2026, 6, 21),
+            channel='group_chat',
+            group_id='group-001',
+            trace_id='trace-noise-001',
+            recognized_text='收到，谢谢',
+        )
+
+        assert evidence is None
+        assert db.query(MultimodalEvidence).count() == 0
+    finally:
+        db.close()
+
+
+def test_record_day1_dingtalk_evidence_drops_sensitive_input_payload_keys() -> None:
+    service = _day1_service()
+    db = _db_session()
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={
+                'file_name': '日报.txt',
+                'password': 'plain-password',
+                'token': 'plain-token',
+                'cookie': 'plain-cookie',
+            },
+            actor=SimpleNamespace(id=23),
+            business_date=date(2026, 6, 21),
+            channel='group_chat',
+            group_id='group-001',
+            trace_id='trace-secret-001',
+            recognized_text='日报产量 32 吨',
+        )
+
+        assert evidence is not None
+        assert 'password' not in evidence.payload
+        assert 'token' not in evidence.payload
+        assert 'cookie' not in evidence.payload
+        assert 'plain-password' not in str(evidence.payload)
+        assert 'plain-token' not in str(evidence.payload)
+        assert 'plain-cookie' not in str(evidence.payload)
+    finally:
+        db.close()
