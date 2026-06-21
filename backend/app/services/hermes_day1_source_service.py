@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from decimal import Decimal
+import os
+from pathlib import Path
 import re
 from typing import Any
 
@@ -19,6 +21,7 @@ from app.services.hermes_data_audit_service import (
     HermesDataAuditService,
     NoComparableDataError,
 )
+from app.services.hermes_day1_harness_service import build_output_skill_alignment
 from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.rag_service import query_knowledge
 from app.services.report import template_daily_report
@@ -83,6 +86,11 @@ def collect_day1_sources(
         template_payload=template_payload,
     )
     rag_payload = _query_day1_rag(db, business_date=business_date, actor=actor)
+    output_skill_alignment = build_output_skill_alignment(
+        str(template_payload.get('text') or ''),
+        _output_skill_reference_root(),
+        business_date,
+    )
 
     return {
         'trace_id': trace_id,
@@ -94,7 +102,12 @@ def collect_day1_sources(
         'dingtalk_messages': _list_dingtalk_messages(db, business_date=business_date, trace_id=trace_id),
         'historical_reports': _list_historical_reports(db, business_date=business_date),
         'rag': rag_payload,
+        'output_skill_alignment': output_skill_alignment,
     }
+
+
+def _output_skill_reference_root() -> str | Path | None:
+    return os.getenv('OUTPUT_SKILL_ROOT') or os.getenv('OUTPUT_SKILL_REFERENCE_ROOT')
 
 
 def _build_hub_snapshot_reader(template_payload: Mapping[str, Any]):

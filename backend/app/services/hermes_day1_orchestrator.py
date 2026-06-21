@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from typing import Any
@@ -14,10 +14,13 @@ from app.models.reports import DailyReport
 from app.models.system import User
 from app.services import hermes_memory_service, hermes_rag_service
 from app.services.audit_service import log_action
+from app.services.hermes_day1_harness_service import evaluate_day1_run_payload, summarize_harness_results
 from app.services.hermes_day1_intent_service import HermesDay1Command
 from app.services.hermes_day1_report_service import build_day1_three_part_report
 from app.services.hermes_day1_source_service import collect_day1_sources
 from app.services.hermes_governance_service import FACTORY_PROFILE_CODE
+
+DAY1_TOOLS_CALLED = ['collect_day1_sources', 'build_day1_three_part_report']
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +60,38 @@ def run_day1_super_brain(
         sources=sources,
     )
 
-    payload = _agent_result_payload(command=command, product=product, sources=sources, report_id=report.id)
+    learning_payload = {
+        'event_recorded': True,
+        'tools_called': DAY1_TOOLS_CALLED,
+        'source_trace': [name for name in sources.keys() if name not in {'trace_id', 'business_date'}],
+    }
+    correction_action_policy = {
+        'mode': 'audit_only',
+        'default_execution': 'disabled',
+        'note': 'correction action 只审计设计，不默认执行',
+    }
+    harness_results = evaluate_day1_run_payload(
+        {
+            'sources': sources,
+            'missing_fields': product.get('missing_fields') or [],
+            'conflicts': product.get('conflicts') or [],
+            'formal_text': product.get('formal_text') or '',
+            'output_skill_alignment': sources.get('output_skill_alignment') or {},
+            'learning': learning_payload,
+            'correction_action_policy': correction_action_policy,
+        },
+        answer=str(product.get('text') or ''),
+        min_field_match_rate=_alignment_threshold(sources),
+    )
+    payload = _agent_result_payload(
+        command=command,
+        product=product,
+        sources=sources,
+        report_id=report.id,
+        learning_payload=learning_payload,
+        correction_action_policy=correction_action_policy,
+        harness_results=harness_results,
+    )
     run = AgentRun(
         trace_id=trace_id,
         agent_code=FACTORY_PROFILE_CODE,
@@ -89,7 +123,7 @@ def run_day1_super_brain(
         question=_command_raw_text(command),
         answer=_growth_feedback_text(command=command, product=product),
         trace_id=trace_id,
-        tools_called=['collect_day1_sources', 'build_day1_three_part_report'],
+        tools_called=DAY1_TOOLS_CALLED,
         sources=_learning_sources(sources),
         actor=actor,
     )
@@ -203,8 +237,13 @@ def _agent_result_payload(
     product: dict[str, Any],
     sources: dict[str, Any],
     report_id: int,
+    learning_payload: dict[str, Any],
+    correction_action_policy: dict[str, Any],
+    harness_results: list[Any],
 ) -> dict[str, Any]:
     messages = [str(message) for message in product.get('dingtalk_messages') or []]
+    alignment_payload = _output_skill_alignment_payload(sources.get('output_skill_alignment'))
+    harness_summary = summarize_harness_results(harness_results)
     return {
         'hermes_day1': _json_safe(
             {
@@ -218,6 +257,13 @@ def _agent_result_payload(
                 'dingtalk_reply': {
                     'message_count': len(messages),
                     'first_message_chars': len(messages[0]) if messages else 0,
+                },
+                'output_skill_alignment': alignment_payload,
+                'learning': learning_payload,
+                'correction_action_policy': correction_action_policy,
+                'harness': {
+                    'summary': harness_summary,
+                    'cases': [asdict(item) for item in harness_results],
                 },
             }
         )
@@ -274,6 +320,7 @@ def _source_summary(sources: dict[str, Any]) -> dict[str, Any]:
         'dingtalk_evidence': _evidence_summary(sources.get('dingtalk_evidence')),
         'dingtalk_messages': _message_summary(sources.get('dingtalk_messages')),
         'historical_reports': _historical_report_summary(sources.get('historical_reports')),
+        'output_skill_alignment': _output_skill_alignment_payload(sources.get('output_skill_alignment'), include_differences=False),
     }
 
 
@@ -358,6 +405,42 @@ def _learning_sources(sources: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+def _output_skill_alignment_payload(value: Any, *, include_differences: bool = True) -> dict[str, Any]:
+    alignment = _as_mapping(value)
+    if not alignment:
+        return {}
+    payload = {
+        'status': alignment.get('status'),
+        'file_name': alignment.get('file_name'),
+        'field_match_rate': alignment.get('field_match_rate'),
+        'matched_fields': alignment.get('matched_fields'),
+        'expected_fields': alignment.get('expected_fields'),
+        'difference_count': alignment.get('difference_count'),
+        'char_match_rate': alignment.get('char_match_rate'),
+        'exact_match': alignment.get('exact_match'),
+        'threshold': alignment.get('threshold'),
+    }
+    if include_differences:
+        payload['differences'] = [
+            {
+                'field': item.get('field'),
+                'actual': item.get('actual'),
+                'expected': item.get('expected'),
+            }
+            for item in _as_list(alignment.get('differences'))
+            if isinstance(item, Mapping)
+        ]
+    return payload
+
+
+def _alignment_threshold(sources: dict[str, Any]) -> float:
+    alignment = _as_mapping(sources.get('output_skill_alignment'))
+    try:
+        return float(alignment.get('threshold') or 95.0)
+    except (TypeError, ValueError):
+        return 95.0
+
+
 def _source_status(payload: Any) -> str:
     if isinstance(payload, Mapping):
         status = payload.get('status')
@@ -420,3 +503,13 @@ def _truncate_summary(value: str) -> str:
 
 def _as_mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]

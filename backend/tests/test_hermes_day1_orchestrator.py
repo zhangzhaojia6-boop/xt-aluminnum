@@ -61,6 +61,18 @@ def _sources() -> dict[str, Any]:
         'dingtalk_messages': [{'text': '现场补充：无异常'}],
         'historical_reports': [{'report_date': '2026-06-20', 'status': 'published'}],
         'rag': {'answer': '日报路线说明', 'citations': [{'source_ref': 'doc#1'}, {'source_ref': 'doc#2'}]},
+        'output_skill_alignment': {
+            'status': 'passed',
+            'file_name': '2026-06-21_日报正文.txt',
+            'field_match_rate': 98.5,
+            'matched_fields': 20,
+            'expected_fields': 20,
+            'difference_count': 0,
+            'differences': [],
+            'char_match_rate': 99.1,
+            'exact_match': False,
+            'threshold': 95.0,
+        },
     }
 
 
@@ -361,6 +373,10 @@ def test_chat_inbox_rag_count_command_summary_and_reply_metadata_are_recorded(mo
         assert payload['sources']['mes_wms']['record_groups'] == 1
         assert payload['sources']['audit_run']['match_rate'] == 0.99
         assert payload['sources']['rag']['citation_count'] == 2
+        assert payload['sources']['output_skill_alignment']['field_match_rate'] == 98.5
+        assert payload['output_skill_alignment']['status'] == 'passed'
+        assert payload['harness']['summary']['passed'] is True
+        assert payload['harness']['summary']['total_count'] >= 6
         assert payload['report_id'] == result.report_id
     finally:
         db.close()
@@ -389,6 +405,18 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
             'source_payload': {'hash': 'message-hash-1'},
         }
     ]
+    sources['output_skill_alignment'] = {
+        'status': 'review_needed',
+        'file_name': '2026-06-21_日报正文.txt',
+        'field_match_rate': 82.0,
+        'matched_fields': 18,
+        'expected_fields': 22,
+        'difference_count': 1,
+        'differences': [{'field': 'total_output_daily', 'actual': 366, 'expected': 360}],
+        'char_match_rate': 90.1,
+        'exact_match': False,
+        'threshold': 95.0,
+    }
     _patch_pipeline(monkeypatch, service, sources=sources)
     _patch_audit(monkeypatch, service)
 
@@ -403,6 +431,7 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
         run = db.get(AgentRun, result.agent_run_id)
         payload_text = str(run.result_payload)
         summary = run.result_payload['hermes_day1']['sources']
+        hermes_payload = run.result_payload['hermes_day1']
         assert long_evidence_text not in payload_text
         assert long_chat_text not in payload_text
         assert summary['trace_id'] == 'trace-day1-001'
@@ -412,5 +441,21 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
         assert summary['dingtalk_messages']['count'] == 1
         assert summary['dingtalk_messages']['items'] == [{'id': 22, 'hash': 'message-hash-1'}]
         assert summary['rag']['citation_count'] == 2
+        assert summary['output_skill_alignment'] == {
+            'status': 'review_needed',
+            'file_name': '2026-06-21_日报正文.txt',
+            'field_match_rate': 82.0,
+            'matched_fields': 18,
+            'expected_fields': 22,
+            'difference_count': 1,
+            'char_match_rate': 90.1,
+            'exact_match': False,
+            'threshold': 95.0,
+        }
+        assert hermes_payload['output_skill_alignment']['differences'] == [
+            {'field': 'total_output_daily', 'actual': 366, 'expected': 360}
+        ]
+        assert '现场补充：无异常' not in payload_text
+        assert '日报路线说明' not in payload_text
     finally:
         db.close()

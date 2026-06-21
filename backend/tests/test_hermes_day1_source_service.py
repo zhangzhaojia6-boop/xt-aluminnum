@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from importlib import import_module
+from pathlib import Path
 from types import SimpleNamespace
 
 from sqlalchemy import create_engine
@@ -101,6 +102,7 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         'dingtalk_messages',
         'historical_reports',
         'rag',
+        'output_skill_alignment',
     }
     assert payload['trace_id'] == 'trace-day1-001'
     assert payload['business_date'] == '2026-06-21'
@@ -108,6 +110,7 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
     assert payload['mes_wms'] == mes_payload
     assert payload['audit_run']['id'] == 7
     assert payload['rag'] == {'answer': 'ok', 'citations': [{'source_ref': 'doc#1'}]}
+    assert payload['output_skill_alignment']['status'] == 'missing'
 
     assert service.DAY1_MES_QUERY_KEYS == (
         'workshop_process_records',
@@ -695,6 +698,46 @@ def test_collect_day1_sources_excludes_raw_output_skill_text_and_redacts_snapsho
     assert snapshot['parsed'] == {'total_output': 100}
     assert 'plain-pass' not in str(payload['audit_run'])
     assert 'plain-token' not in str(payload['audit_run'])
+
+
+def test_collect_day1_sources_returns_output_skill_alignment_when_reference_root_configured(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    business_date = date(2026, 6, 16)
+    fixture_dir = Path(__file__).resolve().parent / 'fixtures' / 'output_skill_daily_reports'
+    fixture_text = (fixture_dir / '2026-6-16_日报正文.txt').read_text(encoding='utf-8')
+
+    _patch_collect_dependencies(monkeypatch, service)
+    monkeypatch.setenv('OUTPUT_SKILL_REFERENCE_ROOT', str(fixture_dir))
+    monkeypatch.delenv('OUTPUT_SKILL_ROOT', raising=False)
+    monkeypatch.setattr(
+        service.template_daily_report,
+        'build_template_daily_report_payload',
+        lambda db, *, target_date: {'status': 'ready', 'text': fixture_text, 'facts': {'values': {}}},
+    )
+
+    try:
+        payload = service.collect_day1_sources(
+            db,
+            business_date=business_date,
+            actor=None,
+            trace_id='trace-day1-001',
+        )
+    finally:
+        db.close()
+
+    assert payload['output_skill_alignment'] == {
+        'status': 'passed',
+        'file_name': '2026-6-16_日报正文.txt',
+        'field_match_rate': 100.0,
+        'matched_fields': 130,
+        'expected_fields': 130,
+        'difference_count': 0,
+        'differences': [],
+        'char_match_rate': 100.0,
+        'exact_match': True,
+        'threshold': 95.0,
+    }
 
 
 def _patch_collect_dependencies(monkeypatch, service) -> None:
