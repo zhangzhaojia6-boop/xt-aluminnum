@@ -34,6 +34,12 @@ from app.models.reports import DailyReport
 from app.models.system import User
 from app.services import agent_designated_operation_service, hermes_governance_service, hermes_memory_service, hermes_rag_service
 from app.services.agent_command_service import handle_agent_command
+from app.services.hermes_day1_intent_service import (
+    Day1CommandParseError,
+    classify_day1_actor,
+    parse_day1_command,
+    require_root_owner_for_day1_report,
+)
 from app.services.rag_service import query_knowledge
 from app.tasks import daily_report as daily_report_task
 from app.tasks import mes_sync
@@ -63,6 +69,7 @@ COMMAND_LEVELS = {
     'ops-status': 'L1',
     'visual-inspect': 'L2',
     'approval-preview': 'L3',
+    'day1-report': 'L3',
 }
 SQL_KEYWORDS = {'select', 'insert', 'update', 'delete', 'drop', 'alter', 'truncate', 'exec', 'execute'}
 VISUAL_URL_HOSTS = {'xtmijd.com', 'www.xtmijd.com', 'mes.xintaily.com'}
@@ -90,6 +97,7 @@ class JsonArgumentParser(argparse.ArgumentParser):
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = None
     try:
         args = _parse_args(argv if argv is not None else sys.argv[1:])
         if args.command not in COMMAND_LEVELS:
@@ -102,6 +110,14 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         _emit({'ok': False, 'error': 'invalid_arguments', 'detail': str(exc)})
         return 2
+    except AgentCliError as exc:
+        error_code = redact_secret_text(str(exc) or type(exc).__name__)
+        payload: dict[str, Any] = {'ok': False, 'error': error_code}
+        detail = _cli_error_detail(error_code, args)
+        if detail:
+            payload['detail'] = detail
+        _emit(payload)
+        return 1
     except Exception as exc:
         _emit({'ok': False, 'error': redact_secret_text(str(exc) or type(exc).__name__)})
         return 1
@@ -130,6 +146,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument('--dingtalk-union-id', default='')
     parser.add_argument('--workshop', default='')
     parser.add_argument('--machine-code', default='')
+    parser.add_argument('--doctor', action='store_true')
     parser.add_argument('--queue-outbox', action='store_true')
     return parser.parse_args(argv)
 
@@ -161,6 +178,7 @@ def _run_with_db(args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
             'outbox-status': _cmd_outbox_status,
             'approval-preview': _cmd_approval_preview,
             'visual-inspect': _cmd_visual_inspect,
+            'day1-report': _cmd_day1_report,
         }
         try:
             result = handlers[args.command](db, args, auth)
@@ -193,7 +211,9 @@ def _authorize(args: argparse.Namespace) -> HermesAuth:
         owner_ids = _csv_env('HERMES_OWNER_DINGTALK_USER_IDS') or settings.hermes_owner_dingtalk_user_ids
         allowed_ids = _csv_env('HERMES_ALLOWED_DINGTALK_USER_IDS') or settings.hermes_allowed_dingtalk_user_ids
         identity_values = {dingtalk_user_id, dingtalk_union_id, _clean(user.dingtalk_user_id), _clean(user.dingtalk_union_id)}
-        is_owner = bool(owner_ids & identity_values) or user.name == '张兆嘉'
+        is_owner = bool(owner_ids & identity_values)
+        if not is_owner and not settings.is_production_like and user.name == '张兆嘉':
+            is_owner = True
         is_allowed = is_owner or bool(allowed_ids & identity_values)
         if not is_allowed:
             raise AgentCliError('user_not_allowed')
@@ -587,6 +607,60 @@ def _cmd_visual_inspect(db: Session, args: argparse.Namespace, auth: HermesAuth)
     return {'action': 'visual-inspect', 'reply': '已生成视觉巡检工具契约，等待 Hermes 浏览器环境执行', 'trace_id': _trace_id(args), 'evidence': evidence, 'data': evidence}
 
 
+def _cmd_day1_report(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+    try:
+        command = parse_day1_command(args.text or args.query, default_year=_day1_default_year(args))
+    except Day1CommandParseError as exc:
+        raise AgentCliError(exc.code) from exc
+    if command is None:
+        raise AgentCliError('day1_command_unrecognized')
+
+    decision = classify_day1_actor(
+        auth.user,
+        sender_user_id=args.dingtalk_user_id,
+        sender_union_id=args.dingtalk_union_id,
+        channel=args.channel,
+        group_id=args.group_id,
+    )
+    try:
+        require_root_owner_for_day1_report(decision)
+    except PermissionError as exc:
+        raise AgentCliError(str(exc)) from exc
+
+    if args.doctor:
+        return _cmd_day1_report_doctor(args, command, decision)
+
+    if not _day1_enabled():
+        raise AgentCliError('hermes_day1_disabled')
+    if _output_skill_root_path() is None:
+        raise AgentCliError('output_skill_source_missing')
+    raise AgentCliError('hermes_day1_orchestrator_not_implemented')
+
+
+def _cmd_day1_report_doctor(
+    args: argparse.Namespace,
+    command,
+    decision,
+) -> dict[str, Any]:
+    output_skill_root = _output_skill_root_path()
+    checks = {
+        'feature_flag': 'ok' if _day1_enabled() else 'disabled',
+        'root_owner_identity': 'ok' if decision.is_root_owner else decision.reason,
+        'command_parse': 'ok',
+        'output_skill_source': 'ok' if output_skill_root is not None else 'missing',
+    }
+    return {
+        'action': 'day1-report-doctor',
+        'reply': 'Day-1 预检完成',
+        'trace_id': _trace_id(args),
+        'data': {
+            'business_date': command.business_date.isoformat(),
+            'checks': checks,
+            'next': _doctor_next_step(checks),
+        },
+    }
+
+
 def _find_user(db: Session, *, dingtalk_user_id: str, dingtalk_union_id: str) -> User | None:
     query = db.query(User)
     if dingtalk_user_id:
@@ -923,6 +997,39 @@ def _ops_enabled() -> bool:
     return bool(settings.HERMES_OPS_ENABLED)
 
 
+def _day1_enabled() -> bool:
+    raw = os.getenv('HERMES_DAY1_ENABLED')
+    if raw is not None:
+        return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(settings.hermes_day1_enabled)
+
+
+def _day1_default_year(args: argparse.Namespace) -> int:
+    if args.target_date:
+        return date.fromisoformat(args.target_date).year
+    return date.today().year
+
+
+def _output_skill_root_path() -> Path | None:
+    raw = os.getenv('OUTPUT_SKILL_ROOT') or os.getenv('OUTPUT_SKILL_REFERENCE_ROOT')
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    if not path.exists() or not path.is_dir():
+        return None
+    return path
+
+
+def _doctor_next_step(checks: dict[str, str]) -> str:
+    if checks.get('feature_flag') != 'ok':
+        return 'set HERMES_DAY1_ENABLED=true, then rerun day1-report --doctor'
+    if checks.get('root_owner_identity') != 'ok':
+        return 'bind root_owner DingTalk user_id or union_id, then rerun day1-report --doctor'
+    if checks.get('output_skill_source') != 'ok':
+        return 'set OUTPUT_SKILL_ROOT to a readable output skill directory, then rerun day1-report --doctor'
+    return 'run day1-report smoke'
+
+
 def _csv_env(name: str) -> set[str]:
     return {item.strip() for item in os.getenv(name, '').split(',') if item.strip()}
 
@@ -946,6 +1053,38 @@ def _safe_url(url: str | None) -> str | None:
     if not parsed.hostname:
         return None
     return f'{parsed.scheme}://{parsed.hostname}'
+
+
+def _cli_error_detail(error_code: str, args: argparse.Namespace | None) -> dict[str, str] | None:
+    if args is None or getattr(args, 'command', None) != 'day1-report':
+        return None
+    trace_id = _trace_id(args)
+    details = {
+        'dingtalk_identity_required': {
+            'cause': '钉钉身份缺失，Day-1 需要知道是谁在请求。',
+            'fix': '运行时传 --dingtalk-user-id 或 --dingtalk-union-id；钉钉回调要传 senderStaffId 或 senderUnionId。',
+        },
+        'owner_required': {
+            'cause': 'day1-report 是 root_owner 完整日报入口，普通授权用户或授权群不能触发。',
+            'fix': '把 root_owner 的钉钉 user_id 或 union_id 加到 HERMES_OWNER_DINGTALK_USER_IDS；只加 HERMES_ALLOWED_DINGTALK_USER_IDS 不够。',
+        },
+        'hermes_day1_disabled': {
+            'cause': 'HERMES_DAY1_ENABLED=false，Day-1 开关当前关闭。',
+            'fix': '本地 smoke 可设置 HERMES_DAY1_ENABLED=true；生产验证前保持 false。',
+        },
+        'output_skill_source_missing': {
+            'cause': 'OUTPUT_SKILL_ROOT 未配置或目录不存在，无法读取输出 skill 真实值参考源。',
+            'fix': '设置 OUTPUT_SKILL_ROOT=D:\\输出skill，或设置到只读 fixture/挂载目录后重试。',
+        },
+        'hermes_day1_orchestrator_not_implemented': {
+            'cause': 'Day-1 orchestrator 还没有接入；Lane A 只提供 intent、权限、开关和 doctor。',
+            'fix': '先运行 day1-report --doctor 做预检；等 orchestrator 接入后再跑正式 day1-report。',
+        },
+    }
+    detail = details.get(error_code)
+    if detail is None:
+        return None
+    return {'trace_id': trace_id, **detail}
 
 
 def _emit(payload: dict[str, Any]) -> None:
