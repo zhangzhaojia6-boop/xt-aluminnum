@@ -424,6 +424,213 @@ Hermes 工厂大脑日报
 
 ---
 
+## 0D. DevEx Review 最终开发者体验方案
+
+本轮按 `plan-devex-review` 复核后，开发者体验范围不是公开 SDK，而是 **内部实现者和 Codex 执行者如何安全、快速、可复现地把 Day-1 做出来**。
+
+通俗理解：plan 不能只写“要做什么”。它还要让下一位开发者知道第一步跑什么命令、看到什么输出算成功、失败时先查哪里。
+
+### 0D.1 产品类型和默认选择
+
+| 项 | 结论 |
+|---|---|
+| 产品类型 | Internal API/Service + CLI smoke + implementation docs |
+| 主要开发者 | 接手 Hermes Day-1 的后端实现者、Codex 子智能体、生产运维联调者 |
+| Review mode | DX POLISH |
+| Magical moment | 一条 CLI smoke 生成三段式日报，并能看到 `trace_id`、字段匹配率、落库位置 |
+| 当前 TTHW | 约 25-40 分钟，原因是环境变量、root_owner 身份、输出 skill 路径和数据库前置条件分散 |
+| 目标 TTHW | 5 分钟内完成本地预检，10 分钟内完成 fixture smoke |
+
+TTHW 是 “Time To Hello World”，这里指开发者第一次确认 Day-1 链路能跑通需要多久。
+
+### 0D.2 Developer Persona Card
+
+```text
+Who:       内部后端实现者 / Codex 执行者
+Context:   已拿到本 plan，要在现有 FastAPI + SQLAlchemy 项目里落 Hermes Day-1
+Tolerance: 5 分钟内要知道环境是否缺东西，10 分钟内要看到一次可复现 smoke
+Expects:   有明确文件清单、测试命令、fixture、错误码、回滚开关和 dry-run 路径
+```
+
+这类开发者不怕复杂业务，但怕三件事：
+
+1. 不知道先跑哪条命令。
+2. 错了只看到英文异常或空 JSON。
+3. 本地 smoke 依赖生产账号、真实钉钉、真实 `D:\输出skill`，导致无法复现。
+
+### 0D.3 Developer Empathy Narrative
+
+我接手这份 plan，先打开 README。README 能告诉我怎么启动后端和前端，但没有告诉我 Hermes Day-1 的最小本地闭环怎么跑。
+
+我继续读 plan，能看到完整架构、任务拆分、测试集合和 CLI smoke。信息很全，但第一次执行时我仍要自己拼出这些前置条件：`HERMES_DAY1_ENABLED` 要不要开、root_owner 的钉钉身份怎么模拟、`OUTPUT_SKILL_ROOT` 本机没有怎么办、数据库里没有绑定用户怎么办、CLI 失败时哪个错误是权限问题、哪个错误是数据源问题。
+
+如果我是 Codex 子智能体，我会很容易开始写服务代码，但到验收时才发现没有一个“一键预检”告诉我环境缺什么。这样会浪费时间，也可能误判系统坏了。
+
+所以 Day-1 的 DX 目标是：先给开发者一个很短的黄金路径。先预检，再 fixture smoke，再真实 `D:\输出skill` smoke，最后钉钉 dry-run。每一步都要有明确的成功输出和失败修复建议。
+
+### 0D.4 Competitive DX Benchmark
+
+| Tool / Pattern | TTHW | 可借鉴点 | 来源 |
+|---|---:|---|---|
+| Stripe API docs | 约 1-3 分钟 | 文档直接给可运行 curl，并支持 sandbox/test mode | `https://docs.stripe.com/api` |
+| Stripe Shell / API Explorer | 约 1-3 分钟 | 在工具里直接探索 API，减少环境切换 | `https://docs.stripe.com/workbench/shell` |
+| Vercel frontend cloud | 约 2-5 分钟 | 默认流程短，Git workflow 和 preview 让成功很快可见 | `https://vercel.com/blog/the-developer-experience-of-the-frontend-cloud` |
+| 本计划当前状态 | 约 25-40 分钟 | 设计完整，但首次跑通路径分散 | 当前 plan |
+| 本计划目标 | 5-10 分钟 | 预检命令 + fixture smoke + 明确错误修复 | 本节 DX tasks |
+
+本项目不是公开开发者平台，不需要追求 Stripe 那种浏览器内 sandbox。但要学它的核心原则：第一条命令就告诉开发者“能不能跑、差什么、下一步做什么”。
+
+### 0D.5 Magical Moment Specification
+
+Day-1 的开发者魔法时刻不是看一段架构图，而是看到这条命令返回稳定结果：
+
+```powershell
+$env:OUTPUT_SKILL_ROOT="backend/tests/fixtures/output_skill_daily_reports"
+$env:HERMES_DAY1_ENABLED="true"
+python backend/scripts/agent_cli.py day1-report `
+  --doctor `
+  --dingtalk-user-id dt-owner `
+  --text "生成 6月19日 root_owner 完整版三段式日报" `
+  --target-date 2026-06-19 `
+  --channel dingtalk_private `
+  --trace-id day1-doctor-20260619
+```
+
+成功输出必须类似：
+
+```json
+{
+  "ok": true,
+  "action": "day1-report-doctor",
+  "checks": {
+    "feature_flag": "ok",
+    "root_owner_identity": "ok",
+    "database": "ok",
+    "output_skill_root": "ok",
+    "mes_wms_read": "ok_or_missing_but_visible"
+  },
+  "next": "run day1-report smoke"
+}
+```
+
+这个命令不生成正式日报、不写生产数据，只做预检。它的价值是让开发者马上知道环境是否准备好。
+
+### 0D.6 Developer Journey Map
+
+| Stage | 开发者做什么 | 当前摩擦 | 本 plan 修正 |
+|---|---|---|---|
+| Discover | 打开 README 和本 plan | README 没有 Hermes Day-1 黄金路径 | 新增 Day-1 quickstart 文档任务 |
+| Install | 配 `.env`、装依赖、启动后端 | 依赖说明散在 README 和 backend requirements | quickstart 明确 PowerShell/Linux 两套命令 |
+| Hello World | 跑 CLI smoke | 缺 root_owner、输出 skill、feature flag 时要猜 | 新增 `day1-report --doctor` |
+| Real Usage | 跑真实日期 `2026-06-19` 对齐 | fixture 与真实 `D:\输出skill` 边界不够直观 | 明确 fixture smoke 先过，真实路径后过 |
+| Debug | 处理失败 | `AgentCliError` 只有错误码，不一定告诉修复方法 | Day-1 错误统一输出 cause/fix/trace_id |
+| Upgrade | 后续接 LangGraph/LangChain | 没有迁移检查点 | 保持确定性服务优先，框架替换另起后续 plan |
+
+### 0D.7 First-Time Developer Confusion Report
+
+```text
+Persona: 内部后端实现者 / Codex 执行者
+Attempting: Hermes Day-1 local smoke
+
+CONFUSION LOG:
+T+0:00  我看到 README 的快速启动，只知道怎么启动后端，不知道 Day-1 先跑哪个命令。
+T+2:00  我看到 plan 的 Task 10，有 CLI smoke，但不知道本机没有 D:\输出skill 时是否应该失败。
+T+5:00  我看到 root_owner 要钉钉身份，但不知道本地数据库没有绑定用户时该怎么模拟。
+T+8:00  我运行 agent_cli，可能只得到 dingtalk_identity_required 或 owner_required，不知道该改哪个 env。
+T+12:00 我开始读源码找 authorize 和 command parser，才知道需要新增 day1-report、权限、feature flag。
+T+25:00 我能继续实现，但没有一个预检命令告诉我“现在环境只差 OUTPUT_SKILL_ROOT”。
+```
+
+要处理的困惑：
+
+- 把 Day-1 quickstart 写成独立文档。
+- 增加 `day1-report --doctor`，先查环境，不生成日报。
+- Day-1 CLI 错误必须带 `cause` 和 `fix`。
+- fixture smoke 和真实 `D:\输出skill` smoke 分开。
+
+### 0D.8 What Already Exists
+
+| 已有 DX 资产 | 复用方式 |
+|---|---|
+| README 快速启动 | 继续作为项目级启动说明，Day-1 只补专项 quickstart |
+| `backend/scripts/agent_cli.py` | 复用为 Day-1 本地 smoke 入口 |
+| `backend/tests/test_agent_cli.py` | 扩展 Day-1 CLI、doctor、错误文案测试 |
+| `backend/tests/fixtures` | 放只读输出 skill fixture，不放真实 `D:\输出skill` 原文 |
+| `HERMES_DAY1_ENABLED` | 作为本地 smoke 和生产回滚共同门禁 |
+| `redact_secret_text()` | 复用到所有 Day-1 错误输出 |
+| `go_live_gate.sh` | 后续可把 Day-1 smoke 接入云端上线门禁 |
+
+### 0D.9 NOT In Scope
+
+| 不做 | 原因 |
+|---|---|
+| 不做公开 SDK 文档站 | Day-1 是内部生产服务，不是开放平台 |
+| 不做浏览器 playground | 本轮主入口是钉钉和 CLI，浏览器沙盒成本过高 |
+| 不要求真实钉钉发送成为本地 hello world | 本地开发应先 dry-run，真实发送放上线前验证 |
+| 不把 `D:\输出skill` 真实全文提交进 fixture | 真实值敏感，只保留脱敏字段 fixture |
+| 不把 LangGraph/LangChain 接入作为 hello world 前置条件 | Day-1 先用确定性服务跑通 |
+
+### 0D.10 DX Scorecard
+
+| Dimension | 初始 | 修正后 | 结论 |
+|---|---:|---:|---|
+| Getting Started | 5/10 | 8.5/10 | 增加 quickstart、doctor、fixture smoke 后，首次跑通路径清楚 |
+| API/CLI | 6/10 | 8.5/10 | `day1-report` 入口清楚，但还要补 `--doctor` 和错误 contract |
+| Error Messages | 7/10 | 9/10 | 已有 Error Registry，本轮补 cause/fix/trace_id 要求 |
+| Documentation | 5/10 | 8.5/10 | README 有项目启动，本轮要求新增 Day-1 专项 quickstart |
+| Upgrade Path | 6/10 | 8/10 | 已明确 LangGraph/LangChain 后续替换，不阻塞 Day-1 |
+| Dev Environment | 5/10 | 8.5/10 | fixture smoke 让本地不依赖真实 `D:\输出skill` |
+| Community/Ecosystem | 7/10 | 8/10 | 内部项目不需要公开社区，但要让 Codex/subagent 易接手 |
+| DX Measurement | 6/10 | 8.5/10 | TTHW、doctor 结果、smoke 结果进入验收 |
+
+Overall DX: `6/10 -> 8.5/10`。
+
+还没到 10/10 的原因：Day-1 不是公开开发者产品，暂不做浏览器 sandbox、完整 docs 站和自动迁移工具。
+
+### 0D.11 DX Implementation Checklist
+
+- [ ] Time to hello world：本地 doctor 5 分钟内完成。
+- [ ] 第一条 Day-1 命令能输出有意义结果，不只输出错误码。
+- [ ] `day1-report --doctor` 不写正式日报，只做预检。
+- [ ] fixture smoke 不依赖真实钉钉、不依赖真实 `D:\输出skill`。
+- [ ] 真实 `D:\输出skill` smoke 和 fixture smoke 分开。
+- [ ] 每个 Day-1 CLI 错误都有：问题、原因、修复建议、`trace_id`。
+- [ ] PowerShell 和 bash 示例都能复制执行。
+- [ ] quickstart 不写真实账号密码、token、数据库连接串。
+- [ ] CI 可以跑 fixture 测试，不要求访问生产 SQL Server。
+- [ ] 上线前手工 smoke 必须覆盖真实 `D:\输出skill` 和钉钉 dry-run。
+
+### 0D.12 DevEx Review Implementation Tasks
+
+Synthesized from `plan-devex-review`. These tasks are additions or corrections to the build plan above.
+
+- [ ] **DX1 (P1, human: ~1h / CC: ~10min)** — Quickstart — Add a Day-1 developer quickstart with one golden path.
+  - Surfaced by: Getting Started Review — README starts the whole system, but Day-1 has no focused first-run guide.
+  - Files: `docs/hermes-day1-devex-quickstart.md`, this plan
+  - Verify: guide includes PowerShell and bash commands for doctor, fixture smoke, real output-skill smoke, and rollback.
+
+- [ ] **DX2 (P1, human: ~2h / CC: ~20min)** — CLI doctor — Add `day1-report --doctor` preflight.
+  - Surfaced by: First-Time Developer Report — implementer cannot tell whether failure is feature flag, identity, DB, MES/WMS, or output skill.
+  - Files: `backend/scripts/agent_cli.py`, `backend/tests/test_agent_cli.py`, `backend/tests/test_hermes_day1_cli_dx.py`
+  - Verify: doctor returns JSON checks and does not create `DailyReport` or `AgentRun`.
+
+- [ ] **DX3 (P1, human: ~1h / CC: ~15min)** — Error contract — Make Day-1 CLI errors actionable.
+  - Surfaced by: Error Messages Review — raw `AgentCliError` codes are not enough for a first-time implementer.
+  - Files: `backend/scripts/agent_cli.py`, `backend/tests/test_hermes_day1_cli_dx.py`
+  - Verify: `dingtalk_identity_required`, `owner_required`, `hermes_day1_disabled`, `output_skill_source_missing` include `cause`, `fix`, and `trace_id`.
+
+- [ ] **DX4 (P2, human: ~1h / CC: ~10min)** — Fixture smoke — Add a local output-skill fixture path.
+  - Surfaced by: Developer Environment Review — CI and local dev cannot depend on real `D:\输出skill`.
+  - Files: `backend/tests/fixtures/output_skill_daily_reports/`, `backend/tests/test_hermes_day1_output_skill_alignment.py`
+  - Verify: fixture smoke passes without reading the real Windows folder.
+
+- [ ] **DX5 (P2, human: ~45min / CC: ~8min)** — DX measurement — Track Day-1 smoke evidence.
+  - Surfaced by: DX Measurement Review — plan has acceptance tests, but no explicit first-run time/evidence target.
+  - Files: `docs/hermes-day1-devex-quickstart.md`, `backend/tests/test_hermes_day1_cli_dx.py`
+  - Verify: quickstart records expected TTHW, success output, and failure triage table.
+
+---
+
 ## 1. 当前代码结构映射
 
 这些文件已经存在，实施时优先复用：
@@ -459,6 +666,7 @@ Day-1 新增文件：
 | `backend/app/services/hermes_day1_report_service.py` | 生成三段式日报文本 |
 | `backend/app/services/hermes_day1_orchestrator.py` | 串起 Day-1 全流程 |
 | `backend/app/services/hermes_day1_harness_service.py` | 生产成熟度评分、真实日报对齐评分、工具调用覆盖检查 |
+| `docs/hermes-day1-devex-quickstart.md` | 给开发者和 Codex 子智能体的 Day-1 首次跑通指南 |
 
 Day-1 不新增数据库表。理由很简单：现有表已经能承载第一版闭环，新增表会拖慢上线并增加迁移风险。
 
@@ -498,6 +706,7 @@ Day-1 的结果按下面方式落库：
 - [ ] 新增 `backend/tests/test_hermes_day1_orchestrator.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_harness_service.py`
 - [ ] 新增 `backend/tests/test_hermes_day1_output_skill_alignment.py`
+- [ ] 新增 `backend/tests/test_hermes_day1_cli_dx.py`
 - [ ] 扩展 `backend/tests/test_dingtalk_agent_inbound_route.py`
 - [ ] 扩展 `backend/tests/test_agent_cli.py`
 
@@ -1729,9 +1938,11 @@ def _resolve_inbound_channel_type(payload: dict[str, Any], *, group_id: str) -> 
 更新 `backend/scripts/agent_cli.py`：
 
 - `COMMAND_LEVELS` 新增 `day1-report: L3`。
+- `_parse_args()` 新增 `--doctor`，用于 Day-1 预检，不生成日报、不写 `DailyReport`、不写 `AgentRun`。
 - `_parse_args()` 不需要新增参数，复用 `--text`、`--target-date`、`--dingtalk-user-id`、`--dingtalk-union-id`。
 - `_run_with_db()` handlers 增加 `_cmd_day1_report`。
 - `_cmd_dingtalk_command()` 中遇到自然语言 Day-1 指令时调用 `_cmd_day1_report`。
+- Day-1 CLI 错误返回必须包含 `error`、`cause`、`fix`、`trace_id`，不能只返回裸错误码。
 
 CLI 接入片段：
 
@@ -1739,10 +1950,13 @@ CLI 接入片段：
 from app.services.hermes_day1_intent_service import HermesDay1Command, parse_day1_command
 from app.services.hermes_day1_orchestrator import run_day1_super_brain
 from app.services.hermes_day1_intent_service import classify_day1_actor, require_root_owner_for_day1_report
+from app.services.hermes_day1_harness_service import build_day1_doctor_checks
 ```
 
 ```python
 def _cmd_day1_report(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+    if args.doctor:
+        return _cmd_day1_report_doctor(db, args, auth)
     if not settings.HERMES_DAY1_ENABLED:
         raise AgentCliError("hermes_day1_disabled")
     text = args.text or args.query or "/日报"
@@ -1780,12 +1994,27 @@ def _cmd_day1_report(db: Session, args: argparse.Namespace, auth: HermesAuth) ->
             "report_id": result.report_id,
         },
     }
+
+
+def _cmd_day1_report_doctor(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+    checks = build_day1_doctor_checks(
+        db,
+        actor=auth.user,
+        target_date=_target_date(args),
+        output_skill_root=os.getenv("OUTPUT_SKILL_ROOT", ""),
+    )
+    return {
+        "action": "day1-report-doctor",
+        "reply": "Hermes Day-1 预检完成",
+        "trace_id": _trace_id(args),
+        "data": {"checks": checks, "next": _doctor_next_step(checks)},
+    }
 ```
 
 验证：
 
 ```bash
-python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_agent_cli.py -q
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_agent_cli.py backend/tests/test_hermes_day1_cli_dx.py -q
 ```
 
 ### Task 9: 实现生产 Harness 成熟度与真实值对齐服务
@@ -1938,6 +2167,7 @@ python -m pytest \
   backend/tests/test_hermes_day1_orchestrator.py \
   backend/tests/test_hermes_day1_harness_service.py \
   backend/tests/test_hermes_day1_output_skill_alignment.py \
+  backend/tests/test_hermes_day1_cli_dx.py \
   backend/tests/test_dingtalk_agent_inbound_route.py \
   backend/tests/test_agent_cli.py \
   -q
@@ -1963,6 +2193,14 @@ python -m pytest \
 
 ```bash
 set OUTPUT_SKILL_ROOT=D:\输出skill
+python backend/scripts/agent_cli.py day1-report \
+  --doctor \
+  --dingtalk-user-id dt-owner \
+  --text "生成 6月19日 root_owner 完整版三段式日报" \
+  --target-date 2026-06-19 \
+  --channel dingtalk_private \
+  --trace-id day1-doctor-20260619
+
 python backend/scripts/agent_cli.py day1-report \
   --dingtalk-user-id dt-owner \
   --text "生成 6月19日 root_owner 完整版三段式日报" \
@@ -1994,6 +2232,8 @@ python backend/scripts/agent_cli.py day1-report \
 验收点：
 
 - 返回文本包含 `工厂大脑判断单`、`正式日报正文`、`各车间明细`。
+- `day1-report --doctor` 能在不写日报的情况下说明环境是否 ready。
+- CLI 错误包含 `cause`、`fix`、`trace_id`，新开发者知道下一步改什么。
 - 钉钉第一条消息包含日期、状态、字段匹配率、判断摘要和 `trace_id`。
 - 长日报拆分后，每条消息有 `[1/3]` 这类序号，且不会拆断一个车间段落。
 - 钉钉消息里不出现原始 JSON、`None`、`null`、空数组。
@@ -2343,6 +2583,9 @@ Synthesized from `plan-eng-review`. These tasks are additions or corrections to 
 - [ ] 冲突进入判断单。
 - [ ] 成长反馈进入 `hermes_learning_events`。
 - [ ] 审计日志能查到本次任务。
+- [ ] Day-1 quickstart 能让开发者先跑 doctor，再跑 fixture smoke，再跑真实 `D:\输出skill` smoke。
+- [ ] `day1-report --doctor` 不写正式日报，只输出预检状态和下一步。
+- [ ] Day-1 CLI 错误包含 `cause`、`fix`、`trace_id`。
 - [ ] 相关 pytest 通过。
 
 ---
@@ -2356,7 +2599,7 @@ Synthesized from `plan-eng-review`. These tasks are additions or corrections to 
 5. Task 5：做多源收集。
 6. Task 6：做三段式生成，同时完成 `0C.9` 的 D1-D4 钉钉输出体验任务。
 7. Task 7：做 orchestrator。
-8. Task 8：接钉钉和 CLI。
+8. Task 8：接钉钉和 CLI，同时完成 `0D.12` 的 DX1-DX5 开发者体验任务。
 9. Task 9：做 harness。
 10. Task 10：跑验收。
 
@@ -2374,6 +2617,8 @@ Synthesized from `plan-eng-review`. These tasks are additions or corrections to 
 - 钉钉文本/文件能按 fact/explanation/instruction/noise 分类，业务证据能入库。
 - `DailyReport`、`AgentRun`、`HermesLearningEvent`、`AuditLog` 都有记录。
 - `HERMES_DAY1_ENABLED` 支持一键关闭 Day-1。
+- 本地开发者能按 Day-1 quickstart 在 5 分钟内完成 doctor，在 10 分钟内完成 fixture smoke。
+- CLI 失败时能直接看到原因和修复建议，而不是只看到内部错误码。
 - 相关测试通过。
 - 没有把 `鑫泰铝业 数据中枢` 叫成 MES。
 - 没有泄露任何真实账号密码或 token。
@@ -2417,7 +2662,7 @@ Synthesized from `plan-ceo-review`. These tasks are additions or corrections to 
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | not run | Outside voice not run in this pass |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 5 issues converted to tasks; 0 critical gaps after adding production Harness, state graph, tool whitelist, output skill alignment |
 | Design Review | `/plan-design-review` | DingTalk output UX | 1 | CLEAR | Day-1 score raised from 5/10 to 9/10; added first-screen hierarchy, state copy, long-report chunking, workshop detail layout, and message design tests |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | not run | Not required for this backend-first plan |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 1 | CLEAR | score: 6/10 -> 8.5/10, TTHW: 25-40min -> 5-10min, added quickstart, doctor, fixture smoke, and actionable CLI errors |
 
 - **UNRESOLVED:** 0
-- **VERDICT:** CEO + ENG + DESIGN CLEARED — ready for implementation of the production service layer.
+- **VERDICT:** CEO + ENG + DESIGN + DX CLEARED — ready for implementation of the production service layer.
