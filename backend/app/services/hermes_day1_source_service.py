@@ -180,14 +180,7 @@ def _persisted_failed_audit_payload(
     run = db.get(HermesDataAuditRun, run_id) if run_id is not None else None
     if run is not None and run.business_date == business_date:
         return _audit_run_payload(run)
-    run = (
-        db.query(HermesDataAuditRun)
-        .filter(HermesDataAuditRun.business_date == business_date)
-        .filter(HermesDataAuditRun.status == 'failed')
-        .order_by(HermesDataAuditRun.id.desc())
-        .first()
-    )
-    return _audit_run_payload(run) if run is not None else None
+    return None
 
 
 def _audit_run_id_from_error(exc: NoComparableDataError) -> int | None:

@@ -212,6 +212,36 @@ def test_collect_day1_sources_reads_mes_once_when_audit_reads_sources(monkeypatc
     ]
 
 
+def test_preloaded_mes_read_service_rejects_mismatched_request() -> None:
+    service = _source_service()
+    reader = service._PreloadedMesReadService(
+        {'records': {'stock_records': []}},
+        business_date=date(2026, 6, 21),
+        query_keys=service.DAY1_MES_QUERY_KEYS,
+    )
+
+    try:
+        reader.read_sources(
+            business_date=date(2026, 6, 20),
+            query_keys=service.DAY1_MES_QUERY_KEYS,
+        )
+        wrong_date_error = None
+    except ValueError as exc:
+        wrong_date_error = str(exc)
+
+    try:
+        reader.read_sources(
+            business_date=date(2026, 6, 21),
+            query_keys=('stock_records',),
+        )
+        wrong_keys_error = None
+    except ValueError as exc:
+        wrong_keys_error = str(exc)
+
+    assert wrong_date_error == 'preloaded_mes_payload_mismatch'
+    assert wrong_keys_error == 'preloaded_mes_payload_mismatch'
+
+
 def test_collect_day1_sources_filters_dingtalk_evidence_for_target_daily_sample(monkeypatch) -> None:
     service = _source_service()
     db = _db_session()
@@ -396,6 +426,52 @@ def test_collect_day1_sources_preserves_failed_audit_run_for_no_comparable_data(
     }
 
 
+def test_collect_day1_sources_does_not_guess_failed_audit_run_without_error_run_id(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    business_date = date(2026, 6, 21)
+    existing_run = HermesDataAuditRun(
+        run_key='unrelated-run',
+        business_date=business_date,
+        status='failed',
+        source_status={'mes': 'failed'},
+        source_errors={'mes': 'unrelated'},
+        mes_snapshot={},
+        hub_snapshot={},
+        output_skill_snapshot={'status': 'missing'},
+        diffs={'unrelated': {'status': 'failed'}},
+        suggested_actions=[],
+    )
+    db.add(existing_run)
+    db.commit()
+
+    class _AuditServiceFake:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_run(self, **kwargs):
+            raise service.NoComparableDataError('No comparable data')
+
+    _patch_collect_dependencies(monkeypatch, service)
+    monkeypatch.setattr(service, 'HermesDataAuditService', _AuditServiceFake)
+
+    try:
+        payload = service.collect_day1_sources(
+            db,
+            business_date=business_date,
+            actor=None,
+            trace_id='trace-day1-001',
+        )
+    finally:
+        db.close()
+
+    audit_payload = payload['audit_run']
+    assert audit_payload['id'] is None
+    assert audit_payload['status'] == 'failed'
+    assert audit_payload['source_status'] == {'audit': 'failed'}
+    assert audit_payload['diffs'] == {}
+
+
 def test_collect_day1_sources_returns_failed_rag_payload_with_redacted_error(monkeypatch) -> None:
     service = _source_service()
     db = _db_session()
@@ -478,6 +554,59 @@ def test_collect_day1_sources_lists_relevant_chat_messages_with_cap(monkeypatch)
         'trace_id',
         'created_at',
     }
+
+
+def test_collect_day1_sources_accepts_realistic_dingtalk_channels_only(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    business_date = date(2026, 6, 21)
+    _patch_collect_dependencies(monkeypatch, service)
+    db.add_all(
+        [
+            ChatInboxMessage(
+                channel='dingtalk_private',
+                group_id=None,
+                sender_external_id='private-user',
+                text='私聊日报信息',
+                trace_id='trace-private',
+                source_payload={'business_date': '2026-06-21'},
+                created_at=datetime(2026, 6, 21, 8, 1, tzinfo=timezone.utc),
+            ),
+            ChatInboxMessage(
+                channel='dingtalk_group',
+                group_id='group-001',
+                sender_external_id='group-user',
+                text='群日报信息',
+                trace_id='trace-group',
+                source_payload={'business_date': '2026-06-21'},
+                created_at=datetime(2026, 6, 21, 8, 2, tzinfo=timezone.utc),
+            ),
+            ChatInboxMessage(
+                channel='private',
+                group_id='private-group',
+                sender_external_id='private-noise',
+                text='非钉钉通道不能返回',
+                trace_id='trace-private-noise',
+                source_payload={'business_date': '2026-06-21'},
+                created_at=datetime(2026, 6, 21, 8, 3, tzinfo=timezone.utc),
+            ),
+        ]
+    )
+    db.commit()
+
+    try:
+        payload = service.collect_day1_sources(
+            db,
+            business_date=business_date,
+            actor=None,
+            trace_id='trace-missing',
+        )
+    finally:
+        db.close()
+
+    messages = payload['dingtalk_messages']
+    assert {item['channel'] for item in messages} == {'dingtalk_private', 'dingtalk_group'}
+    assert {item['text'] for item in messages} == {'私聊日报信息', '群日报信息'}
 
 
 def test_collect_day1_sources_does_not_return_unmatched_recent_chat_messages(monkeypatch) -> None:
