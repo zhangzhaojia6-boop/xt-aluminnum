@@ -29,6 +29,7 @@ def record_evidence(
     recognized_text: str | None = None,
     confirmation_status: str = 'machine_only',
     payload: dict | None = None,
+    commit: bool = True,
 ) -> MultimodalEvidence:
     clean_type = str(evidence_type or '').strip().lower()
     if clean_type not in SUPPORTED_EVIDENCE_TYPES:
@@ -47,8 +48,11 @@ def record_evidence(
         payload=safe_payload,
     )
     db.add(evidence)
-    db.commit()
-    db.refresh(evidence)
+    if commit:
+        db.commit()
+        db.refresh(evidence)
+    else:
+        db.flush()
     return evidence
 
 

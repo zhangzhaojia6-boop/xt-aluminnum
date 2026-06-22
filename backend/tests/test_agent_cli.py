@@ -119,6 +119,43 @@ def test_agent_cli_allowed_user_cannot_run_owner_command(tmp_path, monkeypatch, 
         get_sessionmaker.cache_clear()
 
 
+def test_agent_cli_keeps_name_owner_fallback_for_existing_commands(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.delenv('HERMES_OWNER_DINGTALK_USER_IDS', raising=False)
+    monkeypatch.delenv('HERMES_ALLOWED_DINGTALK_USER_IDS', raising=False)
+    monkeypatch.setattr(agent_cli.settings, 'APP_ENV', 'production', raising=False)
+    try:
+        db.add(
+            User(
+                id=30,
+                username='name-owner',
+                password_hash='x',
+                name='张兆嘉',
+                role='admin',
+                is_active=True,
+                dingtalk_user_id='dt-name-owner',
+            )
+        )
+        db.commit()
+
+        code, payload = _run_cli(
+            [
+                'rag-rebuild-index',
+                '--dingtalk-user-id',
+                'dt-name-owner',
+            ],
+            capsys,
+        )
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'rag-rebuild-index'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
 def test_agent_cli_ingests_safe_system_understanding_copy(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
@@ -196,6 +233,101 @@ def test_dingtalk_daily_report_outputs_finished_text(tmp_path, monkeypatch, caps
         assert payload['data']['status'] == 'ready'
         assert payload['data']['sent'] is False
         assert payload['data']['scheduled_at'] == '07:30'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_slash_daily_report_with_date_stays_on_legacy_path(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    seen: dict[str, str] = {}
+
+    def fake_build_daily_report_product(*_args, **_kwargs):
+        seen['legacy_path'] = 'yes'
+        return {
+            'status': 'ready',
+            'business_date': '2026-06-19',
+            'report_id': 99,
+            'text': '6月19日，车间总产量日合计305吨。',
+            'missing_fields': [],
+            'conflicts': [],
+            'scheduled_at': '07:30',
+        }
+
+    def fail_day1_report(*_args, **_kwargs):
+        raise AssertionError('slash /日报 不应该走 day1-report')
+
+    monkeypatch.setattr(agent_cli.daily_report_task, 'build_daily_report_product', fake_build_daily_report_product)
+    monkeypatch.setattr(agent_cli, '_cmd_day1_report', fail_day1_report)
+    try:
+        db.add(User(id=42, username='zzj-legacy-report', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '/日报 2026-06-19',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'hermes-test',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'daily-report'
+        assert payload['data']['business_date'] == '2026-06-19'
+        assert seen['legacy_path'] == 'yes'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_command_natural_language_day1_routes_to_day1_report(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    seen: dict[str, str] = {}
+
+    def fake_day1_report(_db, args, auth, **_kwargs):
+        seen['text'] = args.text
+        seen['user'] = auth.user.dingtalk_user_id
+        return {
+            'action': 'day1-report',
+            'reply': '6月19日正式日报正文',
+            'trace_id': 'trace-day1-route-001',
+            'data': {
+                'status': 'ready',
+                'agent_run_id': 21,
+                'report_id': 11,
+                'chat_inbox_id': 7,
+                'message_count': 2,
+            },
+        }
+
+    monkeypatch.setattr(agent_cli, '_cmd_day1_report', fake_day1_report)
+    try:
+        db.add(User(id=41, username='zzj-day1', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '生成 6月19日正式日报',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--trace-id',
+            'trace-day1-route-001',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'day1-report'
+        assert payload['reply'] == '6月19日正式日报正文'
+        assert payload['data']['status'] == 'ready'
+        assert seen == {'text': '生成 6月19日正式日报', 'user': 'dt-owner'}
     finally:
         db.close()
         get_engine.cache_clear()

@@ -202,6 +202,7 @@ class Settings(BaseSettings):
     HERMES_ALLOWED_DINGTALK_USER_IDS: str = ''
     HERMES_ALLOWED_GROUP_IDS: str = ''
     HERMES_OPS_ENABLED: bool = False
+    HERMES_DAY1_ENABLED: bool = False
     APP_CONNECTION_ENABLED: bool = False
     APP_CONNECTION_API_BASE: str | None = None
     APP_CONNECTION_API_KEY: str | None = None
@@ -286,6 +287,10 @@ class Settings(BaseSettings):
     @property
     def hermes_allowed_group_ids(self) -> set[str]:
         return set(_parse_csv_values(self.HERMES_ALLOWED_GROUP_IDS))
+
+    @property
+    def hermes_day1_enabled(self) -> bool:
+        return bool(self.HERMES_DAY1_ENABLED)
 
     @property
     def mobile_data_entry_mode_normalized(self) -> str:
