@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.redaction import filter_sensitive_mapping
-from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
+from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.report import template_daily_report
 
@@ -68,6 +68,7 @@ def build_daily_fact_bundle(
         template_facts=template_facts,
         trace_id=trace_id,
     )
+    bundle = _apply_root_owner_corrections(db, bundle=bundle, business_date=business_date)
     if persist_run or snapshot_reason:
         _persist_bundle(
             db,
@@ -231,6 +232,86 @@ def _persist_bundle(
         db.add(snapshot)
         db.flush()
     return run, snapshot
+
+
+def _apply_root_owner_corrections(
+    db: Session,
+    *,
+    bundle: dict[str, Any],
+    business_date: date,
+) -> dict[str, Any]:
+    corrections = (
+        db.query(DailyFactCorrection)
+        .filter(DailyFactCorrection.business_date == business_date)
+        .filter(DailyFactCorrection.status == "active")
+        .order_by(DailyFactCorrection.created_at.asc(), DailyFactCorrection.id.asc())
+        .all()
+    )
+    if not corrections:
+        return bundle
+
+    facts = dict(bundle.get("facts") or {})
+    conflicts = list(bundle.get("conflicts") or [])
+    correction_refs = list(bundle.get("correction_refs") or [])
+
+    for row in corrections:
+        field_name = str(row.field_name)
+        old_fact = facts.get(field_name)
+        old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
+        old_source = None
+        old_unit = None
+        if isinstance(old_fact, Mapping):
+            old_source = old_fact.get("source_type") or old_fact.get("source")
+            old_unit = old_fact.get("unit")
+
+        new_value = None
+        if isinstance(row.value_payload, Mapping):
+            new_value = row.value_payload.get("value")
+        new_unit = row.unit or old_unit
+        source_detail = {
+            "source": "root_owner_correction",
+            "correction_id": row.id,
+            "actor_user_id": row.actor_user_id,
+            "trace_id": row.trace_id,
+            "source_text": row.source_text,
+            "business_date": business_date,
+        }
+        facts[field_name] = _fact_item(
+            value=new_value,
+            unit=new_unit,
+            source="root_owner_correction",
+            source_type="root_owner_correction",
+            priority=100,
+            freshness="confirmed",
+            confidence=1.0,
+            adoption_reason=row.reason,
+            source_detail=source_detail,
+            source_ref=source_detail,
+        )
+        correction_refs.append(
+            {
+                "id": row.id,
+                "field_name": field_name,
+                "trace_id": row.trace_id,
+            }
+        )
+        if old_value != new_value:
+            conflicts.append(
+                {
+                    "field": field_name,
+                    "type": "root_owner_correction",
+                    "adopted_source": "root_owner_correction",
+                    "previous_source": old_source,
+                    "previous_value": old_value,
+                    "adopted_value": new_value,
+                    "reason": row.reason,
+                }
+            )
+
+    bundle["facts"] = facts
+    bundle["conflicts"] = conflicts
+    bundle["correction_refs"] = correction_refs
+    return _refresh_bundle_metadata(bundle)
 
 
 def _confidence_percent(value: Any) -> int | None:

@@ -127,6 +127,91 @@ def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Se
     assert bundle["conflicts"] == []
 
 
+def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: Session) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        assert target_date == date(2026, 6, 19)
+        return {
+            "values": {"total_output_daily": 355},
+            "sources": {"total_output_daily": "mes_packaging_output"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        User(
+            id=983,
+            username="root_owner",
+            password_hash="hashed",
+            name="root_owner",
+            role="admin",
+        )
+    )
+    db_session.flush()
+    db_session.add(
+        DailyFactCorrection(
+            business_date=date(2026, 6, 19),
+            field_name="total_output_daily",
+            value_payload={"value": 366},
+            unit="吨",
+            source_text="6月19日车间总产量改成366吨，直接按这个发。",
+            before_value={"value": 355, "source": "mes_packaging_output"},
+            reason="root_owner 钉钉确认",
+            actor_user_id=983,
+            trace_id="trace-root-owner-correction",
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["value"] == 366
+    assert fact["source"] == "root_owner_correction"
+    assert fact["source_type"] == "root_owner_correction"
+    assert fact["priority"] == 100
+    assert fact["confidence"] == 1.0
+    assert fact["freshness"] == "confirmed"
+    assert fact["adoption_reason"] == "root_owner 钉钉确认"
+    assert fact["source_detail"] == {
+        "source": "root_owner_correction",
+        "correction_id": 1,
+        "actor_user_id": 983,
+        "trace_id": "trace-root-owner-correction",
+        "source_text": "6月19日车间总产量改成366吨，直接按这个发。",
+        "business_date": "2026-06-19",
+    }
+    assert fact["source_ref"] == {
+        "source": "root_owner_correction",
+        "correction_id": 1,
+        "actor_user_id": 983,
+        "trace_id": "trace-root-owner-correction",
+        "source_text": "6月19日车间总产量改成366吨，直接按这个发。",
+        "business_date": "2026-06-19",
+    }
+    assert bundle["sources"]["total_output_daily"]["source"] == "root_owner_correction"
+    assert bundle["correction_refs"] == [
+        {"id": 1, "field_name": "total_output_daily", "trace_id": "trace-root-owner-correction"}
+    ]
+    assert bundle["conflicts"][0] == {
+        "field": "total_output_daily",
+        "type": "root_owner_correction",
+        "adopted_source": "root_owner_correction",
+        "previous_source": "mes_packaging_output",
+        "previous_value": 355,
+        "adopted_value": 366,
+        "reason": "root_owner 钉钉确认",
+    }
+    assert bundle["confidence"] == 1.0
+    assert bundle["status"] == "partial"
+
+
 def test_build_daily_fact_bundle_reuses_existing_run_for_same_run_key(
     monkeypatch,
     db_session: Session,
