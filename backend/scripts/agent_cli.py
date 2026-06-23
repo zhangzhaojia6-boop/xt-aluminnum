@@ -36,11 +36,13 @@ from app.services import agent_designated_operation_service, hermes_governance_s
 from app.services.agent_command_service import handle_agent_command
 from app.services.hermes_day1_intent_service import (
     Day1CommandParseError,
+    HermesDay1Command,
     classify_day1_actor,
     parse_day1_command,
     require_root_owner_for_day1_report,
 )
 from app.services.hermes_day1_orchestrator import run_day1_super_brain
+from app.services.hermes_intent_service import parse_hermes_intent
 from app.services.rag_service import query_knowledge
 from app.tasks import daily_report as daily_report_task
 from app.tasks import mes_sync
@@ -239,6 +241,19 @@ def _cmd_dingtalk_command(db: Session, args: argparse.Namespace, auth: HermesAut
     is_slash = text.startswith('/')
     is_direct = is_slash or _is_direct_dingtalk_mention(args.text)
     command, rest = _split_slash_command(text) if is_slash or is_direct else ('', '')
+
+    if not is_slash:
+        flexible_intent = parse_hermes_intent(text, default_year=_day1_default_year(args))
+        business_date_text = flexible_intent.get('business_date')
+        if flexible_intent.get('intent') == 'daily_report' and business_date_text:
+            day1_command = HermesDay1Command(
+                source_text=text,
+                business_date=date.fromisoformat(str(business_date_text)),
+                report_type='daily_report',
+                audience=str(flexible_intent.get('audience') or 'root_owner'),
+                output_format='three_part',
+            )
+            return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
 
     if _is_natural_language_day1_text(text):
         try:

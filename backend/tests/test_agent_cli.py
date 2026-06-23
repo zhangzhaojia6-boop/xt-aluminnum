@@ -334,6 +334,54 @@ def test_dingtalk_command_natural_language_day1_routes_to_day1_report(tmp_path, 
         get_sessionmaker.cache_clear()
 
 
+def test_dingtalk_command_flexible_final_report_text_routes_to_day1(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    monkeypatch.setenv('HERMES_DAY1_ENABLED', 'true')
+    seen: dict[str, str] = {}
+
+    def fake_day1_report(_db, args, auth, **kwargs):
+        parsed_command = kwargs['parsed_command']
+        seen['text'] = args.text
+        seen['user'] = auth.user.dingtalk_user_id
+        seen['business_date'] = parsed_command.business_date.isoformat()
+        return {
+            'action': 'day1-report',
+            'reply': 'flexible day1 ok',
+            'trace_id': 'trace-flexible-day1',
+            'data': {'business_date': '2026-06-19'},
+        }
+
+    monkeypatch.setattr(agent_cli, '_cmd_day1_report', fake_day1_report)
+    try:
+        db.add(User(id=983, username='zzj-flexible-day1', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '6月19日按最终口径重新来一版',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--trace-id',
+            'trace-flexible-day1',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'day1-report'
+        assert payload['data']['business_date'] == '2026-06-19'
+        assert seen == {
+            'text': '6月19日按最终口径重新来一版',
+            'user': 'dt-owner',
+            'business_date': '2026-06-19',
+        }
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
 def test_dingtalk_command_records_unrelated_group_chat_without_reply(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
