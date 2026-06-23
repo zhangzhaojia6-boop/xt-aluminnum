@@ -24,6 +24,7 @@ from app.services.hermes_data_audit_service import (
 from app.services.hermes_day1_harness_service import build_output_skill_alignment
 from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.rag_service import query_knowledge
+from app.services.report.daily_fact_bundle import build_daily_fact_bundle
 from app.services.report import template_daily_report
 
 
@@ -69,6 +70,14 @@ def collect_day1_sources(
     trace_id: str,
 ) -> dict[str, Any]:
     template_payload = template_daily_report.build_template_daily_report_payload(db, target_date=business_date)
+    daily_fact_payload = build_daily_fact_bundle(
+        db,
+        business_date=business_date,
+        requested_by=actor,
+        trace_id=trace_id,
+        persist_run=True,
+        snapshot_reason=None,
+    )
     mes_reader = HermesMesReadService(get_mes_adapter())
     mes_payload = mes_reader.read_sources(
         business_date=business_date,
@@ -86,16 +95,19 @@ def collect_day1_sources(
         template_payload=template_payload,
     )
     rag_payload = _query_day1_rag(db, business_date=business_date, actor=actor)
-    output_skill_alignment = build_output_skill_alignment(
-        str(template_payload.get('text') or ''),
-        _output_skill_reference_root(),
-        business_date,
-    )
+    output_skill_alignment = daily_fact_payload.get('output_skill_alignment')
+    if not output_skill_alignment:
+        output_skill_alignment = build_output_skill_alignment(
+            str(template_payload.get('text') or ''),
+            _output_skill_reference_root(),
+            business_date,
+        )
 
     return {
         'trace_id': trace_id,
         'business_date': business_date.isoformat(),
         'template_daily_report': template_payload,
+        'daily_fact_bundle': daily_fact_payload,
         'mes_wms': mes_payload,
         'audit_run': audit_payload,
         'dingtalk_evidence': _list_dingtalk_evidence(db, business_date=business_date),
@@ -145,7 +157,7 @@ def _create_audit_payload(
     *,
     business_date: date,
     actor: User | None,
-    mes_reader: HermesMesReadService,
+    mes_reader: Any,
     template_payload: Mapping[str, Any],
 ) -> dict[str, Any]:
     try:

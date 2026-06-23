@@ -22,6 +22,7 @@ from app.services.hermes_governance_service import FACTORY_PROFILE_CODE
 
 DAY1_TOOLS_CALLED = [
     'template_daily_report',
+    'daily_fact_bundle',
     'mes_wms_read',
     'hermes_data_audit',
     'dingtalk_evidence_scan',
@@ -297,6 +298,7 @@ def _command_raw_text(command: HermesDay1Command) -> str:
 
 def _source_summary(sources: dict[str, Any]) -> dict[str, Any]:
     template = _as_mapping(sources.get('template_daily_report'))
+    daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
     mes_wms = _as_mapping(sources.get('mes_wms'))
     audit = _as_mapping(sources.get('audit_run'))
     rag = _as_mapping(sources.get('rag'))
@@ -307,6 +309,14 @@ def _source_summary(sources: dict[str, Any]) -> dict[str, Any]:
             'status': _summary_safe(template.get('status')),
             'missing_count': len(template.get('missing_fields') or []),
             'conflict_count': len(template.get('conflicts') or []),
+        },
+        'daily_fact_bundle': {
+            'status': _summary_safe(daily_fact_bundle.get('status')),
+            'missing_count': len(daily_fact_bundle.get('missing_fields') or daily_fact_bundle.get('missing') or []),
+            'conflict_count': len(daily_fact_bundle.get('conflicts') or []),
+            'fact_count': len(_as_mapping(daily_fact_bundle.get('facts'))),
+            'correction_ref_count': len(daily_fact_bundle.get('correction_refs') or []),
+            'dingtalk_ref_count': len(daily_fact_bundle.get('dingtalk_refs') or []),
         },
         'mes_wms': {
             'status': _source_status(mes_wms),
@@ -399,7 +409,7 @@ def _learning_sources(sources: dict[str, Any]) -> list[dict[str, Any]]:
     for name, payload in sources.items():
         if name in {'trace_id', 'business_date'}:
             continue
-        item = {'name': str(name), 'status': _source_status(payload)}
+        item: dict[str, Any] = {'name': str(name), 'status': _source_status(payload)}
         if isinstance(payload, Mapping):
             citations = payload.get('citations')
             records = payload.get('records')

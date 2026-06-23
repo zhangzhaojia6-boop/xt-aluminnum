@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -25,12 +26,32 @@ def _db_session():
     return Session()
 
 
+def _daily_fact_bundle_payload(
+    business_date: date,
+    *,
+    output_skill_alignment: dict | None = None,
+) -> dict:
+    return {
+        'business_date': business_date.isoformat(),
+        'status': 'ready',
+        'facts': {'total_output_daily': {'value': 366, 'source': 'root_owner_correction'}},
+        'missing_fields': [],
+        'missing': [],
+        'conflicts': [],
+        'correction_refs': [],
+        'dingtalk_refs': [],
+        'output_skill_alignment': output_skill_alignment
+        if output_skill_alignment is not None
+        else {'status': 'passed', 'field_match_rate': 100.0},
+    }
+
+
 def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services(monkeypatch) -> None:
     service = _source_service()
     db = _db_session()
     business_date = date(2026, 6, 21)
     actor = SimpleNamespace(id=23)
-    calls: dict[str, object] = {}
+    calls: dict[str, Any] = {}
 
     template_payload = {
         'status': 'ready',
@@ -42,6 +63,7 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         'source_status': {'mes': 'empty', 'sources': {}},
         'source_errors': {},
     }
+    daily_fact_payload = _daily_fact_bundle_payload(business_date)
 
     class _MesReaderFake:
         def __init__(self, adapter) -> None:
@@ -76,11 +98,21 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         calls['rag'] = {'db': db_arg, **kwargs}
         return {'answer': 'ok', 'citations': [{'source_ref': 'doc#1'}], 'items': [{'debug': 'drop'}]}
 
+    def _build_daily_fact_bundle(db_arg, **kwargs):
+        calls['daily_fact_bundle'] = {'db': db_arg, **kwargs}
+        return daily_fact_payload
+
     monkeypatch.setattr(service.template_daily_report, 'build_template_daily_report_payload', _build_template)
+    monkeypatch.setattr(service, 'build_daily_fact_bundle', _build_daily_fact_bundle)
     monkeypatch.setattr(service, 'get_mes_adapter', lambda: 'adapter')
     monkeypatch.setattr(service, 'HermesMesReadService', _MesReaderFake)
     monkeypatch.setattr(service, 'HermesDataAuditService', _AuditServiceFake)
     monkeypatch.setattr(service, 'query_knowledge', _query_knowledge)
+    monkeypatch.setattr(
+        service,
+        'build_output_skill_alignment',
+        lambda *args, **kwargs: {'status': 'fallback_should_not_run'},
+    )
 
     try:
         payload = service.collect_day1_sources(
@@ -96,6 +128,7 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         'trace_id',
         'business_date',
         'template_daily_report',
+        'daily_fact_bundle',
         'mes_wms',
         'audit_run',
         'dingtalk_evidence',
@@ -107,10 +140,11 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
     assert payload['trace_id'] == 'trace-day1-001'
     assert payload['business_date'] == '2026-06-21'
     assert payload['template_daily_report'] == template_payload
+    assert payload['daily_fact_bundle'] == daily_fact_payload
     assert payload['mes_wms'] == mes_payload
     assert payload['audit_run']['id'] == 7
     assert payload['rag'] == {'answer': 'ok', 'citations': [{'source_ref': 'doc#1'}]}
-    assert payload['output_skill_alignment']['status'] == 'missing'
+    assert payload['output_skill_alignment'] == {'status': 'passed', 'field_match_rate': 100.0}
 
     assert service.DAY1_MES_QUERY_KEYS == (
         'workshop_process_records',
@@ -122,6 +156,14 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         'wip_totals',
     )
     assert calls['template'] == {'db': db, 'target_date': business_date}
+    assert calls['daily_fact_bundle'] == {
+        'db': db,
+        'business_date': business_date,
+        'requested_by': actor,
+        'trace_id': 'trace-day1-001',
+        'persist_run': True,
+        'snapshot_reason': None,
+    }
     assert calls['mes_adapter'] == 'adapter'
     assert calls['mes_read_sources'] == {
         'business_date': business_date,
@@ -145,6 +187,31 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         'limit': 5,
         'user': actor,
     }
+
+
+def test_collect_day1_sources_includes_daily_fact_bundle(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    business_date = date(2026, 6, 21)
+    _patch_collect_dependencies(monkeypatch, service)
+    monkeypatch.setattr(
+        service,
+        'build_output_skill_alignment',
+        lambda *args, **kwargs: {'status': 'fallback_missing'},
+    )
+
+    try:
+        payload = service.collect_day1_sources(
+            db,
+            business_date=business_date,
+            actor=None,
+            trace_id='trace-day1-001',
+        )
+    finally:
+        db.close()
+
+    assert payload['daily_fact_bundle'] == _daily_fact_bundle_payload(business_date)
+    assert payload['output_skill_alignment'] == {'status': 'passed', 'field_match_rate': 100.0}
 
 
 def test_collect_day1_sources_reads_mes_once_when_audit_reads_sources(monkeypatch) -> None:
@@ -711,6 +778,13 @@ def test_collect_day1_sources_returns_output_skill_alignment_when_reference_root
     monkeypatch.setenv('OUTPUT_SKILL_REFERENCE_ROOT', str(fixture_dir))
     monkeypatch.delenv('OUTPUT_SKILL_ROOT', raising=False)
     monkeypatch.setattr(
+        service,
+        'build_daily_fact_bundle',
+        lambda db, *, business_date, requested_by=None, trace_id=None, persist_run=False, snapshot_reason=None: (
+            _daily_fact_bundle_payload(business_date, output_skill_alignment={})
+        ),
+    )
+    monkeypatch.setattr(
         service.template_daily_report,
         'build_template_daily_report_payload',
         lambda db, *, target_date: {'status': 'ready', 'text': fixture_text, 'facts': {'values': {}}},
@@ -773,6 +847,13 @@ def _patch_collect_dependencies(monkeypatch, service) -> None:
         service.template_daily_report,
         'build_template_daily_report_payload',
         lambda db, *, target_date: {'status': 'ready', 'facts': {'values': {}}},
+    )
+    monkeypatch.setattr(
+        service,
+        'build_daily_fact_bundle',
+        lambda db, *, business_date, requested_by=None, trace_id=None, persist_run=False, snapshot_reason=None: (
+            _daily_fact_bundle_payload(business_date)
+        ),
     )
     monkeypatch.setattr(service, 'get_mes_adapter', lambda: 'adapter')
     monkeypatch.setattr(service, 'HermesMesReadService', _MesReaderFake)

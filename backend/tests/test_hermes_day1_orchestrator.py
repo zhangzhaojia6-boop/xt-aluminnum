@@ -55,6 +55,16 @@ def _sources() -> dict[str, Any]:
         'trace_id': 'trace-day1-001',
         'business_date': BUSINESS_DATE.isoformat(),
         'template_daily_report': {'status': 'ready', 'text': '模板日报正文'},
+        'daily_fact_bundle': {
+            'business_date': BUSINESS_DATE.isoformat(),
+            'status': 'ready',
+            'facts': {'total_output_daily': {'value': 366, 'source': 'root_owner_correction'}},
+            'missing_fields': [],
+            'missing': [],
+            'conflicts': [],
+            'correction_refs': [{'id': 1, 'field_name': 'total_output_daily'}],
+            'dingtalk_refs': [{'id': 2, 'field_names': ['total_output_daily']}],
+        },
         'mes_wms': {'source_status': {'mes': 'ok'}, 'records': {'summary': [{'field': 'total_output'}]}},
         'audit_run': {'status': 'completed', 'match_rate': 0.99, 'source_status': {'mes': 'ok', 'hub': 'ok'}},
         'dingtalk_evidence': [],
@@ -370,6 +380,14 @@ def test_chat_inbox_rag_count_command_summary_and_reply_metadata_are_recorded(mo
         assert reply['first_message_chars'] == len('第一条回复')
         assert payload['sources']['trace_id'] == 'trace-day1-001'
         assert payload['sources']['template_daily_report']['status'] == 'ready'
+        assert payload['sources']['daily_fact_bundle'] == {
+            'status': 'ready',
+            'missing_count': 0,
+            'conflict_count': 0,
+            'fact_count': 1,
+            'correction_ref_count': 1,
+            'dingtalk_ref_count': 1,
+        }
         assert payload['sources']['mes_wms']['record_groups'] == 1
         assert payload['sources']['audit_run']['match_rate'] == 0.99
         assert payload['sources']['rag']['citation_count'] == 2
@@ -436,6 +454,14 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
         assert long_chat_text not in payload_text
         assert summary['trace_id'] == 'trace-day1-001'
         assert summary['business_date'] == BUSINESS_DATE.isoformat()
+        assert summary['daily_fact_bundle'] == {
+            'status': 'ready',
+            'missing_count': 0,
+            'conflict_count': 0,
+            'fact_count': 1,
+            'correction_ref_count': 1,
+            'dingtalk_ref_count': 1,
+        }
         assert summary['dingtalk_evidence']['count'] == 1
         assert summary['dingtalk_evidence']['items'] == [{'id': 11, 'file_uri': 'dingtalk://media/abc', 'hash': 'evidence-hash-1'}]
         assert summary['dingtalk_messages']['count'] == 1
