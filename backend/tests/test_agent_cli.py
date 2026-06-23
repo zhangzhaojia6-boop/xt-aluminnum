@@ -382,6 +382,72 @@ def test_dingtalk_command_flexible_final_report_text_routes_to_day1(tmp_path, mo
         get_sessionmaker.cache_clear()
 
 
+def test_dingtalk_command_flexible_final_report_invalid_date_has_actionable_detail(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+
+    def fail_agent_command(*_args, **_kwargs):
+        raise AssertionError('flexible Day-1 invalid date should not reach normal Agent')
+
+    monkeypatch.setattr(agent_cli, 'handle_agent_command', fail_agent_command)
+    try:
+        db.add(User(id=984, username='zzj-flexible-invalid-date', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '6月32日按最终口径重新来一版',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--trace-id',
+            'trace-flexible-invalid-date',
+        ], capsys)
+
+        assert code == 1
+        assert payload['ok'] is False
+        assert payload['error'] == 'invalid_date'
+        assert payload['detail']['trace_id'] == 'trace-flexible-invalid-date'
+        assert payload['detail']['cause']
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_command_flexible_final_report_missing_date_has_actionable_detail(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+
+    def fail_agent_command(*_args, **_kwargs):
+        raise AssertionError('flexible Day-1 missing date should not reach normal Agent')
+
+    monkeypatch.setattr(agent_cli, 'handle_agent_command', fail_agent_command)
+    try:
+        db.add(User(id=985, username='zzj-flexible-missing-date', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '按最终口径重新来一版',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--trace-id',
+            'trace-flexible-missing-date',
+        ], capsys)
+
+        assert code == 1
+        assert payload['ok'] is False
+        assert payload['error'] == 'day1_command_unrecognized'
+        assert payload['detail']['trace_id'] == 'trace-flexible-missing-date'
+        assert payload['detail']['fix']
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
 def test_dingtalk_command_records_unrelated_group_chat_without_reply(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')

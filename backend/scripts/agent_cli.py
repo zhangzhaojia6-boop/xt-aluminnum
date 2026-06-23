@@ -76,6 +76,7 @@ COMMAND_LEVELS = {
 }
 SQL_KEYWORDS = {'select', 'insert', 'update', 'delete', 'drop', 'alter', 'truncate', 'exec', 'execute'}
 VISUAL_URL_HOSTS = {'xtmijd.com', 'www.xtmijd.com', 'mes.xintaily.com'}
+BUSINESS_DATE_TEXT_RE = re.compile(r'(?:\d{4}[-._]\d{1,2}[-._]\d{1,2}|\d{1,2}月\d{1,2}日)')
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,15 +246,19 @@ def _cmd_dingtalk_command(db: Session, args: argparse.Namespace, auth: HermesAut
     if not is_slash:
         flexible_intent = parse_hermes_intent(text, default_year=_day1_default_year(args))
         business_date_text = flexible_intent.get('business_date')
-        if flexible_intent.get('intent') == 'daily_report' and business_date_text:
-            day1_command = HermesDay1Command(
-                source_text=text,
-                business_date=date.fromisoformat(str(business_date_text)),
-                report_type='daily_report',
-                audience=str(flexible_intent.get('audience') or 'root_owner'),
-                output_format='three_part',
-            )
-            return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
+        if flexible_intent.get('intent') == 'daily_report':
+            if business_date_text:
+                day1_command = HermesDay1Command(
+                    source_text=text,
+                    business_date=date.fromisoformat(str(business_date_text)),
+                    report_type='daily_report',
+                    audience=str(flexible_intent.get('audience') or 'root_owner'),
+                    output_format='three_part',
+                )
+                return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
+            if _looks_like_business_date_text(text):
+                raise AgentCliError('invalid_date')
+            raise AgentCliError('day1_command_unrecognized')
 
     if _is_natural_language_day1_text(text):
         try:
@@ -1073,6 +1078,23 @@ def _is_natural_language_day1_text(text: str) -> bool:
     return bool(clean) and not clean.startswith('/') and '日报' in clean
 
 
+def _is_flexible_day1_text(text: str, args: argparse.Namespace | None = None) -> bool:
+    clean = str(text or '').strip()
+    if not clean or clean.startswith('/'):
+        return False
+    default_year = date.today().year
+    if args is not None:
+        try:
+            default_year = _day1_default_year(args)
+        except AgentCliError:
+            pass
+    return parse_hermes_intent(clean, default_year=default_year).get('intent') == 'daily_report'
+
+
+def _looks_like_business_date_text(text: str) -> bool:
+    return bool(BUSINESS_DATE_TEXT_RE.search(str(text or '')))
+
+
 def _day1_default_year(args: argparse.Namespace) -> int:
     try:
         return _target_date(args).year
@@ -1175,7 +1197,8 @@ def _should_use_day1_cli_detail(args: argparse.Namespace) -> bool:
         return True
     if command != 'dingtalk-command':
         return False
-    return _is_natural_language_day1_text(_normalize_dingtalk_text(getattr(args, 'text', '')))
+    text = _normalize_dingtalk_text(getattr(args, 'text', ''))
+    return _is_natural_language_day1_text(text) or _is_flexible_day1_text(text, args)
 
 
 def _emit(payload: dict[str, Any]) -> None:
