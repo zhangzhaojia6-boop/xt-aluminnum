@@ -603,6 +603,50 @@ def test_build_daily_fact_bundle_uses_template_projection_priority(
     assert bundle["facts"]["daily_contract_weight"]["confidence"] == 0.65
 
 
+def test_daily_fact_bundle_includes_output_skill_alignment(
+    monkeypatch,
+    tmp_path: Path,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    template_facts = {
+        "values": {
+            "report_date": date(2026, 6, 19),
+            "total_output_daily": 366,
+            "outsourced_daily": 0,
+            "total_output_delta": 11,
+            "total_output_month": 5971,
+            "outsourced_month": 270,
+        },
+        "sources": {
+            "report_date": "computed",
+            "total_output_daily": "mes_packaging_output",
+            "outsourced_daily": "mes_packaging_output",
+            "total_output_delta": "computed",
+            "total_output_month": "mes_packaging_output",
+            "outsourced_month": "mes_packaging_output",
+        },
+        "missing_fields": [],
+        "conflicts": [],
+    }
+    expected = daily_fact_bundle.template_daily_report.render_template_daily_report(template_facts)
+    (tmp_path / "2026-6-19_日报正文.txt").write_text(expected, encoding="utf-8")
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: template_facts,
+    )
+    monkeypatch.setenv("OUTPUT_SKILL_ROOT", str(tmp_path))
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["output_skill_alignment"]["status"] == "passed"
+    assert bundle["output_skill_alignment"]["file_name"] == "2026-6-19_日报正文.txt"
+    assert bundle["output_skill_alignment"]["field_match_rate"] == 100.0
+
+
 def test_refresh_bundle_metadata_syncs_fact_overlays() -> None:
     from app.services.report import daily_fact_bundle
 

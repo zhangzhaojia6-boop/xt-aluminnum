@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 import hashlib
 import json
+import os
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
@@ -14,6 +15,7 @@ from app.core.redaction import filter_sensitive_mapping
 from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
+from app.services.hermes_day1_harness_service import build_output_skill_alignment
 from app.services.report import template_daily_report
 
 
@@ -71,6 +73,12 @@ def build_daily_fact_bundle(
     )
     bundle = _apply_dingtalk_supplements(db, bundle=bundle, business_date=business_date)
     bundle = _apply_root_owner_corrections(db, bundle=bundle, business_date=business_date)
+    rendered_text = _render_bundle_daily_text(bundle)
+    bundle["output_skill_alignment"] = build_output_skill_alignment(
+        rendered_text,
+        _output_skill_root(),
+        business_date,
+    )
     if persist_run or snapshot_reason:
         _persist_bundle(
             db,
@@ -508,6 +516,23 @@ def _json_safe(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
+
+
+def _render_bundle_daily_text(bundle: Mapping[str, Any]) -> str:
+    try:
+        facts = dict(bundle.get("facts") or {})
+        values = {
+            str(field_name): fact.get("value")
+            for field_name, fact in facts.items()
+            if isinstance(fact, Mapping)
+        }
+        return template_daily_report.render_template_daily_report({"values": values})
+    except Exception:
+        return ""
+
+
+def _output_skill_root() -> str | None:
+    return os.getenv("OUTPUT_SKILL_ROOT") or os.getenv("OUTPUT_SKILL_REFERENCE_ROOT")
 
 
 def _source_from_template(source: Any) -> tuple[str, Mapping[str, Any]]:
