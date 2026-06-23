@@ -212,6 +212,187 @@ def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: 
     assert bundle["status"] == "partial"
 
 
+def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        assert target_date == date(2026, 6, 19)
+        return {
+            "values": {"total_gas_m3": 50000},
+            "sources": {"total_gas_m3": "mes_wms"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        User(
+            id=12,
+            username="energy_owner",
+            password_hash="hashed",
+            name="energy_owner",
+            role="admin",
+        )
+    )
+    db_session.flush()
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_file",
+            source_user_id=12,
+            file_uri="dingtalk://gas/2026-06-19.xlsx",
+            recognized_text="6月19日天然气共计50578m³",
+            confirmation_status="confirmed",
+            payload={
+                "business_date": "2026-06-19",
+                "include_in_daily_sample": True,
+                "evidence_kind": "fact",
+                "fact_updates": [
+                    {
+                        "field_name": "total_gas_m3",
+                        "value": 50578,
+                        "unit": "m³",
+                        "reason": "能源负责人钉钉补充",
+                    }
+                ],
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    fact = bundle["facts"]["total_gas_m3"]
+    assert fact["value"] == 50578
+    assert fact["source"] == "dingtalk_supplement"
+    assert fact["source_type"] == "dingtalk_supplement"
+    assert fact["priority"] == 90
+    assert fact["confidence"] == 0.95
+    assert fact["freshness"] == "supplemented"
+    assert fact["adoption_reason"] == "能源负责人钉钉补充"
+    assert fact["source_detail"] == {
+        "source": "dingtalk_supplement",
+        "evidence_id": 1,
+        "source_user_id": 12,
+        "file_uri": "dingtalk://gas/2026-06-19.xlsx",
+        "evidence_type": "dingtalk_file",
+        "recognized_text": "6月19日天然气共计50578m³",
+        "business_date": "2026-06-19",
+    }
+    assert fact["source_ref"] == {
+        "source": "dingtalk_supplement",
+        "evidence_id": 1,
+        "source_user_id": 12,
+        "file_uri": "dingtalk://gas/2026-06-19.xlsx",
+        "evidence_type": "dingtalk_file",
+        "recognized_text": "6月19日天然气共计50578m³",
+        "business_date": "2026-06-19",
+    }
+    assert bundle["sources"]["total_gas_m3"]["source"] == "dingtalk_supplement"
+    assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_gas_m3"]}]
+    assert bundle["conflicts"][0] == {
+        "field": "total_gas_m3",
+        "type": "dingtalk_supplement",
+        "previous_source": "mes_wms",
+        "previous_value": 50000,
+        "adopted_source": "dingtalk_supplement",
+        "adopted_value": 50578,
+        "reason": "能源负责人钉钉补充",
+    }
+
+
+def test_dingtalk_supplement_does_not_override_root_owner_correction(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        assert target_date == date(2026, 6, 19)
+        return {
+            "values": {"total_gas_m3": 50000},
+            "sources": {"total_gas_m3": "mes_wms"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add_all(
+        [
+            User(
+                id=12,
+                username="energy_owner",
+                password_hash="hashed",
+                name="energy_owner",
+                role="admin",
+            ),
+            User(
+                id=983,
+                username="root_owner",
+                password_hash="hashed",
+                name="root_owner",
+                role="admin",
+            ),
+        ]
+    )
+    db_session.flush()
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_file",
+            source_user_id=12,
+            file_uri="dingtalk://gas/2026-06-19.xlsx",
+            recognized_text="6月19日天然气共计50578m³",
+            confirmation_status="confirmed",
+            payload={
+                "business_date": "2026-06-19",
+                "include_in_daily_sample": True,
+                "evidence_kind": "fact",
+                "fact_updates": [
+                    {
+                        "field_name": "total_gas_m3",
+                        "value": 50578,
+                        "unit": "m³",
+                        "reason": "能源负责人钉钉补充",
+                    }
+                ],
+            },
+        )
+    )
+    db_session.add(
+        DailyFactCorrection(
+            business_date=date(2026, 6, 19),
+            field_name="total_gas_m3",
+            value_payload={"value": 50600},
+            unit="m³",
+            reason="root_owner 最终确认",
+            actor_user_id=983,
+            trace_id="trace-root-owner-gas",
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    fact = bundle["facts"]["total_gas_m3"]
+    assert fact["value"] == 50600
+    assert fact["source"] == "root_owner_correction"
+    assert fact["source_type"] == "root_owner_correction"
+    assert fact["priority"] == 100
+    assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_gas_m3"]}]
+    assert any(item["type"] == "dingtalk_supplement" for item in bundle["conflicts"])
+    assert any(item["type"] == "root_owner_correction" for item in bundle["conflicts"])
+
+
 def test_build_daily_fact_bundle_reuses_existing_run_for_same_run_key(
     monkeypatch,
     db_session: Session,

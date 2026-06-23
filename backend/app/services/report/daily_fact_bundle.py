@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.redaction import filter_sensitive_mapping
+from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.report import template_daily_report
@@ -68,6 +69,7 @@ def build_daily_fact_bundle(
         template_facts=template_facts,
         trace_id=trace_id,
     )
+    bundle = _apply_dingtalk_supplements(db, bundle=bundle, business_date=business_date)
     bundle = _apply_root_owner_corrections(db, bundle=bundle, business_date=business_date)
     if persist_run or snapshot_reason:
         _persist_bundle(
@@ -311,6 +313,103 @@ def _apply_root_owner_corrections(
     bundle["facts"] = facts
     bundle["conflicts"] = conflicts
     bundle["correction_refs"] = correction_refs
+    return _refresh_bundle_metadata(bundle)
+
+
+def _apply_dingtalk_supplements(
+    db: Session,
+    *,
+    bundle: dict[str, Any],
+    business_date: date,
+) -> dict[str, Any]:
+    rows = (
+        db.query(MultimodalEvidence)
+        .filter(MultimodalEvidence.payload.is_not(None))
+        .filter(MultimodalEvidence.confirmation_status == "confirmed")
+        .order_by(MultimodalEvidence.created_at.asc(), MultimodalEvidence.id.asc())
+        .all()
+    )
+    if not rows:
+        return bundle
+
+    facts = dict(bundle.get("facts") or {})
+    conflicts = list(bundle.get("conflicts") or [])
+    dingtalk_refs = list(bundle.get("dingtalk_refs") or [])
+    business_date_text = business_date.isoformat()
+
+    for row in rows:
+        payload = row.payload if isinstance(row.payload, Mapping) else {}
+        if str(payload.get("business_date") or "") != business_date_text:
+            continue
+        if payload.get("include_in_daily_sample") is not True:
+            continue
+        if str(payload.get("evidence_kind") or "") != "fact":
+            continue
+
+        fact_updates = payload.get("fact_updates")
+        if not isinstance(fact_updates, list):
+            continue
+
+        applied_fields: list[str] = []
+        for item in fact_updates:
+            if not isinstance(item, Mapping):
+                continue
+            field_name = str(item.get("field_name") or "").strip()
+            if not field_name:
+                continue
+
+            old_fact = facts.get(field_name)
+            old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
+            old_source = None
+            old_unit = FIELD_UNITS.get(field_name)
+            if isinstance(old_fact, Mapping):
+                old_source = old_fact.get("source_type") or old_fact.get("source")
+                old_unit = old_fact.get("unit") or old_unit
+
+            new_value = item.get("value")
+            new_unit = item.get("unit") or old_unit
+            reason = str(item.get("reason") or "钉钉补充事实")
+            source_detail = {
+                "source": "dingtalk_supplement",
+                "evidence_id": row.id,
+                "source_user_id": row.source_user_id,
+                "file_uri": row.file_uri,
+                "evidence_type": row.evidence_type,
+                "recognized_text": row.recognized_text,
+                "business_date": business_date_text,
+            }
+            facts[field_name] = _fact_item(
+                value=new_value,
+                unit=new_unit,
+                source="dingtalk_supplement",
+                source_type="dingtalk_supplement",
+                priority=90,
+                freshness="supplemented",
+                confidence=0.95,
+                adoption_reason=reason,
+                source_detail=source_detail,
+                source_ref=source_detail,
+            )
+            applied_fields.append(field_name)
+            if old_value != new_value:
+                conflicts.append(
+                    {
+                        "field": field_name,
+                        "type": "dingtalk_supplement",
+                        "previous_source": old_source,
+                        "previous_value": old_value,
+                        "adopted_source": "dingtalk_supplement",
+                        "adopted_value": new_value,
+                        "reason": reason,
+                    }
+                )
+
+        if applied_fields:
+            dingtalk_refs.append({"id": row.id, "field_names": applied_fields})
+
+    bundle["facts"] = facts
+    bundle["conflicts"] = conflicts
+    bundle["dingtalk_refs"] = dingtalk_refs
     return _refresh_bundle_metadata(bundle)
 
 
