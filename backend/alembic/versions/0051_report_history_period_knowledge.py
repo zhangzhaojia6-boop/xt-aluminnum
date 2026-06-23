@@ -27,6 +27,15 @@ def _has_index(inspector: sa.Inspector, table_name: str, index_name: str) -> boo
     return any(index['name'] == index_name for index in inspector.get_indexes(table_name))
 
 
+def _has_unique_constraint(inspector: sa.Inspector, table_name: str, constraint_name: str) -> bool:
+    try:
+        return any(
+            constraint.get('name') == constraint_name for constraint in inspector.get_unique_constraints(table_name)
+        )
+    except NotImplementedError:
+        return False
+
+
 def _safe_drop_index(index_name: str, table_name: str) -> None:
     try:
         op.drop_index(index_name, table_name=table_name)
@@ -38,6 +47,16 @@ def _create_index(inspector: sa.Inspector, table_name: str, column_name: str, *,
     index_name = f'ix_{table_name}_{column_name}'
     if not _has_index(inspector, table_name, index_name):
         op.create_index(index_name, table_name, [column_name], unique=unique)
+
+
+def _create_unique_constraint(
+    inspector: sa.Inspector, table_name: str, constraint_name: str, columns: tuple[str, ...]
+) -> None:
+    if _has_unique_constraint(inspector, table_name, constraint_name):
+        return
+    if op.get_bind().dialect.name == 'sqlite':
+        return
+    op.create_unique_constraint(constraint_name, table_name, list(columns))
 
 
 def upgrade() -> None:
@@ -100,6 +119,12 @@ def upgrade() -> None:
             sa.UniqueConstraint('period_type', 'period_start', 'period_end', name='uq_operation_period_snapshot_period'),
         )
         inspector = sa.inspect(bind)
+    _create_unique_constraint(
+        inspector,
+        'operation_period_snapshots',
+        'uq_operation_period_snapshot_period',
+        ('period_type', 'period_start', 'period_end'),
+    )
     for column_name in (
         'period_type',
         'period_start',
@@ -139,6 +164,12 @@ def upgrade() -> None:
             ),
         )
         inspector = sa.inspect(bind)
+    _create_unique_constraint(
+        inspector,
+        'hermes_professional_knowledge_entries',
+        'uq_hermes_professional_knowledge_source',
+        ('domain', 'topic', 'knowledge_type', 'source_ref'),
+    )
     for column_name in (
         'domain',
         'topic',
