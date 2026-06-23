@@ -12,7 +12,7 @@ from app.database import Base, get_engine, get_sessionmaker
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.master import Workshop
 from app.models.rag import HermesLearningEvent, HermesShortTermMemory
-from app.models.reports import DailyReport
+from app.models.reports import DailyFactCorrection, DailyReport
 from app.models.system import AuditLog, User
 from scripts import agent_cli
 
@@ -21,6 +21,7 @@ TABLES = [
     User.__table__,
     Workshop.__table__,
     DailyReport.__table__,
+    DailyFactCorrection.__table__,
     ChatInboxMessage.__table__,
     AgentRun.__table__,
     HermesLearningEvent.__table__,
@@ -460,6 +461,60 @@ def test_day1_report_missing_output_skill_source_has_actionable_detail(tmp_path,
         assert 'D:\\输出skill' in payload['detail']['fix']
         assert db.query(DailyReport).count() == 0
         assert db.query(AgentRun).count() == 0
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_day1_direct_root_owner_correction_is_persisted_before_run(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    output_skill_root = tmp_path / 'output-skill'
+    output_skill_root.mkdir()
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    monkeypatch.setenv('HERMES_DAY1_ENABLED', 'true')
+    monkeypatch.setenv('OUTPUT_SKILL_ROOT', str(output_skill_root))
+
+    def fake_run_day1(_db, *, command, actor, trace_id, chat_inbox=None):
+        from app.services.hermes_day1_orchestrator import HermesDay1Result
+
+        return HermesDay1Result(
+            trace_id=trace_id,
+            status='ready',
+            answer='ok',
+            reply_messages=['ok'],
+            agent_run_id=1,
+            report_id=1,
+            payload={},
+        )
+
+    monkeypatch.setattr(agent_cli, 'run_day1_super_brain', fake_run_day1)
+    try:
+        _add_user(db, user_id=983, name='张兆嘉', dingtalk_user_id='dt-owner')
+
+        code, payload = _run_cli(
+            [
+                'day1-report',
+                '--text',
+                '6月19日车间总产量改成366吨，直接按这个发。',
+                '--dingtalk-user-id',
+                'dt-owner',
+                '--trace-id',
+                'trace-direct-correction',
+            ],
+            capsys,
+        )
+
+        assert code == 0
+        assert payload['ok'] is True
+        row = db.query(DailyFactCorrection).one()
+        assert row.business_date == date(2026, 6, 19)
+        assert row.field_name == 'total_output_daily'
+        assert row.value_payload == {'value': 366.0}
+        assert row.unit == '吨'
+        assert row.reason == 'root_owner 自然语言修正'
+        assert row.trace_id == 'trace-direct-correction'
+        assert row.actor_user_id == 983
     finally:
         db.close()
         get_engine.cache_clear()

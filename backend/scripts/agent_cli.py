@@ -30,7 +30,7 @@ from app.database import get_sessionmaker
 from app.models.agent_communication import AgentOperationApproval, AgentOutboxMessage, ChatInboxMessage
 from app.models.mes import MesSyncRunLog
 from app.models.rag import HermesApprovedLesson
-from app.models.reports import DailyReport
+from app.models.reports import DailyFactCorrection, DailyReport
 from app.models.system import User
 from app.services import agent_designated_operation_service, hermes_governance_service, hermes_memory_service, hermes_rag_service
 from app.services.agent_command_service import handle_agent_command
@@ -642,12 +642,30 @@ def _cmd_day1_report(
     *,
     parsed_command=None,
 ) -> dict[str, Any]:
+    command_text = args.text or args.query
+    flexible_intent = None
     try:
-        command = parsed_command or parse_day1_command(args.text or args.query, default_year=_day1_default_year(args))
+        command = parsed_command or parse_day1_command(command_text, default_year=_day1_default_year(args))
     except Day1CommandParseError as exc:
         raise AgentCliError(exc.code) from exc
     if command is None:
+        flexible_intent = parse_hermes_intent(command_text, default_year=_day1_default_year(args))
+        business_date_text = flexible_intent.get('business_date')
+        if flexible_intent.get('intent') == 'daily_report' and business_date_text:
+            command = HermesDay1Command(
+                source_text=command_text,
+                business_date=date.fromisoformat(str(business_date_text)),
+                report_type='daily_report',
+                audience=str(flexible_intent.get('audience') or 'root_owner'),
+                output_format='three_part',
+            )
+    if command is None:
         raise AgentCliError('day1_command_unrecognized')
+    if flexible_intent is None:
+        flexible_intent = parse_hermes_intent(
+            args.text or args.query or getattr(command, 'source_text', ''),
+            default_year=_day1_default_year(args),
+        )
 
     decision = classify_day1_actor(
         auth.user,
@@ -668,6 +686,8 @@ def _cmd_day1_report(
         raise AgentCliError('hermes_day1_disabled')
     if _output_skill_root_path() is None:
         raise AgentCliError('output_skill_source_missing')
+
+    _persist_direct_root_owner_corrections(db, args=args, auth=auth, command=command, intent=flexible_intent)
 
     trace_id = _trace_id(args)
     inbox = _record_dingtalk_command_inbox(
@@ -697,6 +717,38 @@ def _cmd_day1_report(
             'message_count': len(result.reply_messages),
         },
     }
+
+
+def _persist_direct_root_owner_corrections(
+    db: Session,
+    *,
+    args: argparse.Namespace,
+    auth: HermesAuth,
+    command: HermesDay1Command,
+    intent: dict[str, Any],
+) -> None:
+    if intent.get('correction_policy') != 'root_owner_direct':
+        return
+    for item in intent.get('requested_corrections') or []:
+        if not isinstance(item, dict):
+            continue
+        field_name = str(item.get('field_name') or '').strip()
+        if not field_name:
+            continue
+        db.add(
+            DailyFactCorrection(
+                business_date=command.business_date,
+                field_name=field_name,
+                value_payload={'value': item.get('value')},
+                unit=str(item.get('unit') or '') or None,
+                source_text=str(intent.get('raw_text') or ''),
+                before_value=None,
+                reason=str(item.get('reason') or 'root_owner 自然语言修正'),
+                actor_user_id=getattr(auth.user, 'id', None),
+                trace_id=_trace_id(args),
+            )
+        )
+    db.flush()
 
 
 def _cmd_day1_report_doctor(
