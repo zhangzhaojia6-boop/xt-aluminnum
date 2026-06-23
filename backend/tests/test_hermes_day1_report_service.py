@@ -510,3 +510,98 @@ def test_threshold_accepts_ratio_value_for_release_gate() -> None:
 
     assert result['status'] == 'blocked'
     assert '字段匹配率低于 95.0%' in result['text']
+
+
+def test_day1_report_uses_daily_fact_bundle_correction_for_judgment() -> None:
+    service = _service()
+
+    product = service.build_day1_three_part_report(
+        business_date=date(2026, 6, 19),
+        sources={
+            'template_daily_report': {
+                'status': 'ready',
+                'text': '6月19日，车间总产量日合计355吨。',
+                'facts': {
+                    'values': {'total_output_daily': 355},
+                    'sources': {'total_output_daily': 'mes_packaging_output'},
+                    'missing': [],
+                    'conflicts': [],
+                },
+                'missing_fields': [],
+                'conflicts': [],
+            },
+            'daily_fact_bundle': {
+                'status': 'ready',
+                'facts': {
+                    'total_output_daily': {
+                        'value': 366,
+                        'unit': '吨',
+                        'source': 'root_owner_correction',
+                        'source_type': 'root_owner_correction',
+                        'adoption_reason': 'root_owner 钉钉确认',
+                    }
+                },
+                'missing_fields': [],
+                'missing': [],
+                'conflicts': [
+                    {
+                        'field': 'total_output_daily',
+                        'type': 'root_owner_correction',
+                        'adopted_source': 'root_owner_correction',
+                        'adopted_value': 366,
+                        'previous_source': 'mes_packaging_output',
+                        'previous_value': 355,
+                        'reason': 'root_owner 钉钉确认',
+                    }
+                ],
+                'output_skill_alignment': {'status': 'passed', 'field_match_rate': 100.0, 'threshold': 95.0},
+            },
+            'audit_run': {'status': 'matched', 'source_status': {}, 'diffs': {}, 'suggested_actions': []},
+            'mes_wms': {'source_status': {'mes': 'ok'}, 'records': {}},
+            'output_skill_alignment': {'status': 'passed', 'field_match_rate': 100.0, 'threshold': 95.0},
+        },
+    )
+
+    assert any('发现冲突' in risk for risk in product['brain_judgment']['risks'])
+    assert 'total_output_daily' in product['text']
+    assert 'root_owner_correction' in product['text'] or '最高权限者确认' in product['text']
+    assert '日报事实包' in product['brain_judgment']['source_names']
+
+
+def test_workshop_details_prefer_daily_fact_bundle_over_template_and_free_text_noise() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            values={'cold_2050_daily': 80, 'cold_2050_month': 2422},
+            extra={
+                'daily_fact_bundle': {
+                    'status': 'ready',
+                    'facts': {
+                        'cold_2050_daily': {
+                            'value': 88,
+                            'unit': '吨',
+                            'source': 'dingtalk_supplement',
+                            'source_type': 'dingtalk_supplement',
+                            'adoption_reason': '授权钉钉补充事实',
+                        }
+                    },
+                    'missing_fields': [],
+                    'missing': [],
+                    'conflicts': [],
+                },
+                'rag': {'answer': '2050车间日产量999吨', 'citations': []},
+                'dingtalk_messages': [{'text': '2050车间今天按777吨'}],
+                'dingtalk_evidence': [{'recognized_text': '2050车间日产量999吨'}],
+            },
+        ),
+    )
+
+    text = result['text']
+    assert '【2050车间】' in text
+    assert '日产量：88吨' in text
+    assert '日产量：80吨' not in text
+    assert '777吨' not in text
+    assert '999吨' not in text
+    assert '钉钉补充事实' in text or 'dingtalk_supplement' in text

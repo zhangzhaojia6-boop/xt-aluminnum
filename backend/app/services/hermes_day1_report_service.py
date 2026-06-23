@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -28,6 +28,7 @@ _OK_DIFF_STATUSES = {'matched', 'match', 'same', 'equal', 'ok', 'ready', 'passed
 _REVIEW_STATUS_MARKERS = ('failed', 'partial', 'error', 'empty', 'missing', 'review-needed', 'review_needed')
 _SOURCE_LABELS = {
     'template_daily_report': '模板正式日报',
+    'daily_fact_bundle': '日报事实包',
     'mes_wms': '外部 MES/WMS 只读源',
     'audit_run': 'Hermes 数据审计',
     'dingtalk_evidence': '钉钉证据',
@@ -47,16 +48,22 @@ _FACT_SOURCE_LABELS = {
     'owner_or_energy_summary': '数据中枢能耗汇总',
     'energy_cost': '数据中枢成本核算',
     'recovery_daily': '数据中枢回收日报',
+    'root_owner_correction': '最高权限者确认',
+    'dingtalk_supplement': '钉钉补充事实',
+    'mes_wms': '外部 MES/WMS',
 }
 
 
 def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]) -> dict[str, Any]:
     template_payload = _as_mapping(sources.get('template_daily_report'))
     facts = _as_mapping(template_payload.get('facts'))
-    values = _as_mapping(facts.get('values'))
-    fact_sources = _as_mapping(facts.get('sources'))
+    values = dict(_as_mapping(facts.get('values')))
+    fact_sources = dict(_as_mapping(facts.get('sources')))
+    bundle_values, bundle_sources = _bundle_fact_values_and_sources(sources)
+    values.update(bundle_values)
+    fact_sources.update(bundle_sources)
     formal_text = _text_or_empty(template_payload.get('text'))
-    missing_fields = [str(item) for item in _as_list(template_payload.get('missing_fields'))]
+    missing_fields = _merged_missing_fields(sources, template_payload=template_payload)
     conflicts = _collect_conflicts(sources)
     field_match_rate = _field_match_rate(sources)
     alignment = _as_mapping(sources.get('output_skill_alignment'))
@@ -103,6 +110,58 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
         'missing_fields': missing_fields,
         'conflicts': conflicts,
     }
+
+
+def _bundle_fact_values_and_sources(sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
+    facts = _as_mapping(daily_fact_bundle.get('facts'))
+    values: dict[str, Any] = {}
+    fact_sources: dict[str, Any] = {}
+    for raw_field_name, raw_fact in facts.items():
+        field_name = str(raw_field_name)
+        fact = _as_mapping(raw_fact)
+        if 'value' not in fact:
+            continue
+        values[field_name] = fact.get('value')
+        fact_sources[field_name] = _bundle_fact_source(fact)
+    return values, fact_sources
+
+
+def _bundle_fact_source(fact: Mapping[str, Any]) -> dict[str, Any]:
+    source_detail = dict(_as_mapping(fact.get('source_detail')))
+    source_type = (
+        source_detail.get('source_type')
+        or source_detail.get('source')
+        or fact.get('source_type')
+        or fact.get('source')
+    )
+    source = source_detail.get('source') or fact.get('source') or source_type
+    if source_type not in (None, ''):
+        source_detail['source_type'] = source_type
+    if source not in (None, ''):
+        source_detail['source'] = source
+    adoption_reason = fact.get('adoption_reason')
+    if adoption_reason not in (None, ''):
+        source_detail['adoption_reason'] = adoption_reason
+    return source_detail
+
+
+def _merged_missing_fields(sources: dict[str, Any], *, template_payload: Mapping[str, Any]) -> list[str]:
+    daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
+    items = [
+        *_as_list(template_payload.get('missing_fields')),
+        *_as_list(daily_fact_bundle.get('missing_fields')),
+        *_as_list(daily_fact_bundle.get('missing')),
+    ]
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        text = str(item).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
 
 
 def render_three_part_daily_report(
@@ -245,6 +304,10 @@ def _build_brain_judgment(
 
 def _collect_conflicts(sources: dict[str, Any]) -> list[dict[str, Any]]:
     conflicts: list[dict[str, Any]] = []
+    daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
+    for item in _as_list(daily_fact_bundle.get('conflicts')):
+        conflicts.append(_normalise_conflict(item, conflict_type='daily_fact_bundle_conflict', source='daily_fact_bundle'))
+
     template_payload = _as_mapping(sources.get('template_daily_report'))
     facts = _as_mapping(template_payload.get('facts'))
     for item in [*_as_list(template_payload.get('conflicts')), *_as_list(facts.get('conflicts'))]:
@@ -363,7 +426,7 @@ def _render_workshop_details(workshop_details: list[dict[str, Any]]) -> str:
     return '\n\n'.join(paragraphs) if paragraphs else '暂无'
 
 
-def _render_conflicts_inline(conflicts: list[Mapping[str, Any]]) -> str:
+def _render_conflicts_inline(conflicts: Sequence[Mapping[str, Any]]) -> str:
     if not conflicts:
         return '暂无'
     return '；'.join(_conflict_text(conflict) for conflict in conflicts)
@@ -381,6 +444,19 @@ def _conflict_text(conflict: Mapping[str, Any]) -> str:
         pieces.append(status)
 
     value_parts = []
+    previous_value = conflict.get('previous_value')
+    adopted_value = conflict.get('adopted_value')
+    previous_source = conflict.get('previous_source')
+    adopted_source = conflict.get('adopted_source')
+    reason = conflict.get('reason') or conflict.get('adoption_reason')
+    if previous_value not in (None, '', [], {}) or previous_source not in (None, '', [], {}):
+        value_parts.append(
+            f'原来源 {_source_label(previous_source)}={_plain_text(previous_value)}'
+        )
+    if adopted_value not in (None, '', [], {}) or adopted_source not in (None, '', [], {}):
+        value_parts.append(
+            f'采用 {_source_label(adopted_source)}={_plain_text(adopted_value)}'
+        )
     for label, key in (
         ('数据中枢', 'hub_value'),
         ('外部 MES', 'mes_value'),
@@ -392,6 +468,8 @@ def _conflict_text(conflict: Mapping[str, Any]) -> str:
             value_parts.append(f'{label}={_plain_text(value)}')
     if value_parts:
         pieces.append('，'.join(value_parts))
+    if reason not in (None, '', [], {}):
+        pieces.append(f'原因={_plain_text(reason)}')
     if conflict_type == 'source_error':
         pieces.append('数据源错误')
     return '：'.join(pieces)
@@ -403,13 +481,18 @@ def _workshop_source_text(prefix: str, *, values: Mapping[str, Any], sources: Ma
         if not str(key).startswith(prefix):
             continue
         source = _as_mapping(sources.get(key))
-        source_type = source.get('source_type')
+        source_type = source.get('source_type') or source.get('source')
         if source_type in (None, ''):
             continue
-        label = _FACT_SOURCE_LABELS.get(str(source_type), str(source_type))
+        label = _source_label(source_type)
         if label not in source_types:
             source_types.append(label)
     return '、'.join(source_types) if source_types else '暂无明确来源'
+
+
+def _source_label(value: Any) -> str:
+    text = _plain_text(value)
+    return _FACT_SOURCE_LABELS.get(text, text)
 
 
 def _field_match_rate(sources: dict[str, Any]) -> float | None:
@@ -570,6 +653,10 @@ def _source_names(sources: dict[str, Any]) -> list[str]:
 def _source_has_meaningful_content(key: str, payload: Any) -> bool:
     if key in {'dingtalk_evidence', 'dingtalk_messages'}:
         return bool(payload)
+    if key == 'daily_fact_bundle':
+        if not isinstance(payload, Mapping):
+            return False
+        return any(payload.get(name) not in (None, '', [], {}) for name in ('status', 'facts', 'conflicts', 'missing_fields', 'missing'))
     if key == 'historical_reports':
         return any(_historical_report_usable(row) for row in _as_list(payload))
     if key == 'output_skill_alignment':
