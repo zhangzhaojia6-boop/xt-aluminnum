@@ -40,3 +40,59 @@ class DailyReport(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class DailyFactBundleRun(Base):
+    __tablename__ = 'daily_fact_bundle_runs'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    run_key: Mapped[str] = mapped_column(String(160), nullable=False, unique=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    requested_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='partial', index=True)
+    source_status: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    missing_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    conflict_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class DailyFactBundleSnapshot(Base):
+    __tablename__ = 'daily_fact_bundle_snapshots'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    run_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('daily_fact_bundle_runs.id'), nullable=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    snapshot_reason: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    facts: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    sources: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    conflicts: Mapped[list] = mapped_column(json_object_type, nullable=False, default=list)
+    adopted_values: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    correction_refs: Mapped[list] = mapped_column(json_object_type, nullable=False, default=list)
+    dingtalk_refs: Mapped[list] = mapped_column(json_object_type, nullable=False, default=list)
+    output_skill_alignment: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class DailyFactCorrection(Base):
+    __tablename__ = 'daily_fact_corrections'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    field_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    value_payload: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    before_value: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    actor_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='active', index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
