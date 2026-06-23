@@ -253,14 +253,13 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
                 "business_date": "2026-06-19",
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
-                "fact_updates": [
-                    {
-                        "field_name": "total_gas_m3",
+                "fact_updates": {
+                    "total_gas_m3": {
                         "value": 50578,
                         "unit": "m³",
                         "reason": "能源负责人钉钉补充",
                     }
-                ],
+                },
             },
         )
     )
@@ -357,14 +356,13 @@ def test_dingtalk_supplement_does_not_override_root_owner_correction(
                 "business_date": "2026-06-19",
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
-                "fact_updates": [
-                    {
-                        "field_name": "total_gas_m3",
+                "fact_updates": {
+                    "total_gas_m3": {
                         "value": 50578,
                         "unit": "m³",
                         "reason": "能源负责人钉钉补充",
                     }
-                ],
+                },
             },
         )
     )

@@ -346,18 +346,8 @@ def _apply_dingtalk_supplements(
         if str(payload.get("evidence_kind") or "") != "fact":
             continue
 
-        fact_updates = payload.get("fact_updates")
-        if not isinstance(fact_updates, list):
-            continue
-
         applied_fields: list[str] = []
-        for item in fact_updates:
-            if not isinstance(item, Mapping):
-                continue
-            field_name = str(item.get("field_name") or "").strip()
-            if not field_name:
-                continue
-
+        for field_name, item in _iter_fact_updates(payload.get("fact_updates")):
             old_fact = facts.get(field_name)
             old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
             old_source = None
@@ -411,6 +401,34 @@ def _apply_dingtalk_supplements(
     bundle["conflicts"] = conflicts
     bundle["dingtalk_refs"] = dingtalk_refs
     return _refresh_bundle_metadata(bundle)
+
+
+def _iter_fact_updates(fact_updates: Any) -> list[tuple[str, Mapping[str, Any]]]:
+    if isinstance(fact_updates, Mapping):
+        if "field_name" in fact_updates:
+            field_name = str(fact_updates.get("field_name") or "").strip()
+            return [(field_name, fact_updates)] if field_name else []
+        updates: list[tuple[str, Mapping[str, Any]]] = []
+        for raw_field_name, item in fact_updates.items():
+            if not isinstance(item, Mapping):
+                continue
+            if "field_name" in item:
+                field_name = str(item.get("field_name") or "").strip()
+            else:
+                field_name = str(raw_field_name or "").strip()
+            if field_name:
+                updates.append((field_name, item))
+        return updates
+    if isinstance(fact_updates, list):
+        updates = []
+        for item in fact_updates:
+            if not isinstance(item, Mapping):
+                continue
+            field_name = str(item.get("field_name") or "").strip()
+            if field_name:
+                updates.append((field_name, item))
+        return updates
+    return []
 
 
 def _confidence_percent(value: Any) -> int | None:
