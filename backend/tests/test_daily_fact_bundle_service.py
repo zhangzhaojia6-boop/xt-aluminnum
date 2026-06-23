@@ -421,6 +421,53 @@ def test_build_daily_fact_bundle_reuses_existing_run_for_same_run_key(
     assert snapshots == []
 
 
+def test_daily_fact_bundle_persists_light_run_and_formal_snapshot(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        assert target_date == date(2026, 6, 19)
+        return {
+            "values": {"total_output_daily": 366},
+            "sources": {"total_output_daily": "mes_packaging_output"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+        trace_id="trace-fact-bundle-persist",
+        persist_run=True,
+        snapshot_reason="formal_daily_report",
+    )
+    db_session.commit()
+
+    run = db_session.query(DailyFactBundleRun).one()
+    assert run.business_date == date(2026, 6, 19)
+    assert run.trace_id == "trace-fact-bundle-persist"
+    assert run.missing_count == 0
+    assert run.conflict_count == 0
+    assert run.confidence == 85
+    assert run.source_status["sources"]["total_output_daily"]["source"] == "mes_packaging_output"
+
+    snapshot = db_session.query(DailyFactBundleSnapshot).one()
+    assert snapshot.snapshot_reason == "formal_daily_report"
+    assert snapshot.facts == bundle["facts"]
+    assert snapshot.sources == bundle["sources"]
+    assert snapshot.adopted_values["total_output_daily"] == 366
+    assert len(snapshot.payload_hash) == 64
+    assert snapshot.trace_id == "trace-fact-bundle-persist"
+
+
 def test_build_daily_fact_bundle_recovers_when_run_insert_hits_unique_race(
     monkeypatch,
     db_session: Session,
