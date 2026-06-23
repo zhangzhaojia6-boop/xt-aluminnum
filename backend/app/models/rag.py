@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, json_object_type
@@ -124,3 +124,30 @@ class HermesApprovedLesson(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default='active', index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class HermesProfessionalKnowledgeEntry(Base):
+    __tablename__ = 'hermes_professional_knowledge_entries'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    domain: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    topic: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    knowledge_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_ref: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    structured_payload: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=80)
+    valid_from: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    valid_to: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='active', index=True)
+    created_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint('domain', 'topic', 'knowledge_type', 'source_ref', name='uq_hermes_professional_knowledge_source'),
+    )

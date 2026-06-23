@@ -80,6 +80,7 @@ from app.models.quality import DataQualityIssue, QualityIssueLog, QualityYieldDa
 from app.models.rag import (
     HermesApprovedLesson,
     HermesLearningEvent,
+    HermesProfessionalKnowledgeEntry,
     HermesShortTermMemory,
     RagChunk,
     RagDocument,
@@ -89,7 +90,14 @@ from app.models.rag import (
 )
 from app.models.hermes_data_audit import HermesCorrectionAction, HermesDataAuditRun
 from app.models.reconciliation import DataReconciliationItem, MappingReconciliationRun
-from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection, DailyReport
+from app.models.reports import (
+    DailyFactBundleRun,
+    DailyFactBundleSnapshot,
+    DailyFactCorrection,
+    DailyReport,
+    DailyReportHistoryRecord,
+    OperationPeriodSnapshot,
+)
 from app.models.rule_config import RuleConfig
 from app.models.shift import ShiftConfig
 from app.models.system import AuditLog, SystemConfig, User
@@ -170,6 +178,7 @@ __all__ = [
     'HermesLearningEvent',
     'HermesShortTermMemory',
     'HermesApprovedLesson',
+    'HermesProfessionalKnowledgeEntry',
     'HermesDataAuditRun',
     'HermesCorrectionAction',
     'ProductionPlanDaily',
@@ -186,6 +195,8 @@ __all__ = [
     'DailyFactBundleSnapshot',
     'DailyFactCorrection',
     'DailyReport',
+    'DailyReportHistoryRecord',
+    'OperationPeriodSnapshot',
     'RuleConfig',
     'AluminumPriceDaily',
     'CostPriceMaster',

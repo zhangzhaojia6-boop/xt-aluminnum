@@ -96,3 +96,51 @@ class DailyFactCorrection(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class DailyReportHistoryRecord(Base):
+    __tablename__ = 'daily_report_history_records'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    report_type: Mapped[str] = mapped_column(String(32), nullable=False, default='daily', index=True)
+    business_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    period_type: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    period_start: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    period_end: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    source_snapshot_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey('daily_fact_bundle_snapshots.id'), nullable=True, index=True
+    )
+    source_run_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey('daily_fact_bundle_runs.id'), nullable=True, index=True
+    )
+    report_text: Mapped[str] = mapped_column(Text, nullable=False)
+    report_payload: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    source_summary: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    facts_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    text_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class OperationPeriodSnapshot(Base):
+    __tablename__ = 'operation_period_snapshots'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    period_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='ready', index=True)
+    cumulative_metrics: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    analysis_payload: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)
+    source_daily_report_ids: Mapped[list] = mapped_column(json_object_type, nullable=False, default=list)
+    source_snapshot_ids: Mapped[list] = mapped_column(json_object_type, nullable=False, default=list)
+    missing_dates: Mapped[list] = mapped_column(json_object_type, nullable=False, default=list)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('period_type', 'period_start', 'period_end', name='uq_operation_period_snapshot_period'),
+    )
