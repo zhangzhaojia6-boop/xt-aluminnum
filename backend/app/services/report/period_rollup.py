@@ -17,6 +17,7 @@ _FIELD_MAP = {
     "electricity_fee": "electricity_fee",
     "gas_fee": "gas_fee",
 }
+_CRITICAL_FIELDS = ("total_output_daily", "verified_cost_total")
 
 
 def build_operation_period_snapshot(
@@ -41,7 +42,7 @@ def build_operation_period_snapshot(
         .all()
     )
     rows = _latest_daily_rows(queried_rows)
-    metrics = _sum_daily_metrics(rows)
+    metrics, invalid_metrics = _sum_daily_metrics(rows)
     source_daily_report_ids = [row.id for row in rows]
     source_snapshot_ids = [row.source_snapshot_id for row in rows if row.source_snapshot_id is not None]
     missing_dates = _missing_dates(rows, period_start, period_end)
@@ -53,23 +54,35 @@ def build_operation_period_snapshot(
         "source_daily_report_ids": source_daily_report_ids,
         "source_snapshot_ids": source_snapshot_ids,
         "missing_dates": missing_dates,
+        "invalid_metrics": invalid_metrics,
     }
-    snapshot = OperationPeriodSnapshot(
-        period_type=period_type,
-        period_start=period_start,
-        period_end=period_end,
-        status="ready",
-        cumulative_metrics=metrics,
-        analysis_payload={},
-        source_daily_report_ids=source_daily_report_ids,
-        source_snapshot_ids=source_snapshot_ids,
-        missing_dates=missing_dates,
-        payload_hash=hash_payload(payload),
-        created_by_id=created_by_id,
-        trace_id=trace_id,
+    snapshot = (
+        db.query(OperationPeriodSnapshot)
+        .filter(OperationPeriodSnapshot.period_type == period_type)
+        .filter(OperationPeriodSnapshot.period_start == period_start)
+        .filter(OperationPeriodSnapshot.period_end == period_end)
+        .one_or_none()
     )
+    is_new_snapshot = snapshot is None
+    if snapshot is None:
+        snapshot = OperationPeriodSnapshot(
+            period_type=period_type,
+            period_start=period_start,
+            period_end=period_end,
+        )
+        db.add(snapshot)
+
+    snapshot.status = "ready"
+    snapshot.cumulative_metrics = metrics
+    snapshot.analysis_payload = {"invalid_metrics": invalid_metrics}
+    snapshot.source_daily_report_ids = source_daily_report_ids
+    snapshot.source_snapshot_ids = source_snapshot_ids
+    snapshot.missing_dates = missing_dates
+    snapshot.payload_hash = hash_payload(payload)
+    if is_new_snapshot or created_by_id is not None:
+        snapshot.created_by_id = created_by_id
+    snapshot.trace_id = trace_id
     snapshot.analysis_payload = analyze_operation_period(snapshot)
-    db.add(snapshot)
     db.flush()
     return snapshot
 
@@ -96,12 +109,21 @@ def _latest_daily_rows(rows: list[DailyReportHistoryRecord]) -> list[DailyReport
     return [latest_by_date[business_date] for business_date in sorted(latest_by_date)]
 
 
-def _sum_daily_metrics(rows: list[DailyReportHistoryRecord]) -> dict[str, dict[str, Any]]:
+def _sum_daily_metrics(
+    rows: list[DailyReportHistoryRecord],
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, str]]]:
     totals: dict[str, dict[str, Any]] = {}
+    invalid_metrics: list[dict[str, str]] = []
     for row in rows:
         facts = row.report_payload.get("facts") if isinstance(row.report_payload, dict) else {}
         if not isinstance(facts, dict):
+            for source_field in _CRITICAL_FIELDS:
+                invalid_metrics.append(_invalid_metric_entry(row, source_field, "invalid_facts"))
             continue
+        for source_field in _CRITICAL_FIELDS:
+            reason = _invalid_metric_reason(facts, source_field)
+            if reason is not None:
+                invalid_metrics.append(_invalid_metric_entry(row, source_field, reason))
         for source_field, target_field in _FIELD_MAP.items():
             item = facts.get(source_field)
             if not isinstance(item, dict):
@@ -117,7 +139,34 @@ def _sum_daily_metrics(rows: list[DailyReportHistoryRecord]) -> dict[str, dict[s
             source_fields = bucket["source_fields"]
             if isinstance(source_fields, list) and source_field not in source_fields:
                 source_fields.append(source_field)
-    return totals
+    return totals, invalid_metrics
+
+
+def _invalid_metric_reason(facts: dict[str, Any], source_field: str) -> str | None:
+    if source_field not in facts:
+        return "missing"
+    item = facts.get(source_field)
+    if not isinstance(item, dict):
+        return "invalid_structure"
+    value = item.get("value")
+    if value is None:
+        return "missing_value"
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return "invalid_value"
+    return None
+
+
+def _invalid_metric_entry(
+    row: DailyReportHistoryRecord,
+    source_field: str,
+    reason: str,
+) -> dict[str, str]:
+    business_date = row.business_date.isoformat() if row.business_date is not None else ""
+    return {
+        "business_date": business_date,
+        "field": source_field,
+        "reason": reason,
+    }
 
 
 def _missing_dates(

@@ -11,9 +11,12 @@ def analyze_operation_period(snapshot: OperationPeriodSnapshot) -> dict[str, Any
     output = _metric_value(metrics, "total_output")
     cost_total = _metric_value(metrics, "verified_cost_total")
     cost_per_ton = _cost_per_ton(cost_total, output)
+    invalid_metrics = _invalid_metrics(snapshot)
     risks: list[str] = []
     if snapshot.missing_dates:
         risks.append(f"缺少{len(snapshot.missing_dates)}天历史日报，月/年累计可能不完整")
+    if invalid_metrics:
+        risks.append(f"存在无效关键指标{len(invalid_metrics)}项，月/年累计已跳过这些异常项")
     if output == 0 and cost_total != 0:
         risks.append("累计产量为0但成本不为0，无法计算吨成本")
 
@@ -46,6 +49,7 @@ def analyze_operation_period(snapshot: OperationPeriodSnapshot) -> dict[str, Any
                 "snapshot_count": snapshot_count,
                 "source_snapshot_count": snapshot_count,
                 "missing_dates": snapshot.missing_dates or [],
+                "invalid_metrics": invalid_metrics,
             },
         },
         "risks": risks,
@@ -76,3 +80,15 @@ def _cost_per_ton(cost_total: float, output: float) -> str | None:
         return None
     value = Decimal(str(cost_total)) / Decimal(str(output))
     return str(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _invalid_metrics(snapshot: OperationPeriodSnapshot) -> list[dict[str, Any]]:
+    payload = snapshot.analysis_payload if isinstance(snapshot.analysis_payload, dict) else {}
+    raw_items = payload.get("invalid_metrics")
+    if raw_items is None:
+        sections = payload.get("sections")
+        trace = sections.get("trace") if isinstance(sections, dict) else None
+        raw_items = trace.get("invalid_metrics") if isinstance(trace, dict) else None
+    if not isinstance(raw_items, list):
+        return []
+    return [item for item in raw_items if isinstance(item, dict)]

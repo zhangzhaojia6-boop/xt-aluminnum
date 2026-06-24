@@ -124,3 +124,31 @@ def test_analyze_operation_period_allows_zero_output_when_cost_is_zero() -> None
 
     assert analysis["sections"]["cost"]["cost_per_ton"] is None
     assert analysis["risks"] == []
+
+
+def test_analyze_operation_period_keeps_invalid_metrics_in_trace_and_risks() -> None:
+    invalid_metrics = [
+        {
+            "business_date": "2026-06-01",
+            "field": "verified_cost_total",
+            "reason": "missing_value",
+        }
+    ]
+    snapshot = OperationPeriodSnapshot(
+        period_type="month",
+        period_start=date(2026, 6, 1),
+        period_end=date(2026, 6, 1),
+        cumulative_metrics={
+            "total_output": {"value": 100.0, "unit": "吨"},
+        },
+        source_daily_report_ids=[1],
+        source_snapshot_ids=[],
+        missing_dates=[],
+        analysis_payload={"invalid_metrics": invalid_metrics},
+        payload_hash="g" * 64,
+    )
+
+    analysis = analyze_operation_period(snapshot)
+
+    assert analysis["sections"]["trace"]["invalid_metrics"] == invalid_metrics
+    assert any("无效关键指标" in risk for risk in analysis["risks"])

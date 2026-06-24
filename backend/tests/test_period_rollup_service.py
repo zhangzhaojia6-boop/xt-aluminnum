@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import Table, create_engine
 from sqlalchemy.orm import Session
@@ -13,8 +13,8 @@ from app.services.report.period_rollup import build_operation_period_snapshot
 
 def _history_row(
     day: date,
-    output: float,
-    cost: float,
+    output: Any,
+    cost: Any,
     *,
     electricity: float | None = None,
     gas: float | None = None,
@@ -135,3 +135,78 @@ def test_month_rollup_uses_latest_daily_report_version_per_business_date() -> No
     assert month_snapshot.source_daily_report_ids == [june_first.id, latest_june_nineteenth.id]
     assert old_june_nineteenth.id not in month_snapshot.source_daily_report_ids
     assert month_snapshot.analysis_payload["sections"]["trace"]["daily_report_count"] == 2
+
+
+def test_build_month_rollup_updates_existing_snapshot_for_same_period() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            cast(Table, DailyReportHistoryRecord.__table__),
+            cast(Table, OperationPeriodSnapshot.__table__),
+        ],
+    )
+    db = Session(engine)
+    june_first = _history_row(date(2026, 6, 1), 100.0, 80000.0)
+    db.add(june_first)
+    db.commit()
+
+    first_snapshot = build_operation_period_snapshot(
+        db,
+        period_type="month",
+        target_date=date(2026, 6, 2),
+        trace_id="trace-first",
+    )
+    first_snapshot_id = first_snapshot.id
+    assert first_snapshot.missing_dates == ["2026-06-02"]
+    db.commit()
+
+    june_second = _history_row(date(2026, 6, 2), 200.0, 120000.0)
+    db.add(june_second)
+    db.commit()
+
+    second_snapshot = build_operation_period_snapshot(
+        db,
+        period_type="month",
+        target_date=date(2026, 6, 2),
+        trace_id="trace-second",
+    )
+
+    assert second_snapshot.id == first_snapshot_id
+    assert second_snapshot.cumulative_metrics["total_output"]["value"] == 300.0
+    assert second_snapshot.cumulative_metrics["verified_cost_total"]["value"] == 200000.0
+    assert second_snapshot.missing_dates == []
+    assert second_snapshot.trace_id == "trace-second"
+    assert db.query(OperationPeriodSnapshot).count() == 1
+
+
+def test_month_rollup_traces_invalid_critical_metrics_as_risk() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            cast(Table, DailyReportHistoryRecord.__table__),
+            cast(Table, OperationPeriodSnapshot.__table__),
+        ],
+    )
+    db = Session(engine)
+    db.add_all(
+        [
+            _history_row(date(2026, 6, 1), 100.0, None),
+            _history_row(date(2026, 6, 2), 200.0, True),
+        ]
+    )
+    db.commit()
+
+    snapshot = build_operation_period_snapshot(
+        db,
+        period_type="month",
+        target_date=date(2026, 6, 2),
+        trace_id="trace-invalid",
+    )
+
+    invalid_metrics = snapshot.analysis_payload["sections"]["trace"]["invalid_metrics"]
+    assert {item["business_date"] for item in invalid_metrics} == {"2026-06-01", "2026-06-02"}
+    assert {item["field"] for item in invalid_metrics} == {"verified_cost_total"}
+    assert all(item["reason"] for item in invalid_metrics)
+    assert any("无效关键指标" in risk for risk in snapshot.analysis_payload["risks"])
