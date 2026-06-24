@@ -13,6 +13,7 @@ from app.core.scope import can_request_workshop_scope
 from app.core.redaction import redact_secret_text
 from app.models.rag import RagChunk, RagDocument, RagEmbedding, RagQueryLog
 from app.models.system import User
+from app.services.hermes_professional_knowledge_service import search_professional_knowledge
 from app.services import rag_embedding_service
 
 
@@ -146,6 +147,35 @@ def query_knowledge(
         citations: list[dict[str, Any]] = []
         _write_query_log(db, query_text=clean_query, answer=answer, citations=citations, user=user)
         return {'answer': answer, 'citations': citations, 'items': []}
+
+    professional_items = search_professional_knowledge(
+        db,
+        query=clean_query,
+        limit=limit,
+        domain=workshop or None,
+    )
+    if professional_items:
+        citations = [
+            {
+                'source': 'professional_knowledge',
+                'entry_id': item['id'],
+                'topic': item['topic'],
+                'source_ref': item['source_ref'],
+                'source_type': item['source_type'],
+                'confidence': item['confidence'],
+            }
+            for item in professional_items
+        ]
+        snippets = '；'.join(item['content'] for item in professional_items[:3])
+        source_text = '、'.join(item['source_ref'] for item in professional_items[:3])
+        answer = f'根据专业知识库：{snippets}\n来源：{source_text}'
+        _write_query_log(db, query_text=clean_query, answer=answer, citations=citations, user=user)
+        return {
+            'answer': answer,
+            'citations': citations,
+            'items': professional_items,
+            'source': 'professional_knowledge',
+        }
 
     tokens = _query_tokens(clean_query)
     metadata_filters = _clean_payload({'workshop': workshop, 'machine_code': machine_code})
@@ -431,7 +461,7 @@ def _merge_ranked_chunks(
     return sorted(merged.values(), key=lambda item: (-item[2], item[0].document_id, item[0].chunk_index))
 
 
-def _chunk_item(chunk: RagChunk, document: RagDocument, *, score: int) -> dict[str, Any]:
+def _chunk_item(chunk: RagChunk, document: RagDocument, *, score: float) -> dict[str, Any]:
     snippet = redact_secret_text(chunk.content[:220])
     return {
         'document_id': document.id,
