@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
 from app.models.reports import OperationPeriodSnapshot
@@ -75,4 +75,4 @@ def _cost_per_ton(cost_total: float, output: float) -> str | None:
     if output == 0:
         return None
     value = Decimal(str(cost_total)) / Decimal(str(output))
-    return str(value.quantize(Decimal("0.01"), rounding=ROUND_DOWN))
+    return str(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))

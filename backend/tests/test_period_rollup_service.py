@@ -101,7 +101,7 @@ def test_build_month_and_year_rollups_from_archived_daily_reports() -> None:
     saved_month = db.get(OperationPeriodSnapshot, month_snapshot.id)
     assert saved_month is not None
     assert saved_month.analysis_payload["period_label"] == "2026-06-01 至 2026-06-19"
-    assert saved_month.analysis_payload["sections"]["cost"]["cost_per_ton"] == "813.94元/吨"
+    assert saved_month.analysis_payload["sections"]["cost"]["cost_per_ton"] == "813.95元/吨"
     assert saved_month.analysis_payload["sections"]["cost"]["electricity_fee"] == "4000.0元"
     assert saved_month.analysis_payload["sections"]["cost"]["gas_fee"] == "6000.0元"
     assert saved_month.analysis_payload["sections"]["trace"]["daily_report_count"] == 2

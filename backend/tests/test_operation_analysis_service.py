@@ -31,12 +31,33 @@ def test_analyze_monthly_operation_situation_returns_business_sections() -> None
     assert analysis["sections"]["cost"]["verified_cost_total"] == "4880207.0元"
     assert analysis["sections"]["cost"]["electricity_fee"] == "117200.0元"
     assert analysis["sections"]["cost"]["gas_fee"] == "182100.0元"
-    assert analysis["sections"]["cost"]["cost_per_ton"] == "817.31元/吨"
+    assert analysis["sections"]["cost"]["cost_per_ton"] == "817.32元/吨"
     assert analysis["sections"]["energy"]["electricity_fee"] == "117200.0元"
     assert analysis["sections"]["energy"]["gas_fee"] == "182100.0元"
     assert analysis["sections"]["trace"]["daily_report_count"] == 3
     assert analysis["sections"]["trace"]["snapshot_count"] == 3
     assert analysis["risks"] == []
+
+
+def test_analyze_operation_period_rounds_cost_per_ton_half_up() -> None:
+    snapshot = OperationPeriodSnapshot(
+        period_type="month",
+        period_start=date(2026, 6, 1),
+        period_end=date(2026, 6, 1),
+        cumulative_metrics={
+            "total_output": {"value": 6.0, "unit": "吨"},
+            "verified_cost_total": {"value": 10.0, "unit": "元"},
+        },
+        source_daily_report_ids=[1],
+        source_snapshot_ids=[],
+        missing_dates=[],
+        analysis_payload={},
+        payload_hash="f" * 64,
+    )
+
+    analysis = analyze_operation_period(snapshot)
+
+    assert analysis["sections"]["cost"]["cost_per_ton"] == "1.67元/吨"
 
 
 def test_analyze_operation_period_reports_missing_dates_as_risk() -> None:
