@@ -148,24 +148,14 @@ def query_knowledge(
         _write_query_log(db, query_text=clean_query, answer=answer, citations=citations, user=user)
         return {'answer': answer, 'citations': citations, 'items': []}
 
-    professional_items = search_professional_knowledge(
+    professional_items = _search_professional_knowledge_with_fallback(
         db,
         query=clean_query,
         limit=limit,
-        domain=workshop or None,
+        workshop=workshop,
     )
     if professional_items:
-        citations = [
-            {
-                'source': 'professional_knowledge',
-                'entry_id': item['id'],
-                'topic': item['topic'],
-                'source_ref': item['source_ref'],
-                'source_type': item['source_type'],
-                'confidence': item['confidence'],
-            }
-            for item in professional_items
-        ]
+        citations = [_professional_citation(item) for item in professional_items]
         snippets = '；'.join(item['content'] for item in professional_items[:3])
         source_text = '、'.join(item['source_ref'] for item in professional_items[:3])
         answer = f'根据专业知识库：{snippets}\n来源：{source_text}'
@@ -229,6 +219,69 @@ def query_knowledge(
 
     _write_query_log(db, query_text=clean_query, answer=answer, citations=citations, user=user)
     return {'answer': answer, 'citations': citations, 'items': items}
+
+
+def _search_professional_knowledge_with_fallback(
+    db: Session,
+    *,
+    query: str,
+    limit: int,
+    workshop: str | None,
+) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(int(limit or 5), 10))
+    items: list[dict[str, Any]] = []
+    seen_ids: set[int] = set()
+    for domain in _professional_domain_candidates(workshop):
+        matches = search_professional_knowledge(
+            db,
+            query=query,
+            limit=safe_limit,
+            domain=domain,
+        )
+        for item in matches:
+            entry_id = int(item['id'])
+            if entry_id in seen_ids:
+                continue
+            seen_ids.add(entry_id)
+            items.append(item)
+            if len(items) >= safe_limit:
+                return items
+    return items
+
+
+def _professional_domain_candidates(workshop: str | None) -> list[str | None]:
+    candidates: list[str | None] = []
+    clean_workshop = str(workshop or '').strip()
+    if clean_workshop:
+        candidates.append(clean_workshop)
+    candidates.extend(['daily_report', 'factory', 'global', None])
+
+    unique: list[str | None] = []
+    seen: set[str | None] = set()
+    for candidate in candidates:
+        key = candidate.casefold() if isinstance(candidate, str) else None
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(candidate)
+    return unique
+
+
+def _professional_citation(item: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(item.get('metadata') or {})
+    return {
+        'document_id': None,
+        'filename': str(item.get('filename') or item.get('topic') or item.get('source_ref') or 'professional_knowledge'),
+        'source_name': str(item.get('source_name') or item.get('filename') or item.get('topic') or 'professional_knowledge'),
+        'chunk_index': int(item.get('chunk_index') or 0),
+        'metadata': metadata,
+        'source': 'professional_knowledge',
+        'entry_id': item.get('entry_id') or item.get('id'),
+        'topic': item.get('topic'),
+        'source_ref': item.get('source_ref'),
+        'source_type': item.get('source_type'),
+        'confidence': item.get('confidence'),
+    }
 
 
 def validate_and_decode_upload(filename: str, content: bytes) -> DecodedText:

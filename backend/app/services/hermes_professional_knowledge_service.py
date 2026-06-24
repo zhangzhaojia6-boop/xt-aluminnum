@@ -5,7 +5,7 @@ import re
 from datetime import date
 from typing import Any
 
-from sqlalchemy import inspect
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.models.rag import HermesProfessionalKnowledgeEntry
@@ -24,7 +24,7 @@ def upsert_professional_knowledge(
     confidence: int = 80,
     valid_from: date | None = None,
     valid_to: date | None = None,
-    status: str = "active",
+    status: str | None = None,
     created_by_id: int | None = None,
     trace_id: str | None = None,
 ) -> HermesProfessionalKnowledgeEntry:
@@ -34,7 +34,7 @@ def upsert_professional_knowledge(
     clean_source_type = _required_text(source_type, "source_type")
     clean_source_ref = _required_text(source_ref, "source_ref")
     clean_content = _required_text(content, "content")
-    clean_status = str(status or "active").strip() or "active"
+    clean_status = _clean_status(status) if status is not None else None
     clean_confidence = _clamp_confidence(confidence)
     payload = dict(structured_payload or {})
 
@@ -58,7 +58,7 @@ def upsert_professional_knowledge(
             confidence=clean_confidence,
             valid_from=valid_from,
             valid_to=valid_to,
-            status=clean_status,
+            status=clean_status or "active",
             created_by_id=created_by_id,
             trace_id=trace_id,
         )
@@ -70,9 +70,12 @@ def upsert_professional_knowledge(
         entry.confidence = clean_confidence
         entry.valid_from = valid_from
         entry.valid_to = valid_to
-        entry.status = clean_status
-        entry.created_by_id = created_by_id
-        entry.trace_id = trace_id
+        if clean_status is not None:
+            entry.status = clean_status
+        if created_by_id is not None:
+            entry.created_by_id = created_by_id
+        if trace_id is not None:
+            entry.trace_id = trace_id
 
     db.flush()
     return entry
@@ -86,9 +89,6 @@ def search_professional_knowledge(
     domain: str | None = None,
     knowledge_type: str | None = None,
 ) -> list[dict[str, Any]]:
-    if not _has_professional_knowledge_table(db):
-        return []
-
     tokens = _query_tokens(query)
     if not tokens:
         return []
@@ -103,11 +103,25 @@ def search_professional_knowledge(
     if clean_knowledge_type:
         row_query = row_query.filter(HermesProfessionalKnowledgeEntry.knowledge_type == clean_knowledge_type)
 
-    rows = row_query.order_by(
-        HermesProfessionalKnowledgeEntry.confidence.desc(),
-        HermesProfessionalKnowledgeEntry.updated_at.desc(),
-        HermesProfessionalKnowledgeEntry.id.desc(),
-    ).all()
+    try:
+        nested = db.begin_nested()
+        try:
+            rows = row_query.order_by(
+                HermesProfessionalKnowledgeEntry.confidence.desc(),
+                HermesProfessionalKnowledgeEntry.updated_at.desc(),
+                HermesProfessionalKnowledgeEntry.id.desc(),
+            ).all()
+        except (OperationalError, ProgrammingError) as exc:
+            if _is_missing_professional_table_error(exc):
+                nested.rollback()
+                return []
+            raise
+        else:
+            nested.commit()
+    except (OperationalError, ProgrammingError) as exc:
+        if _is_missing_professional_table_error(exc):
+            return []
+        raise
 
     scored: list[tuple[float, HermesProfessionalKnowledgeEntry]] = []
     for entry in rows:
@@ -135,12 +149,25 @@ def _clamp_confidence(value: int) -> int:
     return max(0, min(raw_value, 100))
 
 
-def _has_professional_knowledge_table(db: Session) -> bool:
-    try:
-        bind = db.get_bind()
-        return inspect(bind).has_table(HermesProfessionalKnowledgeEntry.__tablename__)
-    except Exception:
+def _clean_status(status: str | None) -> str:
+    clean_status = str(status or "").strip()
+    return clean_status or "active"
+
+
+def _is_missing_professional_table_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    table_name = HermesProfessionalKnowledgeEntry.__tablename__.lower()
+    if table_name not in message:
         return False
+    return any(
+        marker in message
+        for marker in (
+            "no such table",
+            "does not exist",
+            "doesn't exist",
+            "undefined table",
+        )
+    )
 
 
 def _query_tokens(query: str) -> list[str]:
@@ -170,8 +197,23 @@ def _score_entry(entry: HermesProfessionalKnowledgeEntry, tokens: list[str]) -> 
 
 
 def _entry_item(entry: HermesProfessionalKnowledgeEntry, *, score: float) -> dict[str, Any]:
+    filename = _entry_filename(entry)
+    metadata = {
+        "domain": entry.domain,
+        "topic": entry.topic,
+        "knowledge_type": entry.knowledge_type,
+        "source_type": entry.source_type,
+        "source_ref": entry.source_ref,
+        "confidence": entry.confidence,
+        "structured_payload": entry.structured_payload or {},
+    }
     return {
         "id": entry.id,
+        "entry_id": entry.id,
+        "document_id": None,
+        "filename": filename,
+        "source_name": filename,
+        "chunk_index": 0,
         "domain": entry.domain,
         "topic": entry.topic,
         "knowledge_type": entry.knowledge_type,
@@ -180,6 +222,17 @@ def _entry_item(entry: HermesProfessionalKnowledgeEntry, *, score: float) -> dic
         "content": entry.content,
         "structured_payload": entry.structured_payload or {},
         "confidence": entry.confidence,
+        "metadata": metadata,
         "score": round(score, 4),
         "source": "professional_knowledge",
     }
+
+
+def _entry_filename(entry: HermesProfessionalKnowledgeEntry) -> str:
+    source_ref = str(entry.source_ref or "").strip()
+    source_name = source_ref.rstrip("/").rsplit("/", 1)[-1].strip() if source_ref else ""
+    label = str(entry.topic or "").strip() or source_name or str(entry.source_type or "").strip()
+    source_type = str(entry.source_type or "").strip()
+    if source_type and source_type not in label:
+        return f"{label} ({source_type})"
+    return label or "professional_knowledge"
