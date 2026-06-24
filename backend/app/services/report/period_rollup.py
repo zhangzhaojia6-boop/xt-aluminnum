@@ -27,14 +27,19 @@ def build_operation_period_snapshot(
     created_by_id: int | None = None,
 ) -> OperationPeriodSnapshot:
     period_start, period_end = _period_bounds(period_type, target_date)
-    rows = (
+    queried_rows = (
         db.query(DailyReportHistoryRecord)
         .filter(DailyReportHistoryRecord.report_type == "daily")
         .filter(DailyReportHistoryRecord.business_date >= period_start)
         .filter(DailyReportHistoryRecord.business_date <= period_end)
-        .order_by(DailyReportHistoryRecord.business_date.asc(), DailyReportHistoryRecord.id.asc())
+        .order_by(
+            DailyReportHistoryRecord.business_date.asc(),
+            DailyReportHistoryRecord.created_at.asc(),
+            DailyReportHistoryRecord.id.asc(),
+        )
         .all()
     )
+    rows = _latest_daily_rows(queried_rows)
     metrics = _sum_daily_metrics(rows)
     source_daily_report_ids = [row.id for row in rows]
     source_snapshot_ids = [row.source_snapshot_id for row in rows if row.source_snapshot_id is not None]
@@ -78,6 +83,15 @@ def _period_bounds(period_type: str, target_date: date) -> tuple[date, date]:
     if period_type == "full_year":
         return date(target_date.year, 1, 1), date(target_date.year, 12, 31)
     raise ValueError(f"unsupported period_type: {period_type}")
+
+
+def _latest_daily_rows(rows: list[DailyReportHistoryRecord]) -> list[DailyReportHistoryRecord]:
+    latest_by_date: dict[date, DailyReportHistoryRecord] = {}
+    for row in rows:
+        if row.business_date is None:
+            continue
+        latest_by_date[row.business_date] = row
+    return [latest_by_date[business_date] for business_date in sorted(latest_by_date)]
 
 
 def _sum_daily_metrics(rows: list[DailyReportHistoryRecord]) -> dict[str, dict[str, Any]]:
