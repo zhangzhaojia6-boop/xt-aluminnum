@@ -38,7 +38,7 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0049_hermes_data_audit' in current.stdout
+    assert '0051_report_history_period_knowledge' in current.stdout
 
 
 def test_legacy_shift_references_are_remapped_by_latest_migration(tmp_path) -> None:

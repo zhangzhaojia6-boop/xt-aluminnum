@@ -905,7 +905,7 @@ def seed_real_equipment(db: Session, workshops_by_code: dict[str, Workshop]) -> 
 
 def seed_mes_terminal_bindings(db: Session) -> None:
     try:
-        if not inspect(db.get_bind()).has_table(MesTerminalBinding.__tablename__):
+        if not inspect(db.connection()).has_table(MesTerminalBinding.__tablename__):
             return
     except Exception:
         return

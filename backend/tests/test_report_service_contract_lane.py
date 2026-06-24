@@ -121,6 +121,10 @@ class FactoryDashboardDB:
         return self._queries.pop(0)
 
 
+def _empty_factory_production_fact(*_args, **_kwargs):
+    return {'packaging_fact': {'daily_row_count': 0, 'month_row_count': 0}, 'daily_yield_rate': None}
+
+
 def build_history_session(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'factory-history.db'}", future=True)
     Base.metadata.create_all(engine, tables=[Workshop.__table__, ShiftConfig.__table__, ShiftProductionData.__table__])
@@ -684,6 +688,10 @@ def test_build_factory_dashboard_uses_runtime_output_for_management_today(monkey
     monkeypatch.setattr('app.services.report_service.build_workshop_attendance_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_workshop_reporting_status', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_yesterday_shift_breakdown', lambda *_args, **_kwargs: {'shifts': []})
+    monkeypatch.setattr(
+        'app.services.report_service.mes_factory_production_fact.build_factory_production_fact',
+        _empty_factory_production_fact,
+    )
 
     payload = report_service.build_factory_dashboard(FactoryDashboardDB(latest_report), target_date=date(2026, 5, 6))
 
@@ -786,6 +794,10 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
     monkeypatch.setattr('app.services.report_service.build_workshop_attendance_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_workshop_reporting_status', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_yesterday_shift_breakdown', lambda *_args, **_kwargs: {'shifts': []})
+    monkeypatch.setattr(
+        'app.services.report_service.mes_factory_production_fact.build_factory_production_fact',
+        _empty_factory_production_fact,
+    )
 
     payload = report_service.build_factory_dashboard(FactoryDashboardDB(latest_report), target_date=date(2026, 4, 17))
 
@@ -984,6 +996,10 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
     monkeypatch.setattr('app.services.report_service.build_workshop_attendance_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_workshop_reporting_status', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_yesterday_shift_breakdown', lambda *_args, **_kwargs: {'shifts': []})
+    monkeypatch.setattr(
+        'app.services.report_service.mes_factory_production_fact.build_factory_production_fact',
+        _empty_factory_production_fact,
+    )
 
     payload = report_service.build_factory_dashboard(FactoryDashboardDB(latest_report), target_date=date(2026, 4, 17))
 
