@@ -68,7 +68,7 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
     values.update(bundle_values)
     fact_sources.update(bundle_sources)
     template_formal_text = _text_or_empty(template_payload.get('text'))
-    rendered_formal_text = _render_formal_text_from_merged_values(
+    rendered_formal_text, render_error = _render_formal_text_from_merged_values(
         template_formal_text,
         business_date=business_date,
         values=values,
@@ -77,6 +77,18 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
     )
     missing_fields = _merged_missing_fields(sources, template_payload=template_payload)
     conflicts = _collect_conflicts(sources)
+    if render_error:
+        conflicts.append(
+            {
+                'type': 'formal_render_error',
+                'source': 'template_daily_report',
+                'field': 'formal_text',
+                'message': render_error,
+                'status': 'failed',
+                'severity': 'high',
+                'blocking': True,
+            }
+        )
     field_match_rate = _field_match_rate(sources)
     alignment = _as_mapping(sources.get('output_skill_alignment'))
     alignment_threshold = _alignment_threshold(alignment)
@@ -141,9 +153,9 @@ def _render_formal_text_from_merged_values(
     values: Mapping[str, Any],
     sources: Mapping[str, Any],
     template_facts: Mapping[str, Any],
-) -> str:
+) -> tuple[str, str | None]:
     if not template_text.strip():
-        return ''
+        return '', None
     parsed_values = parse_output_skill_daily_report(template_text)
     merged_values = {
         **parsed_values,
@@ -152,7 +164,7 @@ def _render_formal_text_from_merged_values(
     }
     merged_values.setdefault('report_date', business_date)
     if any(merged_values.get(field_name) is None for field_name in REQUIRED_FIELDS):
-        return template_text.strip()
+        return template_text.strip(), None
     try:
         return render_template_daily_report(
             {
@@ -160,9 +172,9 @@ def _render_formal_text_from_merged_values(
                 'values': merged_values,
                 'sources': dict(sources),
             }
-        ).strip()
-    except Exception:
-        return template_text.strip()
+        ).strip(), None
+    except Exception as exc:
+        return '', f'正式日报重渲染失败：{exc.__class__.__name__}: {exc}'
 
 
 def _bundle_fact_values_and_sources(sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:

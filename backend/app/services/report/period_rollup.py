@@ -127,7 +127,10 @@ def _sum_daily_metrics(
                 continue
             if reason is not None:
                 invalid_metrics.append(_invalid_metric_entry(row, source_field, reason))
+        has_verified_cost_total = _valid_metric(facts, "verified_cost_total")
         for source_field, target_field in _FIELD_MAP.items():
+            if source_field == "total_cost_10k" and has_verified_cost_total:
+                continue
             item = facts.get(source_field)
             if not isinstance(item, dict):
                 continue

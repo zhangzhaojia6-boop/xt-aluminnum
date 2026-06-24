@@ -736,3 +736,51 @@ def test_daily_fact_bundle_values_override_template_formal_text() -> None:
     assert '车间总产量日合计355吨' not in result['formal_text']
     assert '外加工31吨' not in result['formal_text']
     assert '日成品率90.12%' not in result['formal_text']
+
+
+def test_complete_daily_fact_bundle_render_error_blocks_formal_release() -> None:
+    service = _service()
+    template_values = _complete_template_values()
+    template_text = render_template_daily_report({'values': template_values})
+    template_sources = {key: 'template_daily_report' for key in template_values}
+
+    result = service.build_day1_three_part_report(
+        business_date=date(2026, 6, 19),
+        sources={
+            'template_daily_report': {
+                'status': 'ready',
+                'text': template_text,
+                'facts': {
+                    'values': template_values,
+                    'sources': template_sources,
+                },
+                'missing_fields': [],
+                'conflicts': [],
+            },
+            'daily_fact_bundle': {
+                'status': 'ready',
+                'facts': {
+                    'total_output_daily': {
+                        'value': {'bad': 'object'},
+                        'unit': '吨',
+                        'source': 'dingtalk_supplement',
+                        'source_type': 'dingtalk_supplement',
+                        'adoption_reason': '模拟不可格式化的补充事实',
+                    }
+                },
+                'missing_fields': [],
+                'missing': [],
+                'conflicts': [],
+            },
+            'audit_run': {'status': 'completed', 'source_status': {'mes': 'ok'}, 'diffs': {}, 'suggested_actions': []},
+            'mes_wms': {'source_status': {'mes': 'ok'}, 'records': {}},
+            'output_skill_alignment': {'status': 'passed', 'field_match_rate': 100.0, 'threshold': 95.0},
+        },
+    )
+
+    assert result['status'] == 'blocked'
+    assert result['formal_text'] == BLOCKED_SENTENCE
+    assert '车间总产量日合计355吨' not in result['text']
+    assert '车间总产量日合计355吨' not in result['dingtalk_answer']
+    assert '正式日报' in result['text']
+    assert '渲染失败' in result['text']
