@@ -19,6 +19,9 @@ from app.services.hermes_day1_intent_service import HermesDay1Command
 from app.services.hermes_day1_report_service import build_day1_three_part_report, _alignment_threshold as _report_alignment_threshold
 from app.services.hermes_day1_source_service import collect_day1_sources
 from app.services.hermes_governance_service import FACTORY_PROFILE_CODE
+from app.services.report.daily_fact_bundle import persist_daily_fact_bundle_snapshot
+from app.services.report.daily_report_history import archive_daily_report
+from app.services.report.period_rollup import build_operation_period_snapshot
 
 DAY1_TOOLS_CALLED = [
     'template_daily_report',
@@ -70,6 +73,16 @@ def run_day1_super_brain(
         product=product,
         sources=sources,
     )
+    archive_trace = _archive_ready_day1_report(
+        db,
+        command=command,
+        actor=actor,
+        product=product,
+        sources=sources,
+        trace_id=trace_id,
+    )
+    if archive_trace:
+        _attach_archive_trace_to_report(report, archive_trace)
 
     learning_payload = {
         'event_recorded': True,
@@ -242,6 +255,111 @@ def _upsert_daily_report(
     return report
 
 
+def _archive_ready_day1_report(
+    db: Session,
+    *,
+    command: HermesDay1Command,
+    actor: User,
+    product: dict[str, Any],
+    sources: dict[str, Any],
+    trace_id: str,
+) -> dict[str, Any]:
+    if product.get('status') != 'ready':
+        return {}
+    formal_text = str(product.get('formal_text') or '').strip()
+    if not formal_text:
+        return {}
+    daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
+    if not daily_fact_bundle:
+        return {}
+
+    _, source_snapshot = persist_daily_fact_bundle_snapshot(
+        db,
+        bundle=daily_fact_bundle,
+        business_date=command.business_date,
+        requested_by=actor,
+        trace_id=trace_id,
+        snapshot_reason='formal_daily_report',
+    )
+    history = archive_daily_report(
+        db,
+        business_date=command.business_date,
+        report_text=formal_text,
+        report_payload=_formal_history_payload(product=product, daily_fact_bundle=daily_fact_bundle),
+        source_snapshot=source_snapshot,
+        trace_id=trace_id,
+        created_by_id=actor.id,
+    )
+    month_snapshot = build_operation_period_snapshot(
+        db,
+        period_type='month',
+        target_date=command.business_date,
+        trace_id=trace_id,
+        created_by_id=actor.id,
+    )
+    year_snapshot = build_operation_period_snapshot(
+        db,
+        period_type='year',
+        target_date=command.business_date,
+        trace_id=trace_id,
+        created_by_id=actor.id,
+    )
+
+    daily_fact_summary = dict(daily_fact_bundle)
+    daily_fact_summary['formal_snapshot_id'] = source_snapshot.id
+    daily_fact_summary['formal_history_record_id'] = history.id
+    sources['daily_fact_bundle'] = daily_fact_summary
+    sources['formal_daily_report_snapshot'] = {
+        'id': source_snapshot.id,
+        'run_id': source_snapshot.run_id,
+        'snapshot_reason': source_snapshot.snapshot_reason,
+        'payload_hash': source_snapshot.payload_hash,
+        'history_record_id': history.id,
+        'period_snapshot_ids': {
+            'month': month_snapshot.id,
+            'year': year_snapshot.id,
+        },
+    }
+    return {
+        'source_snapshot_id': source_snapshot.id,
+        'source_run_id': source_snapshot.run_id,
+        'history_record_id': history.id,
+        'month_snapshot_id': month_snapshot.id,
+        'year_snapshot_id': year_snapshot.id,
+    }
+
+
+def _formal_history_payload(
+    *,
+    product: dict[str, Any],
+    daily_fact_bundle: Mapping[str, Any],
+) -> dict[str, Any]:
+    return _json_safe(
+        {
+            'status': product.get('status'),
+            'formal_text': product.get('formal_text'),
+            'three_part_text': product.get('text'),
+            'brain_judgment': product.get('brain_judgment'),
+            'workshop_details': product.get('workshop_details'),
+            'missing_fields': product.get('missing_fields') or [],
+            'conflicts': product.get('conflicts') or [],
+            'facts': daily_fact_bundle.get('facts') or {},
+            'sources': daily_fact_bundle.get('sources') or {},
+            'correction_refs': daily_fact_bundle.get('correction_refs') or [],
+            'dingtalk_refs': daily_fact_bundle.get('dingtalk_refs') or [],
+            'output_skill_alignment': daily_fact_bundle.get('output_skill_alignment') or {},
+        }
+    )
+
+
+def _attach_archive_trace_to_report(report: DailyReport, archive_trace: Mapping[str, Any]) -> None:
+    report_data = dict(report.report_data or {})
+    day1_payload = dict(_as_mapping(report_data.get('hermes_day1_super_brain')))
+    day1_payload.update(_json_safe(archive_trace))
+    report_data['hermes_day1_super_brain'] = day1_payload
+    report.report_data = report_data
+
+
 def _agent_result_payload(
     *,
     command: HermesDay1Command,
@@ -317,6 +435,8 @@ def _source_summary(sources: dict[str, Any]) -> dict[str, Any]:
             'fact_count': len(_as_mapping(daily_fact_bundle.get('facts'))),
             'correction_ref_count': len(daily_fact_bundle.get('correction_refs') or []),
             'dingtalk_ref_count': len(daily_fact_bundle.get('dingtalk_refs') or []),
+            'formal_snapshot_id': daily_fact_bundle.get('formal_snapshot_id'),
+            'formal_history_record_id': daily_fact_bundle.get('formal_history_record_id'),
         },
         'mes_wms': {
             'status': _source_status(mes_wms),

@@ -14,6 +14,7 @@ from app.services.report.operation_analysis import analyze_operation_period
 _FIELD_MAP = {
     "total_output_daily": "total_output",
     "verified_cost_total": "verified_cost_total",
+    "total_cost_10k": "verified_cost_total",
     "electricity_fee": "electricity_fee",
     "gas_fee": "gas_fee",
 }
@@ -122,6 +123,8 @@ def _sum_daily_metrics(
             continue
         for source_field in _CRITICAL_FIELDS:
             reason = _invalid_metric_reason(facts, source_field)
+            if source_field == "verified_cost_total" and reason is not None and _valid_metric(facts, "total_cost_10k"):
+                continue
             if reason is not None:
                 invalid_metrics.append(_invalid_metric_entry(row, source_field, reason))
         for source_field, target_field in _FIELD_MAP.items():
@@ -131,15 +134,26 @@ def _sum_daily_metrics(
             value = item.get("value")
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 continue
+            value, unit = _normalised_metric_value(source_field, float(value), item.get("unit"))
             bucket = totals.setdefault(
                 target_field,
-                {"value": 0.0, "unit": item.get("unit"), "source_fields": []},
+                {"value": 0.0, "unit": unit, "source_fields": []},
             )
-            bucket["value"] = round(float(bucket["value"]) + float(value), 4)
+            bucket["value"] = round(float(bucket["value"]) + value, 4)
             source_fields = bucket["source_fields"]
             if isinstance(source_fields, list) and source_field not in source_fields:
                 source_fields.append(source_field)
     return totals, invalid_metrics
+
+
+def _valid_metric(facts: dict[str, Any], source_field: str) -> bool:
+    return _invalid_metric_reason(facts, source_field) is None
+
+
+def _normalised_metric_value(source_field: str, value: float, unit: Any) -> tuple[float, Any]:
+    if source_field == "total_cost_10k":
+        return value * 10000, "元"
+    return value, unit
 
 
 def _invalid_metric_reason(facts: dict[str, Any], source_field: str) -> str | None:

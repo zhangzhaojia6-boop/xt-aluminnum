@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal
+import re
 from typing import Any
 
 
@@ -25,7 +26,10 @@ BLOCKED_FORMAL_TEXT = '当前关键字段缺失，Hermes 未生成正式日报�
 DINGTALK_MAX_CHARS = 3500
 
 _OK_DIFF_STATUSES = {'matched', 'match', 'same', 'equal', 'ok', 'ready', 'passed'}
-_REVIEW_STATUS_MARKERS = ('failed', 'partial', 'error', 'empty', 'missing', 'review-needed', 'review_needed')
+_REVIEW_STATUS_MARKERS = ('blocked', 'failed', 'partial', 'error', 'empty', 'missing', 'review-needed', 'review_needed')
+_BUNDLE_READY_STATUSES = {'ready', 'ok', 'passed', 'completed', 'matched'}
+_NON_BLOCKING_ADOPTED_CONFLICT_TYPES = {'root_owner_correction', 'dingtalk_supplement', 'adopted_override'}
+_NUMBER_PATTERN = r'-?\d+(?:\.\d+)?'
 _SOURCE_LABELS = {
     'template_daily_report': '模板正式日报',
     'daily_fact_bundle': '日报事实包',
@@ -62,14 +66,25 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
     bundle_values, bundle_sources = _bundle_fact_values_and_sources(sources)
     values.update(bundle_values)
     fact_sources.update(bundle_sources)
-    formal_text = _text_or_empty(template_payload.get('text'))
+    template_formal_text = _text_or_empty(template_payload.get('text'))
+    rendered_formal_text = _render_formal_text_from_merged_values(template_formal_text, values)
     missing_fields = _merged_missing_fields(sources, template_payload=template_payload)
     conflicts = _collect_conflicts(sources)
     field_match_rate = _field_match_rate(sources)
     alignment = _as_mapping(sources.get('output_skill_alignment'))
     alignment_threshold = _alignment_threshold(alignment)
     alignment_blocked = _alignment_blocks_release(alignment, field_match_rate=field_match_rate, threshold=alignment_threshold)
-    status = 'ready' if template_payload.get('status') == 'ready' and formal_text and not alignment_blocked else 'blocked'
+    release_blocked = (
+        alignment_blocked
+        or bool(missing_fields)
+        or _daily_fact_bundle_blocks_release(sources)
+        or _conflicts_block_release(conflicts)
+    )
+    status = (
+        'ready'
+        if template_payload.get('status') == 'ready' and rendered_formal_text and not release_blocked
+        else 'blocked'
+    )
 
     brain_judgment = _build_brain_judgment(
         business_date=business_date,
@@ -81,7 +96,7 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
         alignment_threshold=alignment_threshold,
     )
     workshop_details = _build_workshop_details(values=values, sources=fact_sources)
-    formal_section_text = formal_text if status == 'ready' else BLOCKED_FORMAL_TEXT
+    formal_section_text = rendered_formal_text if status == 'ready' else BLOCKED_FORMAL_TEXT
     text = render_three_part_daily_report(
         formal_text=formal_section_text,
         workshop_details=workshop_details,
@@ -102,7 +117,7 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
     return {
         'status': status,
         'text': text,
-        'formal_text': formal_text,
+        'formal_text': formal_section_text,
         'brain_judgment': brain_judgment,
         'workshop_details': workshop_details,
         'dingtalk_answer': '\n\n'.join(dingtalk_messages),
@@ -110,6 +125,54 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
         'missing_fields': missing_fields,
         'conflicts': conflicts,
     }
+
+
+def _render_formal_text_from_merged_values(template_text: str, values: Mapping[str, Any]) -> str:
+    text = template_text.strip()
+    if not text:
+        return ''
+
+    replacements: list[tuple[str, str]] = [
+        ('total_output_daily', rf'(?P<prefix>车间总产量日合计)\s*{_NUMBER_PATTERN}\s*(?P<suffix>吨)'),
+        ('total_output_month', rf'(?P<prefix>月累计)\s*{_NUMBER_PATTERN}\s*(?P<suffix>吨（外加工月累计)'),
+        ('verified_cost_total', rf'(?P<prefix>已核合计约)\s*{_NUMBER_PATTERN}\s*(?P<suffix>万元)'),
+        ('total_cost_10k', rf'(?P<prefix>已核合计约)\s*{_NUMBER_PATTERN}\s*(?P<suffix>万元)'),
+        ('cost_per_ton', rf'(?P<prefix>折算约)\s*{_NUMBER_PATTERN}\s*(?P<suffix>元/吨)'),
+    ]
+    for title, prefix in WORKSHOP_DETAIL_SPECS:
+        escaped_title = re.escape(title)
+        daily_prefix = rf'{escaped_title}(?:开机\s*{_NUMBER_PATTERN}条，)?日产量'
+        replacements.append((f'{prefix}_daily', rf'(?P<prefix>{daily_prefix})\s*{_NUMBER_PATTERN}\s*(?P<suffix>[吨块])'))
+        replacements.append((f'{prefix}_month', rf'(?P<prefix>{escaped_title}.*?月累计产量)\s*{_NUMBER_PATTERN}\s*(?P<suffix>[吨块])'))
+
+    for field_name, pattern in replacements:
+        if field_name not in values:
+            continue
+        value_text = _formal_number_text(values.get(field_name))
+        if value_text is None:
+            continue
+        text = re.sub(
+            pattern,
+            lambda match, replacement=value_text: f'{match.group("prefix")}{replacement}{match.group("suffix")}',
+            text,
+            count=1,
+            flags=re.S,
+        )
+    return text
+
+
+def _formal_number_text(value: Any) -> str | None:
+    if value in (None, '') or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float, Decimal)):
+        return _format_number(float(value))
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return _format_number(float(text))
+    except ValueError:
+        return text
 
 
 def _bundle_fact_values_and_sources(sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -144,6 +207,16 @@ def _bundle_fact_source(fact: Mapping[str, Any]) -> dict[str, Any]:
     if adoption_reason not in (None, ''):
         source_detail['adoption_reason'] = adoption_reason
     return source_detail
+
+
+def _daily_fact_bundle_blocks_release(sources: dict[str, Any]) -> bool:
+    daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
+    if not daily_fact_bundle:
+        return False
+    status = str(daily_fact_bundle.get('status') or '').strip().lower()
+    if not status:
+        return False
+    return status not in _BUNDLE_READY_STATUSES or _source_incomplete(status)
 
 
 def _merged_missing_fields(sources: dict[str, Any], *, template_payload: Mapping[str, Any]) -> list[str]:
@@ -259,11 +332,15 @@ def _build_brain_judgment(
 ) -> dict[str, Any]:
     audit = _as_mapping(sources.get('audit_run'))
     alignment = _as_mapping(sources.get('output_skill_alignment'))
+    daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
     source_status = _as_mapping(audit.get('source_status'))
     risks: list[str] = []
     audit_status = audit.get('status')
     if status != 'ready':
         risks.append('正式日报正文被阻断')
+    bundle_status = daily_fact_bundle.get('status')
+    if daily_fact_bundle and _daily_fact_bundle_blocks_release(sources):
+        risks.append(f'日报事实包状态需复核：{_plain_text(bundle_status)}')
     if missing_fields:
         risks.append(f'缺失字段 {len(missing_fields)} 个：{_join_text(missing_fields)}')
     if conflicts:
@@ -307,6 +384,7 @@ def _collect_conflicts(sources: dict[str, Any]) -> list[dict[str, Any]]:
     daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
     for item in _as_list(daily_fact_bundle.get('conflicts')):
         conflicts.append(_normalise_conflict(item, conflict_type='daily_fact_bundle_conflict', source='daily_fact_bundle'))
+    _append_source_errors(conflicts, 'daily_fact_bundle', daily_fact_bundle.get('source_errors'))
 
     template_payload = _as_mapping(sources.get('template_daily_report'))
     facts = _as_mapping(template_payload.get('facts'))
@@ -343,6 +421,27 @@ def _collect_conflicts(sources: dict[str, Any]) -> list[dict[str, Any]]:
             _append_source_errors(conflicts, key, payload.get('source_errors'))
 
     return _dedupe_conflicts(conflicts)
+
+
+def _conflicts_block_release(conflicts: Sequence[Mapping[str, Any]]) -> bool:
+    return any(_conflict_blocks_release(conflict) for conflict in conflicts)
+
+
+def _conflict_blocks_release(conflict: Mapping[str, Any]) -> bool:
+    conflict_type = str(conflict.get('type') or '').strip()
+    if conflict_type in _NON_BLOCKING_ADOPTED_CONFLICT_TYPES:
+        return False
+    if conflict_type == 'source_error':
+        return True
+    status = str(conflict.get('status') or '').strip().lower()
+    if status and status not in _OK_DIFF_STATUSES:
+        return True
+    severity = str(conflict.get('severity') or '').strip().lower()
+    if severity in {'critical', 'high', 'blocking'}:
+        return True
+    if conflict.get('blocking') is True:
+        return True
+    return conflict_type in {'daily_fact_bundle_conflict', 'template_conflict', 'audit_diff'}
 
 
 def _normalise_conflict(item: Any, *, conflict_type: str, source: str) -> dict[str, Any]:

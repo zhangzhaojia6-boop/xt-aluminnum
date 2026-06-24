@@ -10,7 +10,12 @@ from sqlalchemy.orm import sessionmaker
 from app.models import Base
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.rag import HermesLearningEvent, HermesShortTermMemory
-from app.models.reports import DailyReport
+from app.models.reports import (
+    DailyFactBundleSnapshot,
+    DailyReport,
+    DailyReportHistoryRecord,
+    OperationPeriodSnapshot,
+)
 from app.models.system import AuditLog, User
 from app.services import audit_service
 from app.services.hermes_day1_intent_service import HermesDay1Command
@@ -58,7 +63,10 @@ def _sources() -> dict[str, Any]:
         'daily_fact_bundle': {
             'business_date': BUSINESS_DATE.isoformat(),
             'status': 'ready',
-            'facts': {'total_output_daily': {'value': 366, 'source': 'root_owner_correction'}},
+            'facts': {
+                'total_output_daily': {'value': 366, 'source': 'root_owner_correction'},
+                'total_cost_10k': {'value': 29.93, 'unit': '万元', 'source': 'energy_cost'},
+            },
             'missing_fields': [],
             'missing': [],
             'conflicts': [],
@@ -186,7 +194,9 @@ def test_ready_run_persists_report_agent_memory_learning_audit_and_returns_resul
             'actor': actor,
             'trace_id': 'trace-day1-001',
         }
-        assert calls['build'] == {'business_date': BUSINESS_DATE, 'sources': _sources()}
+        assert calls['build']['business_date'] == BUSINESS_DATE
+        assert calls['build']['sources']['template_daily_report'] == _sources()['template_daily_report']
+        assert calls['build']['sources']['daily_fact_bundle']['status'] == 'ready'
     finally:
         db.close()
 
@@ -222,6 +232,48 @@ def test_ready_run_writes_final_fields_and_delivery_ready(monkeypatch) -> None:
         db.close()
 
 
+def test_ready_run_archives_formal_snapshot_history_and_period_rollups(monkeypatch) -> None:
+    service = _service()
+    db = _db_session()
+    actor = _actor(db)
+    _patch_pipeline(monkeypatch, service, product=_ready_product())
+    _patch_audit(monkeypatch, service)
+
+    try:
+        result = service.run_day1_super_brain(
+            db,
+            command=_command(),
+            actor=actor,
+            trace_id='trace-day1-archive',
+        )
+
+        snapshot = db.query(DailyFactBundleSnapshot).one()
+        history = db.query(DailyReportHistoryRecord).one()
+        period_snapshots = db.query(OperationPeriodSnapshot).order_by(OperationPeriodSnapshot.period_type.asc()).all()
+        report = db.get(DailyReport, result.report_id)
+        run = db.get(AgentRun, result.agent_run_id)
+
+        assert snapshot.snapshot_reason == 'formal_daily_report'
+        assert snapshot.business_date == BUSINESS_DATE
+        assert snapshot.trace_id == 'trace-day1-archive'
+        assert snapshot.facts['total_output_daily']['value'] == 366
+        assert history.source_snapshot_id == snapshot.id
+        assert history.source_run_id == snapshot.run_id
+        assert history.business_date == BUSINESS_DATE
+        assert history.report_text == '6月21日正式日报正文'
+        assert history.report_payload['facts']['total_output_daily']['value'] == 366
+        assert history.report_payload['facts']['total_cost_10k']['value'] == 29.93
+        assert {item.period_type for item in period_snapshots} == {'month', 'year'}
+        assert all(history.id in item.source_daily_report_ids for item in period_snapshots)
+        assert all(snapshot.id in item.source_snapshot_ids for item in period_snapshots)
+        assert all(item.cumulative_metrics['verified_cost_total']['value'] == 299300.0 for item in period_snapshots)
+        assert report.report_data['hermes_day1_super_brain']['history_record_id'] == history.id
+        assert report.report_data['hermes_day1_super_brain']['source_snapshot_id'] == snapshot.id
+        assert run.result_payload['hermes_day1']['sources']['daily_fact_bundle']['formal_snapshot_id'] == snapshot.id
+    finally:
+        db.close()
+
+
 def test_blocked_run_updates_report_without_final_or_delivery_and_marks_agent_blocked(monkeypatch) -> None:
     service = _service()
     db = _db_session()
@@ -251,6 +303,8 @@ def test_blocked_run_updates_report_without_final_or_delivery_and_marks_agent_bl
         assert run.status == 'blocked'
         assert run.status_color == 'yellow'
         assert run.answer == '缺字段，日报未定稿'
+        assert db.query(DailyReportHistoryRecord).count() == 0
+        assert db.query(OperationPeriodSnapshot).count() == 0
     finally:
         db.close()
 
@@ -380,14 +434,15 @@ def test_chat_inbox_rag_count_command_summary_and_reply_metadata_are_recorded(mo
         assert reply['first_message_chars'] == len('第一条回复')
         assert payload['sources']['trace_id'] == 'trace-day1-001'
         assert payload['sources']['template_daily_report']['status'] == 'ready'
-        assert payload['sources']['daily_fact_bundle'] == {
-            'status': 'ready',
-            'missing_count': 0,
-            'conflict_count': 0,
-            'fact_count': 1,
-            'correction_ref_count': 1,
-            'dingtalk_ref_count': 1,
-        }
+        daily_fact_summary = payload['sources']['daily_fact_bundle']
+        assert daily_fact_summary['status'] == 'ready'
+        assert daily_fact_summary['missing_count'] == 0
+        assert daily_fact_summary['conflict_count'] == 0
+        assert daily_fact_summary['fact_count'] == 2
+        assert daily_fact_summary['correction_ref_count'] == 1
+        assert daily_fact_summary['dingtalk_ref_count'] == 1
+        assert daily_fact_summary['formal_snapshot_id'] is not None
+        assert daily_fact_summary['formal_history_record_id'] is not None
         assert payload['sources']['mes_wms']['record_groups'] == 1
         assert payload['sources']['audit_run']['match_rate'] == 0.99
         assert payload['sources']['rag']['citation_count'] == 2
@@ -454,14 +509,15 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
         assert long_chat_text not in payload_text
         assert summary['trace_id'] == 'trace-day1-001'
         assert summary['business_date'] == BUSINESS_DATE.isoformat()
-        assert summary['daily_fact_bundle'] == {
-            'status': 'ready',
-            'missing_count': 0,
-            'conflict_count': 0,
-            'fact_count': 1,
-            'correction_ref_count': 1,
-            'dingtalk_ref_count': 1,
-        }
+        daily_fact_summary = summary['daily_fact_bundle']
+        assert daily_fact_summary['status'] == 'ready'
+        assert daily_fact_summary['missing_count'] == 0
+        assert daily_fact_summary['conflict_count'] == 0
+        assert daily_fact_summary['fact_count'] == 2
+        assert daily_fact_summary['correction_ref_count'] == 1
+        assert daily_fact_summary['dingtalk_ref_count'] == 1
+        assert daily_fact_summary['formal_snapshot_id'] is not None
+        assert daily_fact_summary['formal_history_record_id'] is not None
         assert summary['dingtalk_evidence']['count'] == 1
         assert summary['dingtalk_evidence']['items'] == [{'id': 11, 'file_uri': 'dingtalk://media/abc', 'hash': 'evidence-hash-1'}]
         assert summary['dingtalk_messages']['count'] == 1

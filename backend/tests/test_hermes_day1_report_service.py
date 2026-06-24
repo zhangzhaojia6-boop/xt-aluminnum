@@ -182,7 +182,7 @@ def test_blocked_template_does_not_fake_formal_text_and_shows_missing_fields() -
     )
 
     assert result['status'] == 'blocked'
-    assert result['formal_text'] == ''
+    assert result['formal_text'] == BLOCKED_SENTENCE
     assert BLOCKED_SENTENCE in result['text']
     assert '车间总产量日合计366吨' not in result['text']
     assert 'total_output_daily' in result['text']
@@ -420,7 +420,7 @@ def test_low_output_skill_match_rate_blocks_ready_template_and_lists_difference_
     )
 
     assert result['status'] == 'blocked'
-    assert result['formal_text'] == '6月21日，车间总产量日合计366吨。'
+    assert result['formal_text'] == BLOCKED_SENTENCE
     assert BLOCKED_SENTENCE in result['text']
     assert '输出 skill 差异字段：total_output_daily、cost_per_ton' in result['text']
     assert '字段匹配率低于 95.0%' in result['text']
@@ -605,3 +605,95 @@ def test_workshop_details_prefer_daily_fact_bundle_over_template_and_free_text_n
     assert '777吨' not in text
     assert '999吨' not in text
     assert '钉钉补充事实' in text or 'dingtalk_supplement' in text
+
+
+def test_blocked_daily_fact_bundle_blocks_formal_release_and_shows_missing_fields() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=date(2026, 6, 19),
+        sources={
+            'template_daily_report': {
+                'status': 'ready',
+                'text': '6月19日，车间总产量日合计355吨。',
+                'facts': {'values': {'total_output_daily': 355}, 'sources': {}},
+                'missing_fields': [],
+                'conflicts': [],
+            },
+            'daily_fact_bundle': {
+                'status': 'blocked',
+                'facts': {'total_output_daily': {'value': 355, 'unit': '吨', 'source': 'mes_packaging_output'}},
+                'missing_fields': ['verified_cost_total'],
+                'missing': ['verified_cost_total'],
+                'conflicts': [],
+            },
+            'audit_run': {'status': 'completed', 'source_status': {'mes': 'ok'}, 'diffs': {}, 'suggested_actions': []},
+            'mes_wms': {'source_status': {'mes': 'ok'}, 'records': {}},
+            'output_skill_alignment': {'status': 'passed', 'field_match_rate': 100.0, 'threshold': 95.0},
+        },
+    )
+
+    assert result['status'] == 'blocked'
+    assert result['formal_text'] == BLOCKED_SENTENCE
+    assert BLOCKED_SENTENCE in result['text']
+    assert BLOCKED_SENTENCE in result['dingtalk_answer']
+    assert '车间总产量日合计355吨' not in result['text']
+    assert '车间总产量日合计355吨' not in result['dingtalk_answer']
+    assert result['brain_judgment']['missing_fields'] == ['verified_cost_total']
+    assert any('verified_cost_total' in risk for risk in result['brain_judgment']['risks'])
+
+
+def test_daily_fact_bundle_values_override_template_formal_text() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=date(2026, 6, 19),
+        sources={
+            'template_daily_report': {
+                'status': 'ready',
+                'text': '6月19日，车间总产量日合计355吨。',
+                'facts': {
+                    'values': {'total_output_daily': 355},
+                    'sources': {'total_output_daily': 'mes_packaging_output'},
+                },
+                'missing_fields': [],
+                'conflicts': [],
+            },
+            'daily_fact_bundle': {
+                'status': 'ready',
+                'facts': {
+                    'total_output_daily': {
+                        'value': 366,
+                        'unit': '吨',
+                        'source': 'root_owner_correction',
+                        'source_type': 'root_owner_correction',
+                        'adoption_reason': 'root_owner 钉钉确认',
+                    }
+                },
+                'missing_fields': [],
+                'missing': [],
+                'conflicts': [
+                    {
+                        'field': 'total_output_daily',
+                        'type': 'root_owner_correction',
+                        'adopted_source': 'root_owner_correction',
+                        'adopted_value': 366,
+                        'previous_source': 'mes_packaging_output',
+                        'previous_value': 355,
+                        'reason': 'root_owner 钉钉确认',
+                    }
+                ],
+            },
+            'audit_run': {'status': 'completed', 'source_status': {'mes': 'ok'}, 'diffs': {}, 'suggested_actions': []},
+            'mes_wms': {'source_status': {'mes': 'ok'}, 'records': {}},
+            'output_skill_alignment': {'status': 'passed', 'field_match_rate': 100.0, 'threshold': 95.0},
+        },
+    )
+
+    assert result['status'] == 'ready'
+    assert '366吨' in result['formal_text']
+    assert '366吨' in result['text']
+    assert '366吨' in result['dingtalk_answer']
+    assert '355吨' not in result['formal_text']
+    assert '355吨' not in result['text']
+    assert '355吨' not in result['dingtalk_answer']

@@ -127,6 +127,44 @@ def test_build_month_and_year_rollups_from_archived_daily_reports() -> None:
     assert saved_month.analysis_payload["sections"]["trace"]["snapshot_count"] == 2
 
 
+def test_month_rollup_converts_template_total_cost_10k_to_verified_cost_total_yuan() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            cast(Table, DailyReportHistoryRecord.__table__),
+            cast(Table, OperationPeriodSnapshot.__table__),
+        ],
+    )
+    db = Session(engine)
+    db.add(
+        _history_row_from_facts(
+            date(2026, 6, 19),
+            {
+                "total_output_daily": {"value": 366.0, "unit": "吨"},
+                "total_cost_10k": {"value": 29.93, "unit": "万元"},
+            },
+        )
+    )
+    db.commit()
+
+    month_snapshot = build_operation_period_snapshot(
+        db,
+        period_type="month",
+        target_date=date(2026, 6, 19),
+        trace_id="trace-month-cost-10k",
+    )
+
+    assert month_snapshot.cumulative_metrics["verified_cost_total"]["value"] == 299300.0
+    assert month_snapshot.cumulative_metrics["verified_cost_total"]["unit"] == "元"
+    assert "total_cost_10k" in month_snapshot.cumulative_metrics["verified_cost_total"]["source_fields"]
+    assert not [
+        item
+        for item in month_snapshot.analysis_payload["sections"]["trace"]["invalid_metrics"]
+        if item["field"] == "verified_cost_total"
+    ]
+
+
 def test_month_rollup_uses_latest_daily_report_version_per_business_date() -> None:
     engine = create_engine("sqlite:///:memory:", future=True)
     Base.metadata.create_all(

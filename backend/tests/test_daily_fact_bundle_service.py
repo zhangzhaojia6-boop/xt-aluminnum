@@ -209,7 +209,7 @@ def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: 
         "reason": "root_owner 钉钉确认",
     }
     assert bundle["confidence"] == 1.0
-    assert bundle["status"] == "partial"
+    assert bundle["status"] == "ready"
 
 
 def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(

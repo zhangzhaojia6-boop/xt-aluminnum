@@ -12,7 +12,14 @@ from app.database import Base, get_engine, get_sessionmaker
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.master import Workshop
 from app.models.rag import HermesLearningEvent, HermesShortTermMemory
-from app.models.reports import DailyFactCorrection, DailyReport
+from app.models.reports import (
+    DailyFactBundleRun,
+    DailyFactBundleSnapshot,
+    DailyFactCorrection,
+    DailyReport,
+    DailyReportHistoryRecord,
+    OperationPeriodSnapshot,
+)
 from app.models.system import AuditLog, User
 from scripts import agent_cli
 
@@ -22,6 +29,10 @@ TABLES = [
     Workshop.__table__,
     DailyReport.__table__,
     DailyFactCorrection.__table__,
+    DailyFactBundleRun.__table__,
+    DailyFactBundleSnapshot.__table__,
+    DailyReportHistoryRecord.__table__,
+    OperationPeriodSnapshot.__table__,
     ChatInboxMessage.__table__,
     AgentRun.__table__,
     HermesLearningEvent.__table__,
@@ -68,6 +79,21 @@ def _patch_day1_orchestrator_pipeline(monkeypatch) -> None:
             'trace_id': 'trace-day1-cli-source-001',
             'business_date': '2026-06-19',
             'template_daily_report': {'status': 'ready', 'text': '模板日报正文'},
+            'daily_fact_bundle': {
+                'business_date': '2026-06-19',
+                'status': 'ready',
+                'facts': {
+                    'total_output_daily': {'value': 366, 'unit': '吨', 'source': 'root_owner_correction'},
+                    'verified_cost_total': {'value': 12.5, 'unit': '万元', 'source': 'energy_cost'},
+                },
+                'sources': {'total_output_daily': {'source': 'root_owner_correction'}},
+                'missing_fields': [],
+                'missing': [],
+                'conflicts': [],
+                'correction_refs': [{'id': 1, 'field_name': 'total_output_daily'}],
+                'dingtalk_refs': [],
+                'output_skill_alignment': {'status': 'passed', 'field_match_rate': 100.0},
+            },
             'mes_wms': {'source_status': {'mes': 'ok'}, 'records': {'summary': [{'field': 'total_output'}]}},
             'audit_run': {'status': 'completed', 'match_rate': 0.98, 'source_status': {'mes': 'ok', 'hub': 'ok'}},
             'dingtalk_evidence': [],
@@ -558,6 +584,14 @@ def test_day1_report_runs_real_orchestrator_and_writes_report_run_and_inbox(tmp_
         assert db.query(DailyReport).count() == 1
         assert db.query(AgentRun).count() == 1
         assert db.query(ChatInboxMessage).count() == 1
+        assert db.query(DailyFactBundleSnapshot).count() == 1
+        assert db.query(DailyReportHistoryRecord).count() == 1
+        assert db.query(OperationPeriodSnapshot).count() == 2
+        snapshot = db.query(DailyFactBundleSnapshot).one()
+        history = db.query(DailyReportHistoryRecord).one()
+        assert snapshot.snapshot_reason == 'formal_daily_report'
+        assert history.source_snapshot_id == snapshot.id
+        assert history.report_payload['facts']['total_output_daily']['value'] == 366
         inbox = db.query(ChatInboxMessage).one()
         assert inbox.channel == 'dingtalk_private'
         assert inbox.trace_id == 'trace-day1-cli-run-001'

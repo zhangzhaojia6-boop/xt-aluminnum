@@ -50,6 +50,7 @@ FIELD_UNITS = {
     "total_gas_m3": "m³",
     "daily_yield_rate": "%",
     "monthly_yield_rate": "%",
+    "verified_cost_total": "万元",
     "cost_per_ton": "元/吨",
 }
 
@@ -89,6 +90,28 @@ def build_daily_fact_bundle(
             snapshot_reason=snapshot_reason,
         )
     return bundle
+
+
+def persist_daily_fact_bundle_snapshot(
+    db: Session,
+    *,
+    bundle: Mapping[str, Any],
+    business_date: date,
+    requested_by: User | None = None,
+    trace_id: str | None = None,
+    snapshot_reason: str,
+) -> tuple[DailyFactBundleRun, DailyFactBundleSnapshot]:
+    run, snapshot = _persist_bundle(
+        db,
+        bundle=_refresh_bundle_metadata(dict(bundle)),
+        business_date=business_date,
+        requested_by=requested_by,
+        trace_id=trace_id,
+        snapshot_reason=snapshot_reason,
+    )
+    if snapshot is None:
+        raise ValueError("snapshot_reason_required")
+    return run, snapshot
 
 
 def _facts_from_template(template_facts: Mapping[str, Any], *, business_date: date) -> dict[str, Any]:
@@ -477,7 +500,7 @@ def _refresh_bundle_metadata(bundle: dict[str, Any]) -> dict[str, Any]:
     conflicts = [_json_safe(item) for item in bundle.get("conflicts") or []]
     if missing:
         status = "blocked"
-    elif conflicts:
+    elif any(_conflict_blocks_ready(item) for item in conflicts):
         status = "partial"
     else:
         current_status = str(bundle.get("status") or "")
@@ -491,6 +514,20 @@ def _refresh_bundle_metadata(bundle: dict[str, Any]) -> dict[str, Any]:
     bundle["conflicts"] = conflicts
     bundle["status"] = status
     return bundle
+
+
+def _conflict_blocks_ready(conflict: Any) -> bool:
+    if not isinstance(conflict, Mapping):
+        return True
+    conflict_type = str(conflict.get("type") or "").strip()
+    if conflict_type in {"root_owner_correction", "dingtalk_supplement"}:
+        return False
+    if conflict_type == "source_error":
+        return True
+    status = str(conflict.get("status") or "").strip().lower()
+    if status and status not in {"matched", "match", "same", "equal", "ok", "ready", "passed"}:
+        return True
+    return conflict_type not in {"", "adopted_override"}
 
 
 def _run_key(*, business_date: date, trace_id: str | None) -> str:
