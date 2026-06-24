@@ -1881,6 +1881,73 @@ git diff --check
 
 不满足任一条件时，API 必须返回 `decision_gate.can_apply=false` 和明确 reason。
 
+### 19.9 数据源扩展补充：WMS 与钉钉聊天资料
+
+2026-06-21 新增要求：Hermes 的原始数据来源不再只看 MES SQL Server、数据中枢和输出 skill。后续计划必须把 `wms.xintaily.com` 和钉钉聊天记录中的文件、文本纳入可审计来源。
+
+小白版理解：Hermes 不能只问一个系统。它以后要能同时看生产系统、仓储系统、数据中枢、历史成品文件、以及现场人员在钉钉里发过的文字和文件。但每个来源都要标清楚“从哪里来、谁发的、什么时候发的、能不能信、能不能自动改”。
+
+#### 19.9.1 新增来源边界
+
+| 来源 | 系统身份 | 第一阶段权限 | Hermes 用途 | 禁止事项 |
+|---|---|---|---|---|
+| MES SQL Server | 外部生产系统 | 高权限只读 | 生产、工序、在制、包装入库候选 | 禁止写 MES，禁止任意 SQL |
+| `wms.xintaily.com` | 外部 WMS 仓储系统 | 只读，账号和接口待确认 | 成品入库、出库、库存、库位、寄存、调拨、客户/合同仓储口径 | 禁止写 WMS，禁止把 WMS 当 MES |
+| 数据中枢 | 本系统 | Hermes 高权限可写，受审计和 feature flag 控制 | 补齐缺失映射、低风险修正、保存审计 run/action | 禁止无审计写入 |
+| `D:\输出skill` / 云端只读挂载 | 历史成品参考源 | 只读 | 对齐历史日报成品、验证 Hermes 输出是否贴近案例成品 | 禁止修改原文件 |
+| 钉钉聊天文本 | 现场沟通证据源 | 只读采集授权群/授权人的消息 | 现场解释、人工确认、班组补充说明、异常原因 | 禁止全量无授权抓群，禁止把聊天口径直接当最终事实 |
+| 钉钉聊天文件 | 现场文件证据源 | 只读下载授权消息附件 | 临时报表、截图、Excel、TXT、日报口径补充，进入 RAG 或审计证据 | 禁止把密钥文件入库，禁止提交到 Git |
+
+#### 19.9.2 WMS 接入原则
+
+- `wms.xintaily.com` 是独立外部 WMS 数据源，不要把它命名成 MES。
+- 第一版只读采集，不做 WMS 写入。
+- 新增 WMS adapter 时必须白名单 query key，例如：
+  - `finished_inbound_records`
+  - `finished_outbound_records`
+  - `stock_balance_records`
+  - `stock_transfer_records`
+  - `customer_storage_records`
+- WMS 每个 query 必须带业务日期窗口、limit、source_status、source_errors。
+- WMS 错误只能记录脱敏摘要，不能输出 cookie、token、密码、连接串。
+- WMS 字段进入 Hermes 审计时新增 `source_status.wms`，不能塞进 `source_status.mes`。
+- WMS 值与 MES SQL Server 中已有 `WMS_InStockDetail/WMS_Stock` 候选口径冲突时，必须标记 `wms_conflict`，不能自动挑一个当真值。
+
+#### 19.9.3 钉钉聊天文件和文本接入原则
+
+现有代码已经有基础能力可复用：
+
+- `backend/scripts/agent_cli.py` 已能记录钉钉消息到 `ChatInboxMessage`。
+- `backend/scripts/agent_cli.py` 已有 `rag-ingest-file`，可以把授权文件入 RAG。
+- 现有钉钉用户绑定、allowed/owner 用户校验、outbox/inbox 审计不能绕开。
+
+新增能力应按下面方式收敛：
+
+- 只采集授权群、授权用户、授权时间窗口内的消息。
+- 每条聊天文本必须保存来源摘要：
+  - `channel`
+  - `group_id`
+  - `message_id` 或 `trace_id`
+  - `sender_external_id`
+  - `sent_at`
+  - `ingested_by`
+- 附件必须先做安全检查：
+  - 允许：`txt`、`md`、`csv`、`json`、`log`、`xls`、`xlsx`、常见图片格式。
+  - 拒绝：可执行文件、脚本、密钥文件、超大文件。
+  - 文件内容进入 RAG 或审计证据，不进入 Git。
+- Hermes 使用钉钉资料时必须把它标为 `dingtalk_text` 或 `dingtalk_file`，不能伪装成 MES/WMS/数据中枢事实。
+- 钉钉资料只能作为证据、解释和人工确认来源。要变成数据中枢事实，必须经过 Hermes audit run、差异解释、人工或规则门禁。
+
+#### 19.9.4 后续实施 Lane
+
+| Lane | 目标 | 主要文件 | 验证 |
+|---|---|---|---|
+| F | WMS 只读 adapter 和 Hermes source 聚合 | `backend/app/services/hermes_wms_read_service.py`、`backend/app/services/hermes_data_audit_service.py` | WMS 白名单、只读、source_status.wms、脱敏错误、WMS/MES 冲突标记 |
+| G | 钉钉聊天文本/文件作为 Hermes 证据源 | `backend/scripts/agent_cli.py`、RAG service、Hermes audit service | 授权群/用户校验、附件安全检查、RAG 入库、dingtalk_text/file provenance |
+| H | WMS + 钉钉资料参与三天回放 | backfill script、Hermes audit tests | 脚本输出增加 WMS/DING source health，不破坏一日一行 |
+
+这些 Lane 不阻塞 A-E 的收口。A-E 仍然先完成 MES、数据中枢、输出 skill 三边核验；F/G/H 是下一轮数据源扩展。
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |

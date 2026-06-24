@@ -22,6 +22,36 @@ from app.services.report.output_skill_report_parser import parse_output_skill_da
 
 SUBMITTED_STATUSES = ("submitted", "verified", "approved")
 
+SOURCE_PRIORITY = {
+    "owner_daily": 100,
+    "manual_workbook": 95,
+    "wms_direct": 90,
+    "mes_verified": 85,
+    "manual_mobile_coil": 80,
+    "owner_daily_month_sum": 78,
+    "quality_yield_daily": 76,
+    "recovery_daily": 76,
+    "overhaul_daily": 76,
+    "mes_stock_header_records": 72,
+    "mes_stock_records": 72,
+    "mes_stock_records_missing": 72,
+    "finished_inbound_output": 72,
+    "previous_final_report": 70,
+    "computed": 65,
+    "owner_or_energy_summary": 62,
+    "energy_cost": 62,
+    "contract_projection": 60,
+    "yield_projection": 60,
+    "mes_packaging_output": 45,
+    "mes_delivery_records": 45,
+    "mes_wip_distribution": 40,
+    "mes_wip_total_snapshot": 40,
+    "mes_material_records": 35,
+    "mes_workshop_process_records": 35,
+    "runtime_target_date": 30,
+    "mes_evidence": 20,
+}
+
 MANUAL_OUTPUT_FIELDS = {
     "hot_roll_daily",
     "hot_roll_month",
@@ -135,6 +165,22 @@ def _source(source_type: str, **extra: Any) -> dict[str, Any]:
     return {"source_type": source_type, **extra}
 
 
+def _source_priority(source_type: str | None) -> int:
+    if not source_type:
+        return 0
+    if source_type in SOURCE_PRIORITY:
+        return SOURCE_PRIORITY[source_type]
+    if source_type.startswith("mes_"):
+        return SOURCE_PRIORITY["mes_evidence"]
+    return 0
+
+
+def should_replace_source(existing: dict | None, new_source_type: str) -> bool:
+    if existing is None:
+        return True
+    return _source_priority(new_source_type) >= _source_priority(existing.get("source_type"))
+
+
 def _has_table(db: Session, table_name: str) -> bool:
     try:
         return inspect(db.get_bind()).has_table(table_name)
@@ -144,6 +190,8 @@ def _has_table(db: Session, table_name: str) -> bool:
 
 def _set_value(facts: TemplateDailyFacts, key: str, value: Any, source_type: str, **source_extra: Any) -> None:
     if value is None or value == "":
+        return
+    if not should_replace_source(facts.sources.get(key), source_type):
         return
     if isinstance(value, float):
         value = round(value, 3)

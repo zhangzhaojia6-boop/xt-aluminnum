@@ -101,6 +101,72 @@ def _seed_mes_material(
     )
 
 
+def test_source_priority_covers_current_template_fact_sources() -> None:
+    expected_source_types = {
+        "runtime_target_date",
+        "mes_packaging_output",
+        "mes_stock_header_records",
+        "finished_inbound_output",
+        "mes_delivery_records",
+        "mes_wip_distribution",
+        "mes_wip_total_snapshot",
+        "contract_projection",
+        "yield_projection",
+        "owner_or_energy_summary",
+        "energy_cost",
+        "manual_mobile_coil",
+        "owner_daily_month_sum",
+        "quality_yield_daily",
+        "recovery_daily",
+        "overhaul_daily",
+        "previous_final_report",
+        "computed",
+        "mes_stock_records",
+        "mes_stock_records_missing",
+        "mes_material_records",
+        "mes_workshop_process_records",
+        "owner_daily",
+        "manual_workbook",
+        "wms_direct",
+        "mes_verified",
+        "mes_evidence",
+    }
+
+    missing = expected_source_types - set(template_daily_fact_sources.SOURCE_PRIORITY)
+
+    assert missing == set()
+
+
+def test_set_value_keeps_owner_daily_when_lower_priority_mes_evidence_arrives() -> None:
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+
+    template_daily_fact_sources._set_value(facts, "cold_1650_daily", 130.01, "owner_daily")
+    template_daily_fact_sources._set_value(facts, "cold_1650_daily", 166.417, "mes_evidence")
+
+    assert facts.values["cold_1650_daily"] == 130.01
+    assert facts.sources["cold_1650_daily"]["source_type"] == "owner_daily"
+
+
+def test_set_value_allows_same_priority_source_to_overwrite() -> None:
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+
+    template_daily_fact_sources._set_value(facts, "finished_inbound_daily", 366, "manual_workbook")
+    template_daily_fact_sources._set_value(facts, "finished_inbound_daily", 382, "manual_workbook")
+
+    assert facts.values["finished_inbound_daily"] == 382
+    assert facts.sources["finished_inbound_daily"]["source_type"] == "manual_workbook"
+
+
+def test_set_value_keeps_high_priority_zero_against_lower_priority_source() -> None:
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+
+    template_daily_fact_sources._set_value(facts, "total_output_daily", 0, "owner_daily")
+    template_daily_fact_sources._set_value(facts, "total_output_daily", 999, "mes_packaging_output")
+
+    assert facts.values["total_output_daily"] == 0
+    assert facts.sources["total_output_daily"]["source_type"] == "owner_daily"
+
+
 def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
@@ -345,6 +411,32 @@ def test_mes_report_mapping_uses_device_name_for_cold_roll_rows(tmp_path) -> Non
 
     assert facts.values["cold_1650_daily"] == 141.74
     assert facts.values["cold_2050_daily"] == 167.9
+
+
+def test_owner_daily_wins_over_mes_process_output_for_cold_roll(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        _seed_owner_daily_payload(
+            db,
+            {
+                "cold_1650_daily": 130.01,
+                "cold_1850_daily": 45.75,
+                "cold_2050_daily": 80.4,
+            },
+        )
+        _seed_mes_process(db, source_id="mes-1650", text="1650冷轧", output_tons=166.417)
+        _seed_mes_process(db, source_id="mes-1850", text="1850冷轧", output_tons=99.99)
+        _seed_mes_process(db, source_id="mes-2050", text="2050冷轧", output_tons=207.29)
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["cold_1650_daily"] == 130.01
+    assert facts.values["cold_1850_daily"] == 45.75
+    assert facts.values["cold_2050_daily"] == 80.4
+    assert facts.sources["cold_1650_daily"]["source_type"] == "owner_daily"
 
 
 def test_rolling_total_is_sum_of_report_mapped_1650_1850_2050(tmp_path) -> None:
