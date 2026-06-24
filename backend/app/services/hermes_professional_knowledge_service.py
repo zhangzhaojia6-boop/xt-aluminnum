@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
+from app.core.redaction import is_sensitive_key, redact_secret_text
 from app.models.rag import HermesProfessionalKnowledgeEntry
 
 
@@ -197,15 +198,22 @@ def _score_entry(entry: HermesProfessionalKnowledgeEntry, tokens: list[str]) -> 
 
 
 def _entry_item(entry: HermesProfessionalKnowledgeEntry, *, score: float) -> dict[str, Any]:
-    filename = _entry_filename(entry)
+    filename = redact_secret_text(_entry_filename(entry))
+    content = redact_secret_text(entry.content)
+    source_ref = redact_secret_text(entry.source_ref)
+    structured_payload = _redact_public_value(entry.structured_payload or {})
+    domain = redact_secret_text(entry.domain)
+    topic = redact_secret_text(entry.topic)
+    knowledge_type = redact_secret_text(entry.knowledge_type)
+    source_type = redact_secret_text(entry.source_type)
     metadata = {
-        "domain": entry.domain,
-        "topic": entry.topic,
-        "knowledge_type": entry.knowledge_type,
-        "source_type": entry.source_type,
-        "source_ref": entry.source_ref,
+        "domain": domain,
+        "topic": topic,
+        "knowledge_type": knowledge_type,
+        "source_type": source_type,
+        "source_ref": source_ref,
         "confidence": entry.confidence,
-        "structured_payload": entry.structured_payload or {},
+        "structured_payload": structured_payload,
     }
     return {
         "id": entry.id,
@@ -214,18 +222,34 @@ def _entry_item(entry: HermesProfessionalKnowledgeEntry, *, score: float) -> dic
         "filename": filename,
         "source_name": filename,
         "chunk_index": 0,
-        "domain": entry.domain,
-        "topic": entry.topic,
-        "knowledge_type": entry.knowledge_type,
-        "source_type": entry.source_type,
-        "source_ref": entry.source_ref,
-        "content": entry.content,
-        "structured_payload": entry.structured_payload or {},
+        "domain": domain,
+        "topic": topic,
+        "knowledge_type": knowledge_type,
+        "source_type": source_type,
+        "source_ref": source_ref,
+        "content": content,
+        "snippet": content[:220],
+        "structured_payload": structured_payload,
         "confidence": entry.confidence,
         "metadata": metadata,
         "score": round(score, 4),
         "source": "professional_knowledge",
     }
+
+
+def _redact_public_value(value: Any, *, key: str | None = None) -> Any:
+    if key is not None and is_sensitive_key(key):
+        return "<redacted>"
+    if isinstance(value, dict):
+        return {
+            redact_secret_text(raw_key): _redact_public_value(raw_value, key=str(raw_key))
+            for raw_key, raw_value in value.items()
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [_redact_public_value(item) for item in value]
+    if isinstance(value, str):
+        return redact_secret_text(value)
+    return value
 
 
 def _entry_filename(entry: HermesProfessionalKnowledgeEntry) -> str:

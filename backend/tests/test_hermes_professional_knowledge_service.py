@@ -131,6 +131,43 @@ def test_upsert_professional_knowledge_update_preserves_owner_trace_and_inactive
         db.close()
 
 
+def test_upsert_professional_knowledge_explicit_active_reactivates_existing_entry() -> None:
+    db = _session()
+    try:
+        entry = upsert_professional_knowledge(
+            db,
+            domain="daily_report",
+            topic="重新启用规则",
+            knowledge_type="report_pattern",
+            source_type="manual",
+            source_ref="manual://reactivate-rule",
+            content="旧规则暂时停用。",
+            status="inactive",
+            created_by_id=7,
+            trace_id="trace-original",
+        )
+        db.commit()
+
+        updated = upsert_professional_knowledge(
+            db,
+            domain="daily_report",
+            topic="重新启用规则",
+            knowledge_type="report_pattern",
+            source_type="manual",
+            source_ref="manual://reactivate-rule",
+            content="规则重新启用。",
+            status="active",
+        )
+        db.commit()
+
+        assert updated.id == entry.id
+        assert updated.status == "active"
+        assert updated.created_by_id == 7
+        assert updated.trace_id == "trace-original"
+    finally:
+        db.close()
+
+
 def test_search_professional_knowledge_filters_active_domain_and_type() -> None:
     db = _session()
     try:
@@ -232,6 +269,40 @@ def test_query_knowledge_uses_professional_entries_before_generic_chunks() -> No
         db.close()
 
 
+def test_query_knowledge_redacts_professional_entry_content_and_items() -> None:
+    db = _session()
+    try:
+        upsert_professional_knowledge(
+            db,
+            domain="daily_report",
+            topic="日报敏感口径",
+            knowledge_type="report_pattern",
+            source_type="manual",
+            source_ref="manual://sensitive-rule",
+            content="日报敏感口径 password=abc123 token=xyz789 总产量口径。",
+            structured_payload={
+                "public_text": "password=abc123 token=xyz789",
+                "token": "xyz789",
+            },
+            confidence=90,
+        )
+        db.commit()
+
+        payload = query_knowledge(db, query="日报敏感口径", limit=5)
+
+        serialized = str(payload)
+        assert "abc123" not in payload["answer"]
+        assert "xyz789" not in payload["answer"]
+        assert "abc123" not in payload["items"][0]["content"]
+        assert "xyz789" not in payload["items"][0]["content"]
+        assert "abc123" not in serialized
+        assert "xyz789" not in serialized
+        assert "password=<redacted>" in payload["answer"]
+        assert "token=<redacted>" in payload["answer"]
+    finally:
+        db.close()
+
+
 def test_query_knowledge_legacy_rag_tables_without_professional_table_keep_flushed_data() -> None:
     db = _legacy_rag_session()
     try:
@@ -265,6 +336,38 @@ def test_query_knowledge_legacy_rag_tables_without_professional_table_keep_flush
         assert "旧知识库" in payload["answer"]
         assert db.query(RagDocument).filter(RagDocument.id == document.id).one().filename == "legacy-rag.md"
         assert db.query(RagChunk).filter(RagChunk.document_id == document.id).count() == 1
+    finally:
+        db.close()
+
+
+def test_query_knowledge_professional_fallback_order_and_deduplicates_global_pass() -> None:
+    db = _session()
+    try:
+        for domain, topic in [
+            ("热轧", "车间规则"),
+            ("daily_report", "日报规则"),
+            ("factory", "工厂规则"),
+            ("global", "全局规则"),
+            ("unlisted_domain", "无显式 fallback 规则"),
+        ]:
+            upsert_professional_knowledge(
+                db,
+                domain=domain,
+                topic=topic,
+                knowledge_type="report_pattern",
+                source_type="manual",
+                source_ref=f"manual://{domain}",
+                content=f"fallback顺序命中 {topic}",
+                confidence=95,
+            )
+        db.commit()
+
+        payload = query_knowledge(db, query="fallback顺序命中", workshop="热轧", limit=10)
+
+        domains = [item["domain"] for item in payload["items"]]
+        ids = [item["id"] for item in payload["items"]]
+        assert domains == ["热轧", "daily_report", "factory", "global", "unlisted_domain"]
+        assert len(ids) == len(set(ids))
     finally:
         db.close()
 
