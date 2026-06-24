@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.reports import DailyReportHistoryRecord, OperationPeriodSnapshot
 from app.services.report.daily_report_history import hash_payload
+from app.services.report.operation_analysis import analyze_operation_period
 
 
 _FIELD_MAP = {
@@ -67,6 +68,7 @@ def build_operation_period_snapshot(
         created_by_id=created_by_id,
         trace_id=trace_id,
     )
+    snapshot.analysis_payload = analyze_operation_period(snapshot)
     db.add(snapshot)
     db.flush()
     return snapshot

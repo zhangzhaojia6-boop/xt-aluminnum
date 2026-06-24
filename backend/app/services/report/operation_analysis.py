@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+from decimal import Decimal, ROUND_DOWN
+from typing import Any
+
+from app.models.reports import OperationPeriodSnapshot
+
+
+def analyze_operation_period(snapshot: OperationPeriodSnapshot) -> dict[str, Any]:
+    metrics = snapshot.cumulative_metrics or {}
+    output = _metric_value(metrics, "total_output")
+    cost_total = _metric_value(metrics, "verified_cost_total")
+    cost_per_ton = _cost_per_ton(cost_total, output)
+    risks: list[str] = []
+    if snapshot.missing_dates:
+        risks.append(f"缺少{len(snapshot.missing_dates)}天历史日报，月/年累计可能不完整")
+    if output == 0:
+        risks.append("累计产量为0，无法计算吨成本")
+
+    return {
+        "period_type": snapshot.period_type,
+        "period_label": f"{snapshot.period_start.isoformat()} 至 {snapshot.period_end.isoformat()}",
+        "sections": {
+            "production": {
+                "total_output": _format_metric(output, _metric_unit(metrics, "total_output")),
+            },
+            "cost": {
+                "verified_cost_total": _format_metric(cost_total, _metric_unit(metrics, "verified_cost_total")),
+                "cost_per_ton": f"{cost_per_ton}元/吨" if cost_per_ton is not None else None,
+            },
+            "energy": {
+                "electricity_fee": _format_metric(
+                    _metric_value(metrics, "electricity_fee"),
+                    _metric_unit(metrics, "electricity_fee"),
+                ),
+                "gas_fee": _format_metric(_metric_value(metrics, "gas_fee"), _metric_unit(metrics, "gas_fee")),
+            },
+            "trace": {
+                "daily_report_count": len(snapshot.source_daily_report_ids or []),
+                "source_snapshot_count": len(snapshot.source_snapshot_ids or []),
+                "missing_dates": snapshot.missing_dates or [],
+            },
+        },
+        "risks": risks,
+    }
+
+
+def _metric_value(metrics: dict[str, Any], key: str) -> float:
+    item = metrics.get(key)
+    if isinstance(item, dict) and isinstance(item.get("value"), (int, float)):
+        return float(item["value"])
+    return 0.0
+
+
+def _metric_unit(metrics: dict[str, Any], key: str) -> str:
+    item = metrics.get(key)
+    if isinstance(item, dict) and item.get("unit"):
+        return str(item["unit"])
+    return ""
+
+
+def _format_metric(value: float, unit: str) -> str:
+    return f"{round(value, 2)}{unit}"
+
+
+def _cost_per_ton(cost_total: float, output: float) -> str | None:
+    if output == 0:
+        return None
+    value = Decimal(str(cost_total)) / Decimal(str(output))
+    return str(value.quantize(Decimal("0.01"), rounding=ROUND_DOWN))
