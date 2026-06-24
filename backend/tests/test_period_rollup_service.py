@@ -3,12 +3,16 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, cast
 
+import pytest
 from sqlalchemy import Table, create_engine
 from sqlalchemy.orm import Session
 
 from app.database import Base
 from app.models.reports import DailyReportHistoryRecord, OperationPeriodSnapshot
 from app.services.report.period_rollup import build_operation_period_snapshot
+
+
+_MISSING = object()
 
 
 def _history_row(
@@ -38,6 +42,21 @@ def _history_row(
         report_payload={"facts": facts},
         source_summary={"source_status": {"mes": "ok"}},
         source_snapshot_id=source_snapshot_id,
+        facts_hash=f"{day.strftime('%Y%m%d'):0<64}"[:64],
+        text_hash=f"{day.strftime('%d%m%Y'):0<64}"[:64],
+    )
+
+
+def _history_row_from_facts(day: date, facts: dict[str, Any]) -> DailyReportHistoryRecord:
+    return DailyReportHistoryRecord(
+        report_type="daily",
+        business_date=day,
+        period_type="day",
+        period_start=day,
+        period_end=day,
+        report_text=f"{day.isoformat()} 日报",
+        report_payload={"facts": facts},
+        source_summary={"source_status": {"mes": "ok"}},
         facts_hash=f"{day.strftime('%Y%m%d'):0<64}"[:64],
         text_hash=f"{day.strftime('%d%m%Y'):0<64}"[:64],
     )
@@ -180,6 +199,58 @@ def test_build_month_rollup_updates_existing_snapshot_for_same_period() -> None:
     assert db.query(OperationPeriodSnapshot).count() == 1
 
 
+def test_build_year_rollup_updates_existing_snapshot_for_same_period() -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            cast(Table, DailyReportHistoryRecord.__table__),
+            cast(Table, OperationPeriodSnapshot.__table__),
+        ],
+    )
+    db = Session(engine)
+    january_first = _history_row(date(2026, 1, 1), 50.0, 50000.0)
+    old_june_nineteenth = _history_row(date(2026, 6, 19), 100.0, 80000.0)
+    db.add_all([january_first, old_june_nineteenth])
+    db.commit()
+
+    first_snapshot = build_operation_period_snapshot(
+        db,
+        period_type="year",
+        target_date=date(2026, 6, 19),
+        trace_id="trace-year-first",
+    )
+    first_snapshot_id = first_snapshot.id
+    assert first_snapshot.cumulative_metrics["total_output"]["value"] == 150.0
+    db.commit()
+
+    latest_june_nineteenth = _history_row(date(2026, 6, 19), 366.0, 299300.0)
+    db.add(latest_june_nineteenth)
+    db.commit()
+
+    second_snapshot = build_operation_period_snapshot(
+        db,
+        period_type="year",
+        target_date=date(2026, 6, 19),
+        trace_id="trace-year-second",
+    )
+
+    assert second_snapshot.id == first_snapshot_id
+    assert second_snapshot.trace_id == "trace-year-second"
+    assert second_snapshot.cumulative_metrics["total_output"]["value"] == 416.0
+    assert second_snapshot.cumulative_metrics["verified_cost_total"]["value"] == 349300.0
+    assert latest_june_nineteenth.id in second_snapshot.source_daily_report_ids
+    assert old_june_nineteenth.id not in second_snapshot.source_daily_report_ids
+    assert (
+        db.query(OperationPeriodSnapshot)
+        .filter(OperationPeriodSnapshot.period_type == "year")
+        .filter(OperationPeriodSnapshot.period_start == date(2026, 1, 1))
+        .filter(OperationPeriodSnapshot.period_end == date(2026, 6, 19))
+        .count()
+        == 1
+    )
+
+
 def test_month_rollup_traces_invalid_critical_metrics_as_risk() -> None:
     engine = create_engine("sqlite:///:memory:", future=True)
     Base.metadata.create_all(
@@ -209,4 +280,58 @@ def test_month_rollup_traces_invalid_critical_metrics_as_risk() -> None:
     assert {item["business_date"] for item in invalid_metrics} == {"2026-06-01", "2026-06-02"}
     assert {item["field"] for item in invalid_metrics} == {"verified_cost_total"}
     assert all(item["reason"] for item in invalid_metrics)
+    assert any("无效关键指标" in risk for risk in snapshot.analysis_payload["risks"])
+
+
+@pytest.mark.parametrize(
+    ("field", "bad_payload", "expected_reason"),
+    [
+        ("total_output_daily", _MISSING, "missing"),
+        ("total_output_daily", {"value": None, "unit": "吨"}, "missing_value"),
+        ("total_output_daily", {"value": True, "unit": "吨"}, "invalid_value"),
+        ("total_output_daily", "bad-structure", "invalid_structure"),
+        ("verified_cost_total", _MISSING, "missing"),
+        ("verified_cost_total", {"value": None, "unit": "元"}, "missing_value"),
+        ("verified_cost_total", {"value": True, "unit": "元"}, "invalid_value"),
+        ("verified_cost_total", "bad-structure", "invalid_structure"),
+    ],
+)
+def test_period_rollup_traces_invalid_critical_metric_variants(
+    field: str,
+    bad_payload: Any,
+    expected_reason: str,
+) -> None:
+    engine = create_engine("sqlite:///:memory:", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            cast(Table, DailyReportHistoryRecord.__table__),
+            cast(Table, OperationPeriodSnapshot.__table__),
+        ],
+    )
+    db = Session(engine)
+    facts: dict[str, Any] = {
+        "total_output_daily": {"value": 100.0, "unit": "吨"},
+        "verified_cost_total": {"value": 1000.0, "unit": "元"},
+    }
+    if bad_payload is _MISSING:
+        facts.pop(field)
+    else:
+        facts[field] = bad_payload
+    db.add(_history_row_from_facts(date(2026, 6, 19), facts))
+    db.commit()
+
+    snapshot = build_operation_period_snapshot(
+        db,
+        period_type="month",
+        target_date=date(2026, 6, 19),
+        trace_id=f"trace-invalid-{field}",
+    )
+
+    invalid_metrics = snapshot.analysis_payload["sections"]["trace"]["invalid_metrics"]
+    assert {
+        "business_date": "2026-06-19",
+        "field": field,
+        "reason": expected_reason,
+    } in invalid_metrics
     assert any("无效关键指标" in risk for risk in snapshot.analysis_payload["risks"])
