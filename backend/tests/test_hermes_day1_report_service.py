@@ -4,6 +4,8 @@ from datetime import date
 from importlib import import_module
 from typing import Any
 
+from app.services.report.template_daily_report import REQUIRED_FIELDS, render_template_daily_report
+
 
 BUSINESS_DATE = date(2026, 6, 21)
 BLOCKED_SENTENCE = '当前关键字段缺失，Hermes 未生成正式日报正文；请先补齐缺失字段后重跑。'
@@ -70,6 +72,23 @@ def _workshop_values(**overrides: Any) -> dict[str, Any]:
         'recovery_daily': 67,
         'recovery_month': 1332,
     }
+    values.update(overrides)
+    return values
+
+
+def _complete_template_values(**overrides: Any) -> dict[str, Any]:
+    values: dict[str, Any] = {field_name: 1 for field_name in REQUIRED_FIELDS}
+    values.update(_workshop_values())
+    values.update(
+        {
+            'report_date': date(2026, 6, 19),
+            'total_output_daily': 355,
+            'outsourced_daily': 31,
+            'daily_yield_rate': 90.12,
+            'total_cost_10k': 29.93,
+            'cost_per_ton': 817,
+        }
+    )
     values.update(overrides)
     return values
 
@@ -645,16 +664,19 @@ def test_blocked_daily_fact_bundle_blocks_formal_release_and_shows_missing_field
 
 def test_daily_fact_bundle_values_override_template_formal_text() -> None:
     service = _service()
+    template_values = _complete_template_values()
+    template_text = render_template_daily_report({'values': template_values})
+    template_sources = {key: 'template_daily_report' for key in template_values}
 
     result = service.build_day1_three_part_report(
         business_date=date(2026, 6, 19),
         sources={
             'template_daily_report': {
                 'status': 'ready',
-                'text': '6月19日，车间总产量日合计355吨。',
+                'text': template_text,
                 'facts': {
-                    'values': {'total_output_daily': 355},
-                    'sources': {'total_output_daily': 'mes_packaging_output'},
+                    'values': template_values,
+                    'sources': template_sources,
                 },
                 'missing_fields': [],
                 'conflicts': [],
@@ -668,7 +690,21 @@ def test_daily_fact_bundle_values_override_template_formal_text() -> None:
                         'source': 'root_owner_correction',
                         'source_type': 'root_owner_correction',
                         'adoption_reason': 'root_owner 钉钉确认',
-                    }
+                    },
+                    'outsourced_daily': {
+                        'value': 99,
+                        'unit': '吨',
+                        'source': 'dingtalk_supplement',
+                        'source_type': 'dingtalk_supplement',
+                        'adoption_reason': '授权钉钉补充事实',
+                    },
+                    'daily_yield_rate': {
+                        'value': 77.77,
+                        'unit': '%',
+                        'source': 'root_owner_correction',
+                        'source_type': 'root_owner_correction',
+                        'adoption_reason': 'root_owner 钉钉确认',
+                    },
                 },
                 'missing_fields': [],
                 'missing': [],
@@ -691,9 +727,12 @@ def test_daily_fact_bundle_values_override_template_formal_text() -> None:
     )
 
     assert result['status'] == 'ready'
-    assert '366吨' in result['formal_text']
-    assert '366吨' in result['text']
-    assert '366吨' in result['dingtalk_answer']
-    assert '355吨' not in result['formal_text']
-    assert '355吨' not in result['text']
-    assert '355吨' not in result['dingtalk_answer']
+    assert '车间总产量日合计366吨' in result['formal_text']
+    assert '外加工99吨' in result['formal_text']
+    assert '日成品率77.77%' in result['formal_text']
+    assert '车间总产量日合计366吨' in result['text']
+    assert '外加工99吨' in result['dingtalk_answer']
+    assert '日成品率77.77%' in result['dingtalk_answer']
+    assert '车间总产量日合计355吨' not in result['formal_text']
+    assert '外加工31吨' not in result['formal_text']
+    assert '日成品率90.12%' not in result['formal_text']

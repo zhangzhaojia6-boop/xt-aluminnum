@@ -3,8 +3,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal
-import re
 from typing import Any
+
+from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
+from app.services.report.template_daily_report import REQUIRED_FIELDS, render_template_daily_report
 
 
 WORKSHOP_DETAIL_SPECS = (
@@ -29,7 +31,6 @@ _OK_DIFF_STATUSES = {'matched', 'match', 'same', 'equal', 'ok', 'ready', 'passed
 _REVIEW_STATUS_MARKERS = ('blocked', 'failed', 'partial', 'error', 'empty', 'missing', 'review-needed', 'review_needed')
 _BUNDLE_READY_STATUSES = {'ready', 'ok', 'passed', 'completed', 'matched'}
 _NON_BLOCKING_ADOPTED_CONFLICT_TYPES = {'root_owner_correction', 'dingtalk_supplement', 'adopted_override'}
-_NUMBER_PATTERN = r'-?\d+(?:\.\d+)?'
 _SOURCE_LABELS = {
     'template_daily_report': '模板正式日报',
     'daily_fact_bundle': '日报事实包',
@@ -67,7 +68,13 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
     values.update(bundle_values)
     fact_sources.update(bundle_sources)
     template_formal_text = _text_or_empty(template_payload.get('text'))
-    rendered_formal_text = _render_formal_text_from_merged_values(template_formal_text, values)
+    rendered_formal_text = _render_formal_text_from_merged_values(
+        template_formal_text,
+        business_date=business_date,
+        values=values,
+        sources=fact_sources,
+        template_facts=facts,
+    )
     missing_fields = _merged_missing_fields(sources, template_payload=template_payload)
     conflicts = _collect_conflicts(sources)
     field_match_rate = _field_match_rate(sources)
@@ -127,52 +134,35 @@ def build_day1_three_part_report(*, business_date: date, sources: dict[str, Any]
     }
 
 
-def _render_formal_text_from_merged_values(template_text: str, values: Mapping[str, Any]) -> str:
-    text = template_text.strip()
-    if not text:
+def _render_formal_text_from_merged_values(
+    template_text: str,
+    *,
+    business_date: date,
+    values: Mapping[str, Any],
+    sources: Mapping[str, Any],
+    template_facts: Mapping[str, Any],
+) -> str:
+    if not template_text.strip():
         return ''
-
-    replacements: list[tuple[str, str]] = [
-        ('total_output_daily', rf'(?P<prefix>车间总产量日合计)\s*{_NUMBER_PATTERN}\s*(?P<suffix>吨)'),
-        ('total_output_month', rf'(?P<prefix>月累计)\s*{_NUMBER_PATTERN}\s*(?P<suffix>吨（外加工月累计)'),
-        ('verified_cost_total', rf'(?P<prefix>已核合计约)\s*{_NUMBER_PATTERN}\s*(?P<suffix>万元)'),
-        ('total_cost_10k', rf'(?P<prefix>已核合计约)\s*{_NUMBER_PATTERN}\s*(?P<suffix>万元)'),
-        ('cost_per_ton', rf'(?P<prefix>折算约)\s*{_NUMBER_PATTERN}\s*(?P<suffix>元/吨)'),
-    ]
-    for title, prefix in WORKSHOP_DETAIL_SPECS:
-        escaped_title = re.escape(title)
-        daily_prefix = rf'{escaped_title}(?:开机\s*{_NUMBER_PATTERN}条，)?日产量'
-        replacements.append((f'{prefix}_daily', rf'(?P<prefix>{daily_prefix})\s*{_NUMBER_PATTERN}\s*(?P<suffix>[吨块])'))
-        replacements.append((f'{prefix}_month', rf'(?P<prefix>{escaped_title}.*?月累计产量)\s*{_NUMBER_PATTERN}\s*(?P<suffix>[吨块])'))
-
-    for field_name, pattern in replacements:
-        if field_name not in values:
-            continue
-        value_text = _formal_number_text(values.get(field_name))
-        if value_text is None:
-            continue
-        text = re.sub(
-            pattern,
-            lambda match, replacement=value_text: f'{match.group("prefix")}{replacement}{match.group("suffix")}',
-            text,
-            count=1,
-            flags=re.S,
-        )
-    return text
-
-
-def _formal_number_text(value: Any) -> str | None:
-    if value in (None, '') or isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float, Decimal)):
-        return _format_number(float(value))
-    text = str(value).strip()
-    if not text:
-        return None
+    parsed_values = parse_output_skill_daily_report(template_text)
+    merged_values = {
+        **parsed_values,
+        **dict(_as_mapping(template_facts.get('values'))),
+        **dict(values),
+    }
+    merged_values.setdefault('report_date', business_date)
+    if any(merged_values.get(field_name) is None for field_name in REQUIRED_FIELDS):
+        return template_text.strip()
     try:
-        return _format_number(float(text))
-    except ValueError:
-        return text
+        return render_template_daily_report(
+            {
+                **dict(template_facts),
+                'values': merged_values,
+                'sources': dict(sources),
+            }
+        ).strip()
+    except Exception:
+        return template_text.strip()
 
 
 def _bundle_fact_values_and_sources(sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
