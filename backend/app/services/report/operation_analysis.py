@@ -14,8 +14,15 @@ def analyze_operation_period(snapshot: OperationPeriodSnapshot) -> dict[str, Any
     risks: list[str] = []
     if snapshot.missing_dates:
         risks.append(f"缺少{len(snapshot.missing_dates)}天历史日报，月/年累计可能不完整")
-    if output == 0:
-        risks.append("累计产量为0，无法计算吨成本")
+    if output == 0 and cost_total != 0:
+        risks.append("累计产量为0但成本不为0，无法计算吨成本")
+
+    electricity_fee = _format_metric(
+        _metric_value(metrics, "electricity_fee"),
+        _metric_unit(metrics, "electricity_fee"),
+    )
+    gas_fee = _format_metric(_metric_value(metrics, "gas_fee"), _metric_unit(metrics, "gas_fee"))
+    snapshot_count = len(snapshot.source_snapshot_ids or [])
 
     return {
         "period_type": snapshot.period_type,
@@ -26,18 +33,18 @@ def analyze_operation_period(snapshot: OperationPeriodSnapshot) -> dict[str, Any
             },
             "cost": {
                 "verified_cost_total": _format_metric(cost_total, _metric_unit(metrics, "verified_cost_total")),
+                "electricity_fee": electricity_fee,
+                "gas_fee": gas_fee,
                 "cost_per_ton": f"{cost_per_ton}元/吨" if cost_per_ton is not None else None,
             },
             "energy": {
-                "electricity_fee": _format_metric(
-                    _metric_value(metrics, "electricity_fee"),
-                    _metric_unit(metrics, "electricity_fee"),
-                ),
-                "gas_fee": _format_metric(_metric_value(metrics, "gas_fee"), _metric_unit(metrics, "gas_fee")),
+                "electricity_fee": electricity_fee,
+                "gas_fee": gas_fee,
             },
             "trace": {
                 "daily_report_count": len(snapshot.source_daily_report_ids or []),
-                "source_snapshot_count": len(snapshot.source_snapshot_ids or []),
+                "snapshot_count": snapshot_count,
+                "source_snapshot_count": snapshot_count,
                 "missing_dates": snapshot.missing_dates or [],
             },
         },
@@ -47,8 +54,9 @@ def analyze_operation_period(snapshot: OperationPeriodSnapshot) -> dict[str, Any
 
 def _metric_value(metrics: dict[str, Any], key: str) -> float:
     item = metrics.get(key)
-    if isinstance(item, dict) and isinstance(item.get("value"), (int, float)):
-        return float(item["value"])
+    value = item.get("value") if isinstance(item, dict) else None
+    if not isinstance(value, bool) and isinstance(value, (int, float)):
+        return float(value)
     return 0.0
 
 
