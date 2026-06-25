@@ -64,7 +64,10 @@ def _check(
                 return False
             sources_part = match.group(1)
             sources_before_trace_id = re.split(r'(?=(?:trace_id|trace)[：:])', sources_part, maxsplit=1)[0]
-            return bool(sources_before_trace_id.strip())
+            sources_text = sources_before_trace_id.strip()
+            if not sources_text:
+                return False
+            return bool(re.search(r'[A-Za-z0-9\u4e00-\u9fff]', sources_text))
         return '数据来源' in response_text or any(
             item.get('tool') == 'dingtalk_evidence' for item in tool_trace
         )
