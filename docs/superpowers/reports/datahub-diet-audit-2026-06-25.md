@@ -6,6 +6,22 @@
 
 | 分类 | 动作 | 路径 | 原因 |
 |---|---|---|---|
+| protect | keep | `artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| review | manual_review | `backend/app/adapters/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/adapters/factory.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/adapters/iot_energy_adapter.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/adapters/llm.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/adapters/mes_adapter.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/adapters/mvc_mes_adapter.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/adapters/rest_api_mes_adapter.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/adapters/sqlserver_mes_adapter.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| review | manual_review | `backend/app/adapters/wecom/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/adapters/wecom/group_bot.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/adapters/workflow/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/adapters/workflow/base.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/adapters/workflow/null_publisher.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/adapters/workflow/registry.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/adapters/xintai_mes_adapter.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/models/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `backend/app/models/agent_communication.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/models/assistant.py` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -158,8 +174,23 @@
 | review | manual_review | `backend/app/services/missing_report_export_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `backend/app/services/mobile_mes_supplement_service.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/services/mobile_reminder_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/mobile_report/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/mobile_report/_utils.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/mobile_report/flow_enrichment.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/mobile_report/lifecycle.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/mobile_report/shift_context.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/mobile_report/summary.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/mobile_report_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/ocr_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/owner_agents/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/owner_agents/consumable_stat.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/owner_agents/energy_chief.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/owner_agents/overhaul.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/owner_agents/planning.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/owner_agents/quality.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/owner_agents/recovery.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/owner_agents/shipment_outflow.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/services/owner_agents/storage.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/services/pass_count_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/pilot_metrics_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/pilot_observability_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -174,15 +205,49 @@
 | review | manual_review | `backend/app/services/real_master_data.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/realtime_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/reconciliation_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/report/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/report/_utils.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/services/report/daily_fact_bundle.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| merge | merge_after_source_map | `backend/app/services/report/daily_overview_builder.py` | 属于报表加工层，可在 DailyFactBundle 稳定后逐步合并。 |
+| protect | keep | `backend/app/services/report/daily_report_history.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| merge | merge_after_source_map | `backend/app/services/report/dashboard_builder.py` | 属于报表加工层，可在 DailyFactBundle 稳定后逐步合并。 |
+| review | manual_review | `backend/app/services/report/lane_builders.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/services/report/mes_fact_bundle.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/services/report/mes_factory_packaging_fact.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/services/report/mes_factory_production_fact.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/services/report/mes_home_packaging_fact.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/services/report/mes_workshop_machine_reconciliation.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/services/report/mes_workshop_mapping.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| review | manual_review | `backend/app/services/report/operation_analysis.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/report/output_skill_reconciliation.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/report/output_skill_report_parser.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/report/period_rollup.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/report/report_generation.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/report/template_daily_fact_sources.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/report/template_daily_field_contract.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| merge | merge_after_source_map | `backend/app/services/report/template_daily_report.py` | 属于报表加工层，可在 DailyFactBundle 稳定后逐步合并。 |
 | review | manual_review | `backend/app/services/report_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/rule_config_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/scan_lookup_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/shift_engine.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/work_order/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/work_order/_access.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/work_order/_utils.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/work_order/amendment.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/work_order/crud.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/services/work_order/entry.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/work_order_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/workshop_template_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/yield_matrix_canonical_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/yield_matrix_delivery_target_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/services/yield_rate_deprecation_map_service.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/tasks/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/tasks/agent_outbox.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/tasks/daily_report.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/tasks/data_archive.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/tasks/fill_reminder.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/tasks/iot_energy_sync.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/tasks/mes_sync.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/VERCEL_PREVIEW.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/api-system-lane-spec.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/audits/0730-template-daily-report-field-coverage.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |

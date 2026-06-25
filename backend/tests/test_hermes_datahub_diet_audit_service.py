@@ -64,3 +64,28 @@ def test_diet_audit_classifies_hermes_paths_as_protect() -> None:
         )["classification"]
         == "protect"
     )
+
+
+def test_diet_audit_candidate_paths_include_nested_protected_representatives() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    paths = candidate_paths(repo_root)
+
+    assert "backend/app/services/report/daily_fact_bundle.py" in paths
+    assert "backend/app/tasks/mes_sync.py" in paths
+    assert "backend/app/adapters/sqlserver_mes_adapter.py" in paths
+    assert "artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json" in paths
+
+
+def test_diet_audit_report_contains_nested_protected_rows() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    paths = candidate_paths(repo_root)
+    report = render_diet_audit_report(paths)
+
+    for item in [
+        "backend/app/services/report/daily_fact_bundle.py",
+        "backend/app/tasks/mes_sync.py",
+        "backend/app/adapters/sqlserver_mes_adapter.py",
+        "artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json",
+    ]:
+        expected_row = f"| protect | keep | `{item}` |"
+        assert expected_row in report

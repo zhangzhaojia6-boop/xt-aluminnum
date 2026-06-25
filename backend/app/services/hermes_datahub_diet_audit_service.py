@@ -87,17 +87,54 @@ def render_diet_audit_report(paths: Iterable[str]) -> str:
     return "\n".join(lines)
 
 
+def _find_artifact_path(repo_root: Path, expected_relative_path: Path) -> str | None:
+    exact_candidate = repo_root / expected_relative_path
+    if exact_candidate.exists():
+        return str(expected_relative_path).replace("\\", "/")
+
+    parent = repo_root / expected_relative_path.parent
+    if parent.exists():
+        expected_name = expected_relative_path.name.casefold()
+        for candidate in parent.iterdir():
+            if candidate.is_file() and candidate.name.casefold() == expected_name:
+                return str(expected_relative_path.parent / candidate.name).replace("\\", "/")
+
+    for candidate in repo_root.glob("artifacts/**/*.json"):
+        if candidate.is_file() and candidate.name.casefold() == expected_relative_path.name.casefold():
+            return str(candidate.relative_to(repo_root)).replace("\\", "/")
+    return None
+
+
 def candidate_paths(repo_root: str | Path) -> list[str]:
     root = Path(repo_root)
     patterns = [
         "backend/app/models/**/*.py",
-        "backend/app/services/*.py",
+        "backend/app/services/**/*.py",
+        "backend/app/adapters/**/*.py",
+        "backend/app/tasks/*.py",
         "backend/app/routers/*.py",
         "frontend/src/views/**/*.vue",
         "frontend/src/reference-command/**/*",
         "docs/**/*.md",
     ]
+    required_paths = [
+        "backend/app/services/report/daily_fact_bundle.py",
+        "backend/app/tasks/mes_sync.py",
+        "backend/app/adapters/sqlserver_mes_adapter.py",
+    ]
     result: list[str] = []
     for pattern in patterns:
         result.extend(str(path.relative_to(root)).replace("\\", "/") for path in root.glob(pattern) if path.is_file())
+
+    artifact_path = _find_artifact_path(
+        root,
+        Path("artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json"),
+    )
+    if artifact_path is not None:
+        result.append(artifact_path)
+
+    for relative_path in required_paths:
+        if (root / relative_path).exists():
+            result.append(relative_path)
+
     return sorted(set(result))
