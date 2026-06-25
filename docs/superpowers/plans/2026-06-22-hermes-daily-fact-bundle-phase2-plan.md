@@ -1,4 +1,4 @@
-# Hermes Daily Fact Bundle Phase-2 Implementation Plan
+﻿# Hermes Daily Fact Bundle Phase-2 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -58,60 +58,60 @@ Expected: `git status -sb` prints a clean feature branch.
 
 Create:
 
-- `backend/app/services/report/daily_fact_bundle.py`  
+- `backend/app/services/report/daily_fact_bundle.py`
   Deep module for building one business-day fact bundle. Owns source priority, conflicts, missing fields, root_owner corrections, DingTalk supplements, output skill alignment, and optional persistence.
 
-- `backend/tests/test_daily_fact_bundle_service.py`  
+- `backend/tests/test_daily_fact_bundle_service.py`
   Contract tests for fact values, source priority, conflicts, DingTalk supplements, root_owner corrections, snapshots, and output skill alignment.
 
-- `backend/tests/test_hermes_intent_service.py`  
+- `backend/tests/test_hermes_intent_service.py`
   Tests for flexible natural-language intent parsing into structured tasks.
 
-- `backend/app/services/hermes_intent_service.py`  
+- `backend/app/services/hermes_intent_service.py`
   Structure-only intent module. It parses user language and returns validated task dictionaries. It never writes facts or calls LLM directly in Phase 2.1.
 
-- `backend/alembic/versions/0050_daily_fact_bundle.py`  
+- `backend/alembic/versions/0050_daily_fact_bundle.py`
   Adds run, snapshot, and correction tables.
 
-- `backend/alembic/versions/0051_report_history_period_knowledge.py`  
+- `backend/alembic/versions/0051_report_history_period_knowledge.py`
   Adds traceable daily report history, monthly/yearly operation snapshots, and professional Hermes knowledge entries.
 
-- `backend/app/services/report/daily_report_history.py`  
+- `backend/app/services/report/daily_report_history.py`
   Archives every formal daily report with the source snapshot id, payload hash, report text, source summary, and trace id.
 
-- `backend/app/services/report/period_rollup.py`  
+- `backend/app/services/report/period_rollup.py`
   Builds month-to-date, year-to-date, full-month, and full-year cumulative facts from archived daily report facts.
 
-- `backend/app/services/report/operation_analysis.py`  
+- `backend/app/services/report/operation_analysis.py`
   Turns cumulative period facts into monthly and annual operating situation summaries, risk points, and comparison analysis.
 
-- `backend/app/services/hermes_professional_knowledge_service.py`  
+- `backend/app/services/hermes_professional_knowledge_service.py`
   Curates professional knowledge records from output skill files, DingTalk text/files, report history, and approved domain rules.
 
 Modify:
 
-- `backend/app/models/reports.py`  
+- `backend/app/models/reports.py`
   Add `DailyFactBundleRun`, `DailyFactBundleSnapshot`, `DailyFactCorrection`, `DailyReportHistoryRecord`, `OperationPeriodSnapshot`.
 
-- `backend/app/models/__init__.py`  
+- `backend/app/models/__init__.py`
   Export the new models.
 
-- `backend/app/models/rag.py`  
+- `backend/app/models/rag.py`
   Add `HermesProfessionalKnowledgeEntry` so the knowledge base can distinguish professional facts, domain rules, report patterns, and DingTalk-derived evidence.
 
-- `backend/app/services/hermes_day1_source_service.py`  
+- `backend/app/services/hermes_day1_source_service.py`
   Use `build_daily_fact_bundle()` as the first fact source, keeping old fields for compatibility.
 
-- `backend/app/services/hermes_day1_report_service.py`  
+- `backend/app/services/hermes_day1_report_service.py`
   Read fact bundle facts/source summaries when present.
 
-- `backend/app/services/hermes_day1_orchestrator.py`  
+- `backend/app/services/hermes_day1_orchestrator.py`
   Preserve the fact bundle in `AgentRun.result_payload`.
 
-- `backend/scripts/agent_cli.py`  
+- `backend/scripts/agent_cli.py`
   Let natural-language Day-1 text route through `hermes_intent_service` before the old strict parser.
 
-- `backend/app/services/rag_service.py`  
+- `backend/app/services/rag_service.py`
   Keep existing document ingestion, but let Hermes retrieve curated professional knowledge before generic chunk matches.
 
 Do not modify:
