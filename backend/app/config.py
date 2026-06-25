@@ -165,6 +165,14 @@ class Settings(BaseSettings):
     HERMES_DINGTALK_CLIENT_SECRET: str | None = None
     HERMES_DINGTALK_INBOUND_TOKEN: str | None = None
     HERMES_DINGTALK_MODE: str = 'callback'
+    HERMES_FACTORY_BRAIN_ENABLED: bool = False
+    HERMES_FACTORY_BRAIN_MODEL_PROVIDER: str = 'codex_token'
+    HERMES_LANGGRAPH_CHECKPOINT_MODE: str = 'postgres'
+    HERMES_LANGGRAPH_CHECKPOINT_SETUP_ON_START: bool = False
+    HERMES_SOUL_PATH: str = 'app/hermes/Soul.md'
+    HERMES_CODEX_CONSTRUCTION_ENABLED: bool = False
+    HERMES_FACTORY_BRAIN_MAX_TOOL_STEPS: int = 8
+    HERMES_FACTORY_BRAIN_MIN_CONFIDENCE: float = 0.65
     WORKFLOW_ENABLED: bool = False
     AUTO_PUBLISH_ENABLED: bool = True
     AUTO_PUSH_ENABLED: bool = True
@@ -301,7 +309,7 @@ class Settings(BaseSettings):
         value = str(self.MES_API_COIL_SNAPSHOTS_PATH or '').strip()
         return value or '/coil-snapshots'
 
-    def validate_runtime_settings(self) -> None:
+    def validate_runtime(self) -> list[str]:
         issues: list[str] = []
 
         secret_key = self.SECRET_KEY.strip()
@@ -419,6 +427,20 @@ class Settings(BaseSettings):
         hermes_dingtalk_mode = str(self.HERMES_DINGTALK_MODE or 'callback').strip().lower()
         if hermes_dingtalk_mode not in {'callback', 'stream', 'disabled'}:
             issues.append('HERMES_DINGTALK_MODE must be one of callback, stream, or disabled')
+
+        hermes_factory_brain_model_provider = str(self.HERMES_FACTORY_BRAIN_MODEL_PROVIDER or '').strip().lower()
+        if hermes_factory_brain_model_provider not in {'codex_token', 'service_llm'}:
+            issues.append('HERMES_FACTORY_BRAIN_MODEL_PROVIDER must be one of codex_token, service_llm')
+
+        hermes_langgraph_checkpoint_mode = str(self.HERMES_LANGGRAPH_CHECKPOINT_MODE or '').strip().lower()
+        if hermes_langgraph_checkpoint_mode != 'postgres':
+            issues.append('HERMES_LANGGRAPH_CHECKPOINT_MODE must be postgres')
+
+        if self.HERMES_FACTORY_BRAIN_MAX_TOOL_STEPS <= 0:
+            issues.append('HERMES_FACTORY_BRAIN_MAX_TOOL_STEPS must be greater than 0')
+
+        if not 0 < self.HERMES_FACTORY_BRAIN_MIN_CONFIDENCE <= 1:
+            issues.append('HERMES_FACTORY_BRAIN_MIN_CONFIDENCE must be in (0, 1]')
 
         if self.APP_CONNECTION_TIMEOUT_SECONDS <= 0:
             issues.append('APP_CONNECTION_TIMEOUT_SECONDS must be greater than 0')
@@ -573,6 +595,11 @@ class Settings(BaseSettings):
             ]
             if missing_iot_sqlserver_fields:
                 issues.append(f"IOT_ENERGY_ADAPTER=sqlserver is missing {', '.join(missing_iot_sqlserver_fields)}")
+
+        return issues
+
+    def validate_runtime_settings(self) -> None:
+        issues = self.validate_runtime()
 
         if not issues:
             return
