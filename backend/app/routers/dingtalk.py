@@ -44,6 +44,7 @@ from app.services.hermes_day1_intent_service import (
     require_root_owner_for_day1_report,
 )
 from app.services.hermes_day1_orchestrator import run_day1_super_brain
+from app.services.hermes_factory_brain_intent_service import classify_factory_brain_intent
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +248,19 @@ def _is_legacy_slash_daily_report_command(text: str) -> bool:
         return False
     command = clean_text.split(maxsplit=1)[0].lstrip('/')
     return command in {'日报', '发日报'}
+
+
+def _should_route_factory_brain(text: str) -> bool:
+    clean_text = _clean_text(text)
+    if not clean_text or clean_text.startswith('/'):
+        return False
+    intent = classify_factory_brain_intent(clean_text, today=datetime.now().date())
+    return intent.task_type in {
+        'production_readiness',
+        'current_status',
+        'anomaly_analysis',
+        'business_question',
+    }
 
 
 def _first_payload_value(payload: dict[str, Any], *keys: str) -> Any:
@@ -628,7 +642,7 @@ def dingtalk_agent_inbound(
             'report_id': result.report_id,
         }
 
-    if bool(getattr(settings, 'HERMES_FACTORY_BRAIN_ENABLED', False)):
+    if bool(getattr(settings, 'HERMES_FACTORY_BRAIN_ENABLED', False)) and _should_route_factory_brain(text):
         from app.services.hermes_factory_brain_orchestrator import run_factory_brain_turn
 
         try:

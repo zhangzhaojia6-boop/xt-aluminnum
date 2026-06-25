@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.redaction import redact_secret_text
 from app.models.hermes_factory_brain import HermesCodexConstructionRun
 from app.models.system import User
@@ -24,6 +25,12 @@ def request_codex_construction(
     trace_id: str,
     construction_type: str,
 ) -> CodexConstructionRequestResult:
+    if not bool(getattr(settings, 'HERMES_CODEX_CONSTRUCTION_ENABLED', False)):
+        return CodexConstructionRequestResult(
+            status='disabled',
+            run_id=None,
+            message='Codex 施工能力当前未开启。',
+        )
     if not _is_root_owner(actor):
         return CodexConstructionRequestResult(
             status='denied',
@@ -52,4 +59,10 @@ def request_codex_construction(
 
 
 def _is_root_owner(actor: User) -> bool:
-    return bool(getattr(actor, 'admin_surface', False) or getattr(actor, 'is_admin', False))
+    owner_ids = set(getattr(settings, 'hermes_owner_dingtalk_user_ids', set()) or set())
+    identity_values = {
+        str(getattr(actor, 'dingtalk_user_id', '') or '').strip(),
+        str(getattr(actor, 'dingtalk_union_id', '') or '').strip(),
+    }
+    identity_values.discard('')
+    return bool(owner_ids & identity_values)
