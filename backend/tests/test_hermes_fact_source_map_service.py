@@ -7,6 +7,7 @@ import pytest
 
 import app.models  # noqa: F401
 from app.database import Base
+from backend.scripts.hermes_fact_source_map_export import render_fact_source_map_markdown
 from app.services.hermes_fact_source_map_service import (
     find_fact_source,
     load_fact_source_map,
@@ -134,3 +135,11 @@ def test_fact_source_map_frontend_pages_are_routes_and_no_placeholders() -> None
     assert all(page.startswith("/") for page in flattened_frontend_pages)
     assert "Hermes only" not in flattened_frontend_pages
     assert "DingTalk" not in flattened_frontend_pages
+
+
+def test_fact_source_map_export_contains_core_columns() -> None:
+    markdown = render_fact_source_map_markdown()
+
+    assert "| 指标 | 领域 | 来源优先级 | 涉及服务 | 保护级别 | 状态 |" in markdown
+    assert "车间总产量日合计" in markdown
+    assert "protect" in markdown
