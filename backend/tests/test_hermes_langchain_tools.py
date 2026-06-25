@@ -1,0 +1,54 @@
+import httpx
+
+from app.services.hermes_langchain_model import FactoryBrainModelUnavailable, invoke_factory_brain_model
+from app.services.hermes_langchain_tools import HermesToolAdapters, build_tool_registry, require_tool
+
+
+def _fake_tool(**kwargs: object) -> dict[str, object]:
+    return {'status': 'ok', 'request': kwargs}
+
+
+def test_tool_registry_exposes_only_allowed_tools() -> None:
+    adapters = HermesToolAdapters(
+        hub_query=_fake_tool,
+        mes_wms_read=_fake_tool,
+        dingtalk_evidence=_fake_tool,
+        rag_route=_fake_tool,
+        history_report=_fake_tool,
+        output_skill_alignment=_fake_tool,
+        long_term_rules=_fake_tool,
+        codex_construction=_fake_tool,
+    )
+    registry = build_tool_registry(adapters)
+
+    assert set(registry.keys()) == {
+        'hub_query',
+        'mes_wms_read',
+        'dingtalk_evidence',
+        'rag_route',
+        'history_report',
+        'output_skill_alignment',
+        'long_term_rules',
+        'codex_construction',
+    }
+    assert require_tool('hub_query', registry)(business_date='2026-06-25')['status'] == 'ok'
+
+
+def test_model_401_becomes_degraded_error() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={'error': {'message': 'Codex token refresh failed with status 401'}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    try:
+        invoke_factory_brain_model(
+            messages=[{'role': 'user', 'content': '在干嘛'}],
+            api_base='https://example.invalid',
+            api_key='expired',
+            model='codex-temp',
+            client=client,
+        )
+    except FactoryBrainModelUnavailable as exc:
+        assert exc.user_message == '模型服务暂不可用，Hermes 已降级为只读数据查询模式。'
+    else:
+        raise AssertionError('expected FactoryBrainModelUnavailable')
