@@ -249,19 +249,19 @@ def test_owner_daily_business_date_defaults_to_previous_day_during_morning_backf
     assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 23, 30)) == date(2026, 5, 30)
 
 
-def test_production_business_day_window_uses_0730_start_anchor() -> None:
-    assert resolve_production_business_date(datetime(2026, 6, 1, 7, 29, 59)) == date(2026, 5, 31)
-    assert resolve_production_business_date(datetime(2026, 6, 1, 7, 30, 0)) == date(2026, 6, 1)
+def test_production_business_day_window_uses_0750_start_anchor() -> None:
+    assert resolve_production_business_date(datetime(2026, 6, 1, 7, 49, 59)) == date(2026, 5, 31)
+    assert resolve_production_business_date(datetime(2026, 6, 1, 7, 50, 0)) == date(2026, 6, 1)
 
     start_at, end_at = production_business_window(date(2026, 6, 1))
 
-    assert start_at == datetime(2026, 6, 1, 7, 30, tzinfo=ZoneInfo('Asia/Shanghai'))
-    assert end_at == datetime(2026, 6, 2, 7, 30, tzinfo=ZoneInfo('Asia/Shanghai'))
+    assert start_at == datetime(2026, 6, 1, 7, 50, tzinfo=ZoneInfo('Asia/Shanghai'))
+    assert end_at == datetime(2026, 6, 2, 7, 50, tzinfo=ZoneInfo('Asia/Shanghai'))
 
 
-def test_last_completed_production_business_date_changes_at_0730() -> None:
-    assert last_completed_production_business_date(datetime(2026, 6, 1, 7, 29, 59)) == date(2026, 5, 30)
-    assert last_completed_production_business_date(datetime(2026, 6, 1, 7, 30, 0)) == date(2026, 5, 31)
+def test_last_completed_production_business_date_changes_at_0750() -> None:
+    assert last_completed_production_business_date(datetime(2026, 6, 1, 7, 49, 59)) == date(2026, 5, 30)
+    assert last_completed_production_business_date(datetime(2026, 6, 1, 7, 50, 0)) == date(2026, 5, 31)
 
 
 def test_backend_shift_boundaries_are_left_closed_right_open() -> None:

@@ -8,6 +8,7 @@ from app.config import EXAMPLE_ADMIN_PASSWORD, EXAMPLE_SECRET_KEY, Settings
 
 def build_settings(**overrides) -> Settings:
     values = {
+        '_env_file': None,
         'APP_ENV': 'development',
         'DATABASE_URL': 'postgresql+psycopg2://user:pass@localhost:5432/test',
         'SECRET_KEY': 's' * 32,
@@ -17,6 +18,13 @@ def build_settings(**overrides) -> Settings:
         'LLM_API_KEY': None,
         'LLM_MODEL': '',
         'LLM_ENDPOINT_ID': '',
+        'WORKFLOW_ENABLED': False,
+        'DINGTALK_ENABLED': False,
+        'WECOM_BOT_ENABLED': False,
+        'WECOM_BOT_DRY_RUN': False,
+        'WECOM_APP_ENABLED': False,
+        'APP_CONNECTION_ENABLED': False,
+        'APP_CONNECTION_PUSH_MODE': 'disabled',
     }
     values.update(overrides)
     return Settings(**values)

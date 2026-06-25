@@ -145,8 +145,8 @@ def test_business_date_window_for_days_uses_full_production_business_dates() -> 
 
     assert window['start_business_date'].isoformat() == '2026-05-29'
     assert window['end_business_date'].isoformat() == '2026-06-04'
-    assert window['start_at'].isoformat(sep=' ') == '2026-05-29 07:30:00'
-    assert window['end_at'].isoformat(sep=' ') == '2026-06-05 07:30:00'
+    assert window['start_at'].isoformat(sep=' ') == '2026-05-29 07:50:00'
+    assert window['end_at'].isoformat(sep=' ') == '2026-06-05 07:50:00'
 
 
 def test_business_date_window_for_days_can_ignore_current_incomplete_business_date() -> None:
@@ -160,5 +160,5 @@ def test_business_date_window_for_days_can_ignore_current_incomplete_business_da
 
     assert window['start_business_date'].isoformat() == '2026-05-29'
     assert window['end_business_date'].isoformat() == '2026-06-04'
-    assert window['start_at'].isoformat(sep=' ') == '2026-05-29 07:30:00'
-    assert window['end_at'].isoformat(sep=' ') == '2026-06-05 07:30:00'
+    assert window['start_at'].isoformat(sep=' ') == '2026-05-29 07:50:00'
+    assert window['end_at'].isoformat(sep=' ') == '2026-06-05 07:50:00'

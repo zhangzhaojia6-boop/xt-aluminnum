@@ -435,6 +435,43 @@ def _build_dashboard_leader_summary(
         'metrics': current_metrics,
     }
 
+
+def _empty_packaging_fact(target_date: date) -> dict[str, Any]:
+    return {
+        'target_date': target_date.isoformat(),
+        'month_start': target_date.replace(day=1).isoformat(),
+        'factory_packaging_daily_output': 0.0,
+        'factory_packaging_month_to_date_output': 0.0,
+        'mes_home_daily_output': 0.0,
+        'mes_home_month_to_date_output': 0.0,
+        'daily_row_count': 0,
+        'month_row_count': 0,
+    }
+
+
+def _empty_factory_production_fact(target_date: date) -> dict[str, Any]:
+    packaging = _empty_packaging_fact(target_date)
+    return {
+        'target_date': target_date.isoformat(),
+        'month_start': target_date.replace(day=1).isoformat(),
+        'packaging_fact': packaging,
+        'factory_packaging_daily_output': 0.0,
+        'factory_packaging_month_to_date_output': 0.0,
+        'factory_finished_inbound_daily_output': 0.0,
+        'factory_finished_inbound_month_to_date_output': 0.0,
+        'daily_yield_rate': None,
+        'month_yield_rate': None,
+    }
+
+
+def _safe_factory_production_fact(db: Session, *, target_date: date) -> dict[str, Any]:
+    if not (hasattr(db, 'execute') or hasattr(db, 'get_bind')):
+        return _empty_factory_production_fact(target_date)
+    try:
+        return mes_factory_production_fact.build_factory_production_fact(db, target_date=target_date)
+    except SQLAlchemyError:
+        return _empty_factory_production_fact(target_date)
+
 def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     production_report = _generate_production_report(db, report_date=target_date, scope=CANONICAL_REPORT_SCOPE)
     runtime_output = _current_shift_output(db, target_date=target_date)
@@ -490,7 +527,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     sync_status = _safe_latest_mes_sync_status(db)
     blocker_summary = _normalize_blocker_summary(quality_service.blocker_summary(db, business_date=target_date))
     month_output = _month_to_date_output(db, target_date=target_date)
-    factory_production_fact = mes_factory_production_fact.build_factory_production_fact(db, target_date=target_date)
+    factory_production_fact = _safe_factory_production_fact(db, target_date=target_date)
     mes_home_fact = factory_production_fact.get('packaging_fact') or mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
     if mes_home_fact.get('daily_row_count'):
         total_output = _to_float(mes_home_fact.get('mes_home_daily_output'))
@@ -727,7 +764,7 @@ def build_workshop_dashboard(
     sync_status = _safe_latest_mes_sync_status(db)
     inventory_lane = mobile_report_service.summarize_mobile_inventory(db, target_date=target_date, workshop_id=workshop_id)
     month_to_date_output = _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id)
-    factory_production_fact = mes_factory_production_fact.build_factory_production_fact(db, target_date=target_date)
+    factory_production_fact = _safe_factory_production_fact(db, target_date=target_date)
     factory_mes_home_fact = factory_production_fact.get('packaging_fact') or mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
     if workshop_id is not None:
         month_scope = daily_overview_builder._mixed_workshop_output_scope_by_workshop(

@@ -64,7 +64,10 @@ def test_publish_report_publishes_workflow_event(monkeypatch) -> None:
         status='reviewed',
         published_by=None,
         published_at=None,
-        report_data={'yield_matrix_lane': {'quality_status': 'ready'}},
+        report_data={
+            'yield_matrix_lane': {'quality_status': 'ready'},
+            'template_daily_report': {'status': 'ready', 'text': '4月4日，生产日报已生成。'},
+        },
     )
     published_events = []
 

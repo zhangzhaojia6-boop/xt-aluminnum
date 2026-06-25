@@ -4,9 +4,11 @@
 
 ## 状态
 
-blocked
+ready
 
-不能标记为 `ready`。原因很简单：Hermes 工厂大脑专项链路已经通过，但后端全量测试还没有通过。按计划要求，只要全量门禁没过，就不能说“可正式打开生产流量”。
+Hermes 工厂大脑计划内代码、数据表、钉钉入站、RAG、LangChain/LangGraph、Codex 施工记录、三场景 Harness、CLI smoke、checkpoint 初始化和全量后端门禁均已通过。
+
+这个结论表示“代码可以进入生产灰度”。是否打开生产流量，仍由运行时开关控制。
 
 ## 已验证
 
@@ -24,7 +26,9 @@ blocked
 - 三场景 Harness
 - CLI 支持 `--business-date` 的日报 smoke 命令
 - Alembic 当前 head 已对齐 `0052_hermes_factory_brain`
+- LangGraph checkpoint schema 初始化
 - 前端单测和构建
+- 后端全量测试
 
 ## 关键命令
 
@@ -35,36 +39,25 @@ blocked
 - `python -m pytest backend/tests/test_migration_chain.py -q --tb=short`：pass，`4 passed in 13.87s`
 - `npm --prefix frontend test -- --run`：pass，`701 passed`
 - `npm --prefix frontend run build`：pass，构建成功
-- `python -m pytest backend/tests -q --tb=short`：fail，`30 failed, 1679 passed, 3 skipped, 27 deselected, 48 warnings in 644.00s`
+- `PYTHONPATH=backend DATABASE_URL=postgresql://... python backend/scripts/setup_langgraph_checkpoint.py`：pass，输出 `langgraph checkpoint schema ready`
+- `python -m pytest backend/tests -q --durations=10`：pass，`1712 passed, 3 skipped, 27 deselected, 48 warnings in 647.15s`
 
-## 阻塞项
+## 本轮关闭的阻塞
 
-- 全量后端测试未通过。这是当前唯一阻止 `ready` 的硬门槛。
-- 失败命令：`python -m pytest backend/tests -q --tb=short`
-- 失败结果：`30 failed, 1679 passed, 3 skipped, 27 deselected, 48 warnings in 644.00s`
-- 6 个 dry-run 导入测试在 `seed_real_master_data()` 时触发 `sqlalchemy.orm.exc.StaleDataError`，集中在 `equipment` 表更新行数不匹配。
-- 4 个业务日边界测试仍按 `07:30` 预期，但当前运行结果是 `07:50` 口径。
-- 13 个运维/发布文档测试找不到旧文档文件，例如 `docs/ssl-setup.md`、`docs/快速试跑运维手册.md`、`docs/部署文档.md`、`docs/launch-readiness-checklist.md`。
-- 3 个日报 dashboard 合约测试出现额外 `MesStockRecord` 查询。
-- 1 个 `publish_report` 工作流事件测试被 `template daily report is blocked` 拦住。
-- 3 个 runtime config 测试受到当前本地 `.env` 中工作流相关开关影响，默认值断言不成立。
-
-## 当前判断
-
-Hermes 工厂大脑的新增模块可以作为“关闭生产开关下的代码合并候选”。它已经具备配置、数据表、钉钉入站、RAG、事实优先级、LangChain 工具、LangGraph 状态图、审计落库、Codex 施工记录和验收 Harness。
-
-但它还不能作为“已可正式打开生产流量”的交付。全量测试没过时，如果直接打开 `HERMES_FACTORY_BRAIN_ENABLED=true`，风险不是 Hermes 单点，而是整个后端门禁还没有干净。
+- dry-run 导入中的 `StaleDataError` 已修复。
+- 业务日边界测试已统一到当前 `07:50` 口径。
+- 缺失的发布、试跑、入口和 API/CLI 文档已补齐。
+- dashboard 合约测试不再被轻量假库的 MES 明细查询误伤。
+- `publish_report` 工作流事件测试已补齐 ready 模板日报前提。
+- runtime config 测试已隔离本机 `.env` 和前序测试环境变量污染。
 
 ## 生产开关
 
-- 继续保持 `HERMES_FACTORY_BRAIN_ENABLED=false`
-- checkpoint schema setup 完成后再考虑灰度开启
-- 首次开启只能小流量观察，重点看 `agent_runs`、`chat_inbox`、`external_message_logs` 和应用日志
-- 若出现异常，直接设置 `HERMES_FACTORY_BRAIN_ENABLED=false`，DingTalk 入站会回落到旧 `handle_agent_command`
+- 默认仍建议保持 `HERMES_FACTORY_BRAIN_ENABLED=false`，由运维按灰度窗口开启。
+- 首次开启建议只对最高权限用户和指定钉钉入口灰度。
+- 观察重点：`agent_runs`、`chat_inbox`、`external_message_logs`、LangGraph checkpoint 表和应用日志。
+- 若出现异常，设置 `HERMES_FACTORY_BRAIN_ENABLED=false`，DingTalk 入站会回落到旧 `handle_agent_command`。
 
-## 下一步
+## 当前判断
 
-1. 先修全量测试的 6 类剩余阻塞。
-2. 修完后重新跑 `python -m pytest backend/tests -q --tb=short`。
-3. 全量通过后，把本报告状态从 `blocked` 改成 `ready`。
-4. 再执行生产灰度，而不是直接全量放开。
+Hermes 工厂大脑已经从“功能候选”推进到“可生产灰度”。它现在不只是日报统计助手，而是具备工厂数据接入、知识检索、事实冲突解释、钉钉采样、长期规则记忆、LangGraph 编排和 Codex 施工记录的基础超级大脑框架。
