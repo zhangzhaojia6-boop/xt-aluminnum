@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Iterable
+
+PROTECT_MARKERS = (
+    "agent_communication",
+    "daily_fact_bundle",
+    "daily_report_history",
+    "operation_period",
+    "mes_sync",
+    "mes_",
+    "rag",
+    "hermes_",
+    "audit",
+    "dingtalk",
+)
+
+FREEZE_MARKERS = (
+    "reference-command",
+    "ui-reference",
+    "/review/",
+    "/mobile/",
+    "legacy",
+)
+
+MERGE_MARKERS = (
+    "daily_overview_builder",
+    "dashboard_builder",
+    "template_daily_report",
+)
+
+
+def classify_audit_item(path: str) -> dict[str, str]:
+    clean = str(path).replace("\\", "/")
+    lowered = clean.lower()
+    if any(marker in lowered for marker in PROTECT_MARKERS):
+        return {
+            "path": clean,
+            "classification": "protect",
+            "action": "keep",
+            "reason": "涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。",
+        }
+    if any(marker in lowered for marker in MERGE_MARKERS):
+        return {
+            "path": clean,
+            "classification": "merge",
+            "action": "merge_after_source_map",
+            "reason": "属于报表加工层，可在 DailyFactBundle 稳定后逐步合并。",
+        }
+    if any(marker in lowered for marker in FREEZE_MARKERS):
+        return {
+            "path": clean,
+            "classification": "freeze",
+            "action": "freeze_and_observe",
+            "reason": "疑似旧入口或参考资产，先冻结观察，不直接删除。",
+        }
+    return {
+        "path": clean,
+        "classification": "review",
+        "action": "manual_review",
+        "reason": "需要结合引用、路由、测试和生产访问再判断。",
+    }
+
+
+def render_diet_audit_report(paths: Iterable[str]) -> str:
+    items = [classify_audit_item(path) for path in paths]
+    lines = [
+        "# 数据中枢减法瘦身审计报告",
+        "",
+        "日期：2026-06-25",
+        "",
+        "本报告只做分类和建议，不删除任何文件、表或生产数据。",
+        "",
+        "| 分类 | 动作 | 路径 | 原因 |",
+        "|---|---|---|---|",
+    ]
+    for item in items:
+        lines.append(f"| {item['classification']} | {item['action']} | `{item['path']}` | {item['reason']} |")
+    lines.append("")
+    lines.append("硬规则：本阶段没有直接删除动作。所有删除必须另开计划，并提供回滚办法。")
+    return "\n".join(lines)
+
+
+def candidate_paths(repo_root: str | Path) -> list[str]:
+    root = Path(repo_root)
+    patterns = [
+        "backend/app/services/*.py",
+        "backend/app/routers/*.py",
+        "frontend/src/views/**/*.vue",
+        "frontend/src/reference-command/**/*",
+        "docs/**/*.md",
+    ]
+    result: list[str] = []
+    for pattern in patterns:
+        result.extend(str(path.relative_to(root)) for path in root.glob(pattern) if path.is_file())
+    return sorted(set(result))
