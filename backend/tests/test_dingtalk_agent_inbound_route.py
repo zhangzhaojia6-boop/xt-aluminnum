@@ -120,7 +120,7 @@ def test_dingtalk_agent_inbound_forwards_bound_manager_message_to_agent(monkeypa
                 'conversationType': 'group',
                 'senderStaffId': 'dt-manager-001',
                 'senderUnionId': 'union-manager-001',
-                'text': {'content': '@鑫泰助手 今日产量'},
+                'text': {'content': '@鑫泰助手 /今日产量'},
                 'agentCode': 'factory_dispatch',
                 'traceId': 'trace-dingtalk-inbound-001',
             },
@@ -137,12 +137,13 @@ def test_dingtalk_agent_inbound_forwards_bound_manager_message_to_agent(monkeypa
         assert inbox.channel == 'dingtalk_group'
         assert inbox.group_id == 'cid-production-test'
         assert inbox.sender_external_id == 'dt-manager-001'
-        assert inbox.text == '@鑫泰助手 今日产量'
+        assert inbox.text == '@鑫泰助手 /今日产量'
         assert 'sessionWebhook' not in inbox.source_payload
 
         run = db.query(AgentRun).one()
         assert run.trace_id == 'trace-dingtalk-inbound-001'
         assert run.result_payload['intent'] == 'production_today'
+        assert run.result_payload['interpreted_text'] == '今日产量'
     finally:
         _restore_db_override(previous_overrides, db)
 

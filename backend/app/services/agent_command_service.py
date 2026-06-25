@@ -63,6 +63,9 @@ def handle_agent_command(
     clean_text = _clean(text)
     if not clean_text:
         raise AgentCommandError('command_text_required')
+    interpreted_text = _normalize_command_text(clean_text)
+    if not interpreted_text:
+        interpreted_text = clean_text
 
     clean_channel = _clean(channel) or 'internal'
     clean_agent_code = _clean(agent_code) or 'factory_dispatch'
@@ -85,15 +88,15 @@ def handle_agent_command(
 
     rag_payload = query_knowledge(
         db,
-        query=clean_text,
+        query=interpreted_text,
         limit=5,
         user=current_user,
         workshop=clean_workshop,
         machine_code=clean_machine_code,
     )
     citations = rag_payload.get('citations') or []
-    intent = _detect_intent(clean_text)
-    facts = _load_business_facts(db, intent=intent, text=clean_text, current_user=current_user)
+    intent = _detect_intent(interpreted_text)
+    facts = _load_business_facts(db, intent=intent, text=interpreted_text, current_user=current_user)
     status_color = _resolve_status_color(facts=facts, citations=citations)
     answer = _build_answer_for_intent(
         intent=intent,
@@ -117,6 +120,7 @@ def handle_agent_command(
             },
         },
         'source_payload': safe_source_payload,
+        'interpreted_text': interpreted_text,
     }
     run = AgentRun(
         trace_id=clean_trace_id,
@@ -157,7 +161,7 @@ def handle_agent_command(
                     channel=clean_channel,
                     group_id=channel_key,
                     agent_code=clean_agent_code,
-                    text=clean_text,
+                    text=interpreted_text,
                     scope_label=facts.get('scope_label'),
                 ),
             )
@@ -190,6 +194,18 @@ def handle_agent_command(
 
 def _clean(value: str | None) -> str:
     return str(value or '').strip()
+
+
+def _normalize_command_text(text: str) -> str:
+    value = _clean(text)
+    while value.startswith(('@', '＠')):
+        match = re.match(r'^[@＠][^\s/／]+(?=\s|/|／)', value)
+        if match is None:
+            break
+        value = value[match.end():].strip()
+    while value.startswith(('/', '／')):
+        value = value[1:].strip()
+    return value
 
 
 def _status_label(status_color: str) -> str:
@@ -993,5 +1009,5 @@ def _format_answer(
         f'原因：{reason}；'
         f'建议动作：{action}；'
         f'数据来源：{sources}；'
-        f'可回复命令：详情 / 今日产量 / 异常明细。'
+        f'可直接回复：详情、今日产量、异常明细。'
     )
