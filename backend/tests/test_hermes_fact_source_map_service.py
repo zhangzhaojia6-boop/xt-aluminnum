@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+import app.models  # noqa: F401
+from app.database import Base
 from app.services.hermes_fact_source_map_service import (
     find_fact_source,
     load_fact_source_map,
@@ -112,3 +114,14 @@ def test_fact_source_map_rejects_duplicate_metric_keys(tmp_path: Path) -> None:
             load_fact_source_map(duplicate_path)
     finally:
         load_fact_source_map.cache_clear()
+
+
+def test_fact_source_map_source_tables_exist_in_db_metadata() -> None:
+    source_map = load_fact_source_map()
+
+    existing_tables = Base.metadata.tables.keys()
+    for item in source_map:
+        for source_table in item["source_tables"]:
+            assert (
+                source_table in existing_tables
+            ), f"{item['metric_key']} maps to missing table: {source_table}"

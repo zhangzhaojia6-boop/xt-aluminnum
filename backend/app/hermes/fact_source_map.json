@@ -24,7 +24,7 @@
     "display_name": "各车间产量日合计",
     "domain": "production",
     "priority_sources": ["DailyFactBundle", "MES/WMS readonly", "data_hub_projection"],
-    "source_tables": ["daily_overview_snapshots", "mes_workshop_process_records", "work_order_entries", "daily_reports"],
+    "source_tables": ["work_order_entries", "mes_material_records", "mes_workshop_process_records", "workshops"],
     "source_services": ["daily_overview_builder", "factory_command_service", "template_daily_report"],
     "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/aggregation/live"],
     "frontend_pages": ["/manage/live", "/manage/production"],
