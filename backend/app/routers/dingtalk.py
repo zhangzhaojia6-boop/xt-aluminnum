@@ -438,6 +438,35 @@ def dingtalk_agent_inbound(
     channel_scope = _resolve_inbound_channel_scope(db, group_id=group_id, payload=payload)
     _ensure_inbound_channel_scope_access(user, channel_scope)
 
+    if bool(getattr(settings, 'HERMES_FACTORY_BRAIN_ENABLED', False)):
+        from app.services.hermes_factory_brain_orchestrator import run_factory_brain_turn
+
+        try:
+            factory_result = run_factory_brain_turn(
+                db,
+                text=text,
+                channel='dingtalk_group',
+                group_id=group_id or None,
+                sender_external_id=sender_external_id or None,
+                current_user=user,
+                trace_id=trace_id or None,
+                source_payload=_sanitize_inbound_payload(payload),
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        return {
+            'errcode': 0,
+            'errmsg': 'ok',
+            'trace_id': factory_result.trace_id,
+            'agent_code': 'factory_brain',
+            'status': factory_result.status,
+            'answer': factory_result.answer,
+            'chat_inbox_id': factory_result.chat_inbox_id,
+            'agent_run_id': factory_result.agent_run_id,
+        }
+
     try:
         result = handle_agent_command(
             db,

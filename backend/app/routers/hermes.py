@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.routers import dingtalk
 
@@ -19,3 +20,12 @@ def hermes_dingtalk_inbound(
     inbound_token: str | None = Header(default=None, alias='x-dingtalk-inbound-token'),
 ) -> dict[str, Any]:
     return dingtalk.dingtalk_agent_inbound(payload=payload, db=db, inbound_token=inbound_token)
+
+
+@router.get('/factory-brain/status')
+def hermes_factory_brain_status() -> dict[str, object]:
+    return {
+        'enabled': bool(settings.HERMES_FACTORY_BRAIN_ENABLED),
+        'model_provider': settings.HERMES_FACTORY_BRAIN_MODEL_PROVIDER,
+        'checkpoint_mode': settings.HERMES_LANGGRAPH_CHECKPOINT_MODE,
+    }
