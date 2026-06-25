@@ -44,7 +44,27 @@ def test_diet_audit_classifies_mes_and_wms_representatives_as_protect() -> None:
     ]
 
     for path in paths:
-        assert classify_audit_item(path)["classification"] == "protect"
+        item = classify_audit_item(path)
+        assert item["classification"] == "protect"
+        assert item["action"] == "keep"
+
+
+def test_diet_audit_keeps_high_protection_backend_and_frontend_paths() -> None:
+    paths = [
+        "backend/app/routers/dingtalk.py",
+        "backend/app/models/rag.py",
+        "backend/app/services/report/daily_report_history.py",
+        "frontend/src/views/manage/today/TodayPage.vue",
+        "frontend/src/views/manage/live/LiveDashboardPage.vue",
+        "frontend/src/views/manage/production/ProductionPage.vue",
+        "frontend/src/views/manage/coils/CoilTracePage.vue",
+        "frontend/src/views/entry/EntryDrafts.vue",
+    ]
+
+    for path in paths:
+        item = classify_audit_item(path)
+        assert item["classification"] == "protect"
+        assert item["action"] == "keep"
 
 
 def test_diet_audit_candidate_paths_include_hermes_and_models() -> None:
@@ -86,6 +106,11 @@ def test_diet_audit_report_contains_nested_protected_rows() -> None:
         "backend/app/tasks/mes_sync.py",
         "backend/app/adapters/sqlserver_mes_adapter.py",
         "artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json",
+        "frontend/src/views/manage/today/TodayPage.vue",
+        "frontend/src/views/manage/live/LiveDashboardPage.vue",
+        "frontend/src/views/manage/production/ProductionPage.vue",
+        "frontend/src/views/manage/coils/CoilTracePage.vue",
+        "frontend/src/views/entry/EntryDrafts.vue",
     ]:
         expected_row = f"| protect | keep | `{item}` |"
         assert expected_row in report

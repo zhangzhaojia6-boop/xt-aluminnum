@@ -406,7 +406,7 @@
 | review | manual_review | `frontend/src/views/attendance/ExceptionList.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/contracts/ContractsCenter.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/energy/EnergyCenter.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/entry/EntryDrafts.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `frontend/src/views/entry/EntryDrafts.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `frontend/src/views/factory-command/DestinationScreen.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/factory-command/FactoryCommandShell.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/inventory/InventoryCenter.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -414,22 +414,22 @@
 | review | manual_review | `frontend/src/views/manage/admin/SystemSettingsPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/manage/alerts/AlertsPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/manage/channels/CommunicationChannelsPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/coils/CoilTracePage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `frontend/src/views/manage/coils/CoilTracePage.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `frontend/src/views/manage/fill-details/FillDetailsPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/AnimatedMetricValue.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveDashboardPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveDataStatePanel.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveEventRail.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveMachineCard.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveMachineDrawer.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveMachineMatrix.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveMarketTicker.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveMetricCompareCard.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/live/LiveProcessFlow.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `frontend/src/views/manage/live/AnimatedMetricValue.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveDashboardPage.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveDataStatePanel.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveEventRail.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveMachineCard.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveMachineDrawer.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveMachineMatrix.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveMarketTicker.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveMetricCompareCard.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/manage/live/LiveProcessFlow.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `frontend/src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `frontend/src/views/manage/production/ProductionPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `frontend/src/views/manage/production/ProductionPage.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `frontend/src/views/manage/rag/RagKnowledgePage.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| review | manual_review | `frontend/src/views/manage/today/TodayPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `frontend/src/views/manage/today/TodayPage.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `frontend/src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/master/AliasMapping.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/master/MesTerminalBinding.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
