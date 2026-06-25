@@ -397,6 +397,9 @@
 | review | manual_review | `docs/模板.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/现场UAT清单.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/部署文档.md` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `frontend/src/layout/AppShell.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `frontend/src/layout/EntryShell.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| review | manual_review | `frontend/src/layout/ManageShell.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/Login.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/ai/AiChatMessage.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/ai/AiConversationList.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -443,7 +446,7 @@
 | freeze | freeze_and_observe | `frontend/src/views/mobile/MobileBottomNav.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
 | protect | keep | `frontend/src/views/mobile/MobileEntry.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `frontend/src/views/mobile/OCRCapture.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/ReminderList.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
+| protect | keep | `frontend/src/views/mobile/ReminderList.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `frontend/src/views/mobile/ShiftReportForm.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `frontend/src/views/mobile/ShiftReportHistory.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `frontend/src/views/mobile/UnifiedEntryForm.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |

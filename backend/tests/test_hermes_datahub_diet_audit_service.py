@@ -115,6 +115,8 @@ def test_diet_audit_candidate_paths_include_nested_protected_representatives() -
     assert "backend/app/tasks/mes_sync.py" in paths
     assert "backend/app/adapters/sqlserver_mes_adapter.py" in paths
     assert "artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json" in paths
+    assert "frontend/src/layout/EntryShell.vue" in paths
+    assert "frontend/src/views/mobile/ReminderList.vue" in paths
 
 
 def test_diet_audit_report_contains_nested_protected_rows() -> None:
@@ -127,6 +129,8 @@ def test_diet_audit_report_contains_nested_protected_rows() -> None:
         "backend/app/tasks/mes_sync.py",
         "backend/app/adapters/sqlserver_mes_adapter.py",
         "artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json",
+        "frontend/src/layout/EntryShell.vue",
+        "frontend/src/views/mobile/ReminderList.vue",
         "frontend/src/views/manage/today/TodayPage.vue",
         "frontend/src/views/manage/live/LiveDashboardPage.vue",
         "frontend/src/views/manage/production/ProductionPage.vue",
