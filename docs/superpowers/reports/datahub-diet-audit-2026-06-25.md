@@ -19,7 +19,7 @@
 | protect | keep | `backend/app/models/hermes_factory_brain.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/models/imports.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/models/master.py` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `backend/app/models/mes.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/models/mes.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/models/production.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/models/quality.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `backend/app/models/rag.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
@@ -53,7 +53,7 @@
 | review | manual_review | `backend/app/routers/inventory.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/mapping_reconciliation.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/master.py` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `backend/app/routers/mes.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/routers/mes.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/routers/mobile.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/notifications.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/ocr.py` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -220,9 +220,9 @@
 | review | manual_review | `docs/launch-readiness-checklist.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/mes-api-integration-checklist.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/mes-data-hub-hermes-fact-map-2026-06-19.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| review | manual_review | `docs/mes-page-table-mapping.md` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `docs/mes-page-table-mapping.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `docs/mes-xintaily-full-page-table-audit.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| review | manual_review | `docs/mes-xtmijd-alignment-matrix.md` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `docs/mes-xtmijd-alignment-matrix.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/ssl-setup.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/superpowers/audits/2026-05-16-phase-4-8-done.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `docs/superpowers/audits/2026-05-16-status-audit.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
