@@ -38,13 +38,13 @@ def render_fact_source_map_markdown() -> str:
         "",
         "本文件由 `backend/app/hermes/fact_source_map.json` 自动生成，不手工维护。",
         "",
-        "| 指标 | 领域 | 来源优先级 | 涉及服务 | 保护级别 | 状态 | 接口 | 页面 | 证据条件 | 已知风险 |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| 指标 | 领域 | 来源优先级 | 涉及服务 | 保护级别 | 状态 | 接口 | 页面 | 涉及表 | Hermes 工具 | 证据条件 | 已知风险 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for item in rows:
         evidence_conditions = item.get("dingtalk_evidence_conditions")
         lines.append(
-            "| {metric} ({key}) | {domain} | {sources} | {services} | {protection} | {status} | {routes} | {pages} | {conditions} | {risks} |".format(
+            "| {metric} ({key}) | {domain} | {sources} | {services} | {protection} | {status} | {routes} | {pages} | {tables} | {tools} | {conditions} | {risks} |".format(
                 metric=_cell(item["display_name"]),
                 key=_cell(item["metric_key"]),
                 domain=_cell(item["domain"]),
@@ -54,6 +54,8 @@ def render_fact_source_map_markdown() -> str:
                 status=_cell(item["verification_status"]),
                 routes=_join(item["api_routes"]),
                 pages=_join(item["frontend_pages"]),
+                tables=_join(item["source_tables"]),
+                tools=_join(item["hermes_tools"]),
                 conditions=_cell(evidence_conditions) if evidence_conditions else "-",
                 risks=_join(item["known_risks"]),
             )
@@ -65,7 +67,7 @@ def render_fact_source_map_markdown() -> str:
             "",
             "- `protect` 表示不要删除。",
             "- `merge_candidate`、`freeze_candidate`、`candidate_delete` 表示后续还要审计。",
-            "- 空接口或空页面表示当前 seed 没有列出对应入口。",
+            "- 空接口、空页面、空表或空工具表示当前 seed 没有列出对应入口。",
         ]
     )
     return "\n".join(lines)

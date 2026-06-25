@@ -141,5 +141,14 @@ def test_fact_source_map_export_contains_core_columns() -> None:
     markdown = render_fact_source_map_markdown()
 
     assert "| 指标 | 领域 | 来源优先级 | 涉及服务 | 保护级别 | 状态 |" in markdown
+    assert "| 涉及表 | Hermes 工具 |" in markdown
     assert "车间总产量日合计" in markdown
     assert "protect" in markdown
+
+
+def test_fact_source_map_export_matches_committed_markdown() -> None:
+    docs_path = Path(__file__).resolve().parents[2] / "docs" / "hermes" / "fact-source-map.md"
+    rendered = render_fact_source_map_markdown().replace("\\r\\n", "\n").strip()
+    checked = docs_path.read_text(encoding="utf-8").replace("\\r\\n", "\n").strip()
+
+    assert rendered == checked
