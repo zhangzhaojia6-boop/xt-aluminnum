@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any
 
 
@@ -45,7 +46,7 @@ def _check(
     name: str,
     response_text: str,
     tool_trace: list[dict[str, Any]],
-    *, 
+    *,
     scenario: str,
 ) -> bool:
     if name == 'conclusion':
@@ -58,7 +59,12 @@ def _check(
         return '各车间明细' in response_text
     if name == 'sources':
         if scenario == 'source_backed_answer':
-            return '数据来源' in response_text
+            match = re.search(r'数据来源[：:]\s*(.*)', response_text)
+            if match is None:
+                return False
+            sources_part = match.group(1)
+            sources_before_trace_id = re.split(r'(?=(?:trace_id|trace)[：:])', sources_part, maxsplit=1)[0]
+            return bool(sources_before_trace_id.strip())
         return '数据来源' in response_text or any(
             item.get('tool') == 'dingtalk_evidence' for item in tool_trace
         )

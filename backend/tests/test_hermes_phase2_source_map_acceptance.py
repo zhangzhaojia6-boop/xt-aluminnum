@@ -60,6 +60,20 @@ def test_source_backed_answer_fails_without_sources_text() -> None:
     assert 'sources' in result.missing
 
 
+def test_source_backed_answer_fails_when_source_text_only_contains_trace_id() -> None:
+    result = evaluate_factory_brain_response(
+        scenario='source_backed_answer',
+        response_text='结论：今天产量已出。数据来源： trace_id：abc',
+        tool_trace=[
+            {'tool': 'hub_query', 'status': 'ok'},
+            {'tool': 'source_map', 'status': 'ok'},
+        ],
+    )
+
+    assert result.passed is False
+    assert 'sources' in result.missing
+
+
 def test_source_backed_answer_fails_when_source_map_missing_or_failed() -> None:
     result_without_source_map = evaluate_factory_brain_response(
         scenario='source_backed_answer',
