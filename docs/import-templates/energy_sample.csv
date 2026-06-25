@@ -1,0 +1,4 @@
+business_date,workshop_code,shift_code,energy_type,energy_value,unit,source_row_no
+2026-03-25,W1,A,electricity,1200,kwh,1
+2026-03-25,W1,A,gas,35,m3,2
+2026-03-25,W1,B,water,18,m3,3
