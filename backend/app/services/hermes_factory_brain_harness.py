@@ -19,7 +19,7 @@ def evaluate_factory_brain_response(
     tool_trace: list[dict[str, Any]],
 ) -> FactoryBrainHarnessResult:
     checks = _checks_for_scenario(scenario)
-    missing = [item for item in checks if not _check(item, response_text, tool_trace)]
+    missing = [item for item in checks if not _check(item, response_text, tool_trace, scenario=scenario)]
     score = round((len(checks) - len(missing)) / max(1, len(checks)), 4)
     return FactoryBrainHarnessResult(
         scenario=scenario,
@@ -41,7 +41,13 @@ def _checks_for_scenario(scenario: str) -> list[str]:
     return ['response']
 
 
-def _check(name: str, response_text: str, tool_trace: list[dict[str, Any]]) -> bool:
+def _check(
+    name: str,
+    response_text: str,
+    tool_trace: list[dict[str, Any]],
+    *, 
+    scenario: str,
+) -> bool:
     if name == 'conclusion':
         return '结论' in response_text
     if name == 'judgment':
@@ -51,7 +57,11 @@ def _check(name: str, response_text: str, tool_trace: list[dict[str, Any]]) -> b
     if name == 'workshop_detail':
         return '各车间明细' in response_text
     if name == 'sources':
-        return '数据来源' in response_text or any(item.get('tool') == 'dingtalk_evidence' for item in tool_trace)
+        if scenario == 'source_backed_answer':
+            return '数据来源' in response_text
+        return '数据来源' in response_text or any(
+            item.get('tool') == 'dingtalk_evidence' for item in tool_trace
+        )
     if name == 'conflicts':
         return '冲突' in response_text
     if name == 'output_skill_alignment':
@@ -59,7 +69,7 @@ def _check(name: str, response_text: str, tool_trace: list[dict[str, Any]]) -> b
     if name == 'source_map':
         return any(item.get('tool') == 'source_map' and item.get('status') == 'ok' for item in tool_trace)
     if name == 'trace_id':
-        return 'trace_id' in response_text or 'trace' in response_text
+        return 'trace_id' in response_text
     if name == 'current_fact':
         return any(item.get('tool') == 'hub_query' and item.get('status') == 'ok' for item in tool_trace)
     if name == 'process_knowledge':
