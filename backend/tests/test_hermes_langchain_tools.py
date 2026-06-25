@@ -1,11 +1,28 @@
 import httpx
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from app.services.hermes_langchain_model import FactoryBrainModelUnavailable, invoke_factory_brain_model
-from app.services.hermes_langchain_tools import HermesToolAdapters, build_tool_registry, require_tool
+from app.services.hermes_langchain_tools import (
+    HermesToolAdapters,
+    build_production_tool_adapters,
+    build_tool_registry,
+    require_tool,
+)
 
 
 def _fake_tool(**kwargs: object) -> dict[str, object]:
     return {'status': 'ok', 'request': kwargs}
+
+
+def _db() -> Session:
+    engine = create_engine(
+        'sqlite:///:memory:',
+        connect_args={'check_same_thread': False},
+        poolclass=StaticPool,
+    )
+    return Session(engine)
 
 
 def test_tool_registry_exposes_only_allowed_tools() -> None:
@@ -52,3 +69,15 @@ def test_model_401_becomes_degraded_error() -> None:
         assert exc.user_message == '模型服务暂不可用，Hermes 已降级为只读数据查询模式。'
     else:
         raise AssertionError('expected FactoryBrainModelUnavailable')
+
+
+def test_hub_query_tool_returns_structured_payload() -> None:
+    registry = build_tool_registry(build_production_tool_adapters(_db()))
+
+    result = registry['hub_query'](business_date='2026-06-25', query_type='production')
+
+    assert 'status' in result
+    assert 'source' in result
+    assert result['source'] == 'data_hub'
+    assert 'request' in result
+    assert 'facts' in result
