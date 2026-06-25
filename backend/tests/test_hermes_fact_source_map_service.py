@@ -36,6 +36,12 @@ DINGTALK_EVIDENCE_CONDITION_KEYS = {
     "time_range",
 }
 
+BAD_API_ROUTES = {
+    "/api/v1/dashboard/live",
+    "/api/v1/executive/*",
+    "/api/v1/dashboard/alerts",
+}
+
 
 def test_fact_source_map_loads_core_daily_report_metrics() -> None:
     source_map = load_fact_source_map()
@@ -81,6 +87,14 @@ def test_fact_source_map_contains_no_sensitive_keys() -> None:
     assert "token" not in text
     assert "secret" not in text
     assert "连接串" not in text
+
+
+def test_fact_source_map_uses_only_concrete_api_routes() -> None:
+    source_map = load_fact_source_map()
+    api_routes = {route for item in source_map for route in item["api_routes"]}
+
+    assert "*" not in "".join(api_routes)
+    assert BAD_API_ROUTES.isdisjoint(api_routes)
 
 
 def test_fact_source_map_rejects_duplicate_metric_keys(tmp_path: Path) -> None:

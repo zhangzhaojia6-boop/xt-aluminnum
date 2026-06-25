@@ -80,3 +80,33 @@ None.
 python -m pytest backend/tests/test_hermes_fact_source_map_service.py -q
 5 passed in 2.17s
 ```
+
+## Review follow-up: concrete api_routes cleanup
+
+本次按 re-review 继续清理了 `backend/app/hermes/fact_source_map.json` 里的非机器可读路由，只改 owned scope，没有动优先级和业务含义。
+
+替换内容：
+
+- 把 `/api/v1/dashboard/live` 改成了真实存在的 `/api/v1/aggregation/live`。
+- 把 `/api/v1/executive/*` 改成了具体存在的执行层路由：
+  - `/api/v1/executive/dashboard`
+  - `/api/v1/executive/processing-fees`
+  - `/api/v1/executive/cost-strategy-snapshots/review-status`
+  - `/api/v1/dashboard/daily-production`
+- 把 `/api/v1/dashboard/alerts` 改成了能支撑异常/告警证据的真实路由：
+  - `/api/v1/dingtalk/agent-inbound`
+  - `/api/v1/hermes/data-audit/runs`
+  - `/api/v1/hermes/data-audit/runs/{run_id}`
+  - `/api/v1/notifications`
+- 把 `monthly_total_output` 和 `annual_total_output` 的 `api_routes` 从 `not_exposed_yet` 改成了空数组，避免保留占位字符串。
+- 在 `backend/tests/test_hermes_fact_source_map_service.py` 里加了回归断言，确保 `api_routes` 里没有 `*`，也没有这 3 个坏字符串：
+  - `/api/v1/dashboard/live`
+  - `/api/v1/executive/*`
+  - `/api/v1/dashboard/alerts`
+
+测试结果：
+
+```text
+python -m pytest backend/tests/test_hermes_fact_source_map_service.py -q
+6 passed in 2.05s
+```
