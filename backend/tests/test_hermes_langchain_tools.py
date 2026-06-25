@@ -35,6 +35,7 @@ def test_tool_registry_exposes_only_allowed_tools() -> None:
         output_skill_alignment=_fake_tool,
         long_term_rules=_fake_tool,
         codex_construction=_fake_tool,
+        source_map=_fake_tool,
     )
     registry = build_tool_registry(adapters)
 
@@ -47,8 +48,20 @@ def test_tool_registry_exposes_only_allowed_tools() -> None:
         'output_skill_alignment',
         'long_term_rules',
         'codex_construction',
+        'source_map',
     }
     assert require_tool('hub_query', registry)(business_date='2026-06-25')['status'] == 'ok'
+
+
+def test_source_map_tool_explains_metric_source() -> None:
+    registry = build_tool_registry(build_production_tool_adapters(_db()))
+
+    result = registry['source_map'](metric_key='total_output_daily')
+
+    assert result['status'] == 'ok'
+    assert result['source'] == 'fact_source_map'
+    assert result['facts']['metric_key'] == 'total_output_daily'
+    assert '车间总产量' in result['facts']['summary']
 
 
 def test_model_401_becomes_degraded_error() -> None:

@@ -15,6 +15,7 @@ from app.services.hermes_codex_construction_service import request_codex_constru
 from app.services.hermes_data_audit_service import HermesDataAuditService
 from app.services.hermes_long_term_rule_service import list_active_rules
 from app.services.hermes_mes_read_service import HermesMesReadService
+from app.services.hermes_fact_source_map_service import find_fact_source, source_summary_for_metric
 from app.services.rag_service import query_knowledge
 from app.services.report import template_daily_report
 
@@ -32,6 +33,7 @@ class HermesToolAdapters:
     output_skill_alignment: ToolCallable
     long_term_rules: ToolCallable
     codex_construction: ToolCallable
+    source_map: ToolCallable
 
 
 def build_tool_registry(adapters: HermesToolAdapters) -> dict[str, ToolCallable]:
@@ -44,6 +46,7 @@ def build_tool_registry(adapters: HermesToolAdapters) -> dict[str, ToolCallable]
         'output_skill_alignment': adapters.output_skill_alignment,
         'long_term_rules': adapters.long_term_rules,
         'codex_construction': adapters.codex_construction,
+        'source_map': adapters.source_map,
     }
 
 
@@ -69,6 +72,7 @@ def build_production_tool_adapters(
         output_skill_alignment=partial(_output_skill_alignment_tool, db=db, output_skill_root=output_skill_root),
         long_term_rules=partial(_long_term_rules_tool, db=db),
         codex_construction=partial(_codex_construction_tool, db=db, current_user=current_user),
+        source_map=_source_map_tool,
     )
 
 
@@ -207,6 +211,20 @@ def _long_term_rules_tool(*, db: Session, **kwargs: object) -> dict[str, object]
         return {'status': 'ok', 'source': 'long_term_rules', 'request': _request_payload(kwargs), 'facts': facts}
     except Exception as exc:
         return _unavailable('long_term_rules', kwargs, exc)
+
+
+def _source_map_tool(**kwargs: object) -> dict[str, object]:
+    try:
+        metric_key = str(kwargs.get('metric_key') or '').strip()
+        item = find_fact_source(metric_key)
+        return {
+            'status': 'ok',
+            'source': 'fact_source_map',
+            'request': _request_payload(kwargs),
+            'facts': {**item, 'summary': source_summary_for_metric(metric_key)},
+        }
+    except Exception as exc:
+        return _unavailable('fact_source_map', kwargs, exc)
 
 
 def _codex_construction_tool(*, db: Session, current_user: object | None, **kwargs: object) -> dict[str, object]:
