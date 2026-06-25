@@ -36,10 +36,14 @@ def _checks_for_scenario(scenario: str) -> list[str]:
         return ['current_fact', 'process_knowledge', 'reason_order', 'suggested_action']
     if scenario == 'business_question':
         return ['production', 'inventory', 'delivery', 'contract']
+    if scenario == 'source_backed_answer':
+        return ['conclusion', 'sources', 'source_map', 'trace_id']
     return ['response']
 
 
 def _check(name: str, response_text: str, tool_trace: list[dict[str, Any]]) -> bool:
+    if name == 'conclusion':
+        return '结论' in response_text
     if name == 'judgment':
         return '工厂大脑判断单' in response_text
     if name == 'formal_report':
@@ -52,6 +56,10 @@ def _check(name: str, response_text: str, tool_trace: list[dict[str, Any]]) -> b
         return '冲突' in response_text
     if name == 'output_skill_alignment':
         return any(item.get('tool') == 'output_skill_alignment' and item.get('status') == 'ok' for item in tool_trace)
+    if name == 'source_map':
+        return any(item.get('tool') == 'source_map' and item.get('status') == 'ok' for item in tool_trace)
+    if name == 'trace_id':
+        return 'trace_id' in response_text or 'trace' in response_text
     if name == 'current_fact':
         return any(item.get('tool') == 'hub_query' and item.get('status') == 'ok' for item in tool_trace)
     if name == 'process_knowledge':
