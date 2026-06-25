@@ -87,6 +87,13 @@ from app.models.rag import (
     RagQueryLog,
     RagSourceIngestion,
 )
+from app.models.hermes_factory_brain import (
+    HermesCodexConstructionRun,
+    HermesDingTalkSamplingRule,
+    HermesKnowledgeUnit,
+    HermesLongTermRule,
+    HermesSoulProfile,
+)
 from app.models.hermes_data_audit import HermesCorrectionAction, HermesDataAuditRun
 from app.models.reconciliation import DataReconciliationItem, MappingReconciliationRun
 from app.models.reports import DailyReport
@@ -170,6 +177,11 @@ __all__ = [
     'HermesLearningEvent',
     'HermesShortTermMemory',
     'HermesApprovedLesson',
+    'HermesSoulProfile',
+    'HermesLongTermRule',
+    'HermesDingTalkSamplingRule',
+    'HermesKnowledgeUnit',
+    'HermesCodexConstructionRun',
     'HermesDataAuditRun',
     'HermesCorrectionAction',
     'ProductionPlanDaily',
