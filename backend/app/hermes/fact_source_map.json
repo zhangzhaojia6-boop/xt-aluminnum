@@ -4,6 +4,12 @@
     "display_name": "车间总产量日合计",
     "domain": "production",
     "priority_sources": ["root_owner", "dingtalk_specialist", "DailyFactBundle", "MES/WMS readonly", "data_hub_projection"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "required",
+      "specialist_sender": "required",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
     "source_tables": ["daily_fact_bundle_snapshots", "multimodal_evidence", "mes_workshop_process_records", "daily_reports"],
     "source_services": ["DailyFactBundle", "Hermes", "template_daily_report", "hermes_langchain_tools"],
     "api_routes": ["/api/v1/reports/template-daily/preview", "/api/v1/dashboard/daily-production"],
@@ -14,10 +20,30 @@
     "verification_status": "已证实"
   },
   {
+    "metric_key": "workshop_output_daily",
+    "display_name": "各车间产量日合计",
+    "domain": "production",
+    "priority_sources": ["DailyFactBundle", "MES/WMS readonly", "data_hub_projection"],
+    "source_tables": ["daily_overview_snapshots", "mes_workshop_process_records", "work_order_entries", "daily_reports"],
+    "source_services": ["daily_overview_builder", "factory_command_service", "template_daily_report"],
+    "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/dashboard/live"],
+    "frontend_pages": ["/manage/live", "/manage/production"],
+    "hermes_tools": ["hub_query", "source_map", "rag_route"],
+    "delete_protection": "protect",
+    "known_risks": ["车间产量是过程口径，不等于全厂最终产量"],
+    "verification_status": "已证实"
+  },
+  {
     "metric_key": "finished_inbound_daily",
     "display_name": "入库成品日合计",
     "domain": "inventory",
     "priority_sources": ["root_owner", "dingtalk_specialist", "WMS final document", "DailyFactBundle", "data_hub_projection"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "required",
+      "specialist_sender": "required",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
     "source_tables": ["daily_fact_bundle_snapshots", "mes_stock_records", "multimodal_evidence", "daily_reports"],
     "source_services": ["DailyFactBundle", "template_daily_report", "HermesMesReadService"],
     "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/mes/extended/stock-records"],
@@ -28,10 +54,30 @@
     "verification_status": "已证实"
   },
   {
+    "metric_key": "daily_input_weight",
+    "display_name": "当日投料量",
+    "domain": "operations",
+    "priority_sources": ["DailyFactBundle", "MES/WMS readonly", "data_hub_projection"],
+    "source_tables": ["daily_fact_bundle_snapshots", "work_order_entries", "daily_reports"],
+    "source_services": ["contract_canonical_service", "template_daily_report", "daily_overview_builder"],
+    "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/reports/template-daily/preview"],
+    "frontend_pages": ["/manage/today", "/manage/production"],
+    "hermes_tools": ["hub_query", "source_map", "history_report"],
+    "delete_protection": "protect",
+    "known_risks": ["投料、上机量、坯料输入和合同用料不能混成一个数"],
+    "verification_status": "已证实"
+  },
+  {
     "metric_key": "total_electricity_kwh",
     "display_name": "全厂高压总用电量",
     "domain": "energy",
     "priority_sources": ["root_owner", "dingtalk_specialist", "data_hub_manual", "iot_energy_future"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "required",
+      "specialist_sender": "required",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
     "source_tables": ["machine_energy_records", "mobile_shift_reports", "daily_fact_bundle_snapshots"],
     "source_services": ["DailyFactBundle", "energy_service", "template_daily_report"],
     "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/energy/summary"],
@@ -46,6 +92,12 @@
     "display_name": "全厂用气量",
     "domain": "energy",
     "priority_sources": ["root_owner", "dingtalk_specialist", "data_hub_manual"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "required",
+      "specialist_sender": "required",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
     "source_tables": ["machine_energy_records", "mobile_shift_reports", "daily_fact_bundle_snapshots"],
     "source_services": ["DailyFactBundle", "energy_service", "template_daily_report"],
     "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/energy/summary"],
@@ -152,6 +204,26 @@
     "delete_protection": "protect",
     "known_risks": ["年累计必须能追溯到日快照集合"],
     "verification_status": "候选"
+  },
+  {
+    "metric_key": "anomaly_explanation_daily",
+    "display_name": "异常说明日汇总",
+    "domain": "evidence",
+    "priority_sources": ["dingtalk_specialist", "data_quality_issues", "daily_reports", "multimodal_evidence"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "required",
+      "specialist_sender": "required",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
+    "source_tables": ["data_quality_issues", "daily_reports", "multimodal_evidence"],
+    "source_services": ["HermesDataAuditService", "template_daily_report", "agent_multimodal_evidence_service"],
+    "api_routes": ["/api/v1/dingtalk/agent-inbound", "/api/v1/dashboard/alerts"],
+    "frontend_pages": ["/manage/alerts", "/manage/today"],
+    "hermes_tools": ["dingtalk_evidence", "source_map", "rag_route"],
+    "delete_protection": "protect",
+    "known_risks": ["四条件不全时不能直接当正式事实"],
+    "verification_status": "已证实"
   },
   {
     "metric_key": "dingtalk_specialist_evidence",
