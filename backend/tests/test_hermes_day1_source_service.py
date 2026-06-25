@@ -129,6 +129,7 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
         'business_date',
         'template_daily_report',
         'daily_fact_bundle',
+        'source_map',
         'mes_wms',
         'audit_run',
         'dingtalk_evidence',
@@ -141,6 +142,24 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
     assert payload['business_date'] == '2026-06-21'
     assert payload['template_daily_report'] == template_payload
     assert payload['daily_fact_bundle'] == daily_fact_payload
+    assert payload['source_map'] == {
+        'status': 'ok',
+        'source': 'fact_source_map',
+        'metric_keys': ['total_output_daily'],
+        'facts': [
+            {
+                'metric_key': 'total_output_daily',
+                'display_name': '车间总产量日合计',
+                'summary': '车间总产量日合计：优先级 root_owner > dingtalk_specialist > DailyFactBundle > MES/WMS readonly > data_hub_projection。涉及服务：DailyFactBundle、Hermes、template_daily_report、hermes_langchain_tools。风险：包装量、入库量、车间最终日报产量不是同一个数',
+                'delete_protection': 'protect',
+                'api_routes': ['/api/v1/reports/template-daily/preview', '/api/v1/dashboard/daily-production'],
+                'frontend_pages': ['/manage/today', '/manage/production'],
+            }
+        ],
+        'source_explanations': [
+            '车间总产量日合计：优先级 root_owner > dingtalk_specialist > DailyFactBundle > MES/WMS readonly > data_hub_projection。涉及服务：DailyFactBundle、Hermes、template_daily_report、hermes_langchain_tools。风险：包装量、入库量、车间最终日报产量不是同一个数'
+        ],
+    }
     assert payload['mes_wms'] == mes_payload
     assert payload['audit_run']['id'] == 7
     assert payload['rag'] == {'answer': 'ok', 'citations': [{'source_ref': 'doc#1'}]}
@@ -212,6 +231,33 @@ def test_collect_day1_sources_includes_daily_fact_bundle(monkeypatch) -> None:
 
     assert payload['daily_fact_bundle'] == _daily_fact_bundle_payload(business_date)
     assert payload['output_skill_alignment'] == {'status': 'passed', 'field_match_rate': 100.0}
+
+
+def test_collect_day1_sources_includes_source_map_explanations_for_mapped_metrics(monkeypatch) -> None:
+    service = _source_service()
+    db = _db_session()
+    business_date = date(2026, 6, 21)
+    _patch_collect_dependencies(monkeypatch, service)
+
+    try:
+        payload = service.collect_day1_sources(
+            db,
+            business_date=business_date,
+            actor=None,
+            trace_id='trace-day1-001',
+        )
+    finally:
+        db.close()
+
+    source_map = payload['source_map']
+    assert source_map['status'] == 'ok'
+    assert source_map['source'] == 'fact_source_map'
+    assert source_map['metric_keys'] == ['total_output_daily']
+    assert source_map['facts'][0]['metric_key'] == 'total_output_daily'
+    assert source_map['facts'][0]['delete_protection'] == 'protect'
+    assert source_map['facts'][0]['frontend_pages'] == ['/manage/today', '/manage/production']
+    assert source_map['source_explanations']
+    assert '车间总产量日合计' in source_map['source_explanations'][0]
 
 
 def test_collect_day1_sources_reads_mes_once_when_audit_reads_sources(monkeypatch) -> None:

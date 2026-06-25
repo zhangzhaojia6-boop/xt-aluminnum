@@ -22,6 +22,7 @@ from app.services.hermes_data_audit_service import (
     NoComparableDataError,
 )
 from app.services.hermes_day1_harness_service import build_output_skill_alignment
+from app.services.hermes_fact_source_map_service import find_fact_source, source_summary_for_metric
 from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.rag_service import query_knowledge
 from app.services.report.daily_fact_bundle import build_daily_fact_bundle
@@ -78,6 +79,7 @@ def collect_day1_sources(
         persist_run=True,
         snapshot_reason=None,
     )
+    source_map_payload = _build_day1_source_map_payload(daily_fact_payload)
     mes_reader = HermesMesReadService(get_mes_adapter())
     mes_payload = mes_reader.read_sources(
         business_date=business_date,
@@ -108,6 +110,7 @@ def collect_day1_sources(
         'business_date': business_date.isoformat(),
         'template_daily_report': template_payload,
         'daily_fact_bundle': daily_fact_payload,
+        'source_map': source_map_payload,
         'mes_wms': mes_payload,
         'audit_run': audit_payload,
         'dingtalk_evidence': _list_dingtalk_evidence(db, business_date=business_date),
@@ -115,6 +118,54 @@ def collect_day1_sources(
         'historical_reports': _list_historical_reports(db, business_date=business_date),
         'rag': rag_payload,
         'output_skill_alignment': output_skill_alignment,
+    }
+
+
+def _build_day1_source_map_payload(daily_fact_payload: Mapping[str, Any]) -> dict[str, Any]:
+    facts = daily_fact_payload.get('facts')
+    if not isinstance(facts, Mapping):
+        return {
+            'status': 'empty',
+            'source': 'fact_source_map',
+            'metric_keys': [],
+            'facts': [],
+            'source_explanations': [],
+        }
+
+    result_rows: list[dict[str, Any]] = []
+    source_explanations: list[str] = []
+    metric_keys: list[str] = []
+    seen_metric_keys: set[str] = set()
+
+    for raw_metric_key in facts.keys():
+        metric_key = str(raw_metric_key or '').strip()
+        if not metric_key or metric_key in seen_metric_keys:
+            continue
+        try:
+            item = find_fact_source(metric_key)
+        except KeyError:
+            continue
+        seen_metric_keys.add(metric_key)
+        summary = source_summary_for_metric(metric_key)
+        metric_keys.append(metric_key)
+        source_explanations.append(summary)
+        result_rows.append(
+            {
+                'metric_key': item['metric_key'],
+                'display_name': item['display_name'],
+                'summary': summary,
+                'delete_protection': item['delete_protection'],
+                'api_routes': item['api_routes'],
+                'frontend_pages': item['frontend_pages'],
+            }
+        )
+
+    return {
+        'status': 'ok' if result_rows else 'empty',
+        'source': 'fact_source_map',
+        'metric_keys': metric_keys,
+        'facts': result_rows,
+        'source_explanations': source_explanations,
     }
 
 

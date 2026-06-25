@@ -78,7 +78,7 @@ def _check(
     if name == 'source_map':
         return any(item.get('tool') == 'source_map' and item.get('status') == 'ok' for item in tool_trace)
     if name == 'trace_id':
-        return 'trace_id' in response_text
+        return bool(re.search(r'trace_id[：:]\s*([^\s，。；;、]+)', response_text))
     if name == 'current_fact':
         return any(item.get('tool') == 'hub_query' and item.get('status') == 'ok' for item in tool_trace)
     if name == 'process_knowledge':

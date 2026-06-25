@@ -26,6 +26,7 @@ from app.services.report.period_rollup import build_operation_period_snapshot
 DAY1_TOOLS_CALLED = [
     'template_daily_report',
     'daily_fact_bundle',
+    'source_map',
     'mes_wms_read',
     'hermes_data_audit',
     'dingtalk_evidence_scan',
@@ -417,6 +418,7 @@ def _command_raw_text(command: HermesDay1Command) -> str:
 def _source_summary(sources: dict[str, Any]) -> dict[str, Any]:
     template = _as_mapping(sources.get('template_daily_report'))
     daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
+    source_map = _as_mapping(sources.get('source_map'))
     mes_wms = _as_mapping(sources.get('mes_wms'))
     audit = _as_mapping(sources.get('audit_run'))
     rag = _as_mapping(sources.get('rag'))
@@ -438,6 +440,7 @@ def _source_summary(sources: dict[str, Any]) -> dict[str, Any]:
             'formal_snapshot_id': daily_fact_bundle.get('formal_snapshot_id'),
             'formal_history_record_id': daily_fact_bundle.get('formal_history_record_id'),
         },
+        'source_map': _source_map_summary(source_map),
         'mes_wms': {
             'status': _source_status(mes_wms),
             'source_status': _summary_safe(mes_wms.get('source_status')),
@@ -461,6 +464,24 @@ def _source_summary(sources: dict[str, Any]) -> dict[str, Any]:
         'dingtalk_messages': _message_summary(sources.get('dingtalk_messages')),
         'historical_reports': _historical_report_summary(sources.get('historical_reports')),
         'output_skill_alignment': _output_skill_alignment_payload(sources.get('output_skill_alignment'), include_differences=False),
+    }
+
+
+def _source_map_summary(value: Mapping[str, Any]) -> dict[str, Any]:
+    facts = [item for item in _as_list(value.get('facts')) if isinstance(item, Mapping)]
+    delete_protection = sorted(
+        {
+            str(item.get('delete_protection'))
+            for item in facts
+            if item.get('delete_protection') not in (None, '')
+        }
+    )
+    return {
+        'status': _summary_safe(value.get('status')),
+        'metric_count': len(facts),
+        'metric_keys': [str(item) for item in _as_list(value.get('metric_keys')) if str(item).strip()],
+        'source_explanation_count': len(_as_list(value.get('source_explanations'))),
+        'delete_protection': delete_protection,
     }
 
 

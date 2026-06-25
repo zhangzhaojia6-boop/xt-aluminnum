@@ -6,6 +6,11 @@
 
 | 分类 | 动作 | 路径 | 原因 |
 |---|---|---|---|
+| protect | keep | `/entry/*` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `/manage/coils` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `/manage/live` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `/manage/production` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `/manage/today` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/adapters/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/adapters/factory.py` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -357,6 +362,8 @@
 | review | manual_review | `docs/superpowers/reports/2026-06-12-frontend-second-pass-phase0-baseline.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/superpowers/reports/2026-06-25-hermes-factory-brain-readiness.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `docs/superpowers/reports/datahub-diet-audit-2026-06-25.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `docs/superpowers/reports/hermes-phase2-grey-verification-2026-06-26.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `docs/superpowers/reports/hermes-phase2-knowledge-source-map-qa-2026-06-25.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/superpowers/specs/2026-06-10-mes-triggered-mobile-supplement-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/superpowers/specs/2026-06-17-0730-forecast-0930-final-role-cleanup-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/superpowers/specs/2026-06-17-machine-account-duty-person-agent-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |

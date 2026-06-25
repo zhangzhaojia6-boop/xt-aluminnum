@@ -31,6 +31,20 @@ def test_source_backed_answer_fails_without_trace_id() -> None:
     assert 'trace_id' in result.missing
 
 
+def test_source_backed_answer_fails_when_trace_id_has_no_value() -> None:
+    result = evaluate_factory_brain_response(
+        scenario='source_backed_answer',
+        response_text='结论：今天产量已出。数据来源：DailyFactBundle。trace_id:',
+        tool_trace=[
+            {'tool': 'hub_query', 'status': 'ok'},
+            {'tool': 'source_map', 'status': 'ok'},
+        ],
+    )
+
+    assert result.passed is False
+    assert 'trace_id' in result.missing
+
+
 def test_source_backed_answer_fails_with_generic_trace_text_without_trace_id() -> None:
     result = evaluate_factory_brain_response(
         scenario='source_backed_answer',

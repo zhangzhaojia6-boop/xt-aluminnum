@@ -4,6 +4,11 @@ from pathlib import Path
 from typing import Iterable
 
 PROTECT_MARKERS = (
+    "/manage/today",
+    "/manage/live",
+    "/manage/production",
+    "/manage/coils",
+    "/entry/*",
     "agent_communication",
     "daily_fact_bundle",
     "daily_report_history",
@@ -48,6 +53,14 @@ MERGE_MARKERS = (
     "daily_overview_builder",
     "dashboard_builder",
     "template_daily_report",
+)
+
+ROUTE_CANDIDATES = (
+    "/manage/today",
+    "/manage/live",
+    "/manage/production",
+    "/manage/coils",
+    "/entry/*",
 )
 
 
@@ -152,5 +165,6 @@ def candidate_paths(repo_root: str | Path) -> list[str]:
     for relative_path in required_paths:
         if (root / relative_path).exists():
             result.append(relative_path)
+    result.extend(ROUTE_CANDIDATES)
 
     return sorted(set(result))

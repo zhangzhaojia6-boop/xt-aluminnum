@@ -139,3 +139,37 @@ def test_diet_audit_report_contains_nested_protected_rows() -> None:
     ]:
         expected_row = f"| protect | keep | `{item}` |"
         assert expected_row in report
+
+
+def test_diet_audit_candidate_paths_include_protected_manage_and_entry_route_objects() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    paths = candidate_paths(repo_root)
+
+    expected_routes = [
+        "/manage/today",
+        "/manage/live",
+        "/manage/production",
+        "/manage/coils",
+        "/entry/*",
+    ]
+
+    for route_path in expected_routes:
+        assert route_path in paths
+        item = classify_audit_item(route_path)
+        assert item["classification"] == "protect"
+        assert item["action"] == "keep"
+
+
+def test_diet_audit_report_contains_protected_route_objects() -> None:
+    report = render_diet_audit_report(
+        [
+            "/manage/today",
+            "/manage/live",
+            "/manage/production",
+            "/manage/coils",
+            "/entry/*",
+        ]
+    )
+
+    for route_path in ["/manage/today", "/manage/live", "/manage/production", "/manage/coils", "/entry/*"]:
+        assert f"| protect | keep | `{route_path}` |" in report
