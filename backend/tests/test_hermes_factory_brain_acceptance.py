@@ -1,4 +1,10 @@
+import subprocess
+import sys
+from pathlib import Path
+
 from app.services.hermes_factory_brain_harness import evaluate_factory_brain_response
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_daily_report_acceptance_requires_conflicts_and_sources() -> None:
@@ -14,6 +20,78 @@ def test_daily_report_acceptance_requires_conflicts_and_sources() -> None:
 
     assert result.passed is True
     assert result.score >= 0.8
+
+
+def test_cli_accepts_business_date_daily_report_smoke() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / 'backend' / 'scripts' / 'hermes_factory_brain_cli.py'),
+            'daily_report',
+            '--business-date',
+            '2026-06-19',
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert 'Hermes factory brain smoke: scenario=daily_report text=生成 2026-06-19 正式日报' in result.stdout
+
+
+def test_cli_rejects_missing_prompt_arguments() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / 'backend' / 'scripts' / 'hermes_factory_brain_cli.py'),
+            'daily_report',
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert 'one of --text or --business-date is required' in result.stderr
+
+
+def test_cli_rejects_business_date_for_non_daily_report() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / 'backend' / 'scripts' / 'hermes_factory_brain_cli.py'),
+            'anomaly_analysis',
+            '--business-date',
+            '2026-06-19',
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert '--business-date is only supported for daily_report' in result.stderr
+
+
+def test_cli_rejects_business_date_with_text_for_non_daily_report() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / 'backend' / 'scripts' / 'hermes_factory_brain_cli.py'),
+            'anomaly_analysis',
+            '--text',
+            '分析异常',
+            '--business-date',
+            '2026-06-19',
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert '--business-date is only supported for daily_report' in result.stderr
 
 
 def test_anomaly_acceptance_requires_process_knowledge_and_current_fact() -> None:
