@@ -1,14 +1,21 @@
 # SSL Setup
 
-## Local trial
+## Self-signed
 
-Use a Self-signed certificate only for local or closed-network trial runs. Put the files at:
+内网试跑可先生成 Self-signed 证书：
+
+```bash
+mkdir -p ssl
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ssl/key.pem -out ssl/cert.pem
+```
+
+## Let's Encrypt
+
+正式域名建议使用 Let's Encrypt。证书文件放在：
 
 - `ssl/cert.pem`
 - `ssl/key.pem`
 
-The production nginx container reads them as `/etc/nginx/ssl/cert.pem` and `/etc/nginx/ssl/key.pem`.
+## Renewal
 
-## Production
-
-For a public domain, use Let's Encrypt after DNS and filing are ready. Keep certificate renewal on the server, and add a `cron` renewal check so nginx can reload the refreshed certificate without manual work.
+用 `cron` 定期续期，并在续期后 reload nginx。续期前先确认 80/443 端口和域名解析正常。

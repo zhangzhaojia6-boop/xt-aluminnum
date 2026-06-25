@@ -110,8 +110,10 @@ def test_factory_overview_message_uses_fixed_agent_template() -> None:
         message = db.get(AgentOutboxMessage, outcome.outbox_message_id)
         assert message is not None
         assert message.content.startswith('【全厂｜2026-06-13 08:30】状态：黄；')
-        for text in ['结论：', '关键数字：', '原因：', '建议动作：', '数据来源：', '可回复命令：']:
+        for text in ['结论：', '关键数字：', '原因：', '建议动作：', '数据来源：', '可直接回复：']:
             assert text in message.content
+        assert '可直接回复：今日产量、异常明细、辅材明细。' in message.content
+        assert '/ 今日产量' not in message.content
         assert '全厂总产量：128.50 吨' in message.content
         assert '热轧停机待核查：42 分钟' in message.content
         assert '###' not in message.content

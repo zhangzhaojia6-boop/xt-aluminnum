@@ -1,7 +1,7 @@
 """hermes factory brain persistence
 
 Revision ID: 0052_hermes_factory_brain
-Revises: 0049_hermes_data_audit
+Revises: 0051_report_history_period_knowledge
 Create Date: 2026-06-25 00:00:00.000000
 """
 
@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 
 revision = '0052_hermes_factory_brain'
-down_revision = '0049_hermes_data_audit'
+down_revision = '0051_report_history_period_knowledge'
 branch_labels = None
 depends_on = None
 

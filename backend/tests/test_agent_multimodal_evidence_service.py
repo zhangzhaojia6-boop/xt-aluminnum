@@ -11,6 +11,26 @@ from app.models.agent_communication import AgentEvent, MultimodalEvidence
 from app.services import agent_multimodal_evidence_service as evidence_service
 
 
+class _TrackingSession:
+    def __init__(self) -> None:
+        self.added: list[object] = []
+        self.flushed = False
+        self.committed = False
+        self.refreshed: list[object] = []
+
+    def add(self, item) -> None:
+        self.added.append(item)
+
+    def flush(self) -> None:
+        self.flushed = True
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def refresh(self, item) -> None:
+        self.refreshed.append(item)
+
+
 def _db_session():
     engine = create_engine('sqlite:///:memory:', future=True)
     Base.metadata.create_all(bind=engine)
@@ -96,6 +116,41 @@ def test_record_evidence_rejects_unknown_type() -> None:
             )
     finally:
         db.close()
+
+
+def test_record_evidence_commit_false_flushes_without_commit_or_refresh() -> None:
+    db = _TrackingSession()
+
+    evidence = evidence_service.record_evidence(
+        db,
+        evidence_type='text',
+        file_uri=None,
+        recognized_text='日报产量 32 吨',
+        payload={'source': 'dingtalk'},
+        commit=False,
+    )
+
+    assert db.added == [evidence]
+    assert db.flushed is True
+    assert db.committed is False
+    assert db.refreshed == []
+    assert evidence.payload['metric_write_allowed'] is False
+
+
+def test_record_evidence_default_still_commits_and_refreshes() -> None:
+    db = _TrackingSession()
+
+    evidence = evidence_service.record_evidence(
+        db,
+        evidence_type='text',
+        file_uri=None,
+        recognized_text='日报产量 32 吨',
+    )
+
+    assert db.added == [evidence]
+    assert db.committed is True
+    assert db.refreshed == [evidence]
+    assert db.flushed is False
 
 
 def test_confirm_evidence_changes_status_but_still_does_not_write_metrics() -> None:

@@ -30,10 +30,19 @@ from app.database import get_sessionmaker
 from app.models.agent_communication import AgentOperationApproval, AgentOutboxMessage, ChatInboxMessage
 from app.models.mes import MesSyncRunLog
 from app.models.rag import HermesApprovedLesson
-from app.models.reports import DailyReport
+from app.models.reports import DailyFactCorrection, DailyReport
 from app.models.system import User
 from app.services import agent_designated_operation_service, hermes_governance_service, hermes_memory_service, hermes_rag_service
 from app.services.agent_command_service import handle_agent_command
+from app.services.hermes_day1_intent_service import (
+    Day1CommandParseError,
+    HermesDay1Command,
+    classify_day1_actor,
+    parse_day1_command,
+    require_root_owner_for_day1_report,
+)
+from app.services.hermes_day1_orchestrator import run_day1_super_brain
+from app.services.hermes_intent_service import parse_hermes_intent
 from app.services.rag_service import query_knowledge
 from app.tasks import daily_report as daily_report_task
 from app.tasks import mes_sync
@@ -63,9 +72,11 @@ COMMAND_LEVELS = {
     'ops-status': 'L1',
     'visual-inspect': 'L2',
     'approval-preview': 'L3',
+    'day1-report': 'L3',
 }
 SQL_KEYWORDS = {'select', 'insert', 'update', 'delete', 'drop', 'alter', 'truncate', 'exec', 'execute'}
 VISUAL_URL_HOSTS = {'xtmijd.com', 'www.xtmijd.com', 'mes.xintaily.com'}
+BUSINESS_DATE_TEXT_RE = re.compile(r'(?:\d{4}[-._]\d{1,2}[-._]\d{1,2}|\d{1,2}月\d{1,2}日)')
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +101,7 @@ class JsonArgumentParser(argparse.ArgumentParser):
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = None
     try:
         args = _parse_args(argv if argv is not None else sys.argv[1:])
         if args.command not in COMMAND_LEVELS:
@@ -102,6 +114,14 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         _emit({'ok': False, 'error': 'invalid_arguments', 'detail': str(exc)})
         return 2
+    except AgentCliError as exc:
+        error_code = redact_secret_text(str(exc) or type(exc).__name__)
+        payload: dict[str, Any] = {'ok': False, 'error': error_code}
+        detail = _cli_error_detail(error_code, args)
+        if detail:
+            payload['detail'] = detail
+        _emit(payload)
+        return 1
     except Exception as exc:
         _emit({'ok': False, 'error': redact_secret_text(str(exc) or type(exc).__name__)})
         return 1
@@ -130,6 +150,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument('--dingtalk-union-id', default='')
     parser.add_argument('--workshop', default='')
     parser.add_argument('--machine-code', default='')
+    parser.add_argument('--doctor', action='store_true')
     parser.add_argument('--queue-outbox', action='store_true')
     return parser.parse_args(argv)
 
@@ -161,6 +182,7 @@ def _run_with_db(args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
             'outbox-status': _cmd_outbox_status,
             'approval-preview': _cmd_approval_preview,
             'visual-inspect': _cmd_visual_inspect,
+            'day1-report': _cmd_day1_report,
         }
         try:
             result = handlers[args.command](db, args, auth)
@@ -220,6 +242,32 @@ def _cmd_dingtalk_command(db: Session, args: argparse.Namespace, auth: HermesAut
     is_slash = text.startswith('/')
     is_direct = is_slash or _is_direct_dingtalk_mention(args.text)
     command, rest = _split_slash_command(text) if is_slash or is_direct else ('', '')
+
+    if not is_slash:
+        flexible_intent = parse_hermes_intent(text, default_year=_day1_default_year(args))
+        business_date_text = flexible_intent.get('business_date')
+        if flexible_intent.get('intent') == 'daily_report':
+            if business_date_text:
+                day1_command = HermesDay1Command(
+                    source_text=text,
+                    business_date=date.fromisoformat(str(business_date_text)),
+                    report_type='daily_report',
+                    audience=str(flexible_intent.get('audience') or 'root_owner'),
+                    output_format='three_part',
+                )
+                return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
+            if _looks_like_business_date_text(text):
+                raise AgentCliError('invalid_date')
+            raise AgentCliError('day1_command_unrecognized')
+
+    if _is_natural_language_day1_text(text):
+        try:
+            day1_command = parse_day1_command(text, default_year=_day1_default_year(args))
+        except Day1CommandParseError as exc:
+            raise AgentCliError(exc.code) from exc
+        if day1_command is not None:
+            return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
+
     if command in {'查知识', '字段', '口径', 'MES路线', 'mes路线', '缺陷原因', '工艺解释'}:
         inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='rag_query')
         query_text = rest or text
@@ -274,7 +322,7 @@ def _cmd_agent_ask(
     _reject_if_sql(text)
     result = handle_agent_command(
         db,
-        channel=args.channel,
+        channel=_resolved_dingtalk_channel(args),
         group_id=args.group_id or None,
         sender_external_id=args.dingtalk_user_id or args.dingtalk_union_id,
         text=text,
@@ -587,6 +635,146 @@ def _cmd_visual_inspect(db: Session, args: argparse.Namespace, auth: HermesAuth)
     return {'action': 'visual-inspect', 'reply': '已生成视觉巡检工具契约，等待 Hermes 浏览器环境执行', 'trace_id': _trace_id(args), 'evidence': evidence, 'data': evidence}
 
 
+def _cmd_day1_report(
+    db: Session,
+    args: argparse.Namespace,
+    auth: HermesAuth,
+    *,
+    parsed_command=None,
+) -> dict[str, Any]:
+    command_text = args.text or args.query
+    flexible_intent = None
+    try:
+        command = parsed_command or parse_day1_command(command_text, default_year=_day1_default_year(args))
+    except Day1CommandParseError as exc:
+        raise AgentCliError(exc.code) from exc
+    if command is None:
+        flexible_intent = parse_hermes_intent(command_text, default_year=_day1_default_year(args))
+        business_date_text = flexible_intent.get('business_date')
+        if flexible_intent.get('intent') == 'daily_report' and business_date_text:
+            command = HermesDay1Command(
+                source_text=command_text,
+                business_date=date.fromisoformat(str(business_date_text)),
+                report_type='daily_report',
+                audience=str(flexible_intent.get('audience') or 'root_owner'),
+                output_format='three_part',
+            )
+    if command is None:
+        raise AgentCliError('day1_command_unrecognized')
+    if flexible_intent is None:
+        flexible_intent = parse_hermes_intent(
+            args.text or args.query or getattr(command, 'source_text', ''),
+            default_year=_day1_default_year(args),
+        )
+
+    decision = classify_day1_actor(
+        auth.user,
+        sender_user_id=args.dingtalk_user_id,
+        sender_union_id=args.dingtalk_union_id,
+        channel=_resolved_dingtalk_channel(args),
+        group_id=args.group_id,
+    )
+    try:
+        require_root_owner_for_day1_report(decision)
+    except PermissionError as exc:
+        raise AgentCliError(str(exc)) from exc
+
+    if args.doctor:
+        return _cmd_day1_report_doctor(args, command, decision)
+
+    if not _day1_enabled():
+        raise AgentCliError('hermes_day1_disabled')
+    if _output_skill_root_path() is None:
+        raise AgentCliError('output_skill_source_missing')
+
+    _persist_direct_root_owner_corrections(db, args=args, auth=auth, command=command, intent=flexible_intent)
+
+    trace_id = _trace_id(args)
+    inbox = _record_dingtalk_command_inbox(
+        db,
+        args,
+        auth,
+        text=str(command.source_text or args.text or args.query),
+        handling='day1_report',
+        trace_id=trace_id,
+    )
+    result = run_day1_super_brain(
+        db,
+        command=command,
+        actor=auth.user,
+        trace_id=trace_id,
+        chat_inbox=inbox,
+    )
+    return {
+        'action': 'day1-report',
+        'reply': result.answer,
+        'trace_id': result.trace_id,
+        'data': {
+            'status': result.status,
+            'agent_run_id': result.agent_run_id,
+            'report_id': result.report_id,
+            'chat_inbox_id': inbox.id,
+            'message_count': len(result.reply_messages),
+        },
+    }
+
+
+def _persist_direct_root_owner_corrections(
+    db: Session,
+    *,
+    args: argparse.Namespace,
+    auth: HermesAuth,
+    command: HermesDay1Command,
+    intent: dict[str, Any],
+) -> None:
+    if intent.get('correction_policy') != 'root_owner_direct':
+        return
+    for item in intent.get('requested_corrections') or []:
+        if not isinstance(item, dict):
+            continue
+        field_name = str(item.get('field_name') or '').strip()
+        if not field_name:
+            continue
+        db.add(
+            DailyFactCorrection(
+                business_date=command.business_date,
+                field_name=field_name,
+                value_payload={'value': item.get('value')},
+                unit=str(item.get('unit') or '') or None,
+                source_text=str(intent.get('raw_text') or ''),
+                before_value=None,
+                reason=str(item.get('reason') or 'root_owner 自然语言修正'),
+                actor_user_id=getattr(auth.user, 'id', None),
+                trace_id=_trace_id(args),
+            )
+        )
+    db.flush()
+
+
+def _cmd_day1_report_doctor(
+    args: argparse.Namespace,
+    command,
+    decision,
+) -> dict[str, Any]:
+    output_skill_root = _output_skill_root_path()
+    checks = {
+        'feature_flag': 'ok' if _day1_enabled() else 'disabled',
+        'root_owner_identity': 'ok' if decision.is_root_owner else decision.reason,
+        'command_parse': 'ok',
+        'output_skill_source': 'ok' if output_skill_root is not None else 'missing',
+    }
+    return {
+        'action': 'day1-report-doctor',
+        'reply': 'Day-1 预检完成',
+        'trace_id': _trace_id(args),
+        'data': {
+            'business_date': command.business_date.isoformat(),
+            'checks': checks,
+            'next': _doctor_next_step(checks),
+        },
+    }
+
+
 def _find_user(db: Session, *, dingtalk_user_id: str, dingtalk_union_id: str) -> User | None:
     query = db.query(User)
     if dingtalk_user_id:
@@ -662,7 +850,7 @@ def _is_duplicate_dingtalk_message(db: Session, args: argparse.Namespace) -> boo
     if not trace_id:
         return False
     query = db.query(ChatInboxMessage.id).filter(
-        ChatInboxMessage.channel == (args.channel or 'dingtalk_group'),
+        ChatInboxMessage.channel == _resolved_dingtalk_channel(args),
         ChatInboxMessage.trace_id == trace_id,
     )
     group_id = _clean(args.group_id)
@@ -710,7 +898,7 @@ def _record_dingtalk_command_inbox(
     trace_id: str | None = None,
 ) -> ChatInboxMessage:
     inbox = ChatInboxMessage(
-        channel=args.channel or 'dingtalk_group',
+        channel=_resolved_dingtalk_channel(args),
         group_id=_clean(args.group_id) or None,
         sender_external_id=_clean(args.dingtalk_user_id) or _clean(args.dingtalk_union_id) or None,
         text=text,
@@ -923,6 +1111,69 @@ def _ops_enabled() -> bool:
     return bool(settings.HERMES_OPS_ENABLED)
 
 
+def _day1_enabled() -> bool:
+    raw = os.getenv('HERMES_DAY1_ENABLED')
+    if raw is not None:
+        return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(settings.hermes_day1_enabled)
+
+
+def _resolved_dingtalk_channel(args: argparse.Namespace) -> str:
+    channel = _clean(args.channel)
+    if channel and channel != 'dingtalk_group':
+        return channel
+    return 'dingtalk_group' if _clean(args.group_id) else 'dingtalk_private'
+
+
+def _is_natural_language_day1_text(text: str) -> bool:
+    clean = str(text or '').strip()
+    return bool(clean) and not clean.startswith('/') and '日报' in clean
+
+
+def _is_flexible_day1_text(text: str, args: argparse.Namespace | None = None) -> bool:
+    clean = str(text or '').strip()
+    if not clean or clean.startswith('/'):
+        return False
+    default_year = date.today().year
+    if args is not None:
+        try:
+            default_year = _day1_default_year(args)
+        except AgentCliError:
+            pass
+    return parse_hermes_intent(clean, default_year=default_year).get('intent') == 'daily_report'
+
+
+def _looks_like_business_date_text(text: str) -> bool:
+    return bool(BUSINESS_DATE_TEXT_RE.search(str(text or '')))
+
+
+def _day1_default_year(args: argparse.Namespace) -> int:
+    try:
+        return _target_date(args).year
+    except ValueError as exc:
+        raise AgentCliError('invalid_date') from exc
+
+
+def _output_skill_root_path() -> Path | None:
+    raw = os.getenv('OUTPUT_SKILL_ROOT') or os.getenv('OUTPUT_SKILL_REFERENCE_ROOT')
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    if not path.exists() or not path.is_dir():
+        return None
+    return path
+
+
+def _doctor_next_step(checks: dict[str, str]) -> str:
+    if checks.get('feature_flag') != 'ok':
+        return 'set HERMES_DAY1_ENABLED=true, then rerun day1-report --doctor'
+    if checks.get('root_owner_identity') != 'ok':
+        return 'bind root_owner DingTalk user_id or union_id, then rerun day1-report --doctor'
+    if checks.get('output_skill_source') != 'ok':
+        return 'set OUTPUT_SKILL_ROOT to a readable output skill directory, then rerun day1-report --doctor'
+    return 'run day1-report smoke'
+
+
 def _csv_env(name: str) -> set[str]:
     return {item.strip() for item in os.getenv(name, '').split(',') if item.strip()}
 
@@ -946,6 +1197,60 @@ def _safe_url(url: str | None) -> str | None:
     if not parsed.hostname:
         return None
     return f'{parsed.scheme}://{parsed.hostname}'
+
+
+def _cli_error_detail(error_code: str, args: argparse.Namespace | None) -> dict[str, str] | None:
+    if args is None or not _should_use_day1_cli_detail(args):
+        return None
+    trace_id = _trace_id(args)
+    details = {
+        'dingtalk_identity_required': {
+            'cause': '钉钉身份缺失，Day-1 需要知道是谁在请求。',
+            'fix': '运行时传 --dingtalk-user-id 或 --dingtalk-union-id；钉钉回调要传 senderStaffId 或 senderUnionId。',
+        },
+        'dingtalk_user_not_bound': {
+            'cause': '这个钉钉身份未绑定到数据中枢用户，Day-1 不知道该按谁授权。',
+            'fix': '先在用户管理里绑定该钉钉 user_id 或 union_id；本地测试可先创建带 dingtalk_user_id 的用户。',
+        },
+        'owner_required': {
+            'cause': 'day1-report 是 root_owner 完整日报入口，普通授权用户或授权群不能触发。',
+            'fix': '把 root_owner 的钉钉 user_id 或 union_id 加到 HERMES_OWNER_DINGTALK_USER_IDS；只加 HERMES_ALLOWED_DINGTALK_USER_IDS 不够。',
+        },
+        'day1_command_unrecognized': {
+            'cause': 'Day-1 只识别带日期的日报生成指令，普通聊天不会进入完整日报链路。',
+            'fix': '改成类似“生成 6月19日正式日报”或“/日报 2026-06-19”的指令后重试。',
+        },
+        'invalid_date': {
+            'cause': '日期非法，例如 6月32日不存在，Day-1 不会继续生成日报。',
+            'fix': '使用真实日期，例如“生成 2026-06-19 日报”或“生成 6月19日正式日报”。',
+        },
+        'hermes_day1_disabled': {
+            'cause': 'HERMES_DAY1_ENABLED=false，Day-1 开关当前关闭。',
+            'fix': '本地 smoke 可设置 HERMES_DAY1_ENABLED=true；生产验证前保持 false。',
+        },
+        'output_skill_source_missing': {
+            'cause': 'OUTPUT_SKILL_ROOT 未配置或目录不存在，无法读取输出 skill 真实值参考源。',
+            'fix': '设置 OUTPUT_SKILL_ROOT=D:\\输出skill，或设置到只读 fixture/挂载目录后重试。',
+        },
+        'hermes_day1_orchestrator_not_implemented': {
+            'cause': 'Day-1 orchestrator 还没有接入；Lane A 只提供 intent、权限、开关和 doctor。',
+            'fix': '先运行 day1-report --doctor 做预检；等 orchestrator 接入后再跑正式 day1-report。',
+        },
+    }
+    detail = details.get(error_code)
+    if detail is None:
+        return None
+    return {'trace_id': trace_id, **detail}
+
+
+def _should_use_day1_cli_detail(args: argparse.Namespace) -> bool:
+    command = getattr(args, 'command', None)
+    if command == 'day1-report':
+        return True
+    if command != 'dingtalk-command':
+        return False
+    text = _normalize_dingtalk_text(getattr(args, 'text', ''))
+    return _is_natural_language_day1_text(text) or _is_flexible_day1_text(text, args)
 
 
 def _emit(payload: dict[str, Any]) -> None:

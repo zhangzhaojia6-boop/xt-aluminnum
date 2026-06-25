@@ -22,6 +22,46 @@ def test_redact_secret_text_masks_connection_style_values() -> None:
     assert 'token=<redacted>' in redacted
 
 
+def test_redact_secret_text_masks_uri_connection_passwords() -> None:
+    text = (
+        'postgresql://user:secretpass@db.example.com/app '
+        'mysql://readonly:mysqlpass@db.example.com/app '
+        'mssql+pyodbc://user:driver-secret@db.example.com/app '
+        'mysql+pymysql://user:pymysql-secret@db.example.com/app '
+        'redis://:redis-secret@db.example.com:6379/0 '
+        'postgresql://:empty-user-secret@db.example.com/app '
+        'https://api-user:http-secret@example.com/token '
+        'https://example.com/docs '
+        'https://example.com/public'
+    )
+
+    redacted = redact_secret_text(text)
+
+    assert 'secretpass' not in redacted
+    assert 'mysqlpass' not in redacted
+    assert 'driver-secret' not in redacted
+    assert 'pymysql-secret' not in redacted
+    assert 'redis-secret' not in redacted
+    assert 'empty-user-secret' not in redacted
+    assert 'http-secret' not in redacted
+    assert 'postgresql://user:secretpass@db.example.com/app' not in redacted
+    assert 'mysql://readonly:mysqlpass@db.example.com/app' not in redacted
+    assert 'mssql+pyodbc://user:driver-secret@db.example.com/app' not in redacted
+    assert 'mysql+pymysql://user:pymysql-secret@db.example.com/app' not in redacted
+    assert 'redis://:redis-secret@db.example.com:6379/0' not in redacted
+    assert 'postgresql://:empty-user-secret@db.example.com/app' not in redacted
+    assert 'https://api-user:http-secret@example.com/token' not in redacted
+    assert 'postgresql://' not in redacted
+    assert 'mysql://' not in redacted
+    assert 'mssql+pyodbc://' not in redacted
+    assert 'mysql+pymysql://' not in redacted
+    assert 'redis://' not in redacted
+    assert 'https://api-user:' not in redacted
+    assert '<redacted-connection-uri>' in redacted
+    assert 'https://example.com/docs' in redacted
+    assert 'https://example.com/public' in redacted
+
+
 def test_filter_sensitive_mapping_removes_private_customer_and_secret_fields() -> None:
     payload = filter_sensitive_mapping({
         'TrackingCardNo': 'S-2-085-2',

@@ -13,6 +13,7 @@ from app.core.scope import can_request_workshop_scope
 from app.core.redaction import redact_secret_text
 from app.models.rag import RagChunk, RagDocument, RagEmbedding, RagQueryLog
 from app.models.system import User
+from app.services.hermes_professional_knowledge_service import search_professional_knowledge
 from app.services import rag_embedding_service
 
 
@@ -147,6 +148,25 @@ def query_knowledge(
         _write_query_log(db, query_text=clean_query, answer=answer, citations=citations, user=user)
         return {'answer': answer, 'citations': citations, 'items': []}
 
+    professional_items = _search_professional_knowledge_with_fallback(
+        db,
+        query=clean_query,
+        limit=limit,
+        workshop=workshop,
+    )
+    if professional_items:
+        citations = [_professional_citation(item) for item in professional_items]
+        snippets = '；'.join(item['content'] for item in professional_items[:3])
+        source_text = '、'.join(item['source_ref'] for item in professional_items[:3])
+        answer = f'根据专业知识库：{snippets}\n来源：{source_text}'
+        _write_query_log(db, query_text=clean_query, answer=answer, citations=citations, user=user)
+        return {
+            'answer': answer,
+            'citations': citations,
+            'items': professional_items,
+            'source': 'professional_knowledge',
+        }
+
     tokens = _query_tokens(clean_query)
     metadata_filters = _clean_payload({'workshop': workshop, 'machine_code': machine_code})
     query_filter = or_(*(RagChunk.content.ilike(_like_contains_pattern(token), escape='\\') for token in tokens))
@@ -199,6 +219,69 @@ def query_knowledge(
 
     _write_query_log(db, query_text=clean_query, answer=answer, citations=citations, user=user)
     return {'answer': answer, 'citations': citations, 'items': items}
+
+
+def _search_professional_knowledge_with_fallback(
+    db: Session,
+    *,
+    query: str,
+    limit: int,
+    workshop: str | None,
+) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(int(limit or 5), 10))
+    items: list[dict[str, Any]] = []
+    seen_ids: set[int] = set()
+    for domain in _professional_domain_candidates(workshop):
+        matches = search_professional_knowledge(
+            db,
+            query=query,
+            limit=safe_limit,
+            domain=domain,
+        )
+        for item in matches:
+            entry_id = int(item['id'])
+            if entry_id in seen_ids:
+                continue
+            seen_ids.add(entry_id)
+            items.append(item)
+            if len(items) >= safe_limit:
+                return items
+    return items
+
+
+def _professional_domain_candidates(workshop: str | None) -> list[str | None]:
+    candidates: list[str | None] = []
+    clean_workshop = str(workshop or '').strip()
+    if clean_workshop:
+        candidates.append(clean_workshop)
+    candidates.extend(['daily_report', 'factory', 'global', None])
+
+    unique: list[str | None] = []
+    seen: set[str | None] = set()
+    for candidate in candidates:
+        key = candidate.casefold() if isinstance(candidate, str) else None
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(candidate)
+    return unique
+
+
+def _professional_citation(item: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(item.get('metadata') or {})
+    return {
+        'document_id': None,
+        'filename': str(item.get('filename') or item.get('topic') or item.get('source_ref') or 'professional_knowledge'),
+        'source_name': str(item.get('source_name') or item.get('filename') or item.get('topic') or 'professional_knowledge'),
+        'chunk_index': int(item.get('chunk_index') or 0),
+        'metadata': metadata,
+        'source': 'professional_knowledge',
+        'entry_id': item.get('entry_id') or item.get('id'),
+        'topic': item.get('topic'),
+        'source_ref': item.get('source_ref'),
+        'source_type': item.get('source_type'),
+        'confidence': item.get('confidence'),
+    }
 
 
 def validate_and_decode_upload(filename: str, content: bytes) -> DecodedText:
@@ -431,7 +514,7 @@ def _merge_ranked_chunks(
     return sorted(merged.values(), key=lambda item: (-item[2], item[0].document_id, item[0].chunk_index))
 
 
-def _chunk_item(chunk: RagChunk, document: RagDocument, *, score: int) -> dict[str, Any]:
+def _chunk_item(chunk: RagChunk, document: RagDocument, *, score: float) -> dict[str, Any]:
     snippet = redact_secret_text(chunk.content[:220])
     return {
         'document_id': document.id,
