@@ -63,10 +63,19 @@ ROUTE_CANDIDATES = (
     "/entry/*",
 )
 
+ROUTE_PROTECT_REASON = "生产核心入口路由，减法阶段必须保留。"
+
 
 def classify_audit_item(path: str) -> dict[str, str]:
     clean = str(path).replace("\\", "/")
     lowered = clean.lower()
+    if lowered in ROUTE_CANDIDATES:
+        return {
+            "path": clean,
+            "classification": "protect",
+            "action": "keep",
+            "reason": ROUTE_PROTECT_REASON,
+        }
     if any(marker in lowered for marker in PROTECT_MARKERS):
         return {
             "path": clean,

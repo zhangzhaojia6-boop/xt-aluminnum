@@ -158,6 +158,7 @@ def test_diet_audit_candidate_paths_include_protected_manage_and_entry_route_obj
         item = classify_audit_item(route_path)
         assert item["classification"] == "protect"
         assert item["action"] == "keep"
+        assert item["reason"] == "生产核心入口路由，减法阶段必须保留。"
 
 
 def test_diet_audit_report_contains_protected_route_objects() -> None:
@@ -172,4 +173,4 @@ def test_diet_audit_report_contains_protected_route_objects() -> None:
     )
 
     for route_path in ["/manage/today", "/manage/live", "/manage/production", "/manage/coils", "/entry/*"]:
-        assert f"| protect | keep | `{route_path}` |" in report
+        assert f"| protect | keep | `{route_path}` | 生产核心入口路由，减法阶段必须保留。 |" in report

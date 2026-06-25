@@ -6,11 +6,11 @@
 
 | 分类 | 动作 | 路径 | 原因 |
 |---|---|---|---|
-| protect | keep | `/entry/*` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| protect | keep | `/manage/coils` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| protect | keep | `/manage/live` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| protect | keep | `/manage/production` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| protect | keep | `/manage/today` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `/entry/*` | 生产核心入口路由，减法阶段必须保留。 |
+| protect | keep | `/manage/coils` | 生产核心入口路由，减法阶段必须保留。 |
+| protect | keep | `/manage/live` | 生产核心入口路由，减法阶段必须保留。 |
+| protect | keep | `/manage/production` | 生产核心入口路由，减法阶段必须保留。 |
+| protect | keep | `/manage/today` | 生产核心入口路由，减法阶段必须保留。 |
 | protect | keep | `artifacts/gstack-mes-audit-20260617/mes-sqlserver/WMS_Stock.sample.json` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/adapters/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/adapters/factory.py` | 需要结合引用、路由、测试和生产访问再判断。 |
