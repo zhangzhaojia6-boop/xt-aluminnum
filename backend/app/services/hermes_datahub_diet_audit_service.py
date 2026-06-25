@@ -11,7 +11,7 @@ PROTECT_MARKERS = (
     "mes_sync",
     "mes_",
     "rag",
-    "hermes_",
+    "hermes",
     "audit",
     "dingtalk",
 )
@@ -85,6 +85,7 @@ def render_diet_audit_report(paths: Iterable[str]) -> str:
 def candidate_paths(repo_root: str | Path) -> list[str]:
     root = Path(repo_root)
     patterns = [
+        "backend/app/models/**/*.py",
         "backend/app/services/*.py",
         "backend/app/routers/*.py",
         "frontend/src/views/**/*.vue",
@@ -93,5 +94,5 @@ def candidate_paths(repo_root: str | Path) -> list[str]:
     ]
     result: list[str] = []
     for pattern in patterns:
-        result.extend(str(path.relative_to(root)) for path in root.glob(pattern) if path.is_file())
+        result.extend(str(path.relative_to(root)).replace("\\", "/") for path in root.glob(pattern) if path.is_file())
     return sorted(set(result))

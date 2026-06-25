@@ -6,6 +6,29 @@
 
 | 分类 | 动作 | 路径 | 原因 |
 |---|---|---|---|
+| review | manual_review | `backend/app/models/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/models/agent_communication.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| review | manual_review | `backend/app/models/assistant.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/assistant_usage.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/attendance.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/base.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/consumable.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/energy.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/executive.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/models/hermes_data_audit.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `backend/app/models/hermes_factory_brain.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| review | manual_review | `backend/app/models/imports.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/master.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/mes.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/production.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/quality.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/models/rag.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| review | manual_review | `backend/app/models/reconciliation.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/reports.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/rule_config.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/shift.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/system.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| review | manual_review | `backend/app/models/user_preferences.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/__init__.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/agent.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/agent_management.py` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -24,7 +47,7 @@
 | review | manual_review | `backend/app/routers/executive.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/export.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/factory_command.py` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `backend/app/routers/hermes.py` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `backend/app/routers/hermes.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `backend/app/routers/hermes_data_audit.py` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `backend/app/routers/imports.py` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `backend/app/routers/inventory.py` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -187,7 +210,7 @@
 | review | manual_review | `docs/domain/xintai-real-fields.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/functional-audit-2026-05-27-pass2.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `docs/functional-audit-2026-05-27.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| review | manual_review | `docs/hermes/fact-source-map.md` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `docs/hermes/fact-source-map.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/import-templates/MES导出样例说明.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/import-templates/打卡导入样例说明.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/import-templates/排班导入样例说明.md` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -196,7 +219,7 @@
 | review | manual_review | `docs/known-gaps-and-todos.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/launch-readiness-checklist.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/mes-api-integration-checklist.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/mes-data-hub-hermes-fact-map-2026-06-19.md` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `docs/mes-data-hub-hermes-fact-map-2026-06-19.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/mes-page-table-mapping.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/mes-xintaily-full-page-table-audit.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/mes-xtmijd-alignment-matrix.md` | 需要结合引用、路由、测试和生产访问再判断。 |
@@ -260,24 +283,24 @@
 | review | manual_review | `docs/superpowers/plans/2026-06-18-mes-daily-dashboard-reconciliation.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/superpowers/plans/2026-06-19-hermes-high-privilege-data-audit-and-hub-correction-plan.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/superpowers/plans/2026-06-20-xintaily-daily-report-manual-alignment.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/superpowers/plans/2026-06-21-hermes-day1-super-brain-mvp-plan.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/superpowers/plans/2026-06-22-hermes-daily-fact-bundle-phase2-plan.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/superpowers/plans/2026-06-25-hermes-factory-brain-upgrade-plan.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/superpowers/plans/2026-06-25-hermes-knowledge-and-datahub-diet-plan.md` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `docs/superpowers/plans/2026-06-21-hermes-day1-super-brain-mvp-plan.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `docs/superpowers/plans/2026-06-22-hermes-daily-fact-bundle-phase2-plan.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `docs/superpowers/plans/2026-06-25-hermes-factory-brain-upgrade-plan.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `docs/superpowers/plans/2026-06-25-hermes-knowledge-and-datahub-diet-plan.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/superpowers/reports/2026-06-12-frontend-image2-stitch-mes-primary-execution-review.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/superpowers/reports/2026-06-12-frontend-second-pass-final-qa.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/superpowers/reports/2026-06-12-frontend-second-pass-phase0-baseline.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/superpowers/reports/2026-06-25-hermes-factory-brain-readiness.md` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `docs/superpowers/reports/2026-06-25-hermes-factory-brain-readiness.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | protect | keep | `docs/superpowers/reports/datahub-diet-audit-2026-06-25.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/superpowers/specs/2026-06-10-mes-triggered-mobile-supplement-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/superpowers/specs/2026-06-17-0730-forecast-0930-final-role-cleanup-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/superpowers/specs/2026-06-17-machine-account-duty-person-agent-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/superpowers/specs/2026-06-18-daily-report-agent-workflow-and-workshop-cards-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/superpowers/specs/2026-06-19-hermes-high-privilege-data-audit-and-hub-correction-design.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
-| review | manual_review | `docs/superpowers/specs/2026-06-21-hermes-day1-super-brain-mvp-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/superpowers/specs/2026-06-22-hermes-daily-fact-bundle-phase2-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/superpowers/specs/2026-06-25-hermes-factory-brain-upgrade-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
-| review | manual_review | `docs/superpowers/specs/2026-06-25-hermes-knowledge-and-datahub-diet-design.md` | 需要结合引用、路由、测试和生产访问再判断。 |
+| protect | keep | `docs/superpowers/specs/2026-06-21-hermes-day1-super-brain-mvp-design.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `docs/superpowers/specs/2026-06-22-hermes-daily-fact-bundle-phase2-design.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `docs/superpowers/specs/2026-06-25-hermes-factory-brain-upgrade-design.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `docs/superpowers/specs/2026-06-25-hermes-knowledge-and-datahub-diet-design.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `docs/system-understanding-2026-06-14.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `docs/system-understanding-admin-login-auth-2026-06-14.md` | 需要结合引用、路由、测试和生产访问再判断。 |
 | protect | keep | `docs/system-understanding-ai-dingtalk-communication-2026-06-14.md` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |

@@ -1,6 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from app.services.hermes_datahub_diet_audit_service import classify_audit_item, render_diet_audit_report
+from pathlib import Path
+
+from app.services.hermes_datahub_diet_audit_service import (
+    candidate_paths,
+    classify_audit_item,
+    render_diet_audit_report,
+)
 
 
 def test_diet_audit_protects_evidence_paths() -> None:
@@ -26,3 +32,22 @@ def test_diet_audit_report_contains_no_delete_now() -> None:
     assert "delete_now" not in report
     assert "protect" in report
     assert "freeze" in report or "candidate_delete" in report
+
+
+def test_diet_audit_candidate_paths_include_hermes_and_models() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    paths = candidate_paths(repo_root)
+
+    assert "backend/app/models/agent_communication.py" in paths
+    assert "backend/app/routers/hermes.py" in paths
+    assert "docs/superpowers/specs/2026-06-25-hermes-knowledge-and-datahub-diet-design.md" in paths
+
+
+def test_diet_audit_classifies_hermes_paths_as_protect() -> None:
+    assert classify_audit_item("backend/app/routers/hermes.py")["classification"] == "protect"
+    assert (
+        classify_audit_item(
+            "docs/superpowers/specs/2026-06-25-hermes-knowledge-and-datahub-diet-design.md"
+        )["classification"]
+        == "protect"
+    )
