@@ -437,16 +437,16 @@
 | review | manual_review | `frontend/src/views/master/RuleConfigCenter.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/master/UserManagement.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/master/Workshop.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/AttendanceConfirm.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/CoilEntryWorkbench.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/ConsumableEntry.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
+| protect | keep | `frontend/src/views/mobile/AttendanceConfirm.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/mobile/CoilEntryWorkbench.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/mobile/ConsumableEntry.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | freeze | freeze_and_observe | `frontend/src/views/mobile/MobileBottomNav.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/MobileEntry.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/OCRCapture.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
+| protect | keep | `frontend/src/views/mobile/MobileEntry.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/mobile/OCRCapture.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | freeze | freeze_and_observe | `frontend/src/views/mobile/ReminderList.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/ShiftReportForm.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/ShiftReportHistory.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
-| freeze | freeze_and_observe | `frontend/src/views/mobile/UnifiedEntryForm.vue` | 疑似旧入口或参考资产，先冻结观察，不直接删除。 |
+| protect | keep | `frontend/src/views/mobile/ShiftReportForm.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/mobile/ShiftReportHistory.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
+| protect | keep | `frontend/src/views/mobile/UnifiedEntryForm.vue` | 涉及 Hermes、MES/WMS 投影、RAG、证据或审计链路，不能删。 |
 | review | manual_review | `frontend/src/views/quality/QualityDetail.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/reconciliation/ReconciliationDetail.vue` | 需要结合引用、路由、测试和生产访问再判断。 |
 | review | manual_review | `frontend/src/views/reports/LiveDashboard.vue` | 需要结合引用、路由、测试和生产访问再判断。 |

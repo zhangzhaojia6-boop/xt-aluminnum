@@ -67,6 +67,27 @@ def test_diet_audit_keeps_high_protection_backend_and_frontend_paths() -> None:
         assert item["action"] == "keep"
 
 
+def test_diet_audit_keeps_mobile_entry_routes_as_protect() -> None:
+    paths = [
+        "frontend/src/views/mobile/MobileEntry.vue",
+        "frontend/src/views/mobile/UnifiedEntryForm.vue",
+        "frontend/src/views/mobile/ConsumableEntry.vue",
+        "frontend/src/views/mobile/ShiftReportForm.vue",
+        "frontend/src/views/mobile/CoilEntryWorkbench.vue",
+        "frontend/src/views/mobile/OCRCapture.vue",
+        "frontend/src/views/mobile/AttendanceConfirm.vue",
+        "frontend/src/views/mobile/ShiftReportHistory.vue",
+    ]
+
+    report = render_diet_audit_report(paths)
+
+    for path in paths:
+        item = classify_audit_item(path)
+        assert item["classification"] == "protect"
+        assert item["action"] == "keep"
+        assert f"| protect | keep | `{path}` |" in report
+
+
 def test_diet_audit_candidate_paths_include_hermes_and_models() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     paths = candidate_paths(repo_root)
