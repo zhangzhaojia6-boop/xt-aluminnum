@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryBrainHarnessResult:
+    scenario: str
+    passed: bool
+    score: float
+    missing: list[str]
+
+
+def evaluate_factory_brain_response(
+    *,
+    scenario: str,
+    response_text: str,
+    tool_trace: list[dict[str, Any]],
+) -> FactoryBrainHarnessResult:
+    checks = _checks_for_scenario(scenario)
+    missing = [item for item in checks if not _check(item, response_text, tool_trace)]
+    score = round((len(checks) - len(missing)) / max(1, len(checks)), 4)
+    return FactoryBrainHarnessResult(
+        scenario=scenario,
+        passed=score >= 0.8,
+        score=score,
+        missing=missing,
+    )
+
+
+def _checks_for_scenario(scenario: str) -> list[str]:
+    if scenario == 'daily_report':
+        return ['judgment', 'formal_report', 'workshop_detail', 'sources', 'conflicts', 'output_skill_alignment']
+    if scenario == 'anomaly_analysis':
+        return ['current_fact', 'process_knowledge', 'reason_order', 'suggested_action']
+    if scenario == 'business_question':
+        return ['production', 'inventory', 'delivery', 'contract']
+    return ['response']
+
+
+def _check(name: str, response_text: str, tool_trace: list[dict[str, Any]]) -> bool:
+    if name == 'judgment':
+        return '工厂大脑判断单' in response_text
+    if name == 'formal_report':
+        return '正式日报正文' in response_text
+    if name == 'workshop_detail':
+        return '各车间明细' in response_text
+    if name == 'sources':
+        return '数据来源' in response_text or any(item.get('tool') == 'dingtalk_evidence' for item in tool_trace)
+    if name == 'conflicts':
+        return '冲突' in response_text
+    if name == 'output_skill_alignment':
+        return any(item.get('tool') == 'output_skill_alignment' and item.get('status') == 'ok' for item in tool_trace)
+    if name == 'current_fact':
+        return any(item.get('tool') == 'hub_query' and item.get('status') == 'ok' for item in tool_trace)
+    if name == 'process_knowledge':
+        return any(item.get('tool') == 'rag_route' and 'process' in item.get('knowledge_types', []) for item in tool_trace)
+    if name == 'reason_order':
+        return '原因排序' in response_text
+    if name == 'suggested_action':
+        return '建议动作' in response_text
+    if name in {'production', 'inventory', 'delivery', 'contract'}:
+        return any(name in item.get('facts', []) for item in tool_trace)
+    if name == 'response':
+        return bool(response_text.strip())
+    return False
