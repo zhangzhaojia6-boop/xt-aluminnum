@@ -125,3 +125,12 @@ def test_fact_source_map_source_tables_exist_in_db_metadata() -> None:
             assert (
                 source_table in existing_tables
             ), f"{item['metric_key']} maps to missing table: {source_table}"
+
+
+def test_fact_source_map_frontend_pages_are_routes_and_no_placeholders() -> None:
+    source_map = load_fact_source_map()
+
+    flattened_frontend_pages: list[str] = [page for item in source_map for page in item["frontend_pages"]]
+    assert all(page.startswith("/") for page in flattened_frontend_pages)
+    assert "Hermes only" not in flattened_frontend_pages
+    assert "DingTalk" not in flattened_frontend_pages
