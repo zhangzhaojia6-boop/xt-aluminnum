@@ -291,10 +291,12 @@ def chat(
     db_conversation = _find_db_conversation(db, conversation_id=body.conversation_id, current_user=current_user) if _uses_ai_database(db) else None
     if db_conversation is not None:
         timestamp = _now()
+        conversation_db_id = db_conversation.id
+        conversation_public_id = db_conversation.public_id
         db.add(
             AiMessage(
-                conversation_id=db_conversation.id,
-                conversation_public_id=db_conversation.public_id,
+                conversation_id=conversation_db_id,
+                conversation_public_id=conversation_public_id,
                 role='user',
                 content=body.message,
                 payload={'timestamp': timestamp},
@@ -310,14 +312,17 @@ def chat(
                 await asyncio.sleep(0)
             db.add(
                 AiMessage(
-                    conversation_id=db_conversation.id,
-                    conversation_public_id=db_conversation.public_id,
+                    conversation_id=conversation_db_id,
+                    conversation_public_id=conversation_public_id,
                     role='assistant',
                     content=response_text,
                     payload={'timestamp': _now()},
                 )
             )
-            db_conversation.updated_at = datetime.now(timezone.utc)
+            db.query(AiConversation).filter(AiConversation.id == conversation_db_id).update(
+                {AiConversation.updated_at: datetime.now(timezone.utc)},
+                synchronize_session=False,
+            )
             _commit_if_possible(db)
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
 

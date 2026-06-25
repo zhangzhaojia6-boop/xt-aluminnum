@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import anyio
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 
@@ -71,6 +73,35 @@ def test_ai_conversation_and_chat_stream_routes(tmp_path) -> None:
         assert db.query(AiMessage).count() == 2
     finally:
         db.close()
+
+
+def test_ai_chat_stream_uses_captured_conversation_identity_after_session_close(tmp_path) -> None:
+    db = _build_ai_session(tmp_path)
+    user = SimpleNamespace(id=1, role='manager', is_active=True)
+    conversation = AiConversation(
+        public_id='stream-close-test',
+        owner_user_id=1,
+        title='stream',
+        scope_payload={},
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db.add(conversation)
+    db.commit()
+
+    response = ai.chat(ai.ChatRequest(conversation_id='stream-close-test', message='测试'), db=db, current_user=user)
+    db.close()
+
+    async def _read_stream() -> str:
+        chunks = []
+        async for chunk in response.body_iterator:
+            chunks.append(chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk)
+        return ''.join(chunks)
+
+    text = anyio.run(_read_stream)
+
+    assert 'data:' in text
+    assert db.query(AiMessage).count() == 2
 
 
 def test_search_route_returns_navigation_match() -> None:

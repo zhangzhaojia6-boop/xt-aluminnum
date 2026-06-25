@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from decimal import Decimal
 from types import SimpleNamespace
 
 from app.adapters.llm import LlmTextResponse
@@ -78,6 +80,51 @@ def test_context_pack_includes_factory_scope_and_excludes_sensitive_fields(monke
     assert pack['rules_fired'][0]['key'] == 'delay_hours_high'
     assert 'secret' not in repr(pack)
     assert db.added
+
+
+def test_context_pack_persists_decimal_values_as_json_numbers(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database import Base
+    from app.models.assistant import AiContextPack
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'ai-context-decimal.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[AiContextPack.__table__])
+    db = sessionmaker(bind=engine, future=True)()
+    monkeypatch.setattr(
+        ai_context_service.factory_command_service,
+        'build_freshness',
+        lambda _db: {'status': 'fresh', 'lag_seconds': Decimal('30.0')},
+    )
+    monkeypatch.setattr(
+        ai_context_service.factory_command_service,
+        'list_machine_lines',
+        lambda _db: [{'line_code': '冷轧:01', 'active_coil_count': Decimal('2'), 'output_weight': Decimal('12.345')}],
+    )
+    monkeypatch.setattr(
+        ai_context_service.factory_command_service,
+        'list_coils',
+        lambda _db: [{'coil_key': 'MES:1', 'current_process': None, 'delay_hours': Decimal('1.50')}],
+    )
+
+    try:
+        pack = ai_context_service.build_context_pack(
+            db,
+            user=SimpleNamespace(id=7, data_scope_type='all'),
+            intent='factory_status',
+            scope={'type': 'factory', 'key': 'all'},
+            now=datetime(2026, 5, 2, 8, 0, tzinfo=UTC),
+        )
+        db.commit()
+        stored = db.query(AiContextPack).one()
+
+        assert isinstance(pack['freshness']['lag_seconds'], float)
+        assert isinstance(pack['machine_line_metrics'][0]['active_coil_count'], float)
+        assert isinstance(stored.payload['top_abnormal_coils'][0]['delay_hours'], float)
+        json.dumps(stored.payload, ensure_ascii=False)
+    finally:
+        db.close()
 
 
 def test_stale_mes_data_adds_missing_data_and_limits_confidence(monkeypatch):

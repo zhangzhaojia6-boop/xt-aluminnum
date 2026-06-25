@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
@@ -42,6 +43,8 @@ def _sanitize(value: Any) -> Any:
         return sanitized
     if isinstance(value, list):
         return [_sanitize(item) for item in value]
+    if isinstance(value, Decimal):
+        return float(value)
     return value
 
 
