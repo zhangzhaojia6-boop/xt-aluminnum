@@ -95,7 +95,7 @@ def test_context_pack_persists_decimal_values_as_json_numbers(tmp_path, monkeypa
     monkeypatch.setattr(
         ai_context_service.factory_command_service,
         'build_freshness',
-        lambda _db: {'status': 'fresh', 'lag_seconds': Decimal('30.0')},
+        lambda _db: {'status': 'fresh', 'lag_seconds': Decimal('30.0'), 'last_synced_at': datetime(2026, 5, 2, 7, 59, tzinfo=UTC)},
     )
     monkeypatch.setattr(
         ai_context_service.factory_command_service,
@@ -120,6 +120,7 @@ def test_context_pack_persists_decimal_values_as_json_numbers(tmp_path, monkeypa
         stored = db.query(AiContextPack).one()
 
         assert isinstance(pack['freshness']['lag_seconds'], float)
+        assert pack['freshness']['last_synced_at'] == '2026-05-02T07:59:00+00:00'
         assert isinstance(pack['machine_line_metrics'][0]['active_coil_count'], float)
         assert isinstance(stored.payload['top_abnormal_coils'][0]['delay_hours'], float)
         json.dumps(stored.payload, ensure_ascii=False)
