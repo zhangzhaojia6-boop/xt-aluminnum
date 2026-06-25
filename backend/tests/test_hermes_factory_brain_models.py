@@ -134,6 +134,7 @@ def test_hermes_knowledge_unit_can_persist_required_fields() -> None:
         content='检查开机时长、停机损耗和返工量。',
         status='approved',
         verification_payload={'verified_by': 'codex', 'method': 'trace'},
+        verified_by='codex',
         document_id=document.id,
         created_by_id=user.id,
     )
@@ -149,6 +150,7 @@ def test_hermes_knowledge_unit_can_persist_required_fields() -> None:
     assert stored.content == '检查开机时长、停机损耗和返工量。'
     assert stored.status == 'approved'
     assert stored.verification_payload == {'verified_by': 'codex', 'method': 'trace'}
+    assert stored.verified_by == 'codex'
 
 
 def test_hermes_soul_profile_and_codex_construction_run_can_persist_required_fields() -> None:
@@ -159,7 +161,7 @@ def test_hermes_soul_profile_and_codex_construction_run_can_persist_required_fie
 
     profile = HermesSoulProfile(
         profile_key='default',
-        version='v1',
+        version=1,
         soul_text='轻松表达，业务判断严肃。',
         status='active',
         created_by_id=user.id,
@@ -169,7 +171,7 @@ def test_hermes_soul_profile_and_codex_construction_run_can_persist_required_fie
         request_text='帮我做 Hermes factory brain 持久化模型',
         construction_type='light',
         authorization_level='root_owner',
-        status='pending',
+        status='requested',
         payload={'task': 'persistence_models'},
         requested_by_id=user.id,
     )
@@ -183,12 +185,12 @@ def test_hermes_soul_profile_and_codex_construction_run_can_persist_required_fie
     ).one()
 
     assert stored_profile.soul_text == '轻松表达，业务判断严肃。'
-    assert stored_profile.version == 'v1'
+    assert stored_profile.version == 1
     assert stored_profile.status == 'active'
     assert stored_run.trace_id == 'trace-factory-brain-001'
     assert stored_run.request_text == '帮我做 Hermes factory brain 持久化模型'
     assert stored_run.construction_type == 'light'
     assert stored_run.authorization_level == 'root_owner'
-    assert stored_run.status == 'pending'
+    assert stored_run.status == 'requested'
     assert stored_run.payload == {'task': 'persistence_models'}
     assert stored_run.requested_by_id == user.id
