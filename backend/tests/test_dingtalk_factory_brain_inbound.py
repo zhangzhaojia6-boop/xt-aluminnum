@@ -173,6 +173,68 @@ def test_dingtalk_inbound_falls_back_for_non_business_natural_language(monkeypat
         _restore(previous, db)
 
 
+def test_dingtalk_inbound_rejects_root_owner_only_factory_brain_request_for_non_root_owner(monkeypatch) -> None:
+    db, previous = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='manager-not-owner',
+            password_hash='x',
+            name='授权经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-not-owner',
+            dingtalk_union_id='union-manager-not-owner',
+        )
+    )
+    db.commit()
+
+    orchestrator_called = {'value': False}
+
+    def fake_run_factory_brain_turn(*_args, **_kwargs):
+        orchestrator_called['value'] = True
+        return SimpleNamespace(
+            trace_id='trace-dingtalk-root-owner-only-denied-001',
+            status='replied',
+            answer='不该进入这里',
+            chat_inbox_id=1,
+            agent_run_id=1,
+        )
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED', True, raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_DINGTALK_INBOUND_TOKEN', 'hermes-token', raising=False)
+    monkeypatch.delenv('HERMES_OWNER_DINGTALK_USER_IDS', raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_OWNER_DINGTALK_USER_IDS', '', raising=False)
+    monkeypatch.setattr(
+        'app.services.hermes_factory_brain_orchestrator.run_factory_brain_turn',
+        fake_run_factory_brain_turn,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'hermes-token'},
+            json={
+                'conversationId': 'cid-non-root-owner',
+                'senderStaffId': 'dt-manager-not-owner',
+                'senderUnionId': 'union-manager-not-owner',
+                'text': {'content': '帮我生成 skill'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-root-owner-only-denied-001',
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'owner_required'
+        assert orchestrator_called['value'] is False
+        assert db.query(ChatInboxMessage).count() == 0
+        assert db.query(AgentRun).count() == 0
+    finally:
+        _restore(previous, db)
+
+
 @pytest.mark.parametrize(
     ('text', 'trace_id'),
     [

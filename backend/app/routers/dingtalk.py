@@ -45,6 +45,7 @@ from app.services.hermes_day1_intent_service import (
 )
 from app.services.hermes_day1_orchestrator import run_day1_super_brain
 from app.services.hermes_factory_brain_intent_service import classify_factory_brain_intent
+from app.services.hermes_factory_brain_types import FactoryBrainIntent
 
 logger = logging.getLogger(__name__)
 
@@ -250,12 +251,35 @@ def _is_legacy_slash_daily_report_command(text: str) -> bool:
     return command in {'日报', '发日报'}
 
 
-def _should_route_factory_brain(text: str) -> bool:
+def _get_factory_brain_route_intent(text: str) -> FactoryBrainIntent | None:
     clean_text = _clean_text(text)
     if not clean_text or clean_text.startswith('/'):
-        return False
+        return None
     intent = classify_factory_brain_intent(clean_text, today=datetime.now().date())
-    return intent.should_use_factory_brain
+    if not intent.should_use_factory_brain:
+        return None
+    return intent
+
+
+def _require_root_owner_for_factory_brain_intent(
+    *,
+    intent: FactoryBrainIntent,
+    user: User,
+    sender_external_id: str,
+    sender_union_id: str,
+    channel: str,
+    group_id: str,
+) -> None:
+    if not intent.requires_root_owner:
+        return
+    decision = classify_day1_actor(
+        user,
+        sender_user_id=sender_external_id,
+        sender_union_id=sender_union_id,
+        channel=channel,
+        group_id=group_id,
+    )
+    require_root_owner_for_day1_report(decision)
 
 
 def _first_payload_value(payload: dict[str, Any], *keys: str) -> Any:
@@ -637,8 +661,21 @@ def dingtalk_agent_inbound(
             'report_id': result.report_id,
         }
 
-    if bool(getattr(settings, 'HERMES_FACTORY_BRAIN_ENABLED', False)) and _should_route_factory_brain(text):
+    factory_brain_intent = _get_factory_brain_route_intent(text)
+    if bool(getattr(settings, 'HERMES_FACTORY_BRAIN_ENABLED', False)) and factory_brain_intent is not None:
         from app.services.hermes_factory_brain_orchestrator import run_factory_brain_turn
+
+        try:
+            _require_root_owner_for_factory_brain_intent(
+                intent=factory_brain_intent,
+                user=user,
+                sender_external_id=sender_external_id,
+                sender_union_id=_clean_text(_first_payload_value(payload, 'senderUnionId', 'unionId')),
+                channel=channel,
+                group_id=group_id,
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
 
         try:
             factory_result = run_factory_brain_turn(

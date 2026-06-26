@@ -26,6 +26,7 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
             task_type='meta_skill_request',
             domain='skill_factory',
             business_date=business_date,
+            requires_root_owner=True,
         )
     if any(token in clean for token in ('表格', 'Excel', '文档', 'PDF', '图表', '图片', '生成一张')):
         return FactoryBrainIntent(

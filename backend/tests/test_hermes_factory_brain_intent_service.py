@@ -117,3 +117,12 @@ def test_classifies_yield_feedback_and_meta_skill_intents() -> None:
         assert intent.should_use_factory_brain is True
         assert intent.domain == domain
         assert intent.task_type == task_type
+
+
+def test_meta_skill_request_requires_root_owner() -> None:
+    today = date(2026, 6, 26)
+
+    for text in ('帮我生成 skill', '我想做一个技能包', '给我一个 agent 方案', '参考 GitHub skill 帮我做'):
+        intent = classify_factory_brain_intent(text, today=today)
+        assert intent.task_type == 'meta_skill_request'
+        assert intent.requires_root_owner is True
