@@ -66,7 +66,7 @@ def test_normalizes_bare_workshop_numbers_without_entities(
 
 
 @pytest.mark.parametrize('workshop', ['1650', '1850', '2050'])
-def test_normalizes_bare_workshop_numbers_from_entities(workshop: str) -> None:
+def test_normalizes_bare_workshop_numbers_from_entities_with_workshop_context(workshop: str) -> None:
     intent = FactoryBrainIntent(
         intent_type='task_instruction',
         task_type='daily_output',
@@ -75,7 +75,7 @@ def test_normalizes_bare_workshop_numbers_from_entities(workshop: str) -> None:
         entities={'workshop': workshop},
     )
 
-    result = normalize_factory_request('今天产量发我', intent)
+    result = normalize_factory_request(f'{workshop}今天产量发我', intent)
 
     assert result.scope == 'workshop'
     assert result.org_units == [workshop]
@@ -113,6 +113,21 @@ def test_does_not_treat_bare_tonnage_number_as_workshop_without_context() -> Non
         task_type='daily_output',
         domain='production',
         business_date=date(2026, 6, 26),
+    )
+
+    result = normalize_factory_request('今天产量2050吨发我', intent)
+
+    assert result.scope == 'factory'
+    assert result.org_units == ['factory']
+
+
+def test_does_not_trust_bare_workshop_entity_when_text_is_tonnage() -> None:
+    intent = FactoryBrainIntent(
+        intent_type='task_instruction',
+        task_type='daily_output',
+        domain='production',
+        business_date=date(2026, 6, 26),
+        entities={'workshop': '2050'},
     )
 
     result = normalize_factory_request('今天产量2050吨发我', intent)
