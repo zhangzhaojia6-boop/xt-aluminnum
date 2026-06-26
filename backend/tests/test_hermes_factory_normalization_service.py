@@ -79,3 +79,32 @@ def test_normalizes_bare_workshop_numbers_from_entities(workshop: str) -> None:
 
     assert result.scope == 'workshop'
     assert result.org_units == [workshop]
+
+
+def test_does_not_treat_bare_tonnage_number_as_workshop_without_context() -> None:
+    intent = FactoryBrainIntent(
+        intent_type='task_instruction',
+        task_type='daily_output',
+        domain='production',
+        business_date=date(2026, 6, 26),
+    )
+
+    result = normalize_factory_request('今天产量2050吨发我', intent)
+
+    assert result.scope == 'factory'
+    assert result.org_units == ['factory']
+
+
+@pytest.mark.parametrize('suffix', ['车间', '冷轧', '机组'])
+def test_normalizes_workshop_number_with_explicit_workshop_suffix(suffix: str) -> None:
+    intent = FactoryBrainIntent(
+        intent_type='task_instruction',
+        task_type='daily_output',
+        domain='production',
+        business_date=date(2026, 6, 26),
+    )
+
+    result = normalize_factory_request(f'2050{suffix}今天产量发我', intent)
+
+    assert result.scope == 'workshop'
+    assert result.org_units == ['2050']

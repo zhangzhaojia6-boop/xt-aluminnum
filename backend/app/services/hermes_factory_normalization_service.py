@@ -22,6 +22,10 @@ _WORKSHOP_ALIASES = {
 
 _SOURCE_PRIORITY = ['dingtalk_specialist', 'mes', 'wms', 'datahub', 'historical_report', 'rag']
 _BARE_WORKSHOP_NUMBER_PATTERN = re.compile(r'(?<!\d)(1650|1850|2050)(?!\d)')
+_LEADING_WORKSHOP_NUMBER_PATTERN = re.compile(
+    r'^\s*(1650|1850|2050)(?=(?:今天|昨日|昨天|本月|这个月|产量|日报|月报|年报|分析|情况|数据|发我|给我|车间|冷轧|机组))'
+)
+_EXPLICIT_WORKSHOP_SUFFIX_PATTERN = re.compile(r'(?<!\d)(1650|1850|2050)(?=(?:车间|冷轧|机组))')
 
 
 def normalize_factory_request(text: str, intent: FactoryBrainIntent) -> FactoryBrainNormalizedRequest:
@@ -55,7 +59,12 @@ def _normalize_org_units(text: str, intent: FactoryBrainIntent) -> list[str]:
     for alias, canonical in _WORKSHOP_ALIASES.items():
         if alias in text and canonical not in values:
             values.append(canonical)
-    for match in _BARE_WORKSHOP_NUMBER_PATTERN.findall(text):
+    leading_match = _LEADING_WORKSHOP_NUMBER_PATTERN.match(text)
+    if leading_match:
+        leading_workshop = leading_match.group(1)
+        if leading_workshop not in values:
+            values.append(leading_workshop)
+    for match in _EXPLICIT_WORKSHOP_SUFFIX_PATTERN.findall(text):
         if match not in values:
             values.append(match)
     return values or ['factory']

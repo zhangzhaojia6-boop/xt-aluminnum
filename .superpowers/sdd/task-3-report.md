@@ -73,3 +73,23 @@ tests run with outputs:
 self-review:
 - 只补了一个缺口：当上游意图分类器把车间直接归一成裸数字字符串时，归一化层现在会把它当作车间，不再错误回退到全厂。
 - 原有别名匹配、文本裸数字匹配、指标归一化和输出模式逻辑都保持不变。
+
+## Fix Task 3 Final Review Finding Round 2
+
+changed files:
+- `backend/app/services/hermes_factory_normalization_service.py`
+- `backend/tests/test_hermes_factory_normalization_service.py`
+- `.superpowers/sdd/task-3-report.md`
+
+tests run with outputs:
+- `cd backend && python -m pytest tests/test_hermes_factory_normalization_service.py -q` (red step)
+  - output:
+    - `1 failed, 11 passed in 2.55s`
+    - failure: `今天产量2050吨发我` was still normalized to `workshop` instead of `factory`
+- `cd backend && python -m pytest tests/test_hermes_factory_normalization_service.py -q` (green step)
+  - output: `12 passed in 2.21s`
+
+self-review:
+- 这次只收紧了“文本里裸数字车间号”的识别条件，不动实体兜底、别名映射、指标归一化和输出模式。
+- 现在只有两种文本会按裸数字识别车间：句首车间号上下文，或数字后面明确跟 `车间`、`冷轧`、`机组`。
+- `今天产量2050吨发我` 这种吨数表达会留在全厂范围，不会再误命中 `2050` 车间。
