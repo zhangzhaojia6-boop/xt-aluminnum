@@ -73,6 +73,22 @@ def _sources() -> dict[str, Any]:
             'correction_refs': [{'id': 1, 'field_name': 'total_output_daily'}],
             'dingtalk_refs': [{'id': 2, 'field_names': ['total_output_daily']}],
         },
+        'source_map': {
+            'status': 'ok',
+            'source': 'fact_source_map',
+            'metric_keys': ['total_output_daily'],
+            'facts': [
+                {
+                    'metric_key': 'total_output_daily',
+                    'display_name': '车间总产量日合计',
+                    'summary': '车间总产量日合计来源说明',
+                    'delete_protection': 'protect',
+                    'frontend_pages': ['/manage/today', '/manage/production'],
+                    'api_routes': ['/api/v1/dashboard/daily-production'],
+                }
+            ],
+            'source_explanations': ['车间总产量日合计来源说明'],
+        },
         'mes_wms': {'source_status': {'mes': 'ok'}, 'records': {'summary': [{'field': 'total_output'}]}},
         'audit_run': {'status': 'completed', 'match_rate': 0.99, 'source_status': {'mes': 'ok', 'hub': 'ok'}},
         'dingtalk_evidence': [],
@@ -185,6 +201,7 @@ def test_ready_run_persists_report_agent_memory_learning_audit_and_returns_resul
         assert event.status == 'candidate'
         assert event.question == command.source_text
         assert event.tools_called == service.DAY1_TOOLS_CALLED
+        assert 'source_map' in event.tools_called
         assert event.sources
         assert audit_log.action == 'hermes_day1_super_brain_report'
         assert audit_calls[0]['auto_commit'] is False
@@ -446,6 +463,13 @@ def test_chat_inbox_rag_count_command_summary_and_reply_metadata_are_recorded(mo
         assert payload['sources']['mes_wms']['record_groups'] == 1
         assert payload['sources']['audit_run']['match_rate'] == 0.99
         assert payload['sources']['rag']['citation_count'] == 2
+        assert payload['sources']['source_map'] == {
+            'status': 'ok',
+            'metric_count': 1,
+            'metric_keys': ['total_output_daily'],
+            'source_explanation_count': 1,
+            'delete_protection': ['protect'],
+        }
         assert payload['sources']['output_skill_alignment']['field_match_rate'] == 98.5
         assert payload['output_skill_alignment']['status'] == 'passed'
         assert payload['harness']['summary']['passed'] is True
@@ -522,6 +546,13 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
         assert summary['dingtalk_evidence']['items'] == [{'id': 11, 'file_uri': 'dingtalk://media/abc', 'hash': 'evidence-hash-1'}]
         assert summary['dingtalk_messages']['count'] == 1
         assert summary['dingtalk_messages']['items'] == [{'id': 22, 'hash': 'message-hash-1'}]
+        assert summary['source_map'] == {
+            'status': 'ok',
+            'metric_count': 1,
+            'metric_keys': ['total_output_daily'],
+            'source_explanation_count': 1,
+            'delete_protection': ['protect'],
+        }
         assert summary['rag']['citation_count'] == 2
         assert summary['output_skill_alignment'] == {
             'status': 'review_needed',
@@ -541,6 +572,91 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
         assert '日报路线说明' not in payload_text
     finally:
         db.close()
+
+
+def test_run_day1_super_brain_real_source_collection_exposes_source_map_in_result(monkeypatch) -> None:
+    service = _service()
+    source_service = import_module('app.services.hermes_day1_source_service')
+    db = _db_session()
+    actor = _actor(db)
+    command = _command()
+
+    class _MesReaderFake:
+        def __init__(self, adapter) -> None:
+            self.adapter = adapter
+
+        def read_sources(self, **kwargs):
+            return {
+                'business_date': kwargs['business_date'].isoformat(),
+                'records': {'summary': [{'field': 'total_output', 'value': 366}]},
+                'source_status': {'mes': 'ok', 'sources': {'summary': {'status': 'ok', 'count': 1}}},
+                'source_errors': {},
+            }
+
+    class _AuditServiceFake:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_run(self, **kwargs):
+            return type(
+                'AuditRun',
+                (),
+                {
+                    'id': 7,
+                    'status': 'completed',
+                    'match_rate': 1.0,
+                    'source_status': {'mes': 'ok', 'hub': 'ok', 'output_skill': 'missing'},
+                    'source_errors': {},
+                    'diffs': {},
+                    'suggested_actions': [],
+                    'output_skill_snapshot': {'status': 'missing', 'raw_payload_truncated': True},
+                },
+            )()
+
+    monkeypatch.setattr(
+        source_service.template_daily_report,
+        'build_template_daily_report_payload',
+        lambda _db, *, target_date: {'status': 'ready', 'facts': {'values': {'total_output': 366}}},
+    )
+    monkeypatch.setattr(
+        source_service,
+        'build_daily_fact_bundle',
+        lambda _db, *, business_date, requested_by=None, trace_id=None, persist_run=False, snapshot_reason=None: {
+            'business_date': business_date.isoformat(),
+            'status': 'ready',
+            'facts': {'total_output_daily': {'value': 366, 'source': 'root_owner_correction'}},
+            'missing_fields': [],
+            'missing': [],
+            'conflicts': [],
+            'correction_refs': [],
+            'dingtalk_refs': [],
+            'output_skill_alignment': {'status': 'passed', 'field_match_rate': 100.0},
+        },
+    )
+    monkeypatch.setattr(source_service, 'get_mes_adapter', lambda: 'adapter')
+    monkeypatch.setattr(source_service, 'HermesMesReadService', _MesReaderFake)
+    monkeypatch.setattr(source_service, 'HermesDataAuditService', _AuditServiceFake)
+    monkeypatch.setattr(source_service, 'query_knowledge', lambda *args, **kwargs: {'answer': 'ok', 'citations': []})
+    monkeypatch.setattr(service, 'collect_day1_sources', source_service.collect_day1_sources)
+    monkeypatch.setattr(service, 'build_day1_three_part_report', lambda **kwargs: _ready_product())
+    _patch_audit(monkeypatch, service)
+
+    try:
+        result = service.run_day1_super_brain(
+            db,
+            command=command,
+            actor=actor,
+            trace_id='trace-day1-real-source-map',
+        )
+    finally:
+        db.close()
+
+    payload = result.payload['hermes_day1']
+    assert 'source_map' in service.DAY1_TOOLS_CALLED
+    assert payload['learning']['tools_called'] == service.DAY1_TOOLS_CALLED
+    assert payload['sources']['source_map']['status'] == 'ok'
+    assert payload['sources']['source_map']['metric_keys'] == ['total_output_daily']
+    assert payload['sources']['source_map']['source_explanation_count'] == 1
 
 
 def test_low_output_skill_match_rate_blocks_final_release_even_with_formal_text(monkeypatch) -> None:
