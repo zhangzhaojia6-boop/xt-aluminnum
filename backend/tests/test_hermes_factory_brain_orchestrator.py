@@ -45,3 +45,27 @@ def test_orchestrator_persists_inbox_and_agent_run() -> None:
     assert db.query(ChatInboxMessage).one().text == '产量出来了吗'
     run = db.query(AgentRun).one()
     assert run.result_payload['factory_brain']['state_trace'][-1] == 'reply_to_dingtalk'
+
+
+def test_orchestrator_persists_closed_loop_payload() -> None:
+    db = _db()
+    user = User(id=1, username='admin2', password_hash='x', name='张兆嘉', role='admin', is_active=True)
+    db.add(user)
+    db.commit()
+
+    result = run_factory_brain_turn(
+        db,
+        text='今日产量',
+        channel='dingtalk',
+        group_id='cid-root',
+        sender_external_id='dt-root',
+        current_user=user,
+        trace_id='trace-factory-brain-closed-loop',
+        source_payload={'messageId': 'msg-closed-loop'},
+    )
+    db.commit()
+
+    payload = result.result_payload['factory_brain']
+    assert payload['intent']['task_type'] == 'daily_output'
+    assert payload['normalized_request']['metrics'] == ['daily_output', 'monthly_output']
+    assert payload['progress_cards'][-1]['stage'] == 'feedback'

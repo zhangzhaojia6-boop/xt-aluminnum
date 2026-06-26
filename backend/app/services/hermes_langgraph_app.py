@@ -1,8 +1,17 @@
 from __future__ import annotations
 
+from dataclasses import asdict
+from datetime import date
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+
+from app.services.hermes_artifact_engine import plan_artifacts
+from app.services.hermes_dingtalk_card_service import build_progress_card, build_progress_sequence
+from app.services.hermes_factory_brain_intent_service import classify_factory_brain_intent
+from app.services.hermes_factory_evidence_service import collect_factory_evidence, describe_evidence_gap
+from app.services.hermes_factory_normalization_service import normalize_factory_request
+from app.services.hermes_factory_task_planner import plan_factory_task
 
 
 class FactoryBrainState(TypedDict, total=False):
@@ -12,6 +21,12 @@ class FactoryBrainState(TypedDict, total=False):
     channel: str
     status: str
     intent: dict[str, Any]
+    normalized_request: dict[str, Any]
+    tool_plan: list[dict[str, Any]]
+    data_references: list[dict[str, Any]]
+    evidence_gap: str | None
+    artifact_requests: list[dict[str, Any]]
+    progress_cards: list[dict[str, Any]]
     tool_trace: list[dict[str, Any]]
     state_trace: list[str]
     response_text: str
@@ -69,12 +84,23 @@ def _advance(state: FactoryBrainState, node: str, **extra: Any) -> FactoryBrainS
     }
 
 
+def _json_safe(value: Any) -> Any:
+    if hasattr(value, 'isoformat'):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def _identify_actor(state: FactoryBrainState) -> FactoryBrainState:
     return _advance(state, 'identify_actor', status='identified_actor')
 
 
 def _classify_intent(state: FactoryBrainState) -> FactoryBrainState:
-    return _advance(state, 'classify_intent', intent={'intent_type': 'contextual_intent'})
+    intent = classify_factory_brain_intent(str(state.get('input_text') or ''), today=date.today())
+    return _advance(state, 'classify_intent', intent=_json_safe(asdict(intent)), status='intent_classified')
 
 
 def _load_soul_rules_knowledge(state: FactoryBrainState) -> FactoryBrainState:
@@ -82,15 +108,43 @@ def _load_soul_rules_knowledge(state: FactoryBrainState) -> FactoryBrainState:
 
 
 def _plan_task(state: FactoryBrainState) -> FactoryBrainState:
-    return _advance(state, 'plan_task')
+    intent = classify_factory_brain_intent(str(state.get('input_text') or ''), today=date.today())
+    normalized = normalize_factory_request(str(state.get('input_text') or ''), intent)
+    plan = plan_factory_task(normalized)
+    cards = [
+        build_progress_card(progress)
+        for progress in build_progress_sequence(
+            trace_id=str(state.get('trace_id') or ''),
+            title=f"Hermes 正在处理：{str(state.get('input_text') or '').strip()}",
+        )
+    ]
+    return _advance(
+        state,
+        'plan_task',
+        normalized_request=_json_safe(asdict(normalized)),
+        tool_plan=[_json_safe(asdict(step)) for step in plan],
+        progress_cards=cards,
+    )
 
 
 def _route_tools(state: FactoryBrainState) -> FactoryBrainState:
-    return _advance(state, 'route_tools', tool_trace=[{'tool': 'hub_query', 'status': 'planned'}])
+    return _advance(state, 'route_tools', tool_trace=list(state.get('tool_plan') or []))
 
 
 def _collect_evidence(state: FactoryBrainState) -> FactoryBrainState:
-    return _advance(state, 'collect_evidence')
+    intent = classify_factory_brain_intent(str(state.get('input_text') or ''), today=date.today())
+    normalized = normalize_factory_request(str(state.get('input_text') or ''), intent)
+    plan = plan_factory_task(normalized)
+    references = collect_factory_evidence(normalized, plan)
+    gap = describe_evidence_gap(normalized, references)
+    artifacts = plan_artifacts(normalized, references) if normalized.needs_artifact else []
+    return _advance(
+        state,
+        'collect_evidence',
+        data_references=[_json_safe(asdict(reference)) for reference in references],
+        evidence_gap=gap,
+        artifact_requests=[_json_safe(asdict(artifact)) for artifact in artifacts],
+    )
 
 
 def _reason_about_conflicts(state: FactoryBrainState) -> FactoryBrainState:
@@ -98,7 +152,17 @@ def _reason_about_conflicts(state: FactoryBrainState) -> FactoryBrainState:
 
 
 def _generate_response(state: FactoryBrainState) -> FactoryBrainState:
-    return _advance(state, 'generate_response', response_text='Hermes 已收到，我正在按工厂大脑链路处理。')
+    references = list(state.get('data_references') or [])
+    gap = state.get('evidence_gap')
+    if not references and gap:
+        response = str(gap)
+    else:
+        metrics = '、'.join(str(reference.get('metric')) for reference in references)
+        sources = '、'.join(sorted({str(reference.get('source')) for reference in references}))
+        response = f'已按工厂大脑链路处理。指标：{metrics}。来源：{sources}。'
+        if gap:
+            response = f'{response}\n{gap}'
+    return _advance(state, 'generate_response', response_text=response)
 
 
 def _persist_memory_and_audit(state: FactoryBrainState) -> FactoryBrainState:
