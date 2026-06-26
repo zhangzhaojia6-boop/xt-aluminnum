@@ -93,3 +93,27 @@ self-review:
 - 这次只收紧了“文本里裸数字车间号”的识别条件，不动实体兜底、别名映射、指标归一化和输出模式。
 - 现在只有两种文本会按裸数字识别车间：句首车间号上下文，或数字后面明确跟 `车间`、`冷轧`、`机组`。
 - `今天产量2050吨发我` 这种吨数表达会留在全厂范围，不会再误命中 `2050` 车间。
+
+## Fix Task 3 Reviewer Finding: Full Workshop Entity Aliases
+
+changed files:
+- `backend/app/services/hermes_factory_normalization_service.py`
+- `backend/tests/test_hermes_factory_normalization_service.py`
+- `.superpowers/sdd/task-3-report.md`
+
+tests run with outputs:
+- `cd backend && python -m pytest tests/test_hermes_factory_normalization_service.py -q` (red step)
+  - output:
+    - `3 failed, 12 passed in 2.67s`
+    - failures: `entities={'workshop': '1650冷轧车间'/'1850冷轧车间'/'2050冷轧车间'}` still normalized to `factory` when text did not include the workshop
+- `cd backend && python -m pytest tests/test_hermes_factory_normalization_service.py -q` (green step)
+  - output: `15 passed in 2.12s`
+- `cd backend && python -m compileall app/services/hermes_factory_normalization_service.py tests/test_hermes_factory_normalization_service.py`
+  - output:
+    - `Compiling 'tests/test_hermes_factory_normalization_service.py'...`
+- `git diff --check -- backend/app/services/hermes_factory_normalization_service.py backend/tests/test_hermes_factory_normalization_service.py .superpowers/sdd/task-3-report.md`
+  - output: success
+
+self-review:
+- 这次只补了 3 个完整车间实体别名：`1650冷轧车间`、`1850冷轧车间`、`2050冷轧车间`。
+- 没有放宽数字识别规则，所以 `今天产量2050吨发我` 仍然会保持全厂范围，不会被错判成 `2050` 车间。

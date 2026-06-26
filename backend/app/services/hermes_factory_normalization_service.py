@@ -7,11 +7,14 @@ from app.services.hermes_factory_brain_types import FactoryBrainIntent, FactoryB
 
 _WORKSHOP_ALIASES = {
     '1650冷轧': '1650',
+    '1650冷轧车间': '1650',
     '1650车间': '1650',
     '1650机组': '1650',
     '1850冷轧': '1850',
+    '1850冷轧车间': '1850',
     '1850车间': '1850',
     '2050冷轧': '2050',
+    '2050冷轧车间': '2050',
     '2050车间': '2050',
     '铸轧分厂': 'cast_rolling',
     '铸锭车间': 'casting',
