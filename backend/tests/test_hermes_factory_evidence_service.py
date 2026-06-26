@@ -20,8 +20,25 @@ def test_collects_traceable_data_reference_for_daily_output() -> None:
     first = references[0]
     assert first.metric == 'daily_output'
     assert first.unit == 'ton'
+    assert first.business_date == date(2026, 6, 26)
+    assert first.business_definition
     assert first.source in {'dingtalk_specialist', 'mes', 'datahub'}
     assert 0.0 <= first.confidence <= 1.0
+
+
+def test_gap_message_still_names_placeholder_metrics_as_missing() -> None:
+    intent = FactoryBrainIntent(
+        intent_type='task_instruction',
+        task_type='daily_output',
+        domain='production',
+        business_date=date(2026, 6, 26),
+    )
+    normalized = normalize_factory_request('今日产量', intent)
+    references = collect_factory_evidence(normalized, plan_factory_task(normalized))
+
+    gap = describe_evidence_gap(normalized, references)
+
+    assert gap == '当前缺少 daily_output、monthly_output 的可追溯数据，建议继续查钉钉责任人文件、MES/WMS 明细或历史日报。'
 
 
 def test_gap_message_names_missing_metric_without_hallucinating() -> None:

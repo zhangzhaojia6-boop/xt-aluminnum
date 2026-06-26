@@ -48,7 +48,11 @@ def describe_evidence_gap(
     normalized: FactoryBrainNormalizedRequest,
     references: list[FactoryBrainDataReference],
 ) -> str | None:
-    found = {reference.metric for reference in references}
+    found = {
+        reference.metric
+        for reference in references
+        if reference.value is not None and not reference.metadata.get('needs_live_query')
+    }
     missing = [metric for metric in normalized.metrics if metric not in found]
     if not missing:
         return None

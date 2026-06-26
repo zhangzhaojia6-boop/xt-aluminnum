@@ -110,3 +110,60 @@ Result:
 
 - The repository currently has unrelated existing changes in `AGENTS.md` and untracked `docs/superpowers/*` files. They were left untouched.
 - The instruction mentioned `docs/longterm-ai-skill-system-spec.md`, but that file does not exist in this worktree. This did not block Task 5 because the task brief provided exact implementation requirements.
+
+## Reviewer Fix: Placeholder Evidence Still Counts As Missing
+
+### Preconditions Re-verified
+
+- `git branch --show-current` -> `daily-report-manual-alignment`
+- `git rev-parse --short HEAD` -> `6c5ccf81`
+
+### Red
+
+Command:
+
+```bash
+cd backend
+python -m pytest tests/test_hermes_factory_evidence_service.py -q
+```
+
+Result:
+
+- `test_gap_message_still_names_placeholder_metrics_as_missing` failed.
+- Failure matched the reviewer finding: `describe_evidence_gap()` returned `None` after `collect_factory_evidence()` produced placeholder references with `value=None` and `metadata["needs_live_query"]=True`.
+
+### Fix
+
+- Added regression coverage that first collects `daily_output` evidence, then feeds those references into `describe_evidence_gap()`.
+- Added assertions that collected references keep `business_date` and a non-empty `business_definition`.
+- Tightened completeness logic so a reference only counts as complete when:
+  - `value is not None`
+  - `metadata["needs_live_query"]` is not true
+
+### Green
+
+Command:
+
+```bash
+cd backend
+python -m pytest tests/test_hermes_factory_evidence_service.py -q
+```
+
+Result:
+
+```text
+...                                                                      [100%]
+3 passed in 2.11s
+```
+
+### Diff Hygiene
+
+Command:
+
+```bash
+git diff --check
+```
+
+Result:
+
+- Passed with no output.
