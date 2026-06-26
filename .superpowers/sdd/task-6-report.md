@@ -194,3 +194,64 @@ Result:
 ....                                                                     [100%]
 4 passed in 2.04s
 ```
+
+## Reviewer Fix 3: Unknown Stage Leak Through `card['stage']`
+
+### Finding addressed
+
+- `build_progress_card()` no longer copies unknown `progress.stage` text into `card['stage']`.
+- Known stages still keep their exact original stage value.
+- Unknown stages now use fixed safe values:
+  - `card['stage'] = 'status_updating'`
+  - `card['details'] = ['状态更新中']`
+
+### Regression test extended
+
+- Extended `test_progress_card_uses_safe_fallback_for_unknown_stage`.
+- The test now proves both:
+  - unknown stage text is not exposed through `card['stage']`
+  - unknown stage text is not exposed through `card['details']`
+
+### Red
+
+Command:
+
+```bash
+cd backend
+python -m pytest tests/test_hermes_dingtalk_card_service.py -q
+```
+
+Result:
+
+```text
+FAILED tests/test_hermes_dingtalk_card_service.py::test_progress_card_uses_safe_fallback_for_unknown_stage
+AssertionError: assert '内部推理: 先猜一个答案再说' == 'status_updating'
+1 failed, 3 passed in 2.57s
+```
+
+### Green
+
+Command:
+
+```bash
+cd backend && python -m pytest tests/test_hermes_dingtalk_card_service.py -q
+```
+
+Result:
+
+```text
+....                                                                     [100%]
+4 passed in 2.12s
+```
+
+### Diff hygiene
+
+Command:
+
+```bash
+git diff --check
+```
+
+Result:
+
+- Passed with no output.

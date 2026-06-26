@@ -15,6 +15,7 @@ _STAGES = [
     ('feedback', '等待反馈'),
 ]
 _STAGE_DETAIL_LABELS = dict(_STAGES)
+_UNKNOWN_STAGE_CARD_VALUE = 'status_updating'
 _UNKNOWN_STAGE_DETAIL_LABEL = '状态更新中'
 
 
@@ -32,11 +33,16 @@ def build_progress_sequence(trace_id: str, title: str) -> list[FactoryBrainProgr
 
 def build_progress_card(progress: FactoryBrainProgress) -> dict[str, Any]:
     detail_label = _STAGE_DETAIL_LABELS.get(progress.stage, _UNKNOWN_STAGE_DETAIL_LABEL)
+    stage_value = (
+        progress.stage
+        if progress.stage in _STAGE_DETAIL_LABELS
+        else _UNKNOWN_STAGE_CARD_VALUE
+    )
 
     return {
         'cardBizId': f'hermes-factory-brain-{progress.trace_id}',
         'title': progress.title,
-        'stage': progress.stage,
+        'stage': stage_value,
         'details': [detail_label],
         'actions': [
             {'key': 'view_sources', 'label': '查看来源'},

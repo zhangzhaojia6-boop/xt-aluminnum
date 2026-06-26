@@ -51,5 +51,7 @@ def test_progress_card_uses_safe_fallback_for_unknown_stage() -> None:
 
     card = build_progress_card(progress)
 
+    assert card['stage'] == 'status_updating'
     assert card['details'] == ['状态更新中']
+    assert '内部推理: 先猜一个答案再说' not in card['stage']
     assert '内部推理: 先猜一个答案再说' not in card['details']
