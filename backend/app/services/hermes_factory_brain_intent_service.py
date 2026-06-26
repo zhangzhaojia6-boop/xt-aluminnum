@@ -18,6 +18,15 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
             business_date=business_date,
             requires_root_owner=True,
         )
+    if any(token in clean for token in ('生成 skill', 'GitHub skill', '技能包', 'agent 方案', 'Agent 方案', 'skill')) and any(
+        token in clean for token in ('skill', 'Skill', '技能', 'agent', 'Agent', 'GitHub')
+    ):
+        return FactoryBrainIntent(
+            intent_type='task_instruction',
+            task_type='meta_skill_request',
+            domain='skill_factory',
+            business_date=business_date,
+        )
     if any(token in clean for token in ('表格', 'Excel', '文档', 'PDF', '图表', '图片', '生成一张')):
         return FactoryBrainIntent(
             intent_type='artifact_request',
@@ -63,6 +72,14 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
             business_date=business_date,
             requires_root_owner=True,
         )
+    if any(token in clean for token in ('成品率', '成材率', '收得率')):
+        return FactoryBrainIntent(
+            intent_type='task_instruction',
+            task_type='yield_analysis',
+            domain='quality',
+            business_date=business_date,
+            entities=_extract_entities(clean),
+        )
     if any(token in clean for token in ('是不是低了', '是不是高了')):
         return FactoryBrainIntent(
             intent_type='task_instruction',
@@ -71,7 +88,14 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
             business_date=business_date,
             entities=_extract_entities(clean),
         )
-    if any(token in clean for token in ('为什么高', '成品率')) or (
+    if any(token in clean for token in ('反馈', '纠错', '你说错了', '意见')):
+        return FactoryBrainIntent(
+            intent_type='task_instruction',
+            task_type='feedback_learning',
+            domain='feedback',
+            business_date=business_date,
+        )
+    if '为什么高' in clean or (
         '异常' in clean and not any(token in clean for token in ('能耗', '电耗', '气耗'))
     ):
         return FactoryBrainIntent(
@@ -127,10 +151,11 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
         )
     if clean in {'在干嘛', '你在干嘛'}:
         return FactoryBrainIntent(
-            intent_type='contextual_intent',
-            task_type='current_status',
+            intent_type='general_chat',
+            task_type='general_chat',
             domain='general',
-            business_date=business_date,
+            business_date=None,
+            should_use_factory_brain=False,
         )
     if '产量' in clean and any(token in clean for token in ('出来', '有了吗', '了吗')):
         return FactoryBrainIntent(
@@ -141,9 +166,10 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
         )
     return FactoryBrainIntent(
         intent_type='general_chat',
-        task_type='conversation',
+        task_type='general_chat',
         domain='general',
-        business_date=business_date,
+        business_date=None,
+        should_use_factory_brain=False,
     )
 
 

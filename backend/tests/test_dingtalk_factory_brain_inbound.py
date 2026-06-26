@@ -173,6 +173,69 @@ def test_dingtalk_inbound_falls_back_for_non_business_natural_language(monkeypat
         _restore(previous, db)
 
 
+@pytest.mark.parametrize(
+    ('text', 'trace_id'),
+    [
+        ('你好', 'trace-dingtalk-fallback-natural-hello-001'),
+        ('随便聊两句', 'trace-dingtalk-fallback-natural-chat-001'),
+        ('帮我随便说点什么', 'trace-dingtalk-fallback-natural-random-001'),
+    ],
+)
+def test_dingtalk_inbound_falls_back_for_ordinary_non_business_text(monkeypatch, text: str, trace_id: str) -> None:
+    db, previous = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='root-owner',
+            password_hash='x',
+            name='张兆嘉',
+            role='admin',
+            is_active=True,
+            dingtalk_user_id='dt-root',
+            dingtalk_union_id='union-root',
+        )
+    )
+    db.commit()
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED', True, raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_DINGTALK_INBOUND_TOKEN', 'hermes-token', raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_OWNER_DINGTALK_USER_IDS', 'dt-root', raising=False)
+    monkeypatch.setattr(
+        'app.routers.dingtalk.handle_agent_command',
+        lambda *_args, **_kwargs: SimpleNamespace(
+            trace_id=trace_id,
+            status_color='green',
+            intent='general_chat',
+            answer='旧链路回复',
+            chat_inbox_id=1,
+            agent_run_id=1,
+            outbox_message_id=None,
+        ),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'hermes-token'},
+            json={
+                'conversationId': 'cid-root',
+                'senderStaffId': 'dt-root',
+                'senderUnionId': 'union-root',
+                'text': {'content': text},
+                'agentCode': 'factory_dispatch',
+                'traceId': trace_id,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload.get('agent_code') != 'factory_brain'
+        assert payload['answer'] == '旧链路回复'
+        assert db.query(AgentRun).count() == 0
+    finally:
+        _restore(previous, db)
+
+
 def test_dingtalk_inbound_falls_back_for_non_factory_brain_text(monkeypatch) -> None:
     db, previous = _install_db_override()
     db.add(

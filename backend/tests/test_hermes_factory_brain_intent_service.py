@@ -48,7 +48,8 @@ def test_falls_back_for_unrelated_text() -> None:
     result = classify_factory_brain_intent('随便聊两句', today=date(2026, 6, 25))
 
     assert result.intent_type == 'general_chat'
-    assert result.should_use_factory_brain is True
+    assert result.task_type == 'general_chat'
+    assert result.should_use_factory_brain is False
 
 
 def test_common_business_phrases_route_before_model_fallback() -> None:
@@ -81,3 +82,38 @@ def test_non_business_question_uses_general_answer_lane() -> None:
     assert intent.should_use_factory_brain is False
     assert intent.domain == 'general'
     assert intent.task_type == 'general_chat'
+
+
+def test_general_non_business_natural_language_does_not_use_factory_brain() -> None:
+    today = date(2026, 6, 26)
+
+    for text in ('你好', '随便聊两句', '帮我随便说点什么'):
+        intent = classify_factory_brain_intent(text, today=today)
+        assert intent.intent_type == 'general_chat'
+        assert intent.domain == 'general'
+        assert intent.task_type == 'general_chat'
+        assert intent.should_use_factory_brain is False
+
+
+def test_classifies_yield_feedback_and_meta_skill_intents() -> None:
+    today = date(2026, 6, 26)
+
+    cases = [
+        ('成品率怎么样', 'quality', 'yield_analysis'),
+        ('成材率分析一下', 'quality', 'yield_analysis'),
+        ('收得率是不是低了', 'quality', 'yield_analysis'),
+        ('我要反馈一个问题', 'feedback', 'feedback_learning'),
+        ('你说错了，重新学一下', 'feedback', 'feedback_learning'),
+        ('这个数据我想纠错', 'feedback', 'feedback_learning'),
+        ('我有点意见', 'feedback', 'feedback_learning'),
+        ('帮我生成 skill', 'skill_factory', 'meta_skill_request'),
+        ('我想做一个技能包', 'skill_factory', 'meta_skill_request'),
+        ('给我一个 agent 方案', 'skill_factory', 'meta_skill_request'),
+        ('参考 GitHub skill 帮我做', 'skill_factory', 'meta_skill_request'),
+    ]
+
+    for text, domain, task_type in cases:
+        intent = classify_factory_brain_intent(text, today=today)
+        assert intent.should_use_factory_brain is True
+        assert intent.domain == domain
+        assert intent.task_type == task_type
