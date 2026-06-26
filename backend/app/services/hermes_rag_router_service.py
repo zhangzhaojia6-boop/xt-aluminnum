@@ -95,3 +95,17 @@ def _matches(unit: HermesKnowledgeUnit, text: str, object_key: str | None, metri
 
 def _contains_any(text: str, values: tuple[str | None, ...]) -> bool:
     return any(bool(value) and value in text for value in values)
+
+
+def list_hermes_rag_layers() -> list[str]:
+    return [
+        'xintaily_factory_rules',
+        'data_route_knowledge',
+        'aluminum_industry_knowledge',
+        'experience_knowledge',
+    ]
+
+
+def build_rag_gap_next_step(query: str) -> str:
+    clean = str(query or '').strip()
+    return f'RAG 未命中“{clean}”。下一步应查钉钉责任人文件、MES/WMS 明细、历史日报，或生成候选知识任务。'
