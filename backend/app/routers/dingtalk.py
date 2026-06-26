@@ -255,12 +255,7 @@ def _should_route_factory_brain(text: str) -> bool:
     if not clean_text or clean_text.startswith('/'):
         return False
     intent = classify_factory_brain_intent(clean_text, today=datetime.now().date())
-    return intent.task_type in {
-        'production_readiness',
-        'current_status',
-        'anomaly_analysis',
-        'business_question',
-    }
+    return intent.should_use_factory_brain
 
 
 def _first_payload_value(payload: dict[str, Any], *keys: str) -> Any:

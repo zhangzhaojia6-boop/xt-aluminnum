@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -53,7 +54,20 @@ def _restore(previous, db: Session) -> None:
     db.close()
 
 
-def test_dingtalk_inbound_uses_factory_brain_when_enabled(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    ('text', 'trace_id'),
+    [
+        ('产量', 'trace-dingtalk-factory-brain-001'),
+        ('今天怎么样', 'trace-dingtalk-factory-brain-002'),
+        ('库存够不够', 'trace-dingtalk-factory-brain-003'),
+        ('合同余量', 'trace-dingtalk-factory-brain-004'),
+        ('能耗是不是异常', 'trace-dingtalk-factory-brain-005'),
+        ('成本核算发我', 'trace-dingtalk-factory-brain-006'),
+        ('生成一张产量表格', 'trace-dingtalk-factory-brain-007'),
+        ('昨日日报', 'trace-dingtalk-factory-brain-008'),
+    ],
+)
+def test_dingtalk_inbound_uses_factory_brain_for_rule_first_business_inputs(monkeypatch, text: str, trace_id: str) -> None:
     db, previous = _install_db_override()
     db.add(
         User(
@@ -70,6 +84,16 @@ def test_dingtalk_inbound_uses_factory_brain_when_enabled(monkeypatch) -> None:
     db.commit()
     monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED', True, raising=False)
     monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_DINGTALK_INBOUND_TOKEN', 'hermes-token', raising=False)
+    monkeypatch.setattr(
+        'app.services.hermes_factory_brain_orchestrator.run_factory_brain_turn',
+        lambda *_args, **_kwargs: SimpleNamespace(
+            trace_id=trace_id,
+            status='replied',
+            answer='工厂大脑回复',
+            chat_inbox_id=1,
+            agent_run_id=1,
+        ),
+    )
 
     try:
         client = TestClient(app)
@@ -80,9 +104,9 @@ def test_dingtalk_inbound_uses_factory_brain_when_enabled(monkeypatch) -> None:
                 'conversationId': 'cid-root',
                 'senderStaffId': 'dt-root',
                 'senderUnionId': 'union-root',
-                'text': {'content': '产量出来了吗'},
+                'text': {'content': text},
                 'agentCode': 'factory_dispatch',
-                'traceId': 'trace-dingtalk-factory-brain-001',
+                'traceId': trace_id,
             },
         )
 
@@ -90,8 +114,61 @@ def test_dingtalk_inbound_uses_factory_brain_when_enabled(monkeypatch) -> None:
         payload = response.json()
         assert payload['agent_code'] == 'factory_brain'
         assert payload['status'] == 'replied'
-        assert db.query(ChatInboxMessage).one().agent_code == 'factory_brain'
-        assert db.query(AgentRun).one().agent_code == 'factory_brain'
+    finally:
+        _restore(previous, db)
+
+
+def test_dingtalk_inbound_falls_back_for_non_business_natural_language(monkeypatch) -> None:
+    db, previous = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='root-owner',
+            password_hash='x',
+            name='张兆嘉',
+            role='admin',
+            is_active=True,
+            dingtalk_user_id='dt-root',
+            dingtalk_union_id='union-root',
+        )
+    )
+    db.commit()
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED', True, raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_DINGTALK_INBOUND_TOKEN', 'hermes-token', raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_OWNER_DINGTALK_USER_IDS', 'dt-root', raising=False)
+    monkeypatch.setattr(
+        'app.routers.dingtalk.handle_agent_command',
+        lambda *_args, **_kwargs: SimpleNamespace(
+            trace_id='trace-dingtalk-fallback-natural-001',
+            status_color='green',
+            intent='general_chat',
+            answer='旧链路回复',
+            chat_inbox_id=1,
+            agent_run_id=1,
+            outbox_message_id=None,
+        ),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'hermes-token'},
+            json={
+                'conversationId': 'cid-root',
+                'senderStaffId': 'dt-root',
+                'senderUnionId': 'union-root',
+                'text': {'content': '给我讲个轻松的笑话'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-fallback-natural-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload.get('agent_code') != 'factory_brain'
+        assert payload['answer'] == '旧链路回复'
+        assert db.query(AgentRun).count() == 0
     finally:
         _restore(previous, db)
 
