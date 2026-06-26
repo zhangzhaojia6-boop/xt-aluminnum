@@ -599,3 +599,23 @@ def test_day1_report_runs_real_orchestrator_and_writes_report_run_and_inbox(tmp_
         db.close()
         get_engine.cache_clear()
         get_sessionmaker.cache_clear()
+
+
+def test_factory_brain_cli_ask_outputs_closed_loop_json() -> None:
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[1] / 'scripts' / 'hermes_factory_brain_cli.py'
+    result = subprocess.run(
+        [sys.executable, str(script), 'ask', '今日产量'],
+        cwd=script.parents[1],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload['intent']['task_type'] == 'daily_output'
+    assert payload['progress_cards'][-1]['stage'] == 'feedback'
+    assert payload['response_text']
