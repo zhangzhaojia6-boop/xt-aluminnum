@@ -62,6 +62,11 @@ def run_factory_brain_turn(
             'state_trace': graph_result.get('state_trace') or [],
             'tool_trace': graph_result.get('tool_trace') or [],
             'intent': graph_result.get('intent') or {},
+            'normalized_request': graph_result.get('normalized_request') or {},
+            'data_references': graph_result.get('data_references') or [],
+            'evidence_gap': graph_result.get('evidence_gap'),
+            'artifact_requests': graph_result.get('artifact_requests') or [],
+            'progress_cards': graph_result.get('progress_cards') or [],
         }
     }
     run = AgentRun(

@@ -14,7 +14,7 @@ def test_initial_state_records_input_and_trace() -> None:
     assert state['state_trace'][0] == 'received'
 
 
-def test_graph_runs_to_replied_with_stub_nodes() -> None:
+def test_graph_runs_to_replied_with_closed_loop_nodes() -> None:
     graph = build_factory_brain_graph(checkpointer=None)
     state = initial_factory_brain_state(
         trace_id='trace-graph-002',
@@ -27,4 +27,5 @@ def test_graph_runs_to_replied_with_stub_nodes() -> None:
 
     assert result['status'] == 'replied'
     assert result['state_trace'][-1] == 'reply_to_dingtalk'
-    assert 'Hermes 已收到' in result['response_text']
+    assert '来源' in result['response_text']
+    assert result['progress_cards'][-1]['stage'] == 'feedback'

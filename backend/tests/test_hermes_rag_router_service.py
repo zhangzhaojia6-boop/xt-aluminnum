@@ -9,7 +9,11 @@ from app.models.hermes_factory_brain import HermesKnowledgeUnit
 from app.models.master import Team, Workshop
 from app.models.rag import RagDocument
 from app.models.system import User
-from app.services.hermes_rag_router_service import route_knowledge_request
+from app.services.hermes_rag_router_service import (
+    build_rag_gap_next_step,
+    list_hermes_rag_layers,
+    route_knowledge_request,
+)
 
 
 def _db() -> Session:
@@ -89,3 +93,18 @@ def test_daily_dynamic_numbers_are_not_returned_as_knowledge() -> None:
 
     assert result.units == []
     assert result.excluded_units[0].unit_type == 'daily_fact'
+
+
+def test_rag_layers_keep_factory_knowledge_separate() -> None:
+    assert list_hermes_rag_layers() == [
+        'xintaily_factory_rules',
+        'data_route_knowledge',
+        'aluminum_industry_knowledge',
+        'experience_knowledge',
+    ]
+
+
+def test_rag_gap_suggests_next_action_instead_of_guessing() -> None:
+    message = build_rag_gap_next_step('彩涂车间能耗口径')
+
+    assert message == 'RAG 未命中“彩涂车间能耗口径”。下一步应查钉钉责任人文件、MES/WMS 明细、历史日报，或生成候选知识任务。'
