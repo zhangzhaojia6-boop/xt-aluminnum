@@ -105,7 +105,6 @@ def test_classifies_yield_feedback_and_meta_skill_intents() -> None:
         ('我要反馈一个问题', 'feedback', 'feedback_learning'),
         ('你说错了，重新学一下', 'feedback', 'feedback_learning'),
         ('这个数据我想纠错', 'feedback', 'feedback_learning'),
-        ('我有点意见', 'feedback', 'feedback_learning'),
         ('帮我生成 skill', 'skill_factory', 'meta_skill_request'),
         ('我想做一个技能包', 'skill_factory', 'meta_skill_request'),
         ('给我一个 agent 方案', 'skill_factory', 'meta_skill_request'),
@@ -126,3 +125,19 @@ def test_meta_skill_request_requires_root_owner() -> None:
         intent = classify_factory_brain_intent(text, today=today)
         assert intent.task_type == 'meta_skill_request'
         assert intent.requires_root_owner is True
+
+
+def test_over_broad_keywords_fall_back_to_general_chat() -> None:
+    today = date(2026, 6, 26)
+
+    for text in (
+        'GitHub skill 文档在哪里',
+        '这个PDF打不开',
+        '这张图片发不过去',
+        '你有什么意见',
+    ):
+        intent = classify_factory_brain_intent(text, today=today)
+        assert intent.intent_type == 'general_chat'
+        assert intent.task_type == 'general_chat'
+        assert intent.domain == 'general'
+        assert intent.should_use_factory_brain is False

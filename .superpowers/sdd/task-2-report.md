@@ -124,3 +124,38 @@ self-review:
 
 concerns:
 - 本轮只补了 DingTalk factory_brain 的 root_owner 门禁和 `meta_skill_request` flag，没有扩展其他入口或改变 `run_factory_brain_turn()` 内部行为。
+
+## Fix Task 2 Over-broad Rule Findings
+
+changed files:
+- `backend/app/services/hermes_factory_brain_intent_service.py`
+- `backend/tests/test_hermes_factory_brain_intent_service.py`
+- `backend/tests/test_dingtalk_factory_brain_inbound.py`
+- `.superpowers/sdd/task-2-report.md`
+
+commits:
+- `fix: tighten over-broad factory brain intent rules`
+
+tests run with outputs:
+- `cd backend && python -m pytest tests/test_hermes_factory_brain_intent_service.py tests/test_dingtalk_factory_brain_inbound.py -q` (red step after adding negative tests)
+  - output: `5 failed, 25 passed in 9.06s`
+  - failed cases:
+    - `GitHub skill 文档在哪里` 仍被判成 `meta_skill_request`
+    - `这个PDF打不开` 仍被判成 `artifact_request`
+    - `这张图片发不过去` 仍被判成 `artifact_request`
+    - `你有什么意见` 仍被判成 `feedback_learning`
+    - 上述 4 条在 DingTalk 入站里也仍被路由进 `factory_brain`
+- `cd backend && python -m pytest tests/test_hermes_factory_brain_intent_service.py tests/test_dingtalk_factory_brain_inbound.py -q` (green step after tightening rules)
+  - output: `30 passed in 4.55s`
+- `cd backend && python -m compileall app/services/hermes_factory_brain_intent_service.py`
+  - output: success
+- `git diff --check -- backend/app/services/hermes_factory_brain_intent_service.py backend/tests/test_hermes_factory_brain_intent_service.py backend/tests/test_dingtalk_factory_brain_inbound.py .superpowers/sdd/task-2-report.md`
+  - output: success
+
+self-review:
+- 根因不是 DingTalk 入口本身，而是分类器把 `skill / PDF / 图片 / 意见` 这些裸关键词看得太重，缺少“这是在创建/导出/纠错”的动作判断。
+- 这次只把 3 条规则收紧成“动作 + 目标”组合：`meta skill` 需要显式创建/规划意图，`artifact` 需要显式生成/导出/整理意图，`feedback` 需要显式反馈/纠错表达。
+- `meta_skill_request` 的 `requires_root_owner=True` 没有动，只是让真正该进这条高权限通道的请求更准确。
+
+concerns:
+- 这次 artifact 规则仍是关键词规则，不理解上下文语义；但对 review 指定的误判样例已经收紧到位，且没有放宽 root owner 门禁。

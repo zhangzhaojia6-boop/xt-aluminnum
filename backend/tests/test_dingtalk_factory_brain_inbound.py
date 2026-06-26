@@ -241,6 +241,10 @@ def test_dingtalk_inbound_rejects_root_owner_only_factory_brain_request_for_non_
         ('你好', 'trace-dingtalk-fallback-natural-hello-001'),
         ('随便聊两句', 'trace-dingtalk-fallback-natural-chat-001'),
         ('帮我随便说点什么', 'trace-dingtalk-fallback-natural-random-001'),
+        ('GitHub skill 文档在哪里', 'trace-dingtalk-fallback-natural-skill-doc-001'),
+        ('这个PDF打不开', 'trace-dingtalk-fallback-natural-pdf-001'),
+        ('这张图片发不过去', 'trace-dingtalk-fallback-natural-image-001'),
+        ('你有什么意见', 'trace-dingtalk-fallback-natural-opinion-001'),
     ],
 )
 def test_dingtalk_inbound_falls_back_for_ordinary_non_business_text(monkeypatch, text: str, trace_id: str) -> None:

@@ -18,9 +18,7 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
             business_date=business_date,
             requires_root_owner=True,
         )
-    if any(token in clean for token in ('生成 skill', 'GitHub skill', '技能包', 'agent 方案', 'Agent 方案', 'skill')) and any(
-        token in clean for token in ('skill', 'Skill', '技能', 'agent', 'Agent', 'GitHub')
-    ):
+    if _looks_like_meta_skill_request(clean):
         return FactoryBrainIntent(
             intent_type='task_instruction',
             task_type='meta_skill_request',
@@ -28,7 +26,7 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
             business_date=business_date,
             requires_root_owner=True,
         )
-    if any(token in clean for token in ('表格', 'Excel', '文档', 'PDF', '图表', '图片', '生成一张')):
+    if _looks_like_artifact_request(clean):
         return FactoryBrainIntent(
             intent_type='artifact_request',
             task_type='artifact_request',
@@ -89,7 +87,7 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
             business_date=business_date,
             entities=_extract_entities(clean),
         )
-    if any(token in clean for token in ('反馈', '纠错', '你说错了', '意见')):
+    if _looks_like_feedback_learning_request(clean):
         return FactoryBrainIntent(
             intent_type='task_instruction',
             task_type='feedback_learning',
@@ -176,6 +174,31 @@ def classify_factory_brain_intent(text: str, *, today: date) -> FactoryBrainInte
 
 def _looks_like_long_term_rule(text: str) -> bool:
     return any(token in text for token in ('以后', '记住', '长期规则', '作为规则', '不要记住', '临时口径'))
+
+
+def _looks_like_meta_skill_request(text: str) -> bool:
+    if not any(token in text for token in ('skill', 'Skill', '技能', '技能包', 'agent', 'Agent', 'GitHub')):
+        return False
+    return any(
+        token in text
+        for token in ('生成', '创建', '做一个', '做个', '做一套', '帮我做', '搭一个', '方案', '规划', '设计', '参考')
+    )
+
+
+def _looks_like_artifact_request(text: str) -> bool:
+    if not any(token in text for token in ('表格', 'Excel', '文档', 'PDF', '图表', '图片')):
+        return False
+    return any(
+        token in text
+        for token in ('生成', '导出', '整理', '汇总', '做成', '做个', '做一张', '给我', '发我', '出一份')
+    )
+
+
+def _looks_like_feedback_learning_request(text: str) -> bool:
+    return any(
+        token in text
+        for token in ('我要反馈', '反馈一下', '我来反馈', '我要纠错', '我想纠错', '这个数据我想纠错', '你说错了', '你搞错了', '我要提意见')
+    )
 
 
 def _extract_business_date(text: str, *, today: date) -> date:
