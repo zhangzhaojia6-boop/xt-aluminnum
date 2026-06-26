@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from app.services.hermes_factory_brain_types import FactoryBrainIntent, FactoryBrainNormalizedRequest
 
 
@@ -19,6 +21,7 @@ _WORKSHOP_ALIASES = {
 }
 
 _SOURCE_PRIORITY = ['dingtalk_specialist', 'mes', 'wms', 'datahub', 'historical_report', 'rag']
+_BARE_WORKSHOP_NUMBER_PATTERN = re.compile(r'(?<!\d)(1650|1850|2050)(?!\d)')
 
 
 def normalize_factory_request(text: str, intent: FactoryBrainIntent) -> FactoryBrainNormalizedRequest:
@@ -50,6 +53,9 @@ def _normalize_org_units(text: str, intent: FactoryBrainIntent) -> list[str]:
     for alias, canonical in _WORKSHOP_ALIASES.items():
         if alias in text and canonical not in values:
             values.append(canonical)
+    for match in _BARE_WORKSHOP_NUMBER_PATTERN.findall(text):
+        if match not in values:
+            values.append(match)
     return values or ['factory']
 
 
