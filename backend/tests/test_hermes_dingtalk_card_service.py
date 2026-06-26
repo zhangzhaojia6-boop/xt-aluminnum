@@ -39,3 +39,17 @@ def test_progress_card_uses_auditable_stage_detail_labels() -> None:
 
     assert '内部推理: 先猜一个答案再说' not in card['details']
     assert '正在查询数据源' in card['details']
+
+
+def test_progress_card_uses_safe_fallback_for_unknown_stage() -> None:
+    progress = FactoryBrainProgress(
+        stage='内部推理: 先猜一个答案再说',
+        title='Hermes 正在处理：今日产量',
+        details=['x'],
+        trace_id='trace-card-003',
+    )
+
+    card = build_progress_card(progress)
+
+    assert card['details'] == ['状态更新中']
+    assert '内部推理: 先猜一个答案再说' not in card['details']

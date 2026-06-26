@@ -150,3 +150,47 @@ Result:
 ...                                                                      [100%]
 3 passed in 2.06s
 ```
+
+## Reviewer Fix 2: Unsafe Unknown Stage Fallback
+
+### Finding addressed
+
+- `build_progress_card()` no longer uses unknown `progress.stage` text as the card detail fallback.
+- Unknown stages now map to the fixed safe label `状态更新中`, so free-text internal reasoning is not echoed into `card['details']`.
+
+### Regression test added
+
+- Added `test_progress_card_uses_safe_fallback_for_unknown_stage`.
+- The test builds `FactoryBrainProgress(stage='内部推理: 先猜一个答案再说', details=['x'], ...)` and proves `card['details']` becomes `['状态更新中']`.
+
+### Red
+
+Command:
+
+```bash
+cd backend
+python -m pytest tests/test_hermes_dingtalk_card_service.py -q
+```
+
+Result:
+
+```text
+FAILED tests/test_hermes_dingtalk_card_service.py::test_progress_card_uses_safe_fallback_for_unknown_stage
+AssertionError: assert ['内部推理: 先猜一个答案再说'] == ['状态更新中']
+```
+
+### Green
+
+Command:
+
+```bash
+cd backend
+python -m pytest tests/test_hermes_dingtalk_card_service.py -q
+```
+
+Result:
+
+```text
+....                                                                     [100%]
+4 passed in 2.04s
+```
