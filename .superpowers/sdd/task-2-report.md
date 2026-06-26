@@ -59,3 +59,35 @@ self-review:
 
 concerns:
 - 本轮只按 review 要求修了钉钉入站分流和最小测试覆盖，没有扩展 orchestrator 行为或改其他入口。
+
+## Fix Task 2 Re-review Findings
+
+changed files:
+- backend/app/services/hermes_factory_brain_intent_service.py
+- backend/tests/test_hermes_factory_brain_intent_service.py
+- backend/tests/test_dingtalk_factory_brain_inbound.py
+
+commits:
+- `7dce82bf` Prevent factory brain from hijacking generic chat
+
+tests run with outputs:
+- `cd backend && python -m pytest tests/test_hermes_factory_brain_intent_service.py tests/test_dingtalk_factory_brain_inbound.py -q` (red step after adding re-review tests)
+  - output: `6 failed, 17 passed in 5.42s`
+  - failed areas:
+    - 普通非业务文本 `你好 / 随便聊两句 / 帮我随便说点什么` 仍被判成 `factory_brain`
+    - `成品率 / 成材率 / 收得率` 仍被旧异常分支抢先命中
+- `cd backend && python -m pytest tests/test_hermes_factory_brain_intent_service.py tests/test_dingtalk_factory_brain_inbound.py -q` (green step after fix)
+  - output: `23 passed in 4.46s`
+- `cd backend && python -m compileall app/services/hermes_factory_brain_intent_service.py`
+  - output: success
+- `git diff --check -- backend/app/services/hermes_factory_brain_intent_service.py backend/tests/test_hermes_factory_brain_intent_service.py backend/tests/test_dingtalk_factory_brain_inbound.py .superpowers/sdd/task-2-report.md`
+  - output: success
+
+self-review:
+- 根因是 `classify_factory_brain_intent()` 的默认兜底仍把普通自然语言标成 `should_use_factory_brain=True`，所以 DingTalk 门禁虽然已经信任 intent flag，仍会把普通闲聊放进 `factory_brain`。
+- 这次把默认 general fallback 改成 `should_use_factory_brain=False`，同时把 `你在干嘛` 一类普通聊天也收回到通用答复通道。
+- 新增了三类确定性业务规则：`yield_analysis`、`feedback_learning`、`meta_skill_request`，并把 yield 规则前移，避免再次被 `是不是低了 / 是不是高了` 旧规则截走。
+- DingTalk 新增入站测试不只测“笑话”，还覆盖了 `你好`、`随便聊两句`、`帮我随便说点什么` 这类最常见普通聊天兜底。
+
+concerns:
+- 未新增 yield / feedback / meta skill 的 DingTalk 正向入站测试，因为 DingTalk 入口当前只读取 `intent.should_use_factory_brain`；这次 focused tests 已证明新 intent 会被分类为业务通道，且普通聊天不会再进工厂大脑。
