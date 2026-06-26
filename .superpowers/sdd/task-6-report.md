@@ -106,3 +106,47 @@ Result:
 
 - The repository currently has unrelated existing changes in `AGENTS.md` and untracked `docs/superpowers/*` files. They were left untouched.
 - The instruction mentioned `docs/longterm-ai-skill-system-spec.md`, but that file does not exist in this worktree. This did not block Task 6 because the brief provided exact implementation requirements.
+
+## Reviewer Fix Evidence
+
+### Finding addressed
+
+- `build_progress_card()` no longer exposes caller-provided `progress.details` in DingTalk cards.
+- Card details now come only from fixed stage labels in `_STAGES`; unknown stages fall back to the stage name itself.
+
+### Regression test added
+
+- Added `test_progress_card_uses_auditable_stage_detail_labels`.
+- The test builds `FactoryBrainProgress(stage='querying', details=['内部推理: 先猜一个答案再说'], ...)` and proves the internal text is filtered out while `正在查询数据源` remains.
+
+### Red
+
+Command:
+
+```bash
+cd backend
+python -m pytest tests/test_hermes_dingtalk_card_service.py -q
+```
+
+Result:
+
+```text
+FAILED tests/test_hermes_dingtalk_card_service.py::test_progress_card_uses_auditable_stage_detail_labels
+AssertionError: assert '内部推理: 先猜一个答案再说' not in ['内部推理: 先猜一个答案再说']
+```
+
+### Green
+
+Command:
+
+```bash
+cd backend
+python -m pytest tests/test_hermes_dingtalk_card_service.py -q
+```
+
+Result:
+
+```text
+...                                                                      [100%]
+3 passed in 2.06s
+```

@@ -14,6 +14,7 @@ _STAGES = [
     ('completed', '已完成'),
     ('feedback', '等待反馈'),
 ]
+_STAGE_DETAIL_LABELS = dict(_STAGES)
 
 
 def build_progress_sequence(trace_id: str, title: str) -> list[FactoryBrainProgress]:
@@ -29,11 +30,13 @@ def build_progress_sequence(trace_id: str, title: str) -> list[FactoryBrainProgr
 
 
 def build_progress_card(progress: FactoryBrainProgress) -> dict[str, Any]:
+    detail_label = _STAGE_DETAIL_LABELS.get(progress.stage, progress.stage)
+
     return {
         'cardBizId': f'hermes-factory-brain-{progress.trace_id}',
         'title': progress.title,
         'stage': progress.stage,
-        'details': list(progress.details),
+        'details': [detail_label],
         'actions': [
             {'key': 'view_sources', 'label': '查看来源'},
             {'key': 'rerun', 'label': '重新查询'},
