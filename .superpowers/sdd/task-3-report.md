@@ -49,3 +49,27 @@ tests run with outputs:
   - output:
     - `Compiling 'app/services/hermes_factory_normalization_service.py'...`
     - `Compiling 'tests/test_hermes_factory_normalization_service.py'...`
+
+## Fix Task 3 Final Review Finding
+
+changed files:
+- `backend/app/services/hermes_factory_normalization_service.py`
+- `backend/tests/test_hermes_factory_normalization_service.py`
+- `.superpowers/sdd/task-3-report.md`
+
+tests run with outputs:
+- `cd backend && python -m pytest tests/test_hermes_factory_normalization_service.py -q` (red step)
+  - output:
+    - `3 failed, 5 passed in 3.62s`
+    - failures: `entities={'workshop': '1650'/'1850'/'2050'}` still normalized to `factory` when text did not include the workshop number
+- `cd backend && python -m pytest tests/test_hermes_factory_normalization_service.py -q` (green step)
+  - output: `8 passed in 2.11s`
+- `cd backend && python -m compileall app/services/hermes_factory_normalization_service.py tests/test_hermes_factory_normalization_service.py`
+  - output:
+    - `Compiling 'tests/test_hermes_factory_normalization_service.py'...`
+- `git diff --check -- backend/app/services/hermes_factory_normalization_service.py backend/tests/test_hermes_factory_normalization_service.py .superpowers/sdd/task-3-report.md`
+  - output: success
+
+self-review:
+- 只补了一个缺口：当上游意图分类器把车间直接归一成裸数字字符串时，归一化层现在会把它当作车间，不再错误回退到全厂。
+- 原有别名匹配、文本裸数字匹配、指标归一化和输出模式逻辑都保持不变。

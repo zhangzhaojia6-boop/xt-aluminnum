@@ -63,3 +63,19 @@ def test_normalizes_bare_workshop_numbers_without_entities(
 
     assert result.scope == 'workshop'
     assert result.org_units == expected_org_units
+
+
+@pytest.mark.parametrize('workshop', ['1650', '1850', '2050'])
+def test_normalizes_bare_workshop_numbers_from_entities(workshop: str) -> None:
+    intent = FactoryBrainIntent(
+        intent_type='task_instruction',
+        task_type='daily_output',
+        domain='production',
+        business_date=date(2026, 6, 26),
+        entities={'workshop': workshop},
+    )
+
+    result = normalize_factory_request('今天产量发我', intent)
+
+    assert result.scope == 'workshop'
+    assert result.org_units == [workshop]

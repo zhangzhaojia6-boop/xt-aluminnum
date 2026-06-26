@@ -50,6 +50,8 @@ def _normalize_org_units(text: str, intent: FactoryBrainIntent) -> list[str]:
     raw_workshop = str((intent.entities or {}).get('workshop') or '').strip()
     if raw_workshop in _WORKSHOP_ALIASES:
         values.append(_WORKSHOP_ALIASES[raw_workshop])
+    elif _BARE_WORKSHOP_NUMBER_PATTERN.fullmatch(raw_workshop):
+        values.append(raw_workshop)
     for alias, canonical in _WORKSHOP_ALIASES.items():
         if alias in text and canonical not in values:
             values.append(canonical)
