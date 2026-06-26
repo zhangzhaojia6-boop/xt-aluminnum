@@ -57,7 +57,7 @@ def _normalize_org_units(text: str, intent: FactoryBrainIntent) -> list[str]:
     raw_workshop = str((intent.entities or {}).get('workshop') or '').strip()
     if raw_workshop in _WORKSHOP_ALIASES:
         values.append(_WORKSHOP_ALIASES[raw_workshop])
-    elif _BARE_WORKSHOP_NUMBER_PATTERN.fullmatch(raw_workshop) and _text_confirms_bare_workshop_entity(
+    elif _BARE_WORKSHOP_NUMBER_PATTERN.fullmatch(raw_workshop) and not _text_rejects_bare_workshop_entity(
         text, raw_workshop
     ):
         values.append(raw_workshop)
@@ -74,12 +74,8 @@ def _normalize_org_units(text: str, intent: FactoryBrainIntent) -> list[str]:
             values.append(match)
     return values or ['factory']
 
-
-def _text_confirms_bare_workshop_entity(text: str, workshop: str) -> bool:
-    leading_match = _LEADING_WORKSHOP_NUMBER_PATTERN.match(text)
-    if leading_match and leading_match.group(1) == workshop:
-        return True
-    return workshop in _EXPLICIT_WORKSHOP_SUFFIX_PATTERN.findall(text)
+def _text_rejects_bare_workshop_entity(text: str, workshop: str) -> bool:
+    return re.search(rf'(?<!\d){re.escape(workshop)}\s*(?:吨|[tT])', text) is not None
 
 
 def _normalize_metrics(text: str, intent: FactoryBrainIntent) -> list[str]:
