@@ -49,3 +49,35 @@ def test_falls_back_for_unrelated_text() -> None:
 
     assert result.intent_type == 'general_chat'
     assert result.should_use_factory_brain is True
+
+
+def test_common_business_phrases_route_before_model_fallback() -> None:
+    today = date(2026, 6, 26)
+
+    cases = [
+        ('产量', 'production', 'daily_output'),
+        ('今天怎么样', 'operations', 'factory_overview'),
+        ('昨日日报', 'production', 'daily_report'),
+        ('本月经营情况', 'operations', 'monthly_operation'),
+        ('年度经营情况', 'operations', 'yearly_operation'),
+        ('1650今天是不是低了', 'production', 'anomaly_analysis'),
+        ('库存够不够', 'inventory', 'inventory_query'),
+        ('合同余量', 'contract', 'contract_balance'),
+        ('能耗是不是异常', 'energy', 'energy_analysis'),
+        ('成本核算发我', 'cost', 'cost_analysis'),
+        ('生成一张产量表格', 'artifact', 'artifact_request'),
+    ]
+
+    for text, domain, task_type in cases:
+        intent = classify_factory_brain_intent(text, today=today)
+        assert intent.should_use_factory_brain is True
+        assert intent.domain == domain
+        assert intent.task_type == task_type
+
+
+def test_non_business_question_uses_general_answer_lane() -> None:
+    intent = classify_factory_brain_intent('给我讲个轻松的笑话', today=date(2026, 6, 26))
+
+    assert intent.should_use_factory_brain is False
+    assert intent.domain == 'general'
+    assert intent.task_type == 'general_chat'
