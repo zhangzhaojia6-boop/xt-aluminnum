@@ -91,3 +91,36 @@ self-review:
 
 concerns:
 - 未新增 yield / feedback / meta skill 的 DingTalk 正向入站测试，因为 DingTalk 入口当前只读取 `intent.should_use_factory_brain`；这次 focused tests 已证明新 intent 会被分类为业务通道，且普通聊天不会再进工厂大脑。
+
+## Fix Task 2 Root Owner Review Findings
+
+changed files:
+- backend/app/services/hermes_factory_brain_intent_service.py
+- backend/app/routers/dingtalk.py
+- backend/tests/test_hermes_factory_brain_intent_service.py
+- backend/tests/test_dingtalk_factory_brain_inbound.py
+
+commits:
+- `17fc7149` Restore root_owner gating for factory-brain-only DingTalk intents
+
+tests run with outputs:
+- `cd backend && python -m pytest tests/test_hermes_factory_brain_intent_service.py tests/test_dingtalk_factory_brain_inbound.py -q` (red step after adding review tests)
+  - output: `..........F.........F....`
+  - failure summary: `2 failed, 23 passed in 4.91s`
+  - failed cases:
+    - `test_meta_skill_request_requires_root_owner`
+    - `test_dingtalk_inbound_rejects_root_owner_only_factory_brain_request_for_non_root_owner`
+- `cd backend && python -m pytest tests/test_hermes_factory_brain_intent_service.py tests/test_dingtalk_factory_brain_inbound.py -q` (green step after fix)
+  - output: `25 passed in 5.00s`
+- `cd backend && python -m compileall app/services/hermes_factory_brain_intent_service.py app/routers/dingtalk.py`
+  - output: success
+- `git diff --check -- backend/app/services/hermes_factory_brain_intent_service.py backend/app/routers/dingtalk.py backend/tests/test_hermes_factory_brain_intent_service.py backend/tests/test_dingtalk_factory_brain_inbound.py .superpowers/sdd/task-2-report.md`
+  - output: success
+
+self-review:
+- 根因是 DingTalk 入口只看 `intent.should_use_factory_brain`，没有在进入 `run_factory_brain_turn()` 前再看 `intent.requires_root_owner`，所以 `meta_skill_request` 这类高权限意图会被普通管理员/经理绕过进工厂大脑。
+- 这次直接复用现有 `classify_day1_actor()` 和 `require_root_owner_for_day1_report()`，让 factory_brain 也走同一套 `owner_required` 判断，没有新增第二套 root_owner 鉴权分支。
+- `meta_skill_request` 现在会显式打上 `requires_root_owner=True`，并补了定向测试证明 flag 已生效、非 root_owner 的 DingTalk 请求会被 `403 owner_required` 拦住。
+
+concerns:
+- 本轮只补了 DingTalk factory_brain 的 root_owner 门禁和 `meta_skill_request` flag，没有扩展其他入口或改变 `run_factory_brain_turn()` 内部行为。
