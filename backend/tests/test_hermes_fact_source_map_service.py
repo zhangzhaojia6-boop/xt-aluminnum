@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
 import app.models  # noqa: F401
 from app.database import Base
-from backend.scripts.hermes_fact_source_map_export import render_fact_source_map_markdown
 from app.services.hermes_fact_source_map_service import (
     find_fact_source,
     load_fact_source_map,
     source_summary_for_metric,
 )
+from scripts.hermes_fact_source_map_export import render_fact_source_map_markdown
 
 EXPECTED_METRIC_KEYS = {
     "total_output_daily",
