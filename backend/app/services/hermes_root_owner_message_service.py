@@ -96,9 +96,11 @@ def understand_root_owner_message(
 
     business_date, date_reason = _resolve_business_date(normalized, base_business_date)
 
-    if (
-        _looks_like_follow_up(normalized) or _looks_like_date_only_follow_up(normalized)
-    ) and previous_domain in {"production", "inventory", "energy", "anomaly"}:
+    can_use_previous_domain = previous_domain in {"production", "inventory", "energy", "anomaly"} and (
+        _looks_like_date_only_follow_up(normalized)
+        or (_looks_like_follow_up(normalized) and _has_business_anchor(normalized))
+    )
+    if can_use_previous_domain:
         intent = "conflict_explanation" if _looks_like_conflict_explanation(normalized) else "follow_up"
         metric_keys = _DOMAIN_INTENT.get(previous_domain, _DOMAIN_INTENT["factory_overview"])[1]
         return RootOwnerMessagePlan(
@@ -163,7 +165,7 @@ def understand_root_owner_message(
             recognition_reason=_join_reasons("business_domain_unclear", date_reason, typo_changed),
         )
 
-    if _has_any(normalized, ("今天", "昨天", "前天", "现在", "今日", "昨日")):
+    if _looks_like_factory_overview_ask(normalized):
         intent, metric_keys = _DOMAIN_INTENT["factory_overview"]
         return RootOwnerMessagePlan(
             raw_text=raw_text,
@@ -250,6 +252,28 @@ def _looks_like_follow_up(text: str) -> bool:
 def _looks_like_date_only_follow_up(text: str) -> bool:
     compact = text.rstrip("呢?？。！!")
     return compact in {"今天", "今日", "昨天", "昨日", "前天"}
+
+
+def _looks_like_factory_overview_ask(text: str) -> bool:
+    compact = text.rstrip("呢?？。！!")
+    return compact in {
+        "今天咋样",
+        "今日咋样",
+        "昨天咋样",
+        "昨日咋样",
+        "前天咋样",
+        "现在咋样",
+        "今天怎么样",
+        "今日怎么样",
+        "昨天怎么样",
+        "昨日怎么样",
+        "前天怎么样",
+        "现在怎么样",
+    }
+
+
+def _has_business_anchor(text: str) -> bool:
+    return any(score > 0 for score in _score_domains(text).values())
 
 
 def _looks_like_conflict_explanation(text: str, scores: dict[str, int] | None = None) -> bool:
