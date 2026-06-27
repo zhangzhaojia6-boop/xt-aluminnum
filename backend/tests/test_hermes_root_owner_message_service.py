@@ -92,6 +92,18 @@ def test_understands_energy_question_without_exact_sentence() -> None:
     assert plan.needs_clarification is False
 
 
+def test_does_not_route_ordinary_messages_from_single_character_terms() -> None:
+    for message in ("电影咋样", "少说两句"):
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+        )
+
+        assert plan.domain == "general"
+        assert plan.needs_clarification is True
+        assert plan.clarification_question == "你想看生产、库存、能耗还是异常？"
+
+
 def test_uses_previous_domain_for_short_follow_up() -> None:
     plan = understand_root_owner_message(
         "那为啥对不上",
@@ -103,6 +115,28 @@ def test_uses_previous_domain_for_short_follow_up() -> None:
     assert plan.intent == "conflict_explanation"
     assert plan.needs_clarification is False
     assert "context_follow_up" in plan.recognition_reason
+
+
+def test_date_only_follow_up_keeps_previous_domain_and_updates_date() -> None:
+    cases = (
+        ("今天呢", date(2026, 6, 27), "explicit_today"),
+        ("昨天呢", date(2026, 6, 26), "explicit_yesterday"),
+        ("前天呢", date(2026, 6, 25), "explicit_day_before_yesterday"),
+    )
+
+    for message, expected_date, expected_reason in cases:
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+            previous_domain="production",
+        )
+
+        assert plan.business_date == expected_date
+        assert plan.domain == "production"
+        assert plan.intent == "follow_up"
+        assert plan.needs_clarification is False
+        assert "context_follow_up" in plan.recognition_reason
+        assert expected_reason in plan.recognition_reason
 
 
 def test_asks_short_clarification_when_message_is_not_business_question() -> None:
