@@ -32,13 +32,15 @@ _TYPO_REPLACEMENTS = {
 
 _DOMAIN_CLARIFICATION_QUESTION = "你想看生产、库存、能耗还是异常？"
 _DATE_CLARIFICATION_QUESTION = "你想看哪一天？"
+_WHY_TERMS = ("为什么", "为啥")
+_CONFLICT_TERMS = ("对不上", "不一致", "差异")
 _BUSINESS_MISSING_TERMS = ("缺数据", "缺来源", "缺口", "缺报")
 
 _DOMAIN_TERMS = {
     "production": ("产量", "生产", "投料", "日报"),
     "inventory": ("库存", "成品库", "入库", "在制", "余合同", "合同余量", "余量"),
     "energy": ("能耗", "电耗", "用电", "电这块", "用气", "气耗", "吨电耗"),
-    "anomaly": ("异常", "对不上", "为什么", "为啥", "不一致", "差异", *_BUSINESS_MISSING_TERMS),
+    "anomaly": ("异常", *_CONFLICT_TERMS, *_BUSINESS_MISSING_TERMS),
 }
 
 _DOMAIN_INTENT = {
@@ -97,7 +99,7 @@ def understand_root_owner_message(
     if (
         _looks_like_follow_up(normalized) or _looks_like_date_only_follow_up(normalized)
     ) and previous_domain in {"production", "inventory", "energy", "anomaly"}:
-        intent = "conflict_explanation" if _has_any(normalized, ("对不上", "为啥", "为什么", "差异")) else "follow_up"
+        intent = "conflict_explanation" if _looks_like_conflict_explanation(normalized) else "follow_up"
         metric_keys = _DOMAIN_INTENT.get(previous_domain, _DOMAIN_INTENT["factory_overview"])[1]
         return RootOwnerMessagePlan(
             raw_text=raw_text,
@@ -113,7 +115,8 @@ def understand_root_owner_message(
         )
 
     if _has_any(normalized, _BUSINESS_MISSING_TERMS):
-        intent, metric_keys = _DOMAIN_INTENT["anomaly"]
+        _default_intent, metric_keys = _DOMAIN_INTENT["anomaly"]
+        intent = "conflict_explanation" if _has_any(normalized, _WHY_TERMS) else _default_intent
         return RootOwnerMessagePlan(
             raw_text=raw_text,
             normalized_text=normalized,
@@ -131,7 +134,7 @@ def understand_root_owner_message(
     domain, score = max(scored.items(), key=lambda item: item[1])
     if score > 0:
         intent, metric_keys = _DOMAIN_INTENT[domain]
-        if domain == "anomaly" and _has_any(normalized, ("对不上", "不一致", "差异", "为啥", "为什么")):
+        if _looks_like_conflict_explanation(normalized, scored):
             intent = "conflict_explanation"
         return RootOwnerMessagePlan(
             raw_text=raw_text,
@@ -144,6 +147,20 @@ def understand_root_owner_message(
             needs_clarification=False,
             clarification_question=None,
             recognition_reason=_join_reasons("soft_semantic_match", domain, date_reason, typo_changed),
+        )
+
+    if _looks_like_date_only_follow_up(normalized) or _has_any(normalized, _WHY_TERMS):
+        return RootOwnerMessagePlan(
+            raw_text=raw_text,
+            normalized_text=normalized,
+            business_date=business_date,
+            domain="general",
+            intent="clarify",
+            metric_keys=(),
+            confidence=0.2,
+            needs_clarification=True,
+            clarification_question=_DOMAIN_CLARIFICATION_QUESTION,
+            recognition_reason=_join_reasons("business_domain_unclear", date_reason, typo_changed),
         )
 
     if _has_any(normalized, ("今天", "昨天", "前天", "现在", "今日", "昨日")):
@@ -227,12 +244,23 @@ def _has_any(text: str, terms: tuple[str, ...]) -> bool:
 
 
 def _looks_like_follow_up(text: str) -> bool:
-    return _has_any(text, ("那", "这个", "那个", "刚才", "为啥", "为什么", "对不上"))
+    return _has_any(text, ("那", "这个", "那个", "刚才", *_WHY_TERMS, "对不上"))
 
 
 def _looks_like_date_only_follow_up(text: str) -> bool:
     compact = text.rstrip("呢?？。！!")
     return compact in {"今天", "今日", "昨天", "昨日", "前天"}
+
+
+def _looks_like_conflict_explanation(text: str, scores: dict[str, int] | None = None) -> bool:
+    if _has_any(text, _CONFLICT_TERMS):
+        return True
+    if not _has_any(text, _WHY_TERMS):
+        return False
+    if _has_any(text, _BUSINESS_MISSING_TERMS):
+        return True
+    domain_scores = scores if scores is not None else _score_domains(text)
+    return any(score > 0 for domain, score in domain_scores.items() if domain != "anomaly")
 
 
 def _join_reasons(*items: object) -> str:

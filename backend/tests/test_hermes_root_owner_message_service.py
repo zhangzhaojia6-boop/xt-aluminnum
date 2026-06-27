@@ -116,6 +116,18 @@ def test_does_not_route_ordinary_missing_character_messages_to_anomaly() -> None
         assert plan.clarification_question == "你想看生产、库存、能耗还是异常？"
 
 
+def test_does_not_route_bare_why_messages_to_anomaly() -> None:
+    for message in ("为什么还没下班", "为啥这样"):
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+        )
+
+        assert plan.domain == "general"
+        assert plan.needs_clarification is True
+        assert plan.clarification_question == "你想看生产、库存、能耗还是异常？"
+
+
 def test_routes_business_missing_data_message_to_anomaly() -> None:
     plan = understand_root_owner_message(
         "今天日报缺数据吗",
@@ -125,6 +137,16 @@ def test_routes_business_missing_data_message_to_anomaly() -> None:
     assert plan.domain == "anomaly"
     assert plan.intent == "anomaly_summary"
     assert "anomaly_explanation_daily" in plan.metric_keys
+    assert plan.needs_clarification is False
+
+
+def test_business_anchored_why_can_request_conflict_explanation() -> None:
+    plan = understand_root_owner_message(
+        "产量为什么对不上",
+        default_business_date=date(2026, 6, 27),
+    )
+
+    assert plan.intent == "conflict_explanation"
     assert plan.needs_clarification is False
 
 
@@ -161,6 +183,18 @@ def test_date_only_follow_up_keeps_previous_domain_and_updates_date() -> None:
         assert plan.needs_clarification is False
         assert "context_follow_up" in plan.recognition_reason
         assert expected_reason in plan.recognition_reason
+
+
+def test_date_only_messages_without_previous_domain_need_clarification() -> None:
+    for message in ("今天呢", "昨天呢", "前天呢"):
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+        )
+
+        assert plan.domain == "general"
+        assert plan.needs_clarification is True
+        assert plan.clarification_question == "你想看生产、库存、能耗还是异常？"
 
 
 def test_asks_short_clarification_when_message_is_not_business_question() -> None:
