@@ -32,12 +32,13 @@ _TYPO_REPLACEMENTS = {
 
 _DOMAIN_CLARIFICATION_QUESTION = "你想看生产、库存、能耗还是异常？"
 _DATE_CLARIFICATION_QUESTION = "你想看哪一天？"
+_BUSINESS_MISSING_TERMS = ("缺数据", "缺来源", "缺口", "缺报")
 
 _DOMAIN_TERMS = {
     "production": ("产量", "生产", "投料", "日报"),
     "inventory": ("库存", "成品库", "入库", "在制", "余合同", "合同余量", "余量"),
     "energy": ("能耗", "电耗", "用电", "电这块", "用气", "气耗", "吨电耗"),
-    "anomaly": ("异常", "对不上", "为什么", "为啥", "不一致", "差异", "缺"),
+    "anomaly": ("异常", "对不上", "为什么", "为啥", "不一致", "差异", *_BUSINESS_MISSING_TERMS),
 }
 
 _DOMAIN_INTENT = {
@@ -109,6 +110,21 @@ def understand_root_owner_message(
             needs_clarification=False,
             clarification_question=None,
             recognition_reason=_join_reasons("context_follow_up", "soft_semantic_match", date_reason, typo_changed),
+        )
+
+    if _has_any(normalized, _BUSINESS_MISSING_TERMS):
+        intent, metric_keys = _DOMAIN_INTENT["anomaly"]
+        return RootOwnerMessagePlan(
+            raw_text=raw_text,
+            normalized_text=normalized,
+            business_date=business_date,
+            domain="anomaly",
+            intent=intent,
+            metric_keys=metric_keys,
+            confidence=0.69,
+            needs_clarification=False,
+            clarification_question=None,
+            recognition_reason=_join_reasons("soft_semantic_match", "anomaly", date_reason, typo_changed),
         )
 
     scored = _score_domains(normalized)

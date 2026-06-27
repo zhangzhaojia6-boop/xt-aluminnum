@@ -104,6 +104,30 @@ def test_does_not_route_ordinary_messages_from_single_character_terms() -> None:
         assert plan.clarification_question == "你想看生产、库存、能耗还是异常？"
 
 
+def test_does_not_route_ordinary_missing_character_messages_to_anomaly() -> None:
+    for message in ("缺觉了", "缺个人", "怎么还缺你"):
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+        )
+
+        assert plan.domain == "general"
+        assert plan.needs_clarification is True
+        assert plan.clarification_question == "你想看生产、库存、能耗还是异常？"
+
+
+def test_routes_business_missing_data_message_to_anomaly() -> None:
+    plan = understand_root_owner_message(
+        "今天日报缺数据吗",
+        default_business_date=date(2026, 6, 27),
+    )
+
+    assert plan.domain == "anomaly"
+    assert plan.intent == "anomaly_summary"
+    assert "anomaly_explanation_daily" in plan.metric_keys
+    assert plan.needs_clarification is False
+
+
 def test_uses_previous_domain_for_short_follow_up() -> None:
     plan = understand_root_owner_message(
         "那为啥对不上",
