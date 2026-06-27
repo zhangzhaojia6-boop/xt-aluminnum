@@ -17,6 +17,42 @@ def test_understands_colloquial_factory_overview_without_hard_keywords() -> None
     assert "soft_default_today" in plan.recognition_reason
 
 
+def test_resolves_yesterday_for_colloquial_factory_overview() -> None:
+    plan = understand_root_owner_message(
+        "昨天咋样",
+        default_business_date=date(2026, 6, 27),
+    )
+
+    assert plan.business_date == date(2026, 6, 26)
+    assert plan.domain == "factory_overview"
+    assert plan.needs_clarification is False
+    assert "explicit_yesterday" in plan.recognition_reason
+
+
+def test_resolves_day_before_yesterday_for_business_question() -> None:
+    plan = understand_root_owner_message(
+        "前天生产咋样",
+        default_business_date=date(2026, 6, 27),
+    )
+
+    assert plan.business_date == date(2026, 6, 25)
+    assert plan.domain == "production"
+    assert plan.needs_clarification is False
+    assert "explicit_day_before_yesterday" in plan.recognition_reason
+
+
+def test_asks_short_date_clarification_for_ambiguous_time_expression() -> None:
+    plan = understand_root_owner_message(
+        "最近咋样",
+        default_business_date=date(2026, 6, 27),
+    )
+
+    assert plan.business_date == date(2026, 6, 27)
+    assert plan.needs_clarification is True
+    assert plan.clarification_question == "你想看哪一天？"
+    assert "ambiguous_time_expression" in plan.recognition_reason
+
+
 def test_tolerates_common_typos_for_production_question() -> None:
     plan = understand_root_owner_message(
         "今添产亮咋样",
@@ -28,6 +64,20 @@ def test_tolerates_common_typos_for_production_question() -> None:
     assert "total_output_daily" in plan.metric_keys
     assert plan.needs_clarification is False
     assert "typo_normalized" in plan.recognition_reason
+
+
+def test_routes_inventory_question_separately_from_production() -> None:
+    plan = understand_root_owner_message(
+        "今天库存咋样",
+        default_business_date=date(2026, 6, 27),
+    )
+
+    assert plan.business_date == date(2026, 6, 27)
+    assert plan.domain == "inventory"
+    assert plan.intent == "inventory_summary"
+    assert "wip_total" in plan.metric_keys
+    assert "remaining_contract_weight" in plan.metric_keys
+    assert plan.needs_clarification is False
 
 
 def test_understands_energy_question_without_exact_sentence() -> None:
