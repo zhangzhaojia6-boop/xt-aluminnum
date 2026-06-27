@@ -44,6 +44,7 @@ _PRODUCTION_QUERY_KEYS = {
     "wip_total": "wip_totals",
     "remaining_contract_weight": "stock_records",
 }
+_MES_DOMAINS = {"production", "factory_overview", "anomaly", "inventory"}
 
 
 DingTalkReader = Callable[..., list[EvidenceCandidate]]
@@ -61,6 +62,8 @@ def collect_root_owner_evidence(
 ) -> EvidenceDecision:
     candidates: list[EvidenceCandidate] = []
     missing_sources: list[str] = []
+    source_status: dict[str, dict[str, Any]] = {}
+    supporting_evidence: list[dict[str, Any]] = []
 
     dingtalk_candidates = (
         dingtalk_reader(db=db, business_date=message_plan.business_date, trace_id=trace_id)
@@ -68,25 +71,57 @@ def collect_root_owner_evidence(
         else _read_dingtalk_candidates(db, business_date=message_plan.business_date)
     )
     if dingtalk_candidates:
-        candidates.extend(dingtalk_candidates)
+        primary_dingtalk_candidates = [
+            candidate
+            for candidate in dingtalk_candidates
+            if _is_current_dingtalk_metric_fact(candidate, message_plan.metric_keys)
+        ]
+        supporting_dingtalk_candidates = [
+            candidate for candidate in dingtalk_candidates if candidate not in primary_dingtalk_candidates
+        ]
+        candidates.extend(primary_dingtalk_candidates)
+        supporting_evidence.extend(
+            _candidate_trace_detail(candidate, status="supporting_only", reason="no_current_metric_fact")
+            for candidate in supporting_dingtalk_candidates
+        )
+        source_status["dingtalk_group_content"] = {
+            "status": "ok" if primary_dingtalk_candidates else "supporting_only",
+            "candidate_count": len(primary_dingtalk_candidates),
+            "supporting_count": len(supporting_dingtalk_candidates),
+        }
+        if not primary_dingtalk_candidates:
+            source_status["dingtalk_group_content"]["reason"] = "no_current_metric_fact"
     else:
         missing_sources.append("dingtalk_group_content")
+        source_status["dingtalk_group_content"] = {"status": "missing", "reason": "no_candidates"}
 
-    if message_plan.domain in {"production", "factory_overview", "anomaly"}:
+    mes_query_keys = _planned_mes_query_keys(message_plan)
+    if message_plan.domain in _MES_DOMAINS:
         if mes_reader is None:
             missing_sources.append("mes_readonly")
+            source_status["mes_readonly"] = {
+                "status": "missing",
+                "reason": "reader_unavailable",
+                "query_keys": mes_query_keys,
+            }
         else:
-            mes_candidate = _read_mes_candidate(mes_reader, message_plan=message_plan)
+            mes_candidate, mes_status = _read_mes_candidate(
+                mes_reader,
+                message_plan=message_plan,
+                query_keys=mes_query_keys,
+            )
+            source_status["mes_readonly"] = mes_status
             if mes_candidate is None:
                 missing_sources.append("mes_readonly")
             else:
                 candidates.append(mes_candidate)
 
-    hub_payload = (
-        hub_reader(db=db, business_date=message_plan.business_date)
-        if hub_reader
-        else _read_hub_payload(db, message_plan.business_date)
+    hub_payload, hub_status = _read_hub_payload(
+        db,
+        message_plan.business_date,
+        hub_reader=hub_reader,
     )
+    source_status["data_hub_projection"] = hub_status
     if hub_payload:
         candidates.append(
             EvidenceCandidate(
@@ -116,6 +151,8 @@ def collect_root_owner_evidence(
             "intent": message_plan.intent,
             "source_order": [candidate.source_key for candidate in decision.candidates],
             "missing_sources": missing_sources,
+            "source_status": source_status,
+            "supporting_evidence": supporting_evidence,
             "conflicts": list(decision.conflicts),
         },
     )
@@ -174,7 +211,68 @@ def _read_dingtalk_candidates(db: Session | None, *, business_date) -> list[Evid
     return result
 
 
-def _read_mes_candidate(mes_reader: HermesMesReadService, *, message_plan: Any) -> EvidenceCandidate | None:
+def _read_mes_candidate(
+    mes_reader: HermesMesReadService,
+    *,
+    message_plan: Any,
+    query_keys: list[str],
+) -> tuple[EvidenceCandidate | None, dict[str, Any]]:
+    try:
+        payload = mes_reader.read_sources(business_date=message_plan.business_date, query_keys=query_keys)
+    except Exception as exc:
+        return None, {
+            "status": "failed",
+            "query_keys": query_keys,
+            "error": redact_secret_text(f"{type(exc).__name__}: {exc}"),
+        }
+    if not payload:
+        return None, {"status": "missing", "reason": "empty_payload", "query_keys": query_keys}
+    status = str((payload.get("source_status") or {}).get("mes") or "empty")
+    status_detail = {
+        "status": status,
+        "query_keys": query_keys,
+        "source_status": filter_sensitive_mapping(payload.get("source_status") or {}),
+        "source_errors": redact_secret_text(str(payload.get("source_errors") or {})),
+    }
+    if status not in {"ok", "partial_failed"}:
+        status_detail["reason"] = "source_status_not_ok"
+        return None, status_detail
+    return (
+        EvidenceCandidate(
+            source_key="mes_readonly",
+            source_type="external_readonly",
+            domain=message_plan.domain,
+            priority=EXTERNAL_READONLY_PRIORITY,
+            status="ok" if status == "ok" else "candidate",
+            value=filter_sensitive_mapping(payload.get("records") or {}),
+            summary="MES 只读库已读取",
+            trace_ref=status_detail,
+        ),
+        status_detail,
+    )
+
+
+def _read_hub_payload(
+    db: Session | None,
+    business_date,
+    *,
+    hub_reader: HubReader | None,
+) -> tuple[Mapping[str, Any] | None, dict[str, Any]]:
+    try:
+        if hub_reader:
+            payload = hub_reader(db=db, business_date=business_date)
+        elif db is None:
+            return None, {"status": "missing", "reason": "db_unavailable"}
+        else:
+            payload = template_daily_report.build_template_daily_report_payload(db, target_date=business_date)
+    except Exception as exc:
+        return None, {"status": "failed", "error": redact_secret_text(f"{type(exc).__name__}: {exc}")}
+    if payload:
+        return payload, {"status": str(payload.get("status") or "ok")}
+    return None, {"status": "missing", "reason": "empty_payload"}
+
+
+def _planned_mes_query_keys(message_plan: Any) -> list[str]:
     query_keys = sorted(
         {
             _PRODUCTION_QUERY_KEYS[metric_key]
@@ -182,35 +280,47 @@ def _read_mes_candidate(mes_reader: HermesMesReadService, *, message_plan: Any) 
             if metric_key in _PRODUCTION_QUERY_KEYS
         }
     )
-    if not query_keys:
-        query_keys = ["workshop_process_records", "finished_inbound_records"]
-    payload = mes_reader.read_sources(business_date=message_plan.business_date, query_keys=query_keys)
-    status = str((payload.get("source_status") or {}).get("mes") or "empty")
-    if status not in {"ok", "partial_failed"}:
-        return None
-    return EvidenceCandidate(
-        source_key="mes_readonly",
-        source_type="external_readonly",
-        domain="production",
-        priority=EXTERNAL_READONLY_PRIORITY,
-        status="ok" if status == "ok" else "candidate",
-        value=filter_sensitive_mapping(payload.get("records") or {}),
-        summary="MES 只读库已读取",
-        trace_ref={
-            "query_keys": query_keys,
-            "source_status": filter_sensitive_mapping(payload.get("source_status") or {}),
-            "source_errors": redact_secret_text(str(payload.get("source_errors") or {})),
-        },
+    if query_keys:
+        return query_keys
+    return ["workshop_process_records", "finished_inbound_records"]
+
+
+def _is_current_dingtalk_metric_fact(candidate: EvidenceCandidate, metric_keys: tuple[str, ...]) -> bool:
+    return (
+        candidate.source_type == "dingtalk_group_content"
+        and candidate.status in {"ok", "confirmed", "candidate"}
+        and _value_contains_metric_key(candidate.value, set(metric_keys))
     )
 
 
-def _read_hub_payload(db: Session | None, business_date) -> Mapping[str, Any] | None:
-    if db is None:
-        return None
-    try:
-        return template_daily_report.build_template_daily_report_payload(db, target_date=business_date)
-    except Exception:
-        return None
+def _value_contains_metric_key(value: Any, metric_keys: set[str]) -> bool:
+    if not metric_keys:
+        return False
+    if isinstance(value, Mapping):
+        if any(metric_key in value and value[metric_key] is not None for metric_key in metric_keys):
+            return True
+        if value.get("metric_key") in metric_keys and value.get("value") is not None:
+            return True
+        return any(_value_contains_metric_key(item, metric_keys) for item in value.values())
+    if isinstance(value, list):
+        return any(_value_contains_metric_key(item, metric_keys) for item in value)
+    return False
+
+
+def _candidate_trace_detail(
+    candidate: EvidenceCandidate,
+    *,
+    status: str,
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        "source_key": candidate.source_key,
+        "source_type": candidate.source_type,
+        "status": status,
+        "reason": reason,
+        "summary": candidate.summary,
+        "trace_ref": filter_sensitive_mapping(dict(candidate.trace_ref)),
+    }
 
 
 def _candidate_value_differs(left: Any, right: Any) -> bool:

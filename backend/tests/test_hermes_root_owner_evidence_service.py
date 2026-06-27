@@ -8,14 +8,17 @@ from app.services.hermes_root_owner_evidence_service import (
 from app.services.hermes_root_owner_message_service import RootOwnerMessagePlan
 
 
-def _message_plan(domain: str = "production") -> RootOwnerMessagePlan:
+def _message_plan(
+    domain: str = "production",
+    metric_keys: tuple[str, ...] = ("total_output_daily",),
+) -> RootOwnerMessagePlan:
     return RootOwnerMessagePlan(
         raw_text="今天产量咋样",
         normalized_text="今天产量咋样",
         business_date=date(2026, 6, 27),
         domain=domain,
         intent="production_summary",
-        metric_keys=("total_output_daily",),
+        metric_keys=metric_keys,
         confidence=0.8,
         needs_clarification=False,
         clarification_question=None,
@@ -98,3 +101,108 @@ def test_collect_records_missing_sources_explicitly() -> None:
     assert decision.primary is None
     assert decision.missing_sources == ["dingtalk_group_content", "mes_readonly", "data_hub_projection"]
     assert decision.trace["trace_id"] == "trace-evidence-missing"
+
+
+def test_collect_keeps_dingtalk_metadata_supporting_and_uses_mes_primary() -> None:
+    class MesReader:
+        def read_sources(self, **_kwargs):
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {"total_output_daily": 100.0},
+            }
+
+    decision = collect_root_owner_evidence(
+        db=None,
+        message_plan=_message_plan(),
+        trace_id="trace-dingtalk-metadata",
+        dingtalk_reader=lambda **_kwargs: [
+            EvidenceCandidate(
+                source_key="dingtalk_group_chat",
+                source_type="dingtalk_group_content",
+                domain="production",
+                priority=10,
+                status="ok",
+                value={"items": [{"message_id": "msg-1", "sent_date": "2026-06-27"}]},
+                summary="钉钉只有同日消息元数据",
+                trace_ref={"message_id": "msg-1"},
+            )
+        ],
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    assert decision.primary.source_key == "mes_readonly"
+    assert decision.primary.value["total_output_daily"] == 100.0
+    assert [candidate.source_key for candidate in decision.candidates] == ["mes_readonly"]
+    assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
+    assert decision.trace["supporting_evidence"][0]["source_key"] == "dingtalk_group_chat"
+
+
+def test_collect_records_missing_and_failed_source_status_with_redacted_errors() -> None:
+    def failing_hub_reader(**_kwargs):
+        raise RuntimeError("hub failed with token=secret-token password=plain-pass")
+
+    decision = collect_root_owner_evidence(
+        db=None,
+        message_plan=_message_plan(),
+        trace_id="trace-source-status",
+        dingtalk_reader=lambda **_kwargs: [],
+        mes_reader=None,
+        hub_reader=failing_hub_reader,
+    )
+
+    source_status = decision.trace["source_status"]
+
+    assert decision.primary is None
+    assert decision.missing_sources == ["dingtalk_group_content", "mes_readonly", "data_hub_projection"]
+    assert source_status["dingtalk_group_content"]["status"] == "missing"
+    assert source_status["mes_readonly"]["status"] == "missing"
+    assert source_status["mes_readonly"]["query_keys"] == ["workshop_process_records"]
+    assert source_status["data_hub_projection"]["status"] == "failed"
+    assert "token=<redacted>" in source_status["data_hub_projection"]["error"]
+    assert "password=<redacted>" in source_status["data_hub_projection"]["error"]
+    assert "secret-token" not in source_status["data_hub_projection"]["error"]
+    assert "plain-pass" not in source_status["data_hub_projection"]["error"]
+
+
+def test_inventory_domain_queries_mes_for_inventory_metrics_and_prefers_mes_over_hub() -> None:
+    class MesReader:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def read_sources(self, **kwargs):
+            self.calls.append(kwargs)
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {
+                    "finished_inbound_daily": 120.0,
+                    "remaining_contract_weight": 900.0,
+                    "wip_total": 33.0,
+                },
+            }
+
+    mes_reader = MesReader()
+    metric_keys = ("finished_inbound_daily", "wip_total", "remaining_contract_weight")
+
+    decision = collect_root_owner_evidence(
+        db=None,
+        message_plan=_message_plan(domain="inventory", metric_keys=metric_keys),
+        trace_id="trace-inventory-mes",
+        dingtalk_reader=lambda **_kwargs: [],
+        mes_reader=mes_reader,
+        hub_reader=lambda **_kwargs: {"status": "ok", "finished_inbound_daily": 99.0},
+    )
+
+    assert mes_reader.calls == [
+        {
+            "business_date": date(2026, 6, 27),
+            "query_keys": ["finished_inbound_records", "stock_records", "wip_totals"],
+        }
+    ]
+    assert decision.primary.source_key == "mes_readonly"
+    assert decision.primary.value["finished_inbound_daily"] == 120.0
+    assert decision.trace["source_status"]["mes_readonly"]["query_keys"] == [
+        "finished_inbound_records",
+        "stock_records",
+        "wip_totals",
+    ]
