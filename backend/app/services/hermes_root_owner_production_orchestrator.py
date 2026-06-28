@@ -59,6 +59,7 @@ def run_root_owner_production_turn(
     clean_text = str(text or "").strip()
     sender_id = str(sender_external_id or getattr(current_user, "dingtalk_user_id", "") or "").strip()
     plan = understand_root_owner_message(clean_text, default_business_date=default_business_date)
+    source = _source_payload_block(plan=plan, source_payload=source_payload)
 
     inbox = ChatInboxMessage(
         channel="dingtalk_private",
@@ -102,9 +103,10 @@ def run_root_owner_production_turn(
         answer=answer,
         rag_citation_count=0,
         result_payload={
+            "source": source,
             "recognition": _message_plan_payload(plan),
             "evidence": _evidence_payload(decision),
-            "source_payload": filter_sensitive_mapping(source_payload or {}),
+            "source_payload": source["source_payload"],
         },
     )
     db.add(run)
@@ -137,11 +139,20 @@ def run_root_owner_production_turn(
     dispatch = agent_communication_service.dispatch_outbox_message(db, message.id, sender=None)
     run.result_payload = {
         **(run.result_payload or {}),
+        "source": source,
         "outbox_message_id": message.id,
         "dispatch_status": dispatch.status,
         "dispatch_detail": dispatch.detail,
+        "dispatch": {
+            "outbox_message_id": message.id,
+            "status": dispatch.status,
+            "detail": dispatch.detail,
+        },
     }
-    db.flush()
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    db.refresh(message)
 
     return RootOwnerProductionTurnResult(
         trace_id=clean_trace_id,
@@ -200,6 +211,19 @@ def _message_plan_payload(plan: RootOwnerMessagePlan) -> dict[str, Any]:
         "needs_clarification": plan.needs_clarification,
         "clarification_question": plan.clarification_question,
         "recognition_reason": plan.recognition_reason,
+    }
+
+
+def _source_payload_block(
+    *,
+    plan: RootOwnerMessagePlan,
+    source_payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "source": "dingtalk_inbound",
+        "root_owner_private_loop": True,
+        "recognition_reason": plan.recognition_reason,
+        "source_payload": filter_sensitive_mapping(source_payload or {}),
     }
 
 
