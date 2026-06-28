@@ -28,7 +28,7 @@ Create:
   Defines the 20-question catalog, per-question snapshots, four-layer scoring, summary output, environment failure classification, and report rendering.
 
 - `backend/app/services/hermes_20_question_runner.py`
-  Runs the catalog through existing `run_root_owner_production_turn()`, rereads `AgentRun`, `AgentOutboxMessage`, and `ExternalMessageLog`, then builds acceptance snapshots.
+  Runs the catalog through existing `run_root_owner_production_turn()`, rereads `AgentRun`, `AgentOutboxMessage`, and `ExternalMessageLog`, dispatches answers to approved DingTalk targets, then builds acceptance snapshots.
 
 - `backend/scripts/hermes_20_question_acceptance.py`
   CLI entry point for local, production-readonly, and approved real DingTalk runs.
@@ -731,10 +731,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, Sequence
 
 from sqlalchemy.orm import Session
 
+from app.services import agent_communication_service
 from app.models.agent_communication import AgentRun, AgentOutboxMessage, ExternalMessageLog
 from app.models.system import User
 from app.services.hermes_20_question_acceptance import (
@@ -744,6 +745,12 @@ from app.services.hermes_20_question_acceptance import (
     evaluate_acceptance_summary,
 )
 from app.services.hermes_root_owner_production_orchestrator import run_root_owner_production_turn
+
+
+@dataclass(frozen=True, slots=True)
+class DingTalkDeliveryTarget:
+    channel_type: str
+    channel_key: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -759,6 +766,7 @@ def run_20_question_acceptance(
     sender_external_id: str,
     business_date: date,
     source_health: dict[str, Any] | None = None,
+    delivery_targets: Sequence[DingTalkDeliveryTarget] = (),
     limit: int | None = None,
 ) -> Hermes20QuestionRunOutcome:
     questions = build_20_question_catalog()
@@ -776,6 +784,14 @@ def run_20_question_acceptance(
             source_payload={"source": "hermes_20_question_acceptance", "question_id": question.question_id},
             default_business_date=business_date,
         )
+        target_results = _dispatch_approved_targets(
+            db,
+            answer=result.answer,
+            business_date=business_date,
+            trace_id=result.trace_id,
+            question_id=question.question_id,
+            targets=delivery_targets,
+        )
         snapshots.append(
             build_snapshot_from_turn(
                 db,
@@ -785,6 +801,7 @@ def run_20_question_acceptance(
                 answer=result.answer,
                 outbox_message_id=result.outbox_message_id,
                 source_health=source_health or {},
+                target_results=target_results,
             )
         )
     return Hermes20QuestionRunOutcome(
@@ -802,6 +819,7 @@ def build_snapshot_from_turn(
     answer: str,
     outbox_message_id: int | None,
     source_health: dict[str, Any],
+    target_results: list[dict[str, Any]] | None = None,
 ) -> AcceptanceTurnSnapshot:
     run = (
         db.query(AgentRun)
@@ -810,7 +828,7 @@ def build_snapshot_from_turn(
         .first()
     )
     payload = run.result_payload if run is not None and isinstance(run.result_payload, dict) else {}
-    dispatch = _dispatch_payload(db, outbox_message_id)
+    dispatch = _dispatch_payload(db, outbox_message_id, target_results=target_results or [])
     return AcceptanceTurnSnapshot(
         question_id=question_id,
         trace_id=trace_id,
@@ -823,9 +841,94 @@ def build_snapshot_from_turn(
     )
 
 
-def _dispatch_payload(db: Session, outbox_message_id: int | None) -> dict[str, Any]:
+def _dispatch_approved_targets(
+    db: Session,
+    *,
+    answer: str,
+    business_date: date,
+    trace_id: str,
+    question_id: int,
+    targets: Sequence[DingTalkDeliveryTarget],
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    if not targets:
+        return results
+    agent = agent_communication_service.register_agent(
+        db,
+        code="hermes_20_question_acceptance",
+        name="鑫泰铝业智能大脑",
+        agent_type="acceptance",
+        scope_type="factory",
+        config_payload={"managed_by": "hermes_20_question_acceptance"},
+    )
+    for target in targets:
+        try:
+            channel = agent_communication_service.register_channel(
+                db,
+                channel_type=target.channel_type,
+                channel_key=target.channel_key,
+                name=f"20问验收-{target.channel_key}",
+                target_type="acceptance_test",
+                target_key=target.channel_key,
+                dry_run=False,
+                metadata_payload={"managed_by": "hermes_20_question_acceptance"},
+            )
+            agent_communication_service.bind_agent_to_channel(
+                db,
+                agent_code=agent.code,
+                channel_key=channel.channel_key,
+                channel_type=channel.channel_type,
+                min_severity="info",
+            )
+            message = agent_communication_service.queue_bound_message(
+                db,
+                agent_code=agent.code,
+                channel_key=channel.channel_key,
+                channel_type=channel.channel_type,
+                title="鑫泰铝业智能大脑 20问验收",
+                content=answer,
+                business_date=business_date,
+                source_summary=f"question_{question_id}",
+                trace_id=trace_id,
+                payload={"question_id": question_id, "acceptance_target": True},
+                dedupe_key=f"{trace_id}:{channel.channel_type}:{channel.channel_key}",
+            )
+            outcome = agent_communication_service.dispatch_outbox_message(db, message.id)
+            logs = agent_communication_service.list_external_logs(db, outbox_message_id=message.id)
+            latest_log = logs[-1] if logs else None
+            results.append(
+                {
+                    "status": outcome.status,
+                    "detail": outcome.detail,
+                    "outbox_message_id": outcome.outbox_message_id,
+                    "log_status": latest_log.status if latest_log is not None else "",
+                    "channel_type": channel.channel_type,
+                    "channel_key": channel.channel_key,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            results.append(
+                {
+                    "status": "retrying",
+                    "detail": f"{type(exc).__name__}: {exc}",
+                    "outbox_message_id": None,
+                    "log_status": "",
+                    "channel_type": target.channel_type,
+                    "channel_key": target.channel_key,
+                }
+            )
+    return results
+
+
+def _dispatch_payload(
+    db: Session,
+    outbox_message_id: int | None,
+    *,
+    target_results: list[dict[str, Any]],
+) -> dict[str, Any]:
     if not outbox_message_id:
-        return {"status": "missing", "detail": "outbox_message_missing"}
+        base = {"status": "missing", "detail": "outbox_message_missing"}
+        return _aggregate_dispatch_payload(base, target_results)
     message = db.get(AgentOutboxMessage, int(outbox_message_id))
     log = (
         db.query(ExternalMessageLog)
@@ -833,13 +936,37 @@ def _dispatch_payload(db: Session, outbox_message_id: int | None) -> dict[str, A
         .order_by(ExternalMessageLog.id.desc())
         .first()
     )
-    return {
+    base = {
         "status": message.status if message is not None else "missing",
         "detail": (log.detail if log is not None else None) or (message.last_error if message is not None else None) or "",
         "outbox_message_id": outbox_message_id,
         "log_status": log.status if log is not None else "",
         "channel_type": log.channel_type if log is not None else "",
         "channel_key": log.channel_key if log is not None else "",
+    }
+    return _aggregate_dispatch_payload(base, target_results)
+
+
+def _aggregate_dispatch_payload(base: dict[str, Any], target_results: list[dict[str, Any]]) -> dict[str, Any]:
+    if not target_results:
+        return base
+    all_results = [base, *target_results]
+    sent_count = sum(1 for item in all_results if item.get("status") == "sent")
+    failed = [item for item in all_results if item.get("status") != "sent"]
+    if not failed:
+        status = "sent"
+        detail = "all_targets_sent"
+    else:
+        status = str(failed[0].get("status") or "retrying")
+        detail = "; ".join(str(item.get("detail") or item.get("status") or "delivery_failed") for item in failed)
+    return {
+        **base,
+        "status": status,
+        "detail": detail,
+        "log_status": status,
+        "target_results": target_results,
+        "delivery_sent_count": sent_count,
+        "delivery_target_count": len(all_results),
     }
 ```
 
@@ -1013,7 +1140,7 @@ def test_acceptance_cli_requires_explicit_real_delivery_flag() -> None:
 
 
 def test_acceptance_cli_parses_real_delivery_targets() -> None:
-    from backend.scripts.hermes_20_question_acceptance import parse_args
+    from backend.scripts.hermes_20_question_acceptance import parse_args, parse_delivery_targets
 
     args = parse_args([
         "--business-date",
@@ -1021,14 +1148,18 @@ def test_acceptance_cli_parses_real_delivery_targets() -> None:
         "--sender-external-id",
         "dt-root-001",
         "--target",
-        "test-group",
+        "dingtalk_group:test-group",
         "--target",
-        "dt-person-001",
+        "dingtalk_work_notice:dt-person-001",
         "--real-delivery",
     ])
 
     assert args.real_delivery is True
-    assert args.target == ["test-group", "dt-person-001"]
+    targets = parse_delivery_targets(args.target)
+    assert [(target.channel_type, target.channel_key) for target in targets] == [
+        ("dingtalk_group", "test-group"),
+        ("dingtalk_work_notice", "dt-person-001"),
+    ]
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1067,7 +1198,7 @@ from app.db.session import SessionLocal
 from app.models.system import User
 from app.services.external_readonly_source_registry import build_external_readonly_sources, health_check_sources
 from app.services.hermes_20_question_acceptance import render_acceptance_report
-from app.services.hermes_20_question_runner import run_20_question_acceptance
+from app.services.hermes_20_question_runner import DingTalkDeliveryTarget, run_20_question_acceptance
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -1082,6 +1213,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def parse_delivery_targets(values: list[str]) -> tuple[DingTalkDeliveryTarget, ...]:
+    targets: list[DingTalkDeliveryTarget] = []
+    for value in values:
+        if ":" not in value:
+            raise ValueError("target_must_use_channel_type_colon_key")
+        channel_type, channel_key = value.split(":", 1)
+        channel_type = channel_type.strip()
+        channel_key = channel_key.strip()
+        if channel_type not in {"dingtalk_group", "dingtalk_work_notice"} or not channel_key:
+            raise ValueError("unsupported_delivery_target")
+        targets.append(DingTalkDeliveryTarget(channel_type=channel_type, channel_key=channel_key))
+    return tuple(targets)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if not args.real_delivery:
@@ -1089,6 +1234,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if not args.target:
         print("target_required")
+        return 2
+    try:
+        delivery_targets = parse_delivery_targets(args.target)
+    except ValueError as exc:
+        print(str(exc))
         return 2
     business_date = date.fromisoformat(args.business_date)
     db = SessionLocal()
@@ -1104,6 +1254,7 @@ def main(argv: list[str] | None = None) -> int:
             sender_external_id=args.sender_external_id,
             business_date=business_date,
             source_health=source_health,
+            delivery_targets=delivery_targets,
             limit=args.limit,
         )
         report = render_acceptance_report(outcome.summary)
@@ -1474,7 +1625,7 @@ Run:
 
 ```powershell
 cd backend
-python scripts/hermes_20_question_acceptance.py --business-date 2026-06-27 --sender-external-id dt-root-001 --target test-group --target dt-person-001 --real-delivery
+python scripts/hermes_20_question_acceptance.py --business-date 2026-06-27 --sender-external-id dt-root-001 --target dingtalk_group:test-group --target dingtalk_work_notice:dt-person-001 --real-delivery
 ```
 
 Expected:
