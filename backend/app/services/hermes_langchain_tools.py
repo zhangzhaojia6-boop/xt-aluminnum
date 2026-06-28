@@ -22,6 +22,10 @@ from app.services.report import template_daily_report
 
 ToolCallable = Callable[..., object]
 
+_DINGTALK_EVIDENCE_TYPES = ('text', 'file', 'image', 'attachment', 'dingtalk_file', 'dingtalk_text')
+_DINGTALK_TEXT_EVIDENCE_TYPES = {'text', 'dingtalk_text'}
+_DINGTALK_FILE_EVIDENCE_TYPES = {'file', 'attachment', 'dingtalk_file'}
+
 
 @dataclass(frozen=True, slots=True)
 class HermesToolAdapters:
@@ -119,11 +123,12 @@ def _mes_wms_read_tool(*, mes_read_service: HermesMesReadService | None, **kwarg
 def _dingtalk_evidence_tool(*, db: Session, **kwargs: object) -> dict[str, object]:
     try:
         limit = max(1, min(int(kwargs.get('limit') or 20), 100))
-        file_rows = (
+        row_limit = max(100, limit * 5)
+        evidence_rows = (
             db.query(MultimodalEvidence)
-            .filter(MultimodalEvidence.evidence_type.in_(('file', 'image', 'text')))
-            .order_by(MultimodalEvidence.id.desc())
-            .limit(limit)
+            .filter(MultimodalEvidence.evidence_type.in_(_DINGTALK_EVIDENCE_TYPES))
+            .order_by(MultimodalEvidence.created_at.desc(), MultimodalEvidence.id.desc())
+            .limit(row_limit)
             .all()
         )
         chat_rows = (
@@ -133,42 +138,108 @@ def _dingtalk_evidence_tool(*, db: Session, **kwargs: object) -> dict[str, objec
             .limit(limit)
             .all()
         )
-        facts: list[dict[str, object]] = []
-        for row in file_rows:
-            facts.append(
-                {
-                    'source_key': 'dingtalk_group_file',
-                    'source_type': 'dingtalk_group_content',
-                    'priority': 10,
-                    'evidence_type': row.evidence_type,
-                    'confirmation_status': row.confirmation_status,
-                    'recognized_text': row.recognized_text,
-                    'payload': row.payload or {},
-                    'created_at': row.created_at.isoformat() if row.created_at else None,
-                }
+        candidates: list[tuple[tuple[int, float, int], dict[str, object]]] = []
+        for row in evidence_rows:
+            if not _is_dingtalk_multimodal_evidence(row):
+                continue
+            candidates.append(
+                (
+                    _dingtalk_sort_key(row, tier=_dingtalk_multimodal_tier(row)),
+                    _dingtalk_multimodal_fact(row),
+                )
             )
         for row in chat_rows:
-            facts.append(
-                {
-                    'source_key': 'dingtalk_group_chat',
-                    'source_type': 'dingtalk_group_content',
-                    'priority': 10,
-                    'channel': row.channel,
-                    'group_id': row.group_id,
-                    'sender_external_id': row.sender_external_id,
-                    'text': row.text,
-                    'trace_id': row.trace_id,
-                    'created_at': row.created_at.isoformat() if row.created_at else None,
-                }
+            candidates.append(
+                (
+                    _dingtalk_sort_key(row, tier=0),
+                    {
+                        'source_key': 'dingtalk_group_chat',
+                        'source_type': 'dingtalk_group_content',
+                        'priority': 10,
+                        'channel': row.channel,
+                        'group_id': row.group_id,
+                        'sender_external_id': row.sender_external_id,
+                        'text': row.text,
+                        'trace_id': row.trace_id,
+                        'created_at': row.created_at.isoformat() if row.created_at else None,
+                    },
+                )
             )
+        candidates.sort(key=lambda item: item[0])
         return {
             'status': 'ok',
             'source': 'dingtalk_group_content',
             'request': _request_payload(kwargs),
-            'facts': facts[:limit],
+            'facts': [fact for _sort_key, fact in candidates[:limit]],
         }
     except Exception as exc:
         return _unavailable('dingtalk_group_content', kwargs, exc)
+
+
+def _is_dingtalk_multimodal_evidence(row: MultimodalEvidence) -> bool:
+    evidence_type = str(row.evidence_type or '').strip().lower()
+    if evidence_type.startswith('dingtalk_'):
+        return True
+    if _value_marks_dingtalk(row.file_uri):
+        return True
+    payload = row.payload if isinstance(row.payload, Mapping) else {}
+    return _payload_marks_dingtalk(payload)
+
+
+def _payload_marks_dingtalk(payload: Mapping[object, object]) -> bool:
+    for key, value in payload.items():
+        key_text = str(key).strip().lower()
+        if key_text.startswith('dingtalk_'):
+            return True
+        if key_text in {'source', 'channel', 'source_type'} and _value_marks_dingtalk(value):
+            return True
+    return False
+
+
+def _value_marks_dingtalk(value: object) -> bool:
+    if value is None:
+        return False
+    text = str(value).strip().lower()
+    return (
+        text == 'dingtalk'
+        or text == 'dingtalk_group'
+        or text.startswith('dingtalk_')
+        or text.startswith('dingtalk:')
+        or text.startswith('dingtalk://')
+        or text.startswith('dingtalk-')
+        or 'dingtalk.com' in text
+    )
+
+
+def _dingtalk_multimodal_tier(row: MultimodalEvidence) -> int:
+    evidence_type = str(row.evidence_type or '').strip().lower()
+    if evidence_type in _DINGTALK_TEXT_EVIDENCE_TYPES:
+        return 0
+    if evidence_type in _DINGTALK_FILE_EVIDENCE_TYPES:
+        return 1
+    return 2
+
+
+def _dingtalk_multimodal_fact(row: MultimodalEvidence) -> dict[str, object]:
+    evidence_type = str(row.evidence_type or '').strip().lower()
+    return {
+        'source_key': 'dingtalk_group_chat' if evidence_type in _DINGTALK_TEXT_EVIDENCE_TYPES else 'dingtalk_group_file',
+        'source_type': 'dingtalk_group_content',
+        'priority': 10,
+        'evidence_type': row.evidence_type,
+        'confirmation_status': row.confirmation_status,
+        'recognized_text': row.recognized_text,
+        'file_uri': row.file_uri,
+        'payload': row.payload or {},
+        'created_at': row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _dingtalk_sort_key(row: object, *, tier: int) -> tuple[int, float, int]:
+    created_at = getattr(row, 'created_at', None)
+    timestamp = created_at.timestamp() if created_at else 0.0
+    row_id = int(getattr(row, 'id', 0) or 0)
+    return (tier, -timestamp, -row_id)
 
 
 def _rag_route_tool(*, db: Session, current_user: object | None, **kwargs: object) -> dict[str, object]:

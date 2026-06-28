@@ -26,6 +26,12 @@ def _db() -> Session:
     return Session(engine)
 
 
+def _dingtalk_db() -> Session:
+    engine = create_engine('sqlite:///:memory:', future=True)
+    Base.metadata.create_all(bind=engine, tables=[ChatInboxMessage.__table__, MultimodalEvidence.__table__])
+    return Session(engine)
+
+
 def test_tool_registry_exposes_only_allowed_tools() -> None:
     adapters = HermesToolAdapters(
         hub_query=_fake_tool,
@@ -130,5 +136,88 @@ def test_dingtalk_evidence_tool_returns_group_content_priority_first() -> None:
         assert payload['source'] == 'dingtalk_group_content'
         assert payload['facts'][0]['source_key'] in {'dingtalk_group_file', 'dingtalk_group_chat'}
         assert payload['facts'][0]['priority'] == 10
+    finally:
+        db.close()
+
+
+def test_dingtalk_evidence_tool_filters_non_dingtalk_multimodal_rows() -> None:
+    db = _dingtalk_db()
+    try:
+        db.add_all(
+            [
+                MultimodalEvidence(
+                    evidence_type='file',
+                    recognized_text='邮件附件不应该进入钉钉证据',
+                    payload={'source': 'email', 'channel': 'mailbox'},
+                ),
+                MultimodalEvidence(
+                    evidence_type='attachment',
+                    recognized_text='群附件确认今天产量 118 吨',
+                    file_uri='dingtalk://media/file-001',
+                    payload={'source': 'dingtalk', 'channel': 'dingtalk_group'},
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = build_production_tool_adapters(db).dingtalk_evidence(limit=10)
+
+        assert [fact['recognized_text'] for fact in payload['facts']] == ['群附件确认今天产量 118 吨']
+        assert payload['facts'][0]['evidence_type'] == 'attachment'
+    finally:
+        db.close()
+
+
+def test_dingtalk_evidence_tool_returns_dingtalk_file_evidence_type() -> None:
+    db = _dingtalk_db()
+    try:
+        db.add(
+            MultimodalEvidence(
+                evidence_type='dingtalk_file',
+                recognized_text='钉钉文件确认天然气 50578m3',
+                file_uri='dingtalk://gas/2026-06-19.xlsx',
+                payload={'business_date': '2026-06-19'},
+            )
+        )
+        db.commit()
+
+        payload = build_production_tool_adapters(db).dingtalk_evidence(limit=10)
+
+        assert len(payload['facts']) == 1
+        assert payload['facts'][0]['source_key'] == 'dingtalk_group_file'
+        assert payload['facts'][0]['evidence_type'] == 'dingtalk_file'
+    finally:
+        db.close()
+
+
+def test_dingtalk_evidence_tool_limit_prefers_group_chat_before_file() -> None:
+    db = _dingtalk_db()
+    try:
+        db.add(
+            ChatInboxMessage(
+                channel='dingtalk_group',
+                group_id='group-001',
+                sender_external_id='dt-leader',
+                text='群聊文字确认今天产量 118 吨',
+                agent_code='factory_dispatch',
+                trace_id='trace-dingtalk-chat',
+                source_payload={'source': 'dingtalk'},
+            )
+        )
+        db.add(
+            MultimodalEvidence(
+                evidence_type='file',
+                recognized_text='群文件确认今天产量 118 吨',
+                confirmation_status='confirmed',
+                payload={'source': 'dingtalk', 'channel': 'dingtalk_group'},
+            )
+        )
+        db.commit()
+
+        payload = build_production_tool_adapters(db).dingtalk_evidence(limit=1)
+
+        assert len(payload['facts']) == 1
+        assert payload['facts'][0]['source_key'] == 'dingtalk_group_chat'
+        assert payload['facts'][0]['text'] == '群聊文字确认今天产量 118 吨'
     finally:
         db.close()
