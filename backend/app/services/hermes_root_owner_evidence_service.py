@@ -69,6 +69,7 @@ _DINGTALK_SENDER_FIELDS = (
     "responsible_sender",
 )
 _DINGTALK_TIME_FIELDS = ("time_range", "business_day_window", "time_range_matched")
+_DINGTALK_SPECIALIST_METRIC_KEYS = {"dingtalk_specialist_evidence"}
 _MES_METRIC_FIELD_ALIASES = {
     "total_output_daily": ("total_output_daily", "net_weight", "weight", "output_weight", "quantity"),
     "workshop_output_daily": ("workshop_output_daily", "net_weight", "weight", "output_weight", "quantity"),
@@ -462,7 +463,11 @@ def _extract_dingtalk_metric_fact(
         return None
     if isinstance(value, Mapping):
         direct = _extract_direct_metric_fact(value, metric_keys)
-        if direct and _dingtalk_fact_is_verified(value, *validation_context):
+        if direct and _dingtalk_fact_is_verified(
+            value,
+            *validation_context,
+            require_specialist_sender=_requires_dingtalk_specialist_sender(direct),
+        ):
             return direct
         next_context = (value, *validation_context)
         for field in _DINGTALK_FACT_FIELDS:
@@ -559,14 +564,24 @@ def _mes_record_metric_number(record: Any, metric_key: str) -> float | None:
     return None
 
 
-def _dingtalk_fact_is_verified(*values: Mapping[str, Any]) -> bool:
+def _dingtalk_fact_is_verified(
+    *values: Mapping[str, Any],
+    require_specialist_sender: bool = False,
+) -> bool:
     scopes = [scope for value in values for scope in _iter_validation_scopes(value)]
     return (
         _validation_field_matches(scopes, _DINGTALK_AUTHORIZED_GROUP_FIELDS, _validation_truthy)
-        and _validation_field_matches(scopes, _DINGTALK_SENDER_FIELDS, _validation_truthy)
+        and (
+            not require_specialist_sender
+            or _validation_field_matches(scopes, _DINGTALK_SENDER_FIELDS, _validation_truthy)
+        )
         and _content_type_verified(scopes)
         and _validation_field_matches(scopes, _DINGTALK_TIME_FIELDS, _validation_truthy)
     )
+
+
+def _requires_dingtalk_specialist_sender(fact: Mapping[str, Any]) -> bool:
+    return any(metric_key in _DINGTALK_SPECIALIST_METRIC_KEYS for metric_key in fact)
 
 
 def _iter_validation_scopes(value: Mapping[str, Any]) -> list[Mapping[str, Any]]:

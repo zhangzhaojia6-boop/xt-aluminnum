@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -21,6 +22,9 @@ from app.services.hermes_root_owner_message_service import (
     understand_root_owner_message,
 )
 from app.services.hermes_root_owner_reply_channel_service import ensure_root_owner_private_reply_channel
+
+
+_CONTEXT_DOMAINS = {"production", "inventory", "energy", "anomaly"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +62,17 @@ def run_root_owner_production_turn(
     clean_trace_id = str(trace_id or "").strip() or uuid4().hex
     clean_text = str(text or "").strip()
     sender_id = str(sender_external_id or getattr(current_user, "dingtalk_user_id", "") or "").strip()
-    plan = understand_root_owner_message(clean_text, default_business_date=default_business_date)
+    previous_domain = _previous_root_owner_private_domain(
+        db,
+        sender_id=sender_id,
+        current_trace_id=clean_trace_id,
+        current_text=clean_text,
+    )
+    plan = understand_root_owner_message(
+        clean_text,
+        default_business_date=default_business_date,
+        previous_domain=previous_domain,
+    )
     source = _source_payload_block(plan=plan, source_payload=source_payload)
 
     inbox = ChatInboxMessage(
@@ -164,6 +178,48 @@ def run_root_owner_production_turn(
         dispatch_status=dispatch.status,
         dispatch_detail=dispatch.detail,
     )
+
+
+def _previous_root_owner_private_domain(
+    db: Session,
+    *,
+    sender_id: str,
+    current_trace_id: str,
+    current_text: str,
+) -> str | None:
+    if not sender_id:
+        return None
+    rows = (
+        db.query(AgentRun, ChatInboxMessage)
+        .join(ChatInboxMessage, AgentRun.chat_inbox_id == ChatInboxMessage.id)
+        .filter(ChatInboxMessage.channel == "dingtalk_private")
+        .filter(ChatInboxMessage.sender_external_id == sender_id)
+        .filter(AgentRun.agent_code == "factory_dispatch")
+        .order_by(AgentRun.created_at.desc(), AgentRun.id.desc())
+        .limit(20)
+        .all()
+    )
+    for run, inbox in rows:
+        if inbox.trace_id == current_trace_id or inbox.text == current_text:
+            continue
+        source_payload = inbox.source_payload
+        if isinstance(source_payload, Mapping) and source_payload.get("root_owner_private_loop") is not True:
+            continue
+        domain = _recognition_domain_from_run(run)
+        if domain:
+            return domain
+    return None
+
+
+def _recognition_domain_from_run(run: AgentRun) -> str | None:
+    payload = run.result_payload
+    if not isinstance(payload, Mapping):
+        return None
+    recognition = payload.get("recognition")
+    if not isinstance(recognition, Mapping):
+        return None
+    domain = str(recognition.get("domain") or "").strip()
+    return domain if domain in _CONTEXT_DOMAINS else None
 
 
 def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:

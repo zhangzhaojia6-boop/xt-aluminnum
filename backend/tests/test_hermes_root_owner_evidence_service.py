@@ -268,6 +268,61 @@ def test_default_dingtalk_reader_promotes_structured_metric_fact_over_mes(monkey
     assert decision.trace["source_status"]["dingtalk_group_content"]["sources"]["dingtalk_text"]["count"] == 1
 
 
+def test_default_dingtalk_group_fact_without_specialist_sender_becomes_primary(monkeypatch) -> None:
+    def read_dingtalk_evidence(self, *, business_date):
+        return {
+            "dingtalk_text": {
+                "status": "ok",
+                "count": 1,
+                "items": [
+                    {
+                        "trace_id": "trace-ding-group-three-conditions",
+                        "facts": [{"metric_key": "total_output_daily", "value": 118.0}],
+                        "validation": {
+                            "authorized_group": "verified",
+                            "content_type": "text",
+                            "time_range": "matched",
+                        },
+                        "text_sample": "群里确认今天产量 118 吨",
+                    }
+                ],
+                "error": None,
+            },
+            "dingtalk_file": {
+                "status": "empty",
+                "count": 0,
+                "items": [],
+                "error": None,
+            },
+        }
+
+    class MesReader:
+        def read_sources(self, **_kwargs):
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {"total_output_daily": 100.0},
+            }
+
+    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+
+    decision = collect_root_owner_evidence(
+        db=object(),
+        message_plan=_message_plan(),
+        trace_id="trace-default-dingtalk-three-conditions",
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: {"status": "ready", "total_output_daily": 99.0},
+    )
+
+    assert decision.primary.source_key == "dingtalk_group_chat"
+    assert decision.primary.value == {"total_output_daily": 118.0}
+    assert [candidate.source_key for candidate in decision.candidates] == [
+        "dingtalk_group_chat",
+        "mes_readonly",
+        "data_hub_projection",
+    ]
+    assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 1
+
+
 def test_default_dingtalk_reader_keeps_unverified_facts_supporting_and_uses_mes(monkeypatch) -> None:
     def read_dingtalk_evidence(self, *, business_date):
         return {

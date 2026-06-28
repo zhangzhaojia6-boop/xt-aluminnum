@@ -23,6 +23,15 @@ def test_load_knowledge_seed_has_factory_brain_layers() -> None:
     assert len(seed) >= 15
 
 
+def test_daily_report_priority_seed_points_to_current_root_owner_spec() -> None:
+    seed = load_knowledge_seed()
+
+    item = next(row for row in seed if row["topic"] == "日报事实优先级")
+
+    assert item["source_ref"] == "docs/superpowers/specs/2026-06-27-hermes-root-owner-production-evidence-loop-design.md"
+    assert "钉钉群文件和群聊天内容" in item["content"]
+
+
 def test_import_knowledge_seed_upserts_entries() -> None:
     db = _db()
 

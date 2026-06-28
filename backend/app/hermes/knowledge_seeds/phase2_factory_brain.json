@@ -4,7 +4,7 @@
     "topic": "日报事实优先级",
     "knowledge_type": "rule",
     "source_type": "spec",
-    "source_ref": "docs/superpowers/specs/2026-06-25-hermes-knowledge-and-datahub-diet-design.md",
+    "source_ref": "docs/superpowers/specs/2026-06-27-hermes-root-owner-production-evidence-loop-design.md",
     "content": "日报正式事实优先级为钉钉群文件和群聊天内容、业务域外接只读数据库、数据中枢投影、DailyFactBundle、历史日报、人工填报和 RAG 口径参考。",
     "structured_payload": {"layer": "E", "unit_type": "rule", "status": "formal"},
     "confidence": 95,

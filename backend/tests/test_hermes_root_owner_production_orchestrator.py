@@ -130,6 +130,88 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
         db.close()
 
 
+def test_private_follow_up_inherits_previous_production_domain(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_root_owner())
+    db.commit()
+
+    primary = EvidenceCandidate(
+        source_key="dingtalk_group_chat",
+        source_type="dingtalk_group_content",
+        domain="production",
+        priority=10,
+        status="ok",
+        value={"total_output_daily": 118.0},
+        summary="群里确认生产口径 118 吨",
+        trace_ref={"trace_id": "trace-ding-follow-up"},
+    )
+    decision = EvidenceDecision(
+        primary=primary,
+        candidates=(primary,),
+        conflicts=(),
+        missing_sources=[],
+        trace={"source_order": ["dingtalk_group_chat"]},
+    )
+    seen_plans = []
+
+    def fake_collect(_db, *, message_plan, trace_id, mes_reader=None):
+        seen_plans.append((trace_id, message_plan.raw_text, message_plan.domain, message_plan.business_date))
+        return decision
+
+    monkeypatch.setattr(
+        "app.services.hermes_root_owner_production_orchestrator.collect_root_owner_evidence",
+        fake_collect,
+    )
+    monkeypatch.setattr(
+        "app.services.hermes_root_owner_production_orchestrator.agent_communication_service.dispatch_outbox_message",
+        lambda _db, outbox_message_id, *, sender=None: SimpleNamespace(
+            status="sent",
+            detail="sent",
+            outbox_message_id=outbox_message_id,
+        ),
+    )
+
+    try:
+        first = run_root_owner_production_turn(
+            db,
+            text="今天产量咋样",
+            current_user=db.get(User, 1),
+            sender_external_id="dt-root-001",
+            trace_id="trace-root-turn-first",
+            source_payload={},
+            default_business_date=date(2026, 6, 27),
+        )
+        second = run_root_owner_production_turn(
+            db,
+            text="昨天呢",
+            current_user=db.get(User, 1),
+            sender_external_id="dt-root-001",
+            trace_id="trace-root-turn-follow-up",
+            source_payload={},
+            default_business_date=date(2026, 6, 27),
+        )
+
+        assert first.status == "answered"
+        assert second.status == "answered"
+        assert seen_plans == [
+            ("trace-root-turn-first", "今天产量咋样", "production", date(2026, 6, 27)),
+            ("trace-root-turn-follow-up", "昨天呢", "production", date(2026, 6, 26)),
+        ]
+
+        follow_up_run = (
+            db.query(AgentRun)
+            .filter(AgentRun.trace_id == "trace-root-turn-follow-up")
+            .one()
+        )
+        recognition = follow_up_run.result_payload["recognition"]
+        assert recognition["domain"] == "production"
+        assert recognition["needs_clarification"] is False
+        assert "context_follow_up" in recognition["recognition_reason"]
+        assert follow_up_run.result_payload["evidence"]["primary_source"] == "dingtalk_group_chat"
+    finally:
+        db.close()
+
+
 def test_turn_asks_short_clarification_for_unclear_message(monkeypatch) -> None:
     db = _db_session()
     db.add(_root_owner())
