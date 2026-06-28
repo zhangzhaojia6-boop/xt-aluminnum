@@ -74,6 +74,57 @@ def test_ensure_root_owner_private_reply_channel_is_idempotent() -> None:
         db.close()
 
 
+def test_ensure_root_owner_private_reply_channel_replaces_previous_root_owner_binding() -> None:
+    db = _db_session()
+    try:
+        ensure_root_owner_private_reply_channel(
+            db,
+            agent_code="factory_dispatch",
+            dingtalk_user_id="dt-root-001",
+            owner_name="root_owner",
+        )
+        outcome = ensure_root_owner_private_reply_channel(
+            db,
+            agent_code="factory_dispatch",
+            dingtalk_user_id="dt-root-002",
+            owner_name="root_owner",
+        )
+
+        assert outcome["channel_key"] == "dt-root-002"
+
+        agent = db.query(AgentProfile).filter(AgentProfile.code == "factory_dispatch").one()
+        rows = (
+            db.query(AgentChannelBinding, CommunicationChannel)
+            .join(CommunicationChannel, AgentChannelBinding.channel_id == CommunicationChannel.id)
+            .filter(
+                AgentChannelBinding.agent_profile_id == agent.id,
+                CommunicationChannel.channel_type == "dingtalk_work_notice",
+            )
+            .all()
+        )
+        root_owner_rows = [
+            (binding, channel)
+            for binding, channel in rows
+            if (channel.metadata_payload or {}).get("root_owner_reply_channel") is True
+        ]
+        active_rows = [
+            (binding, channel)
+            for binding, channel in root_owner_rows
+            if binding.is_active is True
+        ]
+        old_binding = next(
+            binding
+            for binding, channel in root_owner_rows
+            if channel.channel_key == "dt-root-001"
+        )
+
+        assert len(active_rows) == 1
+        assert active_rows[0][1].channel_key == "dt-root-002"
+        assert old_binding.is_active is False
+    finally:
+        db.close()
+
+
 def test_ensure_root_owner_private_reply_channel_requires_dingtalk_user_id() -> None:
     db = _db_session()
     try:
