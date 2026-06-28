@@ -8,6 +8,7 @@ from app.models.agent_communication import (
     AgentProfile,
     CommunicationChannel,
 )
+from app.services import agent_communication_service
 from app.services.hermes_root_owner_reply_channel_service import ensure_root_owner_private_reply_channel
 
 
@@ -121,6 +122,84 @@ def test_ensure_root_owner_private_reply_channel_replaces_previous_root_owner_bi
         assert len(active_rows) == 1
         assert active_rows[0][1].channel_key == "dt-root-002"
         assert old_binding.is_active is False
+    finally:
+        db.close()
+
+
+def test_ensure_root_owner_private_reply_channel_keeps_unrelated_bindings_active() -> None:
+    db = _db_session()
+    try:
+        agent_communication_service.register_agent(
+            db,
+            code="factory_dispatch",
+            name="Factory Dispatch",
+            agent_type="factory_brain",
+            scope_type="user",
+        )
+        group_channel = agent_communication_service.register_channel(
+            db,
+            channel_type="dingtalk_group",
+            channel_key="group-001",
+            name="Factory Group",
+            target_type="group",
+            target_key="group-001",
+            metadata_payload={"purpose": "factory_group"},
+        )
+        group_binding = agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code="factory_dispatch",
+            channel_key=group_channel.channel_key,
+            channel_type=group_channel.channel_type,
+            min_severity="info",
+        )
+        work_notice_channel = agent_communication_service.register_channel(
+            db,
+            channel_type="dingtalk_work_notice",
+            channel_key="dt-work-notice-001",
+            name="Other Work Notice",
+            target_type="user",
+            target_key="dt-work-notice-001",
+            metadata_payload={"purpose": "other_work_notice"},
+        )
+        work_notice_binding = agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code="factory_dispatch",
+            channel_key=work_notice_channel.channel_key,
+            channel_type=work_notice_channel.channel_type,
+            min_severity="info",
+        )
+
+        ensure_root_owner_private_reply_channel(
+            db,
+            agent_code="factory_dispatch",
+            dingtalk_user_id="dt-root-001",
+            owner_name="root_owner",
+        )
+        ensure_root_owner_private_reply_channel(
+            db,
+            agent_code="factory_dispatch",
+            dingtalk_user_id="dt-root-002",
+            owner_name="root_owner",
+        )
+
+        agent = db.query(AgentProfile).filter(AgentProfile.code == "factory_dispatch").one()
+        rows = (
+            db.query(AgentChannelBinding, CommunicationChannel)
+            .join(CommunicationChannel, AgentChannelBinding.channel_id == CommunicationChannel.id)
+            .filter(AgentChannelBinding.agent_profile_id == agent.id)
+            .all()
+        )
+        binding_by_channel_key = {
+            channel.channel_key: binding
+            for binding, channel in rows
+        }
+
+        assert binding_by_channel_key["dt-root-001"].is_active is False
+        assert binding_by_channel_key["dt-root-002"].is_active is True
+        assert group_binding.is_active is True
+        assert group_channel.is_active is True
+        assert work_notice_binding.is_active is True
+        assert work_notice_channel.is_active is True
     finally:
         db.close()
 
