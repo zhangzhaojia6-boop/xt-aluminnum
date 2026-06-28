@@ -677,7 +677,6 @@ def dingtalk_agent_inbound(
     if (
         channel == 'dingtalk_private'
         and root_owner_decision.is_root_owner
-        and not bool(getattr(settings, 'HERMES_FACTORY_BRAIN_ENABLED', False))
         and (
             should_route_root_owner_production_turn(text)
             or day1_parse_error is not None
@@ -714,6 +713,9 @@ def dingtalk_agent_inbound(
             'dispatch_status': result.dispatch_status,
             'dispatch_detail': result.dispatch_detail,
         }
+
+    if day1_parse_error is not None:
+        raise HTTPException(status_code=400, detail=day1_parse_error.code) from day1_parse_error
 
     factory_brain_intent = _get_factory_brain_route_intent(text)
     if bool(getattr(settings, 'HERMES_FACTORY_BRAIN_ENABLED', False)) and factory_brain_intent is not None:
