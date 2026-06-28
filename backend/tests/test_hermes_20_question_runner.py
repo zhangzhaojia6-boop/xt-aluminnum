@@ -252,3 +252,45 @@ def test_runner_module_does_not_import_or_call_dingtalk_service_directly() -> No
     assert "dingtalk_service" not in source
     assert "send_group_message" not in source
     assert "send_work_notification" not in source
+
+
+def test_acceptance_cli_requires_explicit_real_delivery_flag() -> None:
+    from scripts.hermes_20_question_acceptance import parse_args
+
+    args = parse_args(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--target",
+            "test-group",
+        ]
+    )
+
+    assert args.real_delivery is False
+
+
+def test_acceptance_cli_parses_real_delivery_targets() -> None:
+    from scripts.hermes_20_question_acceptance import parse_args, parse_delivery_targets
+
+    args = parse_args(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--target",
+            "dingtalk_group:test-group",
+            "--target",
+            "dingtalk_work_notice:dt-person-001",
+            "--real-delivery",
+        ]
+    )
+
+    assert args.real_delivery is True
+    targets = parse_delivery_targets(args.target)
+    assert [(target.channel_type, target.channel_key) for target in targets] == [
+        ("dingtalk_group", "test-group"),
+        ("dingtalk_work_notice", "dt-person-001"),
+    ]
