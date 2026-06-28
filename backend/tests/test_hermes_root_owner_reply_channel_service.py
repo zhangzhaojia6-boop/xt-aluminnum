@@ -118,10 +118,81 @@ def test_ensure_root_owner_private_reply_channel_replaces_previous_root_owner_bi
             for binding, channel in root_owner_rows
             if channel.channel_key == "dt-root-001"
         )
+        old_channel = next(
+            channel
+            for binding, channel in root_owner_rows
+            if channel.channel_key == "dt-root-001"
+        )
 
         assert len(active_rows) == 1
         assert active_rows[0][1].channel_key == "dt-root-002"
         assert old_binding.is_active is False
+        assert old_channel.is_active is False
+        assert active_rows[0][1].is_active is True
+    finally:
+        db.close()
+
+
+def test_ensure_root_owner_private_reply_channel_deactivates_old_channel_with_pending_message() -> None:
+    db = _db_session()
+    try:
+        ensure_root_owner_private_reply_channel(
+            db,
+            agent_code="factory_dispatch",
+            dingtalk_user_id="dt-root-001",
+            owner_name="root_owner",
+        )
+        old_channel = (
+            db.query(CommunicationChannel)
+            .filter(
+                CommunicationChannel.channel_type == "dingtalk_work_notice",
+                CommunicationChannel.channel_key == "dt-root-001",
+            )
+            .one()
+        )
+        pending_message = agent_communication_service.queue_bound_message(
+            db,
+            agent_code="factory_dispatch",
+            channel_key="dt-root-001",
+            channel_type="dingtalk_work_notice",
+            title="old root owner message",
+            content="pending before rebind",
+        )
+
+        ensure_root_owner_private_reply_channel(
+            db,
+            agent_code="factory_dispatch",
+            dingtalk_user_id="dt-root-002",
+            owner_name="root_owner",
+        )
+
+        new_channel = (
+            db.query(CommunicationChannel)
+            .filter(
+                CommunicationChannel.channel_type == "dingtalk_work_notice",
+                CommunicationChannel.channel_key == "dt-root-002",
+            )
+            .one()
+        )
+        db.refresh(old_channel)
+        sent_calls = []
+
+        def sender(channel_key: str, payload: dict):
+            sent_calls.append((channel_key, payload))
+            return True, "sent"
+
+        outcome = agent_communication_service.dispatch_outbox_message(
+            db,
+            pending_message.id,
+            sender=sender,
+        )
+
+        assert pending_message.channel_id == old_channel.id
+        assert old_channel.is_active is False
+        assert new_channel.is_active is True
+        assert outcome.status == "retrying"
+        assert outcome.detail == "channel_not_available"
+        assert sent_calls == []
     finally:
         db.close()
 

@@ -51,13 +51,12 @@ def ensure_root_owner_private_reply_channel(
             "managed_by": "ensure_root_owner_private_reply_channel",
         },
     )
-    deactivated_old_binding = False
+    deactivated_old_channel = False
     rows = (
         db.query(AgentChannelBinding, CommunicationChannel)
         .join(CommunicationChannel, AgentChannelBinding.channel_id == CommunicationChannel.id)
         .filter(
             AgentChannelBinding.agent_profile_id == agent.id,
-            AgentChannelBinding.is_active.is_(True),
             CommunicationChannel.channel_type == "dingtalk_work_notice",
         )
         .all()
@@ -67,8 +66,9 @@ def ensure_root_owner_private_reply_channel(
             continue
         if (bound_channel.metadata_payload or {}).get("root_owner_reply_channel") is True:
             binding.is_active = False
-            deactivated_old_binding = True
-    if deactivated_old_binding:
+            bound_channel.is_active = False
+            deactivated_old_channel = True
+    if deactivated_old_channel:
         db.commit()
 
     agent_communication_service.bind_agent_to_channel(
