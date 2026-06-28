@@ -8,7 +8,6 @@ from typing import Any
 SOURCE_MAP_PATH = Path(__file__).resolve().parents[1] / "hermes" / "fact_source_map.json"
 DINGTALK_EVIDENCE_CONDITION_KEYS = {
     "authorized_group",
-    "specialist_sender",
     "content_type",
     "time_range",
 }
@@ -82,7 +81,7 @@ def _validate_item(item: object) -> dict[str, Any]:
             raise ValueError(f"fact_source_map_field_must_be_list:{key}")
     if result["delete_protection"] not in {"protect", "merge_candidate", "freeze_candidate", "candidate_delete"}:
         raise ValueError("fact_source_map_invalid_delete_protection")
-    if "dingtalk_specialist" in result["priority_sources"]:
+    if "dingtalk_group_content" in result["priority_sources"] or "dingtalk_specialist" in result["priority_sources"]:
         conditions = result.get("dingtalk_evidence_conditions")
         if not isinstance(conditions, dict):
             raise ValueError("fact_source_map_missing_dingtalk_evidence_conditions")

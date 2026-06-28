@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -39,7 +40,6 @@ EXPECTED_METRIC_KEYS = {
 
 DINGTALK_EVIDENCE_CONDITION_KEYS = {
     "authorized_group",
-    "specialist_sender",
     "content_type",
     "time_range",
 }
@@ -58,25 +58,83 @@ def test_fact_source_map_loads_core_daily_report_metrics() -> None:
     assert keys == EXPECTED_METRIC_KEYS
 
 
-def test_fact_source_map_requires_dingtalk_evidence_conditions_for_specialist_priority_sources() -> None:
+def test_fact_source_map_requires_dingtalk_evidence_conditions_for_group_content_priority_sources() -> None:
     source_map = load_fact_source_map()
 
-    specialist_items = [item for item in source_map if "dingtalk_specialist" in item["priority_sources"]]
+    dingtalk_group_items = [item for item in source_map if "dingtalk_group_content" in item["priority_sources"]]
 
-    assert {item["metric_key"] for item in specialist_items} == {
+    assert {item["metric_key"] for item in dingtalk_group_items} == {
         "total_output_daily",
         "finished_inbound_daily",
         "total_electricity_kwh",
         "total_gas_m3",
         "anomaly_explanation_daily",
     }
-    for item in specialist_items:
+    for item in dingtalk_group_items:
         conditions = item["dingtalk_evidence_conditions"]
         assert set(conditions) == DINGTALK_EVIDENCE_CONDITION_KEYS
         assert conditions["authorized_group"] == "required"
-        assert conditions["specialist_sender"] == "required"
         assert conditions["content_type"] == ["text", "file", "image"]
         assert conditions["time_range"] == "business_day_window"
+
+
+def test_fact_source_map_prioritizes_dingtalk_group_content_first() -> None:
+    load_fact_source_map()
+
+    for metric_key in {
+        "total_output_daily",
+        "finished_inbound_daily",
+        "total_electricity_kwh",
+        "total_gas_m3",
+        "anomaly_explanation_daily",
+    }:
+        item = find_fact_source(metric_key)
+        assert item["priority_sources"][0] == "dingtalk_group_content"
+
+
+def test_production_domain_metrics_put_mes_before_data_hub_projection() -> None:
+    source_map = load_fact_source_map()
+    items = [
+        item
+        for item in source_map
+        if item["domain"] == "production"
+        and "MES/WMS readonly" in item["priority_sources"]
+        and "data_hub_projection" in item["priority_sources"]
+    ]
+
+    assert items
+    for item in items:
+        assert item["priority_sources"].index("MES/WMS readonly") < item["priority_sources"].index(
+            "data_hub_projection"
+        )
+
+
+def test_domain_fact_sources_put_hub_projection_before_daily_fact_bundle() -> None:
+    source_map = load_fact_source_map()
+    items = [
+        item
+        for item in source_map
+        if "data_hub_projection" in item["priority_sources"] and "DailyFactBundle" in item["priority_sources"]
+    ]
+
+    assert items
+    for item in items:
+        assert item["priority_sources"].index("data_hub_projection") < item["priority_sources"].index(
+            "DailyFactBundle"
+        )
+
+
+def test_external_readonly_domain_sources_put_mes_before_daily_fact_bundle() -> None:
+    source_map = load_fact_source_map()
+    items = [
+        item
+        for item in source_map
+        if "MES/WMS readonly" in item["priority_sources"] and "DailyFactBundle" in item["priority_sources"]
+    ]
+
+    assert items
+    for item in items:
+        assert item["priority_sources"].index("MES/WMS readonly") < item["priority_sources"].index("DailyFactBundle")
 
 
 def test_fact_source_map_protects_raw_evidence_and_audit_paths() -> None:
@@ -157,3 +215,23 @@ def test_fact_source_map_export_matches_committed_markdown() -> None:
     checked = docs_path.read_text(encoding="utf-8").replace("\\r\\n", "\n").strip()
 
     assert rendered == checked
+
+
+def test_fact_source_map_export_script_smoke_preserves_committed_markdown() -> None:
+    docs_path = Path(__file__).resolve().parents[2] / "docs" / "hermes" / "fact-source-map.md"
+    before = docs_path.read_text(encoding="utf-8")
+    try:
+        result = subprocess.run(
+            [sys.executable, "scripts/hermes_fact_source_map_export.py"],
+            cwd=BACKEND_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        after = docs_path.read_text(encoding="utf-8")
+    finally:
+        docs_path.write_text(before, encoding="utf-8")
+
+    assert result.returncode == 0, result.stderr
+    assert "fact-source-map.md" in result.stdout
+    assert after == before
