@@ -17,6 +17,8 @@ from app.services.hermes_20_question_acceptance import (
 )
 from app.services.hermes_root_owner_production_orchestrator import run_root_owner_production_turn
 
+_ALLOWED_DELIVERY_CHANNEL_TYPES = frozenset({"dingtalk_group", "dingtalk_work_notice"})
+
 
 @dataclass(frozen=True, slots=True)
 class DingTalkDeliveryTarget:
@@ -124,6 +126,8 @@ def _dispatch_approved_targets(
     results: list[dict[str, Any]] = []
     if not targets:
         return results
+    for target in targets:
+        _validate_delivery_target(target)
     agent = agent_communication_service.register_agent(
         db,
         code="hermes_20_question_acceptance",
@@ -189,6 +193,11 @@ def _dispatch_approved_targets(
                 }
             )
     return results
+
+
+def _validate_delivery_target(target: DingTalkDeliveryTarget) -> None:
+    if target.channel_type not in _ALLOWED_DELIVERY_CHANNEL_TYPES:
+        raise ValueError(f"unsupported delivery target channel_type: {target.channel_type}")
 
 
 def _dispatch_payload(
