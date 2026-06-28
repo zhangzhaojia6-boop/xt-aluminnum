@@ -261,7 +261,8 @@ def _answer_gate(snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:
     answer = str(snapshot.answer or "")
     if "鑫泰铝业智能大脑" not in answer or "追踪编号" not in answer:
         return LayerGateResult("answer", False, "public_identity_or_language_failed")
-    if any(term in answer for term in _FORBIDDEN_PUBLIC_TERMS):
+    answer_casefolded = answer.casefold()
+    if any(term.casefold() in answer_casefolded for term in _FORBIDDEN_PUBLIC_TERMS):
         return LayerGateResult("answer", False, "public_identity_or_language_failed")
     if "来源" not in answer or "状态" not in answer:
         return LayerGateResult("answer", False, "answer_contract_incomplete")

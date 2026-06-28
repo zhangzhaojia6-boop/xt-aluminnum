@@ -90,6 +90,24 @@ def test_answer_gate_rejects_internal_identity_and_trace_id_copy() -> None:
     assert "public_identity_or_language_failed" in result.failed_reasons
 
 
+def test_answer_gate_rejects_public_identity_terms_regardless_of_case() -> None:
+    question = build_20_question_catalog()[0]
+    for forbidden_term in ("Developer", "Engineer", "codex", "CODEX"):
+        snapshot = _passing_snapshot(
+            1,
+            answer=(
+                f"鑫泰铝业智能大脑回答：结论已确认。{forbidden_term} 已处理。"
+                "来源：MES/WMS 只读链路。状态：confirmed。追踪编号：trace-q。"
+            ),
+        )
+
+        result = evaluate_question_snapshot(question, snapshot)
+
+        assert result.core_passed is False, forbidden_term
+        assert "answer" in result.failed_gate_names
+        assert "public_identity_or_language_failed" in result.failed_reasons
+
+
 def test_source_gate_rejects_rag_as_current_fact_source() -> None:
     question = build_20_question_catalog()[0]
     snapshot = _passing_snapshot(1)
