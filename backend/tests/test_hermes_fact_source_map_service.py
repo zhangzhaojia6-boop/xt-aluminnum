@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -92,9 +93,48 @@ def test_fact_source_map_prioritizes_dingtalk_group_content_first() -> None:
 
 
 def test_production_domain_metrics_put_mes_before_data_hub_projection() -> None:
-    item = find_fact_source("wip_total")
+    source_map = load_fact_source_map()
+    items = [
+        item
+        for item in source_map
+        if item["domain"] == "production"
+        and "MES/WMS readonly" in item["priority_sources"]
+        and "data_hub_projection" in item["priority_sources"]
+    ]
 
-    assert item["priority_sources"].index("MES/WMS readonly") < item["priority_sources"].index("data_hub_projection")
+    assert items
+    for item in items:
+        assert item["priority_sources"].index("MES/WMS readonly") < item["priority_sources"].index(
+            "data_hub_projection"
+        )
+
+
+def test_domain_fact_sources_put_hub_projection_before_daily_fact_bundle() -> None:
+    source_map = load_fact_source_map()
+    items = [
+        item
+        for item in source_map
+        if "data_hub_projection" in item["priority_sources"] and "DailyFactBundle" in item["priority_sources"]
+    ]
+
+    assert items
+    for item in items:
+        assert item["priority_sources"].index("data_hub_projection") < item["priority_sources"].index(
+            "DailyFactBundle"
+        )
+
+
+def test_external_readonly_domain_sources_put_mes_before_daily_fact_bundle() -> None:
+    source_map = load_fact_source_map()
+    items = [
+        item
+        for item in source_map
+        if "MES/WMS readonly" in item["priority_sources"] and "DailyFactBundle" in item["priority_sources"]
+    ]
+
+    assert items
+    for item in items:
+        assert item["priority_sources"].index("MES/WMS readonly") < item["priority_sources"].index("DailyFactBundle")
 
 
 def test_fact_source_map_protects_raw_evidence_and_audit_paths() -> None:
@@ -175,3 +215,23 @@ def test_fact_source_map_export_matches_committed_markdown() -> None:
     checked = docs_path.read_text(encoding="utf-8").replace("\\r\\n", "\n").strip()
 
     assert rendered == checked
+
+
+def test_fact_source_map_export_script_smoke_preserves_committed_markdown() -> None:
+    docs_path = Path(__file__).resolve().parents[2] / "docs" / "hermes" / "fact-source-map.md"
+    before = docs_path.read_text(encoding="utf-8")
+    try:
+        result = subprocess.run(
+            [sys.executable, "scripts/hermes_fact_source_map_export.py"],
+            cwd=BACKEND_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        after = docs_path.read_text(encoding="utf-8")
+    finally:
+        docs_path.write_text(before, encoding="utf-8")
+
+    assert result.returncode == 0, result.stderr
+    assert "fact-source-map.md" in result.stdout
+    assert after == before
