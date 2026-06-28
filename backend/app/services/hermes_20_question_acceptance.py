@@ -241,9 +241,11 @@ def _understanding_gate(question: HermesAcceptanceQuestion, snapshot: Acceptance
 
 def _source_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:
     evidence = snapshot.evidence or {}
-    trace = evidence.get("trace") if isinstance(evidence.get("trace"), Mapping) else {}
+    trace_value = evidence.get("trace")
+    trace = trace_value if isinstance(trace_value, Mapping) else {}
     source_order = _list_value(trace.get("source_order"))
-    source_status = trace.get("source_status") if isinstance(trace.get("source_status"), Mapping) else {}
+    source_status_value = trace.get("source_status")
+    source_status = source_status_value if isinstance(source_status_value, Mapping) else {}
     checked_sources = set(source_order) | {str(source_key) for source_key in source_status}
     primary_source = str(evidence.get("primary_source") or "")
     if primary_source == "rag" or source_order[:1] == ["rag"]:
