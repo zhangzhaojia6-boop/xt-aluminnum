@@ -294,3 +294,106 @@ def test_acceptance_cli_parses_real_delivery_targets() -> None:
         ("dingtalk_group", "test-group"),
         ("dingtalk_work_notice", "dt-person-001"),
     ]
+
+
+def test_acceptance_cli_main_requires_real_delivery_flag_before_db(monkeypatch, capsys) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    monkeypatch.setattr(cli, "get_sessionmaker", lambda: (_ for _ in ()).throw(AssertionError("db_should_not_run")))
+    monkeypatch.setattr(
+        cli,
+        "run_20_question_acceptance",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("runner_should_not_run")),
+    )
+
+    exit_code = cli.main(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--target",
+            "dingtalk_group:test-group",
+        ]
+    )
+
+    assert exit_code == 2
+    assert capsys.readouterr().out.strip() == "refusing_real_acceptance_without_real_delivery_flag"
+
+
+def test_acceptance_cli_main_requires_target_before_db(monkeypatch, capsys) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    monkeypatch.setattr(cli, "get_sessionmaker", lambda: (_ for _ in ()).throw(AssertionError("db_should_not_run")))
+    monkeypatch.setattr(
+        cli,
+        "run_20_question_acceptance",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("runner_should_not_run")),
+    )
+
+    exit_code = cli.main(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--real-delivery",
+        ]
+    )
+
+    assert exit_code == 2
+    assert capsys.readouterr().out.strip() == "target_required"
+
+
+def test_acceptance_cli_main_rejects_invalid_target_before_db(monkeypatch, capsys) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    monkeypatch.setattr(cli, "get_sessionmaker", lambda: (_ for _ in ()).throw(AssertionError("db_should_not_run")))
+    monkeypatch.setattr(
+        cli,
+        "run_20_question_acceptance",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("runner_should_not_run")),
+    )
+
+    exit_code = cli.main(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--target",
+            "bad-target",
+            "--real-delivery",
+        ]
+    )
+
+    assert exit_code == 2
+    assert capsys.readouterr().out.strip() == "target_must_use_channel_type_colon_key"
+
+
+def test_acceptance_cli_main_rejects_report_path_outside_reports_dir_before_db(monkeypatch, capsys) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    monkeypatch.setattr(cli, "get_sessionmaker", lambda: (_ for _ in ()).throw(AssertionError("db_should_not_run")))
+    monkeypatch.setattr(
+        cli,
+        "run_20_question_acceptance",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("runner_should_not_run")),
+    )
+
+    exit_code = cli.main(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--target",
+            "dingtalk_group:test-group",
+            "--real-delivery",
+            "--report-path",
+            "../outside.md",
+        ]
+    )
+
+    assert exit_code == 2
+    assert capsys.readouterr().out.strip() == "report_path_outside_reports_dir"
