@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping
 from sqlalchemy.orm import Session
 
 from app.core.redaction import redact_secret_text
-from app.models.agent_communication import MultimodalEvidence
+from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
 from app.models.reports import DailyReport
 from app.services.hermes_codex_construction_service import request_codex_construction
 from app.services.hermes_data_audit_service import HermesDataAuditService
@@ -119,20 +119,56 @@ def _mes_wms_read_tool(*, mes_read_service: HermesMesReadService | None, **kwarg
 def _dingtalk_evidence_tool(*, db: Session, **kwargs: object) -> dict[str, object]:
     try:
         limit = max(1, min(int(kwargs.get('limit') or 20), 100))
-        rows = db.query(MultimodalEvidence).order_by(MultimodalEvidence.id.desc()).limit(limit).all()
-        facts = [
-            {
-                'id': row.id,
-                'evidence_type': row.evidence_type,
-                'confirmation_status': row.confirmation_status,
-                'payload': row.payload or {},
-                'created_at': row.created_at.isoformat() if row.created_at else None,
-            }
-            for row in rows
-        ]
-        return {'status': 'ok', 'source': 'dingtalk_evidence', 'request': _request_payload(kwargs), 'facts': facts}
+        file_rows = (
+            db.query(MultimodalEvidence)
+            .filter(MultimodalEvidence.evidence_type.in_(('file', 'image', 'text')))
+            .order_by(MultimodalEvidence.id.desc())
+            .limit(limit)
+            .all()
+        )
+        chat_rows = (
+            db.query(ChatInboxMessage)
+            .filter(ChatInboxMessage.channel == 'dingtalk_group')
+            .order_by(ChatInboxMessage.created_at.desc(), ChatInboxMessage.id.desc())
+            .limit(limit)
+            .all()
+        )
+        facts: list[dict[str, object]] = []
+        for row in file_rows:
+            facts.append(
+                {
+                    'source_key': 'dingtalk_group_file',
+                    'source_type': 'dingtalk_group_content',
+                    'priority': 10,
+                    'evidence_type': row.evidence_type,
+                    'confirmation_status': row.confirmation_status,
+                    'recognized_text': row.recognized_text,
+                    'payload': row.payload or {},
+                    'created_at': row.created_at.isoformat() if row.created_at else None,
+                }
+            )
+        for row in chat_rows:
+            facts.append(
+                {
+                    'source_key': 'dingtalk_group_chat',
+                    'source_type': 'dingtalk_group_content',
+                    'priority': 10,
+                    'channel': row.channel,
+                    'group_id': row.group_id,
+                    'sender_external_id': row.sender_external_id,
+                    'text': row.text,
+                    'trace_id': row.trace_id,
+                    'created_at': row.created_at.isoformat() if row.created_at else None,
+                }
+            )
+        return {
+            'status': 'ok',
+            'source': 'dingtalk_group_content',
+            'request': _request_payload(kwargs),
+            'facts': facts[:limit],
+        }
     except Exception as exc:
-        return _unavailable('dingtalk_evidence', kwargs, exc)
+        return _unavailable('dingtalk_group_content', kwargs, exc)
 
 
 def _rag_route_tool(*, db: Session, current_user: object | None, **kwargs: object) -> dict[str, object]:

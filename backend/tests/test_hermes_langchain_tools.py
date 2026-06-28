@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from app.models import Base, ChatInboxMessage, MultimodalEvidence
 from app.services.hermes_langchain_model import FactoryBrainModelUnavailable, invoke_factory_brain_model
 from app.services.hermes_langchain_tools import (
     HermesToolAdapters,
@@ -94,3 +95,40 @@ def test_hub_query_tool_returns_structured_payload() -> None:
     assert result['source'] == 'data_hub'
     assert 'request' in result
     assert 'facts' in result
+
+
+def test_dingtalk_evidence_tool_returns_group_content_priority_first() -> None:
+    engine = create_engine('sqlite:///:memory:', future=True)
+    Base.metadata.create_all(bind=engine, tables=[ChatInboxMessage.__table__, MultimodalEvidence.__table__])
+    db = Session(engine)
+    try:
+        db.add(
+            ChatInboxMessage(
+                channel='dingtalk_group',
+                group_id='group-001',
+                sender_external_id='dt-leader',
+                text='负责人确认今天产量 118 吨',
+                agent_code='factory_dispatch',
+                trace_id='trace-dingtalk-chat',
+                source_payload={'source': 'dingtalk'},
+            )
+        )
+        db.add(
+            MultimodalEvidence(
+                evidence_type='file',
+                recognized_text='群文件确认今天产量 118 吨',
+                confirmation_status='confirmed',
+                payload={'source': 'dingtalk', 'channel': 'dingtalk_group'},
+            )
+        )
+        db.commit()
+
+        tool = build_production_tool_adapters(db).dingtalk_evidence
+        payload = tool(limit=10)
+
+        assert payload['status'] == 'ok'
+        assert payload['source'] == 'dingtalk_group_content'
+        assert payload['facts'][0]['source_key'] in {'dingtalk_group_file', 'dingtalk_group_chat'}
+        assert payload['facts'][0]['priority'] == 10
+    finally:
+        db.close()
