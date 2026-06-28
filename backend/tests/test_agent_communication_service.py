@@ -206,6 +206,65 @@ def test_dispatch_enabled_dingtalk_work_notice_calls_personal_sender_once() -> N
         db.close()
 
 
+def test_dispatch_enabled_dingtalk_work_notice_uses_target_key_for_private_channel() -> None:
+    db = _db_session()
+    sender_calls = []
+    private_channel_key = 'root_owner:factory_dispatch:dt-root-001'
+    try:
+        service.register_agent(db, code='factory_dispatch', name='全厂调度 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_work_notice',
+            channel_key=private_channel_key,
+            name='root_owner 私聊回复通道',
+            target_type='user',
+            target_key='dt-root-001',
+            dry_run=False,
+        )
+        service.bind_agent_to_channel(
+            db,
+            agent_code='factory_dispatch',
+            channel_key=private_channel_key,
+            channel_type='dingtalk_work_notice',
+        )
+        message = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key=private_channel_key,
+            channel_type='dingtalk_work_notice',
+            title='【root_owner】私聊回复',
+            content='仅发给真实钉钉用户。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+
+        def fake_sender(userid: str, payload: dict) -> tuple[bool, str]:
+            sender_calls.append((userid, payload))
+            return True, 'dingtalk_work_notice_sent'
+
+        outcome = service.dispatch_outbox_message(db, message.id, sender=fake_sender)
+
+        assert outcome.status == 'sent'
+        assert sender_calls == [
+            (
+                'dt-root-001',
+                {
+                    'msgtype': 'markdown',
+                    'markdown': {
+                        'title': '【root_owner】私聊回复',
+                        'text': '仅发给真实钉钉用户。',
+                    },
+                },
+            )
+        ]
+        assert sender_calls[0][0] != private_channel_key
+        logs = service.list_external_logs(db, outbox_message_id=message.id)
+        assert logs[0].channel_type == 'dingtalk_work_notice'
+        assert logs[0].channel_key == private_channel_key
+    finally:
+        db.close()
+
+
 def test_dispatch_enabled_dingtalk_custom_robot_uses_channel_secret_ref(monkeypatch) -> None:
     db = _db_session()
     calls = []

@@ -1417,3 +1417,421 @@ def test_dingtalk_agent_inbound_duplicate_chat_message_does_not_duplicate_eviden
         assert db.query(MultimodalEvidence).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_root_owner_private_uses_production_loop_for_soft_message(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=88,
+            username="root-owner-soft",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-soft-001",
+            dingtalk_union_id="union-root-soft-001",
+        )
+    )
+    db.commit()
+    seen = {}
+
+    def fake_turn(_db, **kwargs):
+        seen.update(kwargs)
+        return type(
+            "FakeRootOwnerTurn",
+            (),
+            {
+                "trace_id": kwargs["trace_id"],
+                "status": "answered",
+                "answer": "今天整体正常，已按钉钉事实源回答。",
+                "chat_inbox_id": 301,
+                "agent_run_id": 401,
+                "outbox_message_id": 501,
+                "dispatch_status": "sent",
+                "dispatch_detail": "sent",
+            },
+        )()
+
+    def fail_factory_brain_turn(*_args, **_kwargs):
+        raise AssertionError("root_owner private soft message should not reach factory brain")
+
+    def fail_fallback(*_args, **_kwargs):
+        raise AssertionError("root_owner private soft message should not reach fallback")
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setattr("app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED", True, raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-soft-001")
+    monkeypatch.setattr(dingtalk_router, "run_root_owner_production_turn", fake_turn)
+    monkeypatch.setattr(
+        "app.services.hermes_factory_brain_orchestrator.run_factory_brain_turn",
+        fail_factory_brain_turn,
+    )
+    monkeypatch.setattr(dingtalk_router, "handle_agent_command", fail_fallback)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-root-soft-001",
+                "senderUnionId": "union-root-soft-001",
+                "text": {"content": "今天咋样"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-soft-route-001",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["agent_code"] == "factory_dispatch"
+        assert payload["status"] == "answered"
+        assert payload["answer"] == "今天整体正常，已按钉钉事实源回答。"
+        assert payload["outbox_message_id"] == 501
+        assert payload["dispatch_status"] == "sent"
+        assert seen["text"] == "今天咋样"
+        assert seen["sender_external_id"] == "dt-root-soft-001"
+        assert seen["trace_id"] == "trace-root-soft-route-001"
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_root_owner_private_ambiguous_follow_up_uses_production_loop(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=94,
+            username="root-owner-ambiguous-follow-up",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-ambiguous-follow-up-001",
+            dingtalk_union_id="union-root-ambiguous-follow-up-001",
+        )
+    )
+    db.commit()
+    seen = {}
+
+    def fake_turn(_db, **kwargs):
+        seen.update(kwargs)
+        return type(
+            "FakeRootOwnerTurn",
+            (),
+            {
+                "trace_id": kwargs["trace_id"],
+                "status": "clarifying",
+                "answer": "你想看哪一天的哪类生产数据？",
+                "chat_inbox_id": 303,
+                "agent_run_id": 403,
+                "outbox_message_id": 503,
+                "dispatch_status": "sent",
+                "dispatch_detail": "sent",
+            },
+        )()
+
+    def fail_fallback(*_args, **_kwargs):
+        raise AssertionError("ambiguous root_owner private follow-up should not reach fallback")
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-ambiguous-follow-up-001")
+    monkeypatch.setattr(dingtalk_router, "run_root_owner_production_turn", fake_turn)
+    monkeypatch.setattr(dingtalk_router, "handle_agent_command", fail_fallback)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-root-ambiguous-follow-up-001",
+                "senderUnionId": "union-root-ambiguous-follow-up-001",
+                "text": {"content": "昨天呢"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-ambiguous-follow-up-route-001",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "clarifying"
+        assert payload["answer"] == "你想看哪一天的哪类生产数据？"
+        assert payload["outbox_message_id"] == 503
+        assert seen["text"] == "昨天呢"
+        assert seen["sender_external_id"] == "dt-root-ambiguous-follow-up-001"
+        assert seen["trace_id"] == "trace-root-ambiguous-follow-up-route-001"
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_day1_parse_error_does_not_hard_fail_for_root_owner_private(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=89,
+            username="root-owner-invalid-date",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-invalid-date-001",
+            dingtalk_union_id="union-root-invalid-date-001",
+        )
+    )
+    db.commit()
+    seen = {}
+
+    def fake_turn(_db, **kwargs):
+        seen.update(kwargs)
+        return type(
+            "FakeRootOwnerTurn",
+            (),
+            {
+                "trace_id": kwargs["trace_id"],
+                "status": "clarifying",
+                "answer": "你想看哪一天的日报或生产情况？",
+                "chat_inbox_id": 302,
+                "agent_run_id": 402,
+                "outbox_message_id": 502,
+                "dispatch_status": "sent",
+                "dispatch_detail": "sent",
+            },
+        )()
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-invalid-date-001")
+    monkeypatch.setattr(dingtalk_router, "run_root_owner_production_turn", fake_turn)
+    monkeypatch.setattr("app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED", True, raising=False)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-root-invalid-date-001",
+                "senderUnionId": "union-root-invalid-date-001",
+                "text": {"content": "生成 13月99日正式日报"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-invalid-date-route-001",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "clarifying"
+        assert response.json()["answer"] == "你想看哪一天的日报或生产情况？"
+        assert seen["source_payload"]["day1_parse_error"] == "invalid_date"
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_day1_parse_error_returns_400_outside_root_owner_private_loop(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add_all([
+        User(
+            id=90,
+            username="manager-invalid-date",
+            password_hash="x",
+            name="生产经理",
+            role="manager",
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id="dt-manager-invalid-date-001",
+            dingtalk_union_id="union-manager-invalid-date-001",
+        ),
+        User(
+            id=91,
+            username="root-owner-group-invalid-date",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-group-invalid-date-001",
+            dingtalk_union_id="union-root-group-invalid-date-001",
+        ),
+    ])
+    db.commit()
+
+    def fail_factory_brain_turn(*_args, **_kwargs):
+        raise AssertionError("Day1 parse error should not reach factory brain outside root_owner private loop")
+
+    def fail_fallback(*_args, **_kwargs):
+        raise AssertionError("Day1 parse error should not reach fallback outside root_owner private loop")
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setattr("app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED", True, raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-group-invalid-date-001")
+    monkeypatch.setattr(
+        "app.services.hermes_factory_brain_orchestrator.run_factory_brain_turn",
+        fail_factory_brain_turn,
+    )
+    monkeypatch.setattr(dingtalk_router, "handle_agent_command", fail_fallback)
+
+    try:
+        client = TestClient(app)
+        non_root_response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-manager-invalid-date-001",
+                "senderUnionId": "union-manager-invalid-date-001",
+                "text": {"content": "生成 13月99日正式日报"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-manager-invalid-date-route-001",
+            },
+        )
+        group_response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "conversationId": "cid-root-invalid-date-group",
+                "conversationType": "group",
+                "senderStaffId": "dt-root-group-invalid-date-001",
+                "senderUnionId": "union-root-group-invalid-date-001",
+                "text": {"content": "生成 13月99日正式日报"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-group-invalid-date-route-001",
+            },
+        )
+
+        assert non_root_response.status_code == 400
+        assert non_root_response.json()["detail"] == "invalid_date"
+        assert group_response.status_code == 400
+        assert group_response.json()["detail"] == "invalid_date"
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_root_owner_private_slash_commands_use_legacy_fallback(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=92,
+            username="root-owner-slash-command",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-slash-command-001",
+            dingtalk_union_id="union-root-slash-command-001",
+        )
+    )
+    db.commit()
+    seen: dict[str, object] = {}
+
+    def fail_root_owner_turn(*_args, **_kwargs):
+        raise AssertionError("root_owner private slash command should not reach production loop")
+
+    def fake_handle_agent_command(*_args, **kwargs):
+        seen["text"] = kwargs["text"]
+        return type(
+            "FakeAgentCommandResult",
+            (),
+            {
+                "trace_id": kwargs["trace_id"],
+                "status_color": "green",
+                "intent": "help",
+                "facts": {},
+                "answer": "旧 /commands fallback",
+                "rag": {},
+                "chat_inbox_id": 911,
+                "agent_run_id": 912,
+                "outbox_message_id": None,
+            },
+        )()
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setattr("app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED", True, raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-slash-command-001")
+    monkeypatch.setattr(dingtalk_router, "run_root_owner_production_turn", fail_root_owner_turn)
+    monkeypatch.setattr(dingtalk_router, "handle_agent_command", fake_handle_agent_command)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-root-slash-command-001",
+                "senderUnionId": "union-root-slash-command-001",
+                "text": {"content": "/commands"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-slash-command-route-001",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["intent"] == "help"
+        assert payload["answer"] == "旧 /commands fallback"
+        assert seen["text"] == "/commands"
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_root_owner_private_joke_uses_legacy_fallback(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=93,
+            username="root-owner-joke",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-joke-001",
+            dingtalk_union_id="union-root-joke-001",
+        )
+    )
+    db.commit()
+    seen: dict[str, object] = {}
+
+    def fail_root_owner_turn(*_args, **_kwargs):
+        raise AssertionError("root_owner private general chat should not reach production loop")
+
+    def fake_handle_agent_command(*_args, **kwargs):
+        seen["text"] = kwargs["text"]
+        return type(
+            "FakeAgentCommandResult",
+            (),
+            {
+                "trace_id": kwargs["trace_id"],
+                "status_color": "green",
+                "intent": "general_chat",
+                "facts": {},
+                "answer": "旧闲聊 fallback",
+                "rag": {},
+                "chat_inbox_id": 921,
+                "agent_run_id": 922,
+                "outbox_message_id": None,
+            },
+        )()
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setattr("app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED", True, raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-joke-001")
+    monkeypatch.setattr(dingtalk_router, "run_root_owner_production_turn", fail_root_owner_turn)
+    monkeypatch.setattr(dingtalk_router, "handle_agent_command", fake_handle_agent_command)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-root-joke-001",
+                "senderUnionId": "union-root-joke-001",
+                "text": {"content": "给我讲个轻松的笑话"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-joke-route-001",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["intent"] == "general_chat"
+        assert payload["answer"] == "旧闲聊 fallback"
+        assert seen["text"] == "给我讲个轻松的笑话"
+    finally:
+        _restore_db_override(previous_overrides, db)

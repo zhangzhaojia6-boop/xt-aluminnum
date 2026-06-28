@@ -150,14 +150,14 @@ def test_collect_day1_sources_returns_expected_shape_and_calls_existing_services
             {
                 'metric_key': 'total_output_daily',
                 'display_name': '车间总产量日合计',
-                'summary': '车间总产量日合计：优先级 root_owner > dingtalk_specialist > DailyFactBundle > MES/WMS readonly > data_hub_projection。涉及服务：DailyFactBundle、Hermes、template_daily_report、hermes_langchain_tools。风险：包装量、入库量、车间最终日报产量不是同一个数',
+                'summary': '车间总产量日合计：优先级 dingtalk_group_content > MES/WMS readonly > data_hub_projection > DailyFactBundle。涉及服务：DailyFactBundle、Hermes、template_daily_report、hermes_langchain_tools。风险：包装量、入库量、车间最终日报产量不是同一个数',
                 'delete_protection': 'protect',
                 'api_routes': ['/api/v1/reports/template-daily/preview', '/api/v1/dashboard/daily-production'],
                 'frontend_pages': ['/manage/today', '/manage/production'],
             }
         ],
         'source_explanations': [
-            '车间总产量日合计：优先级 root_owner > dingtalk_specialist > DailyFactBundle > MES/WMS readonly > data_hub_projection。涉及服务：DailyFactBundle、Hermes、template_daily_report、hermes_langchain_tools。风险：包装量、入库量、车间最终日报产量不是同一个数'
+            '车间总产量日合计：优先级 dingtalk_group_content > MES/WMS readonly > data_hub_projection > DailyFactBundle。涉及服务：DailyFactBundle、Hermes、template_daily_report、hermes_langchain_tools。风险：包装量、入库量、车间最终日报产量不是同一个数'
         ],
     }
     assert payload['mes_wms'] == mes_payload

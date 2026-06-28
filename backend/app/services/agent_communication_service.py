@@ -286,7 +286,10 @@ def dispatch_outbox_message(
 
     send = sender or _default_sender(channel)
     try:
-        ok, raw_detail = send(channel.channel_key, _build_dingtalk_markdown_payload(message))
+        send_target = channel.channel_key
+        if channel.channel_type == 'dingtalk_work_notice':
+            send_target = _clean(channel.target_key) or channel.channel_key
+        ok, raw_detail = send(send_target, _build_dingtalk_markdown_payload(message))
         send_result = _normalize_provider_send_result(raw_detail)
     except Exception as exc:  # noqa: BLE001
         ok = False

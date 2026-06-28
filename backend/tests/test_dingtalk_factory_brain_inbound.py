@@ -102,6 +102,7 @@ def test_dingtalk_inbound_uses_factory_brain_for_rule_first_business_inputs(monk
             headers={'x-dingtalk-inbound-token': 'hermes-token'},
             json={
                 'conversationId': 'cid-root',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-root',
                 'senderUnionId': 'union-root',
                 'text': {'content': text},
@@ -156,6 +157,7 @@ def test_dingtalk_inbound_falls_back_for_non_business_natural_language(monkeypat
             headers={'x-dingtalk-inbound-token': 'hermes-token'},
             json={
                 'conversationId': 'cid-root',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-root',
                 'senderUnionId': 'union-root',
                 'text': {'content': '给我讲个轻松的笑话'},
@@ -285,6 +287,7 @@ def test_dingtalk_inbound_falls_back_for_ordinary_non_business_text(monkeypatch,
             headers={'x-dingtalk-inbound-token': 'hermes-token'},
             json={
                 'conversationId': 'cid-root',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-root',
                 'senderUnionId': 'union-root',
                 'text': {'content': text},
@@ -340,6 +343,7 @@ def test_dingtalk_inbound_falls_back_for_non_factory_brain_text(monkeypatch) -> 
             headers={'x-dingtalk-inbound-token': 'hermes-token'},
             json={
                 'conversationId': 'cid-root',
+                'conversationType': 'group',
                 'senderStaffId': 'dt-root',
                 'senderUnionId': 'union-root',
                 'text': {'content': '/commands'},
