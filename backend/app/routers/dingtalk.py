@@ -48,8 +48,8 @@ from app.services.hermes_factory_brain_intent_service import classify_factory_br
 from app.services.hermes_factory_brain_types import FactoryBrainIntent
 from app.services.hermes_root_owner_production_orchestrator import (
     run_root_owner_production_turn,
-    should_route_root_owner_production_turn,
 )
+from app.services.hermes_root_owner_message_service import understand_root_owner_message
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +253,13 @@ def _is_legacy_slash_daily_report_command(text: str) -> bool:
         return False
     command = clean_text.split(maxsplit=1)[0].lstrip('/')
     return command in {'日报', '发日报'}
+
+
+def _should_route_root_owner_private_production_turn(text: str) -> bool:
+    clean_text = _clean_text(text)
+    if not clean_text or clean_text.startswith('/'):
+        return False
+    return understand_root_owner_message(clean_text).domain != 'general'
 
 
 def _get_factory_brain_route_intent(text: str) -> FactoryBrainIntent | None:
@@ -678,7 +685,7 @@ def dingtalk_agent_inbound(
         channel == 'dingtalk_private'
         and root_owner_decision.is_root_owner
         and (
-            should_route_root_owner_production_turn(text)
+            _should_route_root_owner_private_production_turn(text)
             or day1_parse_error is not None
         )
     ):
