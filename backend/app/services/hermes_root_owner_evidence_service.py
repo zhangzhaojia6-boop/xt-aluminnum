@@ -45,6 +45,45 @@ _PRODUCTION_QUERY_KEYS = {
     "remaining_contract_weight": "stock_records",
 }
 _MES_DOMAINS = {"production", "factory_overview", "anomaly", "inventory"}
+_DINGTALK_FACT_FIELDS = ("facts", "parsed_facts", "metrics", "payload")
+_VALIDATION_CONTAINER_FIELDS = ("metadata", "validation", "fact_validation", "evidence_conditions")
+_VALIDATION_TRUE_TEXT = {
+    "1",
+    "true",
+    "yes",
+    "y",
+    "ok",
+    "matched",
+    "required",
+    "verified",
+    "valid",
+    "passed",
+    "confirmed",
+    "authorized",
+    "business_day_window",
+}
+_DINGTALK_CONTENT_TYPES = {"text", "file", "image"}
+_DINGTALK_AUTHORIZED_GROUP_FIELDS = ("authorized_group", "group_authorized", "authorized")
+_DINGTALK_SENDER_FIELDS = (
+    "specialist_sender",
+    "authorized_sender",
+    "sender_verified",
+    "responsible_sender",
+)
+_DINGTALK_TIME_FIELDS = ("time_range", "business_day_window", "time_range_matched")
+_MES_METRIC_FIELD_ALIASES = {
+    "total_output_daily": ("total_output_daily", "net_weight", "weight", "output_weight", "quantity"),
+    "workshop_output_daily": ("workshop_output_daily", "net_weight", "weight", "output_weight", "quantity"),
+    "finished_inbound_daily": ("finished_inbound_daily", "net_weight", "weight", "output_weight", "quantity"),
+    "daily_input_weight": ("daily_input_weight", "net_weight", "weight", "input_weight", "quantity"),
+    "wip_total": ("wip_total", "total_weight", "weight", "quantity"),
+    "remaining_contract_weight": (
+        "remaining_contract_weight",
+        "remaining_weight",
+        "weight",
+        "quantity",
+    ),
+}
 
 
 DingTalkReader = Callable[..., list[EvidenceCandidate]]
@@ -143,19 +182,24 @@ def collect_root_owner_evidence(
     if hub_payload:
         raw_hub_status = str(hub_payload.get("status") or "ok")
         hub_candidate_status = _candidate_status(raw_hub_status)
-        candidates.append(
-            EvidenceCandidate(
-                source_key="data_hub_projection",
-                source_type="data_hub",
-                domain=message_plan.domain,
-                priority=DATA_HUB_PRIORITY,
-                status=hub_candidate_status,
-                value=filter_sensitive_mapping(dict(hub_payload)),
-                summary="数据中枢投影已读取",
-                trace_ref={"source": "template_daily_report", "status": raw_hub_status},
+        hub_fact = _extract_hub_metric_fact(hub_payload, tuple(message_plan.metric_keys))
+        if hub_fact:
+            candidates.append(
+                EvidenceCandidate(
+                    source_key="data_hub_projection",
+                    source_type="data_hub",
+                    domain=message_plan.domain,
+                    priority=DATA_HUB_PRIORITY,
+                    status=hub_candidate_status,
+                    value=filter_sensitive_mapping(hub_fact),
+                    summary="数据中枢投影已读取当前指标",
+                    trace_ref={"source": "template_daily_report", "status": raw_hub_status},
+                )
             )
-        )
-        source_status["data_hub_projection"]["candidate_status"] = hub_candidate_status
+            source_status["data_hub_projection"]["candidate_status"] = hub_candidate_status
+        else:
+            missing_sources.append("data_hub_projection")
+            source_status["data_hub_projection"]["reason"] = "no_current_metric_fact"
     else:
         missing_sources.append("data_hub_projection")
 
@@ -247,7 +291,12 @@ def _read_dingtalk_candidates_with_status(
                         status=_candidate_status(source_status),
                         value=filter_sensitive_mapping(fact_value),
                         summary=f"{source_key} 解析到指标事实",
-                        trace_ref={"source": source_name, "item_index": index, "count": len(items)},
+                        trace_ref={
+                            "source": source_name,
+                            "item_index": index,
+                            "count": len(items),
+                            "fact_validated": True,
+                        },
                     )
                 )
                 continue
@@ -326,6 +375,10 @@ def _read_mes_candidate(
     if status not in {"ok", "partial_failed"}:
         status_detail["reason"] = "source_status_not_ok"
         return None, status_detail
+    metric_fact = _extract_mes_metric_fact(payload.get("records") or {}, tuple(message_plan.metric_keys))
+    if not metric_fact:
+        status_detail["reason"] = "no_current_metric_fact"
+        return None, status_detail
     return (
         EvidenceCandidate(
             source_key="mes_readonly",
@@ -333,8 +386,8 @@ def _read_mes_candidate(
             domain=message_plan.domain,
             priority=EXTERNAL_READONLY_PRIORITY,
             status="ok" if status == "ok" else "candidate",
-            value=filter_sensitive_mapping(payload.get("records") or {}),
-            summary="MES 只读库已读取",
+            value=filter_sensitive_mapping(metric_fact),
+            summary="MES 只读库已读取当前指标",
             trace_ref=status_detail,
         ),
         status_detail,
@@ -378,44 +431,177 @@ def _is_current_dingtalk_metric_fact(candidate: EvidenceCandidate, metric_keys: 
     return (
         candidate.source_type == "dingtalk_group_content"
         and candidate.status in {"ok", "confirmed", "candidate"}
-        and _value_contains_metric_key(candidate.value, set(metric_keys))
+        and _extract_direct_metric_fact(candidate.value, set(metric_keys)) is not None
     )
 
 
-def _value_contains_metric_key(value: Any, metric_keys: set[str]) -> bool:
-    if not metric_keys:
-        return False
-    if isinstance(value, Mapping):
-        if any(metric_key in value and value[metric_key] is not None for metric_key in metric_keys):
-            return True
-        if value.get("metric_key") in metric_keys and value.get("value") is not None:
-            return True
-        return any(_value_contains_metric_key(item, metric_keys) for item in value.values())
-    if isinstance(value, list):
-        return any(_value_contains_metric_key(item, metric_keys) for item in value)
-    return False
-
-
-def _extract_dingtalk_metric_fact(value: Any, metric_keys: set[str]) -> dict[str, Any] | None:
+def _extract_dingtalk_metric_fact(
+    value: Any,
+    metric_keys: set[str],
+    validation_context: tuple[Mapping[str, Any], ...] = (),
+) -> dict[str, Any] | None:
     if not metric_keys:
         return None
     if isinstance(value, Mapping):
-        metric_key = value.get("metric_key")
-        if metric_key in metric_keys and value.get("value") is not None:
-            return {str(metric_key): value.get("value")}
-        direct = {metric_key: value[metric_key] for metric_key in metric_keys if value.get(metric_key) is not None}
-        if direct:
+        direct = _extract_direct_metric_fact(value, metric_keys)
+        if direct and _dingtalk_fact_is_verified(value, *validation_context):
             return direct
-        for field in ("facts", "parsed_facts", "metrics", "payload"):
-            extracted = _extract_dingtalk_metric_fact(value.get(field), metric_keys)
+        next_context = (value, *validation_context)
+        for field in _DINGTALK_FACT_FIELDS:
+            extracted = _extract_dingtalk_metric_fact(value.get(field), metric_keys, next_context)
             if extracted:
                 return extracted
     if isinstance(value, list):
         for item in value:
-            extracted = _extract_dingtalk_metric_fact(item, metric_keys)
+            extracted = _extract_dingtalk_metric_fact(item, metric_keys, validation_context)
             if extracted:
                 return extracted
     return None
+
+
+def _extract_hub_metric_fact(payload: Mapping[str, Any], metric_keys: tuple[str, ...]) -> dict[str, Any] | None:
+    metric_key_set = set(metric_keys)
+    if not metric_key_set:
+        return None
+    result: dict[str, Any] = {}
+    facts = payload.get("facts")
+    if isinstance(facts, Mapping):
+        values = facts.get("values")
+        extracted = _extract_direct_metric_fact(values, metric_key_set)
+        if extracted:
+            result.update(extracted)
+    direct = _extract_direct_metric_fact(payload, metric_key_set)
+    if direct:
+        result.update(direct)
+    return result or None
+
+
+def _extract_mes_metric_fact(records: Any, metric_keys: tuple[str, ...]) -> dict[str, Any] | None:
+    metric_key_set = set(metric_keys)
+    if not metric_key_set:
+        return None
+    direct = _extract_direct_metric_fact(records, metric_key_set) or {}
+    result = dict(direct)
+    if not isinstance(records, Mapping):
+        return result or None
+    for metric_key in metric_keys:
+        if metric_key in result:
+            continue
+        query_key = _PRODUCTION_QUERY_KEYS.get(metric_key)
+        if query_key is None:
+            continue
+        metric_value = _aggregate_mes_metric_value(records.get(query_key), metric_key)
+        if metric_value is not None:
+            result[metric_key] = metric_value
+    return result or None
+
+
+def _extract_direct_metric_fact(value: Any, metric_keys: set[str]) -> dict[str, Any] | None:
+    if not metric_keys or not isinstance(value, Mapping):
+        return None
+    result: dict[str, Any] = {}
+    metric_key = value.get("metric_key")
+    if metric_key in metric_keys and _has_metric_value(value.get("value")):
+        result[str(metric_key)] = value.get("value")
+    for item in metric_keys:
+        if _has_metric_value(value.get(item)):
+            result[item] = value[item]
+    return result or None
+
+
+def _aggregate_mes_metric_value(value: Any, metric_key: str) -> float | None:
+    if isinstance(value, Mapping):
+        records = [value]
+    elif isinstance(value, list):
+        records = value
+    else:
+        records = []
+    total = 0.0
+    matched = False
+    for record in records:
+        number = _mes_record_metric_number(record, metric_key)
+        if number is None:
+            continue
+        total += number
+        matched = True
+    return round(total, 3) if matched else None
+
+
+def _mes_record_metric_number(record: Any, metric_key: str) -> float | None:
+    if not isinstance(record, Mapping):
+        return None
+    direct = _extract_direct_metric_fact(record, {metric_key})
+    if direct:
+        return _metric_number_or_none(direct.get(metric_key))
+    for field in _MES_METRIC_FIELD_ALIASES.get(metric_key, ()):
+        if _has_metric_value(record.get(field)):
+            number = _metric_number_or_none(record.get(field))
+            if number is not None:
+                return number
+    return None
+
+
+def _dingtalk_fact_is_verified(*values: Mapping[str, Any]) -> bool:
+    scopes = [scope for value in values for scope in _iter_validation_scopes(value)]
+    return (
+        _validation_field_matches(scopes, _DINGTALK_AUTHORIZED_GROUP_FIELDS, _validation_truthy)
+        and _validation_field_matches(scopes, _DINGTALK_SENDER_FIELDS, _validation_truthy)
+        and _content_type_verified(scopes)
+        and _validation_field_matches(scopes, _DINGTALK_TIME_FIELDS, _validation_truthy)
+    )
+
+
+def _iter_validation_scopes(value: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    scopes: list[Mapping[str, Any]] = [value]
+    for field in _VALIDATION_CONTAINER_FIELDS:
+        child = value.get(field)
+        if isinstance(child, Mapping):
+            scopes.extend(_iter_validation_scopes(child))
+        elif isinstance(child, list):
+            for item in child:
+                if isinstance(item, Mapping):
+                    scopes.extend(_iter_validation_scopes(item))
+    return scopes
+
+
+def _validation_field_matches(
+    scopes: list[Mapping[str, Any]],
+    fields: tuple[str, ...],
+    predicate: Callable[[Any], bool],
+) -> bool:
+    return any(field in scope and predicate(scope.get(field)) for scope in scopes for field in fields)
+
+
+def _content_type_verified(scopes: list[Mapping[str, Any]]) -> bool:
+    if _validation_field_matches(scopes, ("content_type_verified",), _validation_truthy):
+        return True
+    return _validation_field_matches(scopes, ("content_type",), _supported_dingtalk_content_type)
+
+
+def _validation_truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value != 0
+    text = str(value or "").strip().lower()
+    return text in _VALIDATION_TRUE_TEXT
+
+
+def _supported_dingtalk_content_type(value: Any) -> bool:
+    return str(value or "").strip().lower() in _DINGTALK_CONTENT_TYPES
+
+
+def _has_metric_value(value: Any) -> bool:
+    return value is not None and value != ""
+
+
+def _metric_number_or_none(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _candidate_status(status: str) -> str:
