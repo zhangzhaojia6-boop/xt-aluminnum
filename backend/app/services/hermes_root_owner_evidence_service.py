@@ -65,11 +65,19 @@ def collect_root_owner_evidence(
     source_status: dict[str, dict[str, Any]] = {}
     supporting_evidence: list[dict[str, Any]] = []
 
-    dingtalk_candidates = (
-        dingtalk_reader(db=db, business_date=message_plan.business_date, trace_id=trace_id)
-        if dingtalk_reader is not None
-        else _read_dingtalk_candidates(db, business_date=message_plan.business_date)
-    )
+    if dingtalk_reader is not None:
+        dingtalk_candidates = dingtalk_reader(
+            db=db,
+            business_date=message_plan.business_date,
+            trace_id=trace_id,
+        )
+        dingtalk_read_status: dict[str, Any] = {}
+    else:
+        dingtalk_candidates, dingtalk_read_status = _read_dingtalk_candidates_with_status(
+            db,
+            business_date=message_plan.business_date,
+            metric_keys=tuple(message_plan.metric_keys),
+        )
     if dingtalk_candidates:
         primary_dingtalk_candidates = [
             candidate
@@ -84,16 +92,26 @@ def collect_root_owner_evidence(
             _candidate_trace_detail(candidate, status="supporting_only", reason="no_current_metric_fact")
             for candidate in supporting_dingtalk_candidates
         )
+        dingtalk_status = dingtalk_read_status.get("status")
+        if dingtalk_status not in {"failed", "partial_failed"}:
+            dingtalk_status = "ok" if primary_dingtalk_candidates else "supporting_only"
         source_status["dingtalk_group_content"] = {
-            "status": "ok" if primary_dingtalk_candidates else "supporting_only",
+            **dingtalk_read_status,
+            "status": dingtalk_status,
             "candidate_count": len(primary_dingtalk_candidates),
             "supporting_count": len(supporting_dingtalk_candidates),
         }
         if not primary_dingtalk_candidates:
-            source_status["dingtalk_group_content"]["reason"] = "no_current_metric_fact"
+            source_status["dingtalk_group_content"].setdefault("reason", "no_current_metric_fact")
     else:
         missing_sources.append("dingtalk_group_content")
-        source_status["dingtalk_group_content"] = {"status": "missing", "reason": "no_candidates"}
+        source_status["dingtalk_group_content"] = {
+            **dingtalk_read_status,
+            "status": dingtalk_read_status.get("status") or "missing",
+            "candidate_count": 0,
+            "supporting_count": 0,
+            "reason": dingtalk_read_status.get("reason") or "no_candidates",
+        }
 
     mes_query_keys = _planned_mes_query_keys(message_plan)
     if message_plan.domain in _MES_DOMAINS:
@@ -123,18 +141,21 @@ def collect_root_owner_evidence(
     )
     source_status["data_hub_projection"] = hub_status
     if hub_payload:
+        raw_hub_status = str(hub_payload.get("status") or "ok")
+        hub_candidate_status = _candidate_status(raw_hub_status)
         candidates.append(
             EvidenceCandidate(
                 source_key="data_hub_projection",
                 source_type="data_hub",
                 domain=message_plan.domain,
                 priority=DATA_HUB_PRIORITY,
-                status=str(hub_payload.get("status") or "ok"),
+                status=hub_candidate_status,
                 value=filter_sensitive_mapping(dict(hub_payload)),
                 summary="数据中枢投影已读取",
-                trace_ref={"source": "template_daily_report"},
+                trace_ref={"source": "template_daily_report", "status": raw_hub_status},
             )
         )
+        source_status["data_hub_projection"]["candidate_status"] = hub_candidate_status
     else:
         missing_sources.append("data_hub_projection")
 
@@ -186,29 +207,97 @@ def choose_primary_evidence(candidates: list[EvidenceCandidate], *, domain: str)
 
 
 def _read_dingtalk_candidates(db: Session | None, *, business_date) -> list[EvidenceCandidate]:
+    candidates, _status = _read_dingtalk_candidates_with_status(db, business_date=business_date, metric_keys=())
+    return candidates
+
+
+def _read_dingtalk_candidates_with_status(
+    db: Session | None,
+    *,
+    business_date,
+    metric_keys: tuple[str, ...],
+) -> tuple[list[EvidenceCandidate], dict[str, Any]]:
     if db is None:
-        return []
+        return [], {"status": "missing", "reason": "db_unavailable", "sources": {}}
     payload = HermesDataAuditService(db)._read_dingtalk_evidence(business_date=business_date)
     result: list[EvidenceCandidate] = []
+    sources: dict[str, dict[str, Any]] = {}
     for source_name in ("dingtalk_file", "dingtalk_text"):
         source_payload = payload.get(source_name) or {}
+        source_status = str(source_payload.get("status") or "missing")
         items = source_payload.get("items") or []
+        sources[source_name] = {
+            "status": source_status,
+            "count": int(source_payload.get("count") or len(items)),
+        }
+        if source_payload.get("error"):
+            sources[source_name]["error"] = redact_secret_text(str(source_payload.get("error")))
         if not items:
             continue
         source_key = "dingtalk_group_file" if source_name == "dingtalk_file" else "dingtalk_group_chat"
-        result.append(
-            EvidenceCandidate(
-                source_key=source_key,
-                source_type="dingtalk_group_content",
-                domain="factory",
-                priority=DINGTALK_PRIORITY,
-                status=str(source_payload.get("status") or "ok"),
-                value=filter_sensitive_mapping({"items": items}),
-                summary=f"{source_key} 命中 {len(items)} 条",
-                trace_ref={"source": source_name, "count": len(items)},
+        for index, item in enumerate(items):
+            fact_value = _extract_dingtalk_metric_fact(item, set(metric_keys))
+            if fact_value:
+                result.append(
+                    EvidenceCandidate(
+                        source_key=source_key,
+                        source_type="dingtalk_group_content",
+                        domain="factory",
+                        priority=DINGTALK_PRIORITY,
+                        status=_candidate_status(source_status),
+                        value=filter_sensitive_mapping(fact_value),
+                        summary=f"{source_key} 解析到指标事实",
+                        trace_ref={"source": source_name, "item_index": index, "count": len(items)},
+                    )
+                )
+                continue
+            result.append(
+                EvidenceCandidate(
+                    source_key=source_key,
+                    source_type="dingtalk_group_content",
+                    domain="factory",
+                    priority=DINGTALK_PRIORITY,
+                    status=_candidate_status(source_status),
+                    value=filter_sensitive_mapping({"items": [item]}),
+                    summary=f"{source_key} 命中辅助证据",
+                    trace_ref={"source": source_name, "item_index": index, "count": len(items)},
+                )
             )
-        )
-    return result
+    return result, _dingtalk_source_status(sources, result, metric_keys)
+
+
+def _dingtalk_source_status(
+    sources: Mapping[str, Mapping[str, Any]],
+    candidates: list[EvidenceCandidate],
+    metric_keys: tuple[str, ...],
+) -> dict[str, Any]:
+    statuses = [str(source.get("status") or "missing") for source in sources.values()]
+    candidate_count = sum(1 for candidate in candidates if _is_current_dingtalk_metric_fact(candidate, metric_keys))
+    supporting_count = len(candidates) - candidate_count
+    if any(status == "failed" for status in statuses):
+        status = "failed" if all(status == "failed" for status in statuses) else "partial_failed"
+        reason = "source_failed"
+    elif any(status == "partial_failed" for status in statuses):
+        status = "partial_failed"
+        reason = "source_partial_failed"
+    elif candidate_count:
+        status = "ok"
+        reason = None
+    elif supporting_count:
+        status = "supporting_only"
+        reason = "no_current_metric_fact"
+    else:
+        status = "missing"
+        reason = "no_candidates"
+    detail: dict[str, Any] = {
+        "status": status,
+        "candidate_count": candidate_count,
+        "supporting_count": supporting_count,
+        "sources": dict(sources),
+    }
+    if reason:
+        detail["reason"] = reason
+    return detail
 
 
 def _read_mes_candidate(
@@ -305,6 +394,36 @@ def _value_contains_metric_key(value: Any, metric_keys: set[str]) -> bool:
     if isinstance(value, list):
         return any(_value_contains_metric_key(item, metric_keys) for item in value)
     return False
+
+
+def _extract_dingtalk_metric_fact(value: Any, metric_keys: set[str]) -> dict[str, Any] | None:
+    if not metric_keys:
+        return None
+    if isinstance(value, Mapping):
+        metric_key = value.get("metric_key")
+        if metric_key in metric_keys and value.get("value") is not None:
+            return {str(metric_key): value.get("value")}
+        direct = {metric_key: value[metric_key] for metric_key in metric_keys if value.get(metric_key) is not None}
+        if direct:
+            return direct
+        for field in ("facts", "parsed_facts", "metrics", "payload"):
+            extracted = _extract_dingtalk_metric_fact(value.get(field), metric_keys)
+            if extracted:
+                return extracted
+    if isinstance(value, list):
+        for item in value:
+            extracted = _extract_dingtalk_metric_fact(item, metric_keys)
+            if extracted:
+                return extracted
+    return None
+
+
+def _candidate_status(status: str) -> str:
+    if status == "ready":
+        return "ok"
+    if status == "partial_failed":
+        return "candidate"
+    return status or "ok"
 
 
 def _candidate_trace_detail(

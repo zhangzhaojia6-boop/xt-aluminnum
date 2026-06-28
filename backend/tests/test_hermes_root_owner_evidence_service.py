@@ -5,6 +5,7 @@ from app.services.hermes_root_owner_evidence_service import (
     choose_primary_evidence,
     collect_root_owner_evidence,
 )
+from app.services.hermes_data_audit_service import HermesDataAuditService
 from app.services.hermes_root_owner_message_service import RootOwnerMessagePlan
 
 
@@ -206,3 +207,115 @@ def test_inventory_domain_queries_mes_for_inventory_metrics_and_prefers_mes_over
         "stock_records",
         "wip_totals",
     ]
+
+
+def test_default_dingtalk_reader_promotes_structured_metric_fact_over_mes(monkeypatch) -> None:
+    def read_dingtalk_evidence(self, *, business_date):
+        return {
+            "dingtalk_text": {
+                "status": "ok",
+                "count": 1,
+                "items": [
+                    {
+                        "trace_id": "trace-ding-structured",
+                        "facts": [
+                            {
+                                "metric_key": "total_output_daily",
+                                "value": 118.0,
+                                "unit": "吨",
+                            }
+                        ],
+                        "text_sample": "负责人确认今天产量 118 吨",
+                    }
+                ],
+                "error": None,
+            },
+            "dingtalk_file": {
+                "status": "empty",
+                "count": 0,
+                "items": [],
+                "error": None,
+            },
+        }
+
+    class MesReader:
+        def read_sources(self, **_kwargs):
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {"total_output_daily": 100.0},
+            }
+
+    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+
+    decision = collect_root_owner_evidence(
+        db=object(),
+        message_plan=_message_plan(),
+        trace_id="trace-default-dingtalk-fact",
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    assert decision.primary.source_key == "dingtalk_group_chat"
+    assert decision.primary.value["total_output_daily"] == 118.0
+    assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "ok"
+    assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 1
+    assert decision.trace["source_status"]["dingtalk_group_content"]["sources"]["dingtalk_text"]["count"] == 1
+
+
+def test_default_dingtalk_reader_preserves_failed_status_and_redacted_error(monkeypatch) -> None:
+    def read_dingtalk_evidence(self, *, business_date):
+        return {
+            "dingtalk_text": {
+                "status": "failed",
+                "count": 0,
+                "items": [],
+                "error": "read failed token=secret-token password=plain-pass",
+            },
+            "dingtalk_file": {
+                "status": "empty",
+                "count": 0,
+                "items": [],
+                "error": None,
+            },
+        }
+
+    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+
+    decision = collect_root_owner_evidence(
+        db=object(),
+        message_plan=_message_plan(),
+        trace_id="trace-default-dingtalk-failed",
+        mes_reader=None,
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    dingtalk_status = decision.trace["source_status"]["dingtalk_group_content"]
+    text_status = dingtalk_status["sources"]["dingtalk_text"]
+
+    assert decision.primary is None
+    assert "dingtalk_group_content" in decision.missing_sources
+    assert dingtalk_status["status"] == "partial_failed"
+    assert dingtalk_status["reason"] == "source_failed"
+    assert text_status["status"] == "failed"
+    assert text_status["count"] == 0
+    assert "token=<redacted>" in text_status["error"]
+    assert "password=<redacted>" in text_status["error"]
+    assert "secret-token" not in text_status["error"]
+    assert "plain-pass" not in text_status["error"]
+
+
+def test_hub_ready_status_can_be_primary_when_mes_is_missing() -> None:
+    decision = collect_root_owner_evidence(
+        db=None,
+        message_plan=_message_plan(),
+        trace_id="trace-hub-ready-primary",
+        dingtalk_reader=lambda **_kwargs: [],
+        mes_reader=None,
+        hub_reader=lambda **_kwargs: {"status": "ready", "total_output_daily": 88.0},
+    )
+
+    assert decision.primary.source_key == "data_hub_projection"
+    assert decision.primary.status == "ok"
+    assert decision.primary.value["total_output_daily"] == 88.0
+    assert decision.trace["source_status"]["data_hub_projection"]["status"] == "ready"
+    assert decision.trace["source_status"]["data_hub_projection"]["candidate_status"] == "ok"
