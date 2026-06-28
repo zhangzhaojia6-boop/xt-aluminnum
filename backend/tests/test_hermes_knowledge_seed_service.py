@@ -28,8 +28,19 @@ def test_daily_report_priority_seed_points_to_current_root_owner_spec() -> None:
 
     item = next(row for row in seed if row["topic"] == "日报事实优先级")
 
-    assert item["source_ref"] == "docs/superpowers/specs/2026-06-27-hermes-root-owner-production-evidence-loop-design.md"
+    assert item["source_ref"] == "docs/software-minus-agent-plus-prd.md"
     assert "钉钉群文件和群聊天内容" in item["content"]
+
+
+def test_dingtalk_seed_keeps_group_content_rules_soft() -> None:
+    seed = load_knowledge_seed()
+
+    item = next(row for row in seed if row["topic"] == "DingTalk 事实采样条件")
+
+    assert item["source_ref"] == "docs/agent-operating-guide.md"
+    assert "授权群、内容类型和时间范围" in item["content"]
+    assert "只有标记为专项责任人证据时才额外校验专项责任人" in item["content"]
+    assert "必须同时满足授权群、专项责任人" not in item["content"]
 
 
 def test_import_knowledge_seed_upserts_entries() -> None:
