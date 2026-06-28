@@ -259,7 +259,20 @@ def _should_route_root_owner_private_production_turn(text: str) -> bool:
     clean_text = _clean_text(text)
     if not clean_text or clean_text.startswith('/'):
         return False
-    return understand_root_owner_message(clean_text).domain != 'general'
+    plan = understand_root_owner_message(clean_text)
+    if plan.domain != 'general':
+        return True
+    if not plan.needs_clarification:
+        return False
+    return not _is_clear_root_owner_private_general_chat(clean_text, plan.recognition_reason)
+
+
+def _is_clear_root_owner_private_general_chat(clean_text: str, recognition_reason: str) -> bool:
+    reason_tokens = {part.strip() for part in str(recognition_reason or '').split(',') if part.strip()}
+    if reason_tokens & {'ambiguous_time_expression', 'explicit_today', 'explicit_yesterday', 'explicit_day_before_yesterday'}:
+        return False
+    intent = classify_factory_brain_intent(clean_text, today=datetime.now().date())
+    return intent.intent_type == 'general_chat' and intent.task_type == 'general_chat'
 
 
 def _get_factory_brain_route_intent(text: str) -> FactoryBrainIntent | None:

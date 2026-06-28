@@ -1497,6 +1497,74 @@ def test_dingtalk_agent_inbound_root_owner_private_uses_production_loop_for_soft
         _restore_db_override(previous_overrides, db)
 
 
+def test_dingtalk_agent_inbound_root_owner_private_ambiguous_follow_up_uses_production_loop(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=94,
+            username="root-owner-ambiguous-follow-up",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-ambiguous-follow-up-001",
+            dingtalk_union_id="union-root-ambiguous-follow-up-001",
+        )
+    )
+    db.commit()
+    seen = {}
+
+    def fake_turn(_db, **kwargs):
+        seen.update(kwargs)
+        return type(
+            "FakeRootOwnerTurn",
+            (),
+            {
+                "trace_id": kwargs["trace_id"],
+                "status": "clarifying",
+                "answer": "你想看哪一天的哪类生产数据？",
+                "chat_inbox_id": 303,
+                "agent_run_id": 403,
+                "outbox_message_id": 503,
+                "dispatch_status": "sent",
+                "dispatch_detail": "sent",
+            },
+        )()
+
+    def fail_fallback(*_args, **_kwargs):
+        raise AssertionError("ambiguous root_owner private follow-up should not reach fallback")
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-ambiguous-follow-up-001")
+    monkeypatch.setattr(dingtalk_router, "run_root_owner_production_turn", fake_turn)
+    monkeypatch.setattr(dingtalk_router, "handle_agent_command", fail_fallback)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-root-ambiguous-follow-up-001",
+                "senderUnionId": "union-root-ambiguous-follow-up-001",
+                "text": {"content": "昨天呢"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-ambiguous-follow-up-route-001",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "clarifying"
+        assert payload["answer"] == "你想看哪一天的哪类生产数据？"
+        assert payload["outbox_message_id"] == 503
+        assert seen["text"] == "昨天呢"
+        assert seen["sender_external_id"] == "dt-root-ambiguous-follow-up-001"
+        assert seen["trace_id"] == "trace-root-ambiguous-follow-up-route-001"
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
 def test_dingtalk_agent_inbound_day1_parse_error_does_not_hard_fail_for_root_owner_private(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add(
@@ -1512,12 +1580,11 @@ def test_dingtalk_agent_inbound_day1_parse_error_does_not_hard_fail_for_root_own
         )
     )
     db.commit()
-    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
-    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-invalid-date-001")
-    monkeypatch.setattr(
-        dingtalk_router,
-        "run_root_owner_production_turn",
-        lambda _db, **kwargs: type(
+    seen = {}
+
+    def fake_turn(_db, **kwargs):
+        seen.update(kwargs)
+        return type(
             "FakeRootOwnerTurn",
             (),
             {
@@ -1530,8 +1597,11 @@ def test_dingtalk_agent_inbound_day1_parse_error_does_not_hard_fail_for_root_own
                 "dispatch_status": "sent",
                 "dispatch_detail": "sent",
             },
-        )(),
-    )
+        )()
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-invalid-date-001")
+    monkeypatch.setattr(dingtalk_router, "run_root_owner_production_turn", fake_turn)
     monkeypatch.setattr("app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED", True, raising=False)
 
     try:
@@ -1551,6 +1621,7 @@ def test_dingtalk_agent_inbound_day1_parse_error_does_not_hard_fail_for_root_own
         assert response.status_code == 200
         assert response.json()["status"] == "clarifying"
         assert response.json()["answer"] == "你想看哪一天的日报或生产情况？"
+        assert seen["source_payload"]["day1_parse_error"] == "invalid_date"
     finally:
         _restore_db_override(previous_overrides, db)
 
