@@ -1,5 +1,7 @@
+from typing import cast
+
 import httpx
-from sqlalchemy import create_engine
+from sqlalchemy import Table, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -7,13 +9,20 @@ from app.models import Base, ChatInboxMessage, MultimodalEvidence
 from app.services.hermes_langchain_model import FactoryBrainModelUnavailable, invoke_factory_brain_model
 from app.services.hermes_langchain_tools import (
     HermesToolAdapters,
+    ToolResult,
     build_production_tool_adapters,
     build_tool_registry,
     require_tool,
 )
 
 
-def _fake_tool(**kwargs: object) -> dict[str, object]:
+_DINGTALK_TABLES: tuple[Table, Table] = (
+    cast(Table, ChatInboxMessage.__table__),
+    cast(Table, MultimodalEvidence.__table__),
+)
+
+
+def _fake_tool(**kwargs: object) -> ToolResult:
     return {'status': 'ok', 'request': kwargs}
 
 
@@ -28,7 +37,7 @@ def _db() -> Session:
 
 def _dingtalk_db() -> Session:
     engine = create_engine('sqlite:///:memory:', future=True)
-    Base.metadata.create_all(bind=engine, tables=[ChatInboxMessage.__table__, MultimodalEvidence.__table__])
+    Base.metadata.create_all(bind=engine, tables=_DINGTALK_TABLES)
     return Session(engine)
 
 
@@ -105,7 +114,7 @@ def test_hub_query_tool_returns_structured_payload() -> None:
 
 def test_dingtalk_evidence_tool_returns_group_content_priority_first() -> None:
     engine = create_engine('sqlite:///:memory:', future=True)
-    Base.metadata.create_all(bind=engine, tables=[ChatInboxMessage.__table__, MultimodalEvidence.__table__])
+    Base.metadata.create_all(bind=engine, tables=_DINGTALK_TABLES)
     db = Session(engine)
     try:
         db.add(
@@ -190,6 +199,27 @@ def test_dingtalk_evidence_tool_returns_dingtalk_file_evidence_type() -> None:
         db.close()
 
 
+def test_dingtalk_evidence_tool_maps_dingtalk_text_to_group_chat_source() -> None:
+    db = _dingtalk_db()
+    try:
+        db.add(
+            MultimodalEvidence(
+                evidence_type='dingtalk_text',
+                recognized_text='钉钉文字确认今天产量 118 吨',
+                payload={'business_date': '2026-06-19'},
+            )
+        )
+        db.commit()
+
+        payload = build_production_tool_adapters(db).dingtalk_evidence(limit=10)
+
+        assert len(payload['facts']) == 1
+        assert payload['facts'][0]['source_key'] == 'dingtalk_group_chat'
+        assert payload['facts'][0]['recognized_text'] == '钉钉文字确认今天产量 118 吨'
+    finally:
+        db.close()
+
+
 def test_dingtalk_evidence_tool_limit_prefers_group_chat_before_file() -> None:
     db = _dingtalk_db()
     try:
@@ -219,5 +249,41 @@ def test_dingtalk_evidence_tool_limit_prefers_group_chat_before_file() -> None:
         assert len(payload['facts']) == 1
         assert payload['facts'][0]['source_key'] == 'dingtalk_group_chat'
         assert payload['facts'][0]['text'] == '群聊文字确认今天产量 118 吨'
+    finally:
+        db.close()
+
+
+def test_dingtalk_evidence_tool_limit_sorts_image_after_text_and_file() -> None:
+    db = _dingtalk_db()
+    try:
+        db.add_all(
+            [
+                MultimodalEvidence(
+                    evidence_type='image',
+                    recognized_text='截图里的产量 118 吨',
+                    file_uri='dingtalk://image/newest',
+                    payload={'source': 'dingtalk'},
+                ),
+                MultimodalEvidence(
+                    evidence_type='file',
+                    recognized_text='群文件确认今天产量 118 吨',
+                    file_uri='dingtalk://file/middle',
+                    payload={'source': 'dingtalk'},
+                ),
+                MultimodalEvidence(
+                    evidence_type='dingtalk_text',
+                    recognized_text='钉钉文字确认今天产量 118 吨',
+                    payload={'business_date': '2026-06-19'},
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = build_production_tool_adapters(db).dingtalk_evidence(limit=2)
+
+        assert [fact['recognized_text'] for fact in payload['facts']] == [
+            '钉钉文字确认今天产量 118 吨',
+            '群文件确认今天产量 118 吨',
+        ]
     finally:
         db.close()

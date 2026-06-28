@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.redaction import redact_secret_text
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
 from app.models.reports import DailyReport
+from app.models.system import User
 from app.services.hermes_codex_construction_service import request_codex_construction
 from app.services.hermes_data_audit_service import HermesDataAuditService
 from app.services.hermes_long_term_rule_service import list_active_rules
@@ -20,7 +21,8 @@ from app.services.rag_service import query_knowledge
 from app.services.report import template_daily_report
 
 
-ToolCallable = Callable[..., object]
+ToolResult = dict[str, Any]
+ToolCallable = Callable[..., ToolResult]
 
 _DINGTALK_EVIDENCE_TYPES = ('text', 'file', 'image', 'attachment', 'dingtalk_file', 'dingtalk_text')
 _DINGTALK_TEXT_EVIDENCE_TYPES = {'text', 'dingtalk_text'}
@@ -64,7 +66,7 @@ def build_production_tool_adapters(
     db: Session,
     *,
     mes_read_service: HermesMesReadService | None = None,
-    current_user: object | None = None,
+    current_user: User | None = None,
     output_skill_root: str | Path | None = None,
 ) -> HermesToolAdapters:
     return HermesToolAdapters(
@@ -80,7 +82,7 @@ def build_production_tool_adapters(
     )
 
 
-def _hub_query_tool(*, db: Session, **kwargs: object) -> dict[str, object]:
+def _hub_query_tool(*, db: Session, **kwargs: object) -> ToolResult:
     try:
         business_date = _parse_business_date(kwargs.get('business_date'))
         payload = template_daily_report.build_template_daily_report_payload(db, target_date=business_date)
@@ -94,7 +96,7 @@ def _hub_query_tool(*, db: Session, **kwargs: object) -> dict[str, object]:
         return _unavailable('data_hub', kwargs, exc)
 
 
-def _mes_wms_read_tool(*, mes_read_service: HermesMesReadService | None, **kwargs: object) -> dict[str, object]:
+def _mes_wms_read_tool(*, mes_read_service: HermesMesReadService | None, **kwargs: object) -> ToolResult:
     if mes_read_service is None:
         return {
             'status': 'unavailable',
@@ -120,9 +122,9 @@ def _mes_wms_read_tool(*, mes_read_service: HermesMesReadService | None, **kwarg
         return _unavailable('mes_wms_readonly', kwargs, exc)
 
 
-def _dingtalk_evidence_tool(*, db: Session, **kwargs: object) -> dict[str, object]:
+def _dingtalk_evidence_tool(*, db: Session, **kwargs: object) -> ToolResult:
     try:
-        limit = max(1, min(int(kwargs.get('limit') or 20), 100))
+        limit = _int_arg(kwargs.get('limit'), default=20, minimum=1, maximum=100)
         row_limit = max(100, limit * 5)
         evidence_rows = (
             db.query(MultimodalEvidence)
@@ -242,12 +244,12 @@ def _dingtalk_sort_key(row: object, *, tier: int) -> tuple[int, float, int]:
     return (tier, -timestamp, -row_id)
 
 
-def _rag_route_tool(*, db: Session, current_user: object | None, **kwargs: object) -> dict[str, object]:
+def _rag_route_tool(*, db: Session, current_user: User | None, **kwargs: object) -> ToolResult:
     try:
         result = query_knowledge(
             db,
             query=str(kwargs.get('query') or kwargs.get('text') or ''),
-            limit=int(kwargs.get('limit') or 5),
+            limit=_int_arg(kwargs.get('limit'), default=5, minimum=1, maximum=50),
             user=current_user,
             workshop=str(kwargs.get('workshop') or '').strip() or None,
             machine_code=str(kwargs.get('machine_code') or '').strip() or None,
@@ -257,7 +259,7 @@ def _rag_route_tool(*, db: Session, current_user: object | None, **kwargs: objec
         return _unavailable('rag', kwargs, exc)
 
 
-def _history_report_tool(*, db: Session, **kwargs: object) -> dict[str, object]:
+def _history_report_tool(*, db: Session, **kwargs: object) -> ToolResult:
     try:
         business_date = _parse_business_date(kwargs.get('business_date'))
         reports = db.query(DailyReport).filter(DailyReport.report_date == business_date).all()
@@ -281,7 +283,7 @@ def _output_skill_alignment_tool(
     db: Session,
     output_skill_root: str | Path | None,
     **kwargs: object,
-) -> dict[str, object]:
+) -> ToolResult:
     try:
         service = HermesDataAuditService(db, output_skill_root=output_skill_root)
         run = service.create_run(
@@ -299,7 +301,7 @@ def _output_skill_alignment_tool(
         return _unavailable('output_skill_alignment', kwargs, exc)
 
 
-def _long_term_rules_tool(*, db: Session, **kwargs: object) -> dict[str, object]:
+def _long_term_rules_tool(*, db: Session, **kwargs: object) -> ToolResult:
     try:
         rules = list_active_rules(db)
         category = str(kwargs.get('category') or '').strip()
@@ -320,7 +322,7 @@ def _long_term_rules_tool(*, db: Session, **kwargs: object) -> dict[str, object]
         return _unavailable('long_term_rules', kwargs, exc)
 
 
-def _source_map_tool(**kwargs: object) -> dict[str, object]:
+def _source_map_tool(**kwargs: object) -> ToolResult:
     try:
         metric_key = str(kwargs.get('metric_key') or '').strip()
         item = find_fact_source(metric_key)
@@ -334,7 +336,7 @@ def _source_map_tool(**kwargs: object) -> dict[str, object]:
         return _unavailable('fact_source_map', kwargs, exc)
 
 
-def _codex_construction_tool(*, db: Session, current_user: object | None, **kwargs: object) -> dict[str, object]:
+def _codex_construction_tool(*, db: Session, current_user: User | None, **kwargs: object) -> ToolResult:
     if current_user is None:
         return {
             'status': 'denied',
@@ -377,7 +379,29 @@ def _string_list(value: object, default: list[str]) -> list[str]:
     return [str(value)]
 
 
-def _unavailable(source: str, kwargs: Mapping[str, object], exc: Exception) -> dict[str, object]:
+def _int_arg(value: object, *, default: int, minimum: int, maximum: int) -> int:
+    if value is None or value == '':
+        parsed = default
+    elif isinstance(value, bool):
+        parsed = int(value)
+    elif isinstance(value, int):
+        parsed = value
+    elif isinstance(value, float):
+        parsed = int(value)
+    elif isinstance(value, str):
+        try:
+            parsed = int(value.strip() or default)
+        except ValueError:
+            parsed = default
+    else:
+        try:
+            parsed = int(str(value).strip())
+        except (TypeError, ValueError, OverflowError):
+            parsed = default
+    return max(minimum, min(parsed, maximum))
+
+
+def _unavailable(source: str, kwargs: Mapping[str, object], exc: Exception) -> ToolResult:
     return {
         'status': 'unavailable',
         'source': source,
