@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models.agent_communication import AgentChannelBinding, CommunicationChannel
-from app.services import agent_communication_service
+from app.models.agent_communication import (
+    AgentChannelBinding,
+    AgentProfile,
+    CommunicationChannel,
+)
 
 
 ROOT_OWNER_REPLY_CHANNEL_TYPE = "dingtalk_work_notice"
@@ -23,39 +26,65 @@ def ensure_root_owner_private_reply_channel(
         raise ValueError("root_owner_dingtalk_user_id_required")
     channel_key = _root_owner_reply_channel_key(clean_agent_code, clean_user_id)
 
-    agent = agent_communication_service.register_agent(
-        db,
-        code=clean_agent_code,
-        name="Hermes root_owner 私聊 Agent",
-        agent_type="factory_brain",
-        scope_type="user",
-        config_payload={
-            "owner_name": clean_owner_name,
-            "owner_dingtalk_user_id": clean_user_id,
-            "capabilities": [
-                "root_owner_private_reply",
-                "evidence_trace",
-                "readonly_source_query",
-            ],
-            "requires_outbox": True,
-        },
+    agent = db.query(AgentProfile).filter(AgentProfile.code == clean_agent_code).first()
+    if agent is None:
+        agent = AgentProfile(
+            code=clean_agent_code,
+            name="Hermes root_owner 私聊 Agent",
+            agent_type="factory_brain",
+            scope_type="user",
+        )
+        db.add(agent)
+    agent.name = "Hermes root_owner 私聊 Agent"
+    agent.agent_type = "factory_brain"
+    agent.scope_type = "user"
+    agent.workshop_id = None
+    agent.team_id = None
+    agent.config_payload = {
+        "owner_name": clean_owner_name,
+        "owner_dingtalk_user_id": clean_user_id,
+        "capabilities": [
+            "root_owner_private_reply",
+            "evidence_trace",
+            "readonly_source_query",
+        ],
+        "requires_outbox": True,
+    }
+    agent.is_active = True
+    db.flush()
+
+    channel = (
+        db.query(CommunicationChannel)
+        .filter(
+            CommunicationChannel.channel_type == ROOT_OWNER_REPLY_CHANNEL_TYPE,
+            CommunicationChannel.channel_key == channel_key,
+        )
+        .first()
     )
-    channel = agent_communication_service.register_channel(
-        db,
-        channel_type=ROOT_OWNER_REPLY_CHANNEL_TYPE,
-        channel_key=channel_key,
-        name=f"{clean_owner_name} root_owner 私聊回复通道",
-        target_type="user",
-        target_key=clean_user_id,
-        dry_run=False,
-        metadata_payload={
-            "root_owner_reply_channel": True,
-            "owner_name": clean_owner_name,
-            "owner_dingtalk_user_id": clean_user_id,
-            "managed_by": "ensure_root_owner_private_reply_channel",
-        },
-    )
-    deactivated_old_channel = False
+    if channel is None:
+        channel = CommunicationChannel(
+            channel_type=ROOT_OWNER_REPLY_CHANNEL_TYPE,
+            channel_key=channel_key,
+            name=f"{clean_owner_name} root_owner 私聊回复通道",
+            target_type="user",
+        )
+        db.add(channel)
+    channel.name = f"{clean_owner_name} root_owner 私聊回复通道"
+    channel.target_type = "user"
+    channel.target_key = clean_user_id
+    channel.workshop_id = None
+    channel.team_id = None
+    channel.dry_run = False
+    channel.secret_ref = None
+    channel.metadata_payload = {
+        "root_owner_reply_channel": True,
+        "owner_name": clean_owner_name,
+        "owner_dingtalk_user_id": clean_user_id,
+        "managed_by": "ensure_root_owner_private_reply_channel",
+    }
+    channel.is_active = True
+    db.flush()
+
     rows = (
         db.query(AgentChannelBinding, CommunicationChannel)
         .join(CommunicationChannel, AgentChannelBinding.channel_id == CommunicationChannel.id)
@@ -71,17 +100,24 @@ def ensure_root_owner_private_reply_channel(
         if (bound_channel.metadata_payload or {}).get("root_owner_reply_channel") is True:
             binding.is_active = False
             bound_channel.is_active = False
-            deactivated_old_channel = True
-    if deactivated_old_channel:
-        db.commit()
 
-    agent_communication_service.bind_agent_to_channel(
-        db,
-        agent_code=clean_agent_code,
-        channel_key=channel.channel_key,
-        channel_type=channel.channel_type,
-        min_severity="info",
+    binding = (
+        db.query(AgentChannelBinding)
+        .filter(
+            AgentChannelBinding.agent_profile_id == agent.id,
+            AgentChannelBinding.channel_id == channel.id,
+        )
+        .first()
     )
+    if binding is None:
+        binding = AgentChannelBinding(agent_profile_id=agent.id, channel_id=channel.id)
+        db.add(binding)
+    binding.is_active = True
+    binding.min_severity = "info"
+    db.flush()
+    db.commit()
+    db.refresh(channel)
+
     return {
         "agent_code": clean_agent_code,
         "channel_type": channel.channel_type,

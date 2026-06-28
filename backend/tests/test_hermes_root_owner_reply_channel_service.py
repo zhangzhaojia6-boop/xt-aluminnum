@@ -77,6 +77,31 @@ def test_ensure_root_owner_private_reply_channel_is_idempotent() -> None:
         db.close()
 
 
+def test_ensure_root_owner_private_reply_channel_does_not_use_committing_helpers(monkeypatch) -> None:
+    db = _db_session()
+    try:
+        def fail_helper(*args, **kwargs):
+            raise AssertionError("committing helper should not be used")
+
+        monkeypatch.setattr(agent_communication_service, "register_agent", fail_helper)
+        monkeypatch.setattr(agent_communication_service, "register_channel", fail_helper)
+        monkeypatch.setattr(agent_communication_service, "bind_agent_to_channel", fail_helper)
+
+        outcome = ensure_root_owner_private_reply_channel(
+            db,
+            agent_code="factory_dispatch",
+            dingtalk_user_id="dt-root-001",
+            owner_name="root_owner",
+        )
+
+        assert outcome["channel_key"] == "root_owner:factory_dispatch:dt-root-001"
+        assert db.query(AgentProfile).count() == 1
+        assert db.query(CommunicationChannel).count() == 1
+        assert db.query(AgentChannelBinding).count() == 1
+    finally:
+        db.close()
+
+
 def test_ensure_root_owner_private_reply_channel_replaces_previous_root_owner_binding() -> None:
     db = _db_session()
     try:
