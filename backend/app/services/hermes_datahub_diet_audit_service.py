@@ -65,6 +65,15 @@ ROUTE_CANDIDATES = (
 
 ROUTE_PROTECT_REASON = "生产核心入口路由，减法阶段必须保留。"
 
+RUNTIME_SCAN_PATTERNS = (
+    "backend/app/**/*.py",
+    "backend/scripts/**/*.py",
+    "backend/tests/**/*.py",
+    "frontend/src/**/*.js",
+    "frontend/src/**/*.vue",
+    "frontend/tests/**/*.js",
+)
+
 
 def classify_audit_item(path: str) -> dict[str, str]:
     clean = str(path).replace("\\", "/")
@@ -177,3 +186,75 @@ def candidate_paths(repo_root: str | Path) -> list[str]:
     result.extend(ROUTE_CANDIDATES)
 
     return sorted(set(result))
+
+
+def check_candidate_delete_paths(repo_root: str | Path, paths: Iterable[str]) -> dict:
+    root = Path(repo_root)
+    items = [_check_single_delete_candidate(root, str(path).replace("\\", "/")) for path in paths]
+    return {
+        "passed": all(item["status"] == "delete_allowed" for item in items),
+        "items": items,
+    }
+
+
+def _check_single_delete_candidate(root: Path, clean_path: str) -> dict:
+    lowered = clean_path.lower()
+    if any(marker in lowered for marker in PROTECT_MARKERS):
+        return {
+            "path": clean_path,
+            "status": "blocked",
+            "reason": "protected_marker",
+            "references": [],
+        }
+
+    full_path = root / clean_path
+    if not full_path.exists():
+        return {
+            "path": clean_path,
+            "status": "blocked",
+            "reason": "candidate_missing",
+            "references": [],
+        }
+
+    references = _runtime_references(root, clean_path)
+    if references:
+        return {
+            "path": clean_path,
+            "status": "blocked",
+            "reason": "referenced_by_runtime_file",
+            "references": references,
+        }
+
+    return {
+        "path": clean_path,
+        "status": "delete_allowed",
+        "reason": "no_runtime_references",
+        "references": [],
+    }
+
+
+def _runtime_references(root: Path, clean_path: str) -> list[str]:
+    candidate = root / clean_path
+    tokens = _reference_tokens(clean_path)
+    references: list[str] = []
+    for pattern in RUNTIME_SCAN_PATTERNS:
+        for file_path in root.glob(pattern):
+            if not file_path.is_file() or file_path == candidate:
+                continue
+            try:
+                text = file_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            if any(token and token in text for token in tokens):
+                references.append(str(file_path.relative_to(root)).replace("\\", "/"))
+    return sorted(set(references))
+
+
+def _reference_tokens(clean_path: str) -> tuple[str, ...]:
+    path = Path(clean_path)
+    stem = path.stem
+    slash_path = clean_path.replace("\\", "/")
+    without_ext = slash_path.rsplit(".", 1)[0]
+    import_path = without_ext.replace("/", ".")
+    vue_name = path.name if path.suffix == ".vue" else ""
+    return tuple(token for token in (slash_path, without_ext, import_path, stem, vue_name) if token)
