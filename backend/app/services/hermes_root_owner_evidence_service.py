@@ -54,13 +54,11 @@ _VALIDATION_TRUE_TEXT = {
     "y",
     "ok",
     "matched",
-    "required",
     "verified",
     "valid",
     "passed",
     "confirmed",
     "authorized",
-    "business_day_window",
 }
 _DINGTALK_CONTENT_TYPES = {"text", "file", "image"}
 _DINGTALK_AUTHORIZED_GROUP_FIELDS = ("authorized_group", "group_authorized", "authorized")
@@ -225,7 +223,7 @@ def collect_root_owner_evidence(
 
 def choose_primary_evidence(candidates: list[EvidenceCandidate], *, domain: str) -> EvidenceDecision:
     usable = [candidate for candidate in candidates if candidate.status in {"ok", "confirmed", "candidate"}]
-    sorted_candidates = tuple(sorted(usable, key=lambda item: item.priority))
+    sorted_candidates = tuple(sorted(usable, key=_evidence_sort_key))
     primary = sorted_candidates[0] if sorted_candidates else None
     conflicts: list[dict[str, Any]] = []
     if primary is not None:
@@ -248,6 +246,26 @@ def choose_primary_evidence(candidates: list[EvidenceCandidate], *, domain: str)
         missing_sources=[],
         trace={"domain": domain},
     )
+
+
+def _evidence_sort_key(candidate: EvidenceCandidate) -> tuple[int, int]:
+    return (candidate.priority, _dingtalk_content_rank(candidate))
+
+
+def _dingtalk_content_rank(candidate: EvidenceCandidate) -> int:
+    if candidate.source_type != "dingtalk_group_content":
+        return 0
+    source_key = candidate.source_key.lower()
+    source = str(candidate.trace_ref.get("source") or "").lower()
+    content_type = str(candidate.trace_ref.get("content_type") or "").lower()
+    haystack = f"{source_key} {source} {content_type}"
+    if "text" in haystack or "chat" in haystack:
+        return 0
+    if "file" in haystack:
+        return 1
+    if "image" in haystack:
+        return 2
+    return 3
 
 
 def _read_dingtalk_candidates(db: Session | None, *, business_date) -> list[EvidenceCandidate]:

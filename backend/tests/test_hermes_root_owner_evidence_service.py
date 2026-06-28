@@ -226,7 +226,7 @@ def test_default_dingtalk_reader_promotes_structured_metric_fact_over_mes(monkey
                             }
                         ],
                         "validation": {
-                            "authorized_group": "required",
+                            "authorized_group": "verified",
                             "specialist_sender": "verified",
                             "content_type": "text",
                             "business_day_window": "matched",
@@ -314,6 +314,119 @@ def test_default_dingtalk_reader_keeps_unverified_facts_supporting_and_uses_mes(
     assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
     assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 0
     assert decision.trace["supporting_evidence"][0]["source_key"] == "dingtalk_group_chat"
+
+
+def test_default_dingtalk_reader_keeps_condition_rules_supporting_and_uses_mes(monkeypatch) -> None:
+    def read_dingtalk_evidence(self, *, business_date):
+        return {
+            "dingtalk_text": {
+                "status": "ok",
+                "count": 1,
+                "items": [
+                    {
+                        "trace_id": "trace-ding-condition-rules",
+                        "content_type": "text",
+                        "specialist_sender": "verified",
+                        "facts": [{"metric_key": "total_output_daily", "value": 118.0}],
+                        "evidence_conditions": {
+                            "authorized_group": "required",
+                            "time_range": "business_day_window",
+                            "content_type": ["text", "file", "image"],
+                        },
+                    }
+                ],
+                "error": None,
+            },
+            "dingtalk_file": {
+                "status": "empty",
+                "count": 0,
+                "items": [],
+                "error": None,
+            },
+        }
+
+    class MesReader:
+        def read_sources(self, **_kwargs):
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {"total_output_daily": 100.0},
+            }
+
+    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+
+    decision = collect_root_owner_evidence(
+        db=object(),
+        message_plan=_message_plan(),
+        trace_id="trace-default-dingtalk-condition-rules",
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    assert decision.primary.source_key == "mes_readonly"
+    assert decision.primary.value == {"total_output_daily": 100.0}
+    assert [candidate.source_key for candidate in decision.candidates] == ["mes_readonly"]
+    assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
+    assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 0
+    assert decision.trace["supporting_evidence"][0]["source_key"] == "dingtalk_group_chat"
+
+
+def test_default_dingtalk_reader_prefers_text_over_file_when_both_verified(monkeypatch) -> None:
+    def read_dingtalk_evidence(self, *, business_date):
+        return {
+            "dingtalk_file": {
+                "status": "ok",
+                "count": 1,
+                "items": [
+                    {
+                        "trace_id": "trace-ding-file",
+                        "facts": [{"metric_key": "total_output_daily", "value": 99.0}],
+                        "validation": {
+                            "authorized_group": "verified",
+                            "specialist_sender": "verified",
+                            "content_type": "file",
+                            "time_range": "matched",
+                        },
+                    }
+                ],
+                "error": None,
+            },
+            "dingtalk_text": {
+                "status": "ok",
+                "count": 1,
+                "items": [
+                    {
+                        "trace_id": "trace-ding-text",
+                        "facts": [{"metric_key": "total_output_daily", "value": 118.0}],
+                        "validation": {
+                            "authorized_group": "verified",
+                            "specialist_sender": "verified",
+                            "content_type": "text",
+                            "time_range": "matched",
+                        },
+                    }
+                ],
+                "error": None,
+            },
+        }
+
+    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+
+    decision = collect_root_owner_evidence(
+        db=object(),
+        message_plan=_message_plan(),
+        trace_id="trace-default-dingtalk-text-file",
+        mes_reader=None,
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    assert decision.primary.source_key == "dingtalk_group_chat"
+    assert decision.primary.value == {"total_output_daily": 118.0}
+    assert [candidate.source_key for candidate in decision.candidates] == [
+        "dingtalk_group_chat",
+        "dingtalk_group_file",
+    ]
+    assert decision.conflicts[0]["lower_source"] == "dingtalk_group_file"
+    assert decision.conflicts[0]["chosen_source"] == "dingtalk_group_chat"
 
 
 def test_default_dingtalk_reader_preserves_failed_status_and_redacted_error(monkeypatch) -> None:
