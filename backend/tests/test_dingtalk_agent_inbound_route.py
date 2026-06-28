@@ -1417,3 +1417,125 @@ def test_dingtalk_agent_inbound_duplicate_chat_message_does_not_duplicate_eviden
         assert db.query(MultimodalEvidence).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_root_owner_private_uses_production_loop_for_soft_message(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=88,
+            username="root-owner-soft",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-soft-001",
+            dingtalk_union_id="union-root-soft-001",
+        )
+    )
+    db.commit()
+    seen = {}
+
+    def fake_turn(_db, **kwargs):
+        seen.update(kwargs)
+        return type(
+            "FakeRootOwnerTurn",
+            (),
+            {
+                "trace_id": kwargs["trace_id"],
+                "status": "answered",
+                "answer": "今天整体正常，已按钉钉事实源回答。",
+                "chat_inbox_id": 301,
+                "agent_run_id": 401,
+                "outbox_message_id": 501,
+                "dispatch_status": "sent",
+                "dispatch_detail": "sent",
+            },
+        )()
+
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-soft-001")
+    monkeypatch.setattr(dingtalk_router, "run_root_owner_production_turn", fake_turn)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-root-soft-001",
+                "senderUnionId": "union-root-soft-001",
+                "text": {"content": "今天咋样"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-soft-route-001",
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "answered"
+        assert payload["answer"] == "今天整体正常，已按钉钉事实源回答。"
+        assert payload["outbox_message_id"] == 501
+        assert payload["dispatch_status"] == "sent"
+        assert seen["text"] == "今天咋样"
+        assert seen["sender_external_id"] == "dt-root-soft-001"
+        assert seen["trace_id"] == "trace-root-soft-route-001"
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_day1_parse_error_does_not_hard_fail_for_root_owner_private(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=89,
+            username="root-owner-invalid-date",
+            password_hash="x",
+            name="root_owner",
+            role="admin",
+            is_active=True,
+            dingtalk_user_id="dt-root-invalid-date-001",
+            dingtalk_union_id="union-root-invalid-date-001",
+        )
+    )
+    db.commit()
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN", "inbound-test", raising=False)
+    monkeypatch.setenv("HERMES_OWNER_DINGTALK_USER_IDS", "dt-root-invalid-date-001")
+    monkeypatch.setattr(
+        dingtalk_router,
+        "run_root_owner_production_turn",
+        lambda _db, **kwargs: type(
+            "FakeRootOwnerTurn",
+            (),
+            {
+                "trace_id": kwargs["trace_id"],
+                "status": "clarifying",
+                "answer": "你想看哪一天的日报或生产情况？",
+                "chat_inbox_id": 302,
+                "agent_run_id": 402,
+                "outbox_message_id": 502,
+                "dispatch_status": "sent",
+                "dispatch_detail": "sent",
+            },
+        )(),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/dingtalk/agent-inbound",
+            headers={"x-dingtalk-inbound-token": "inbound-test"},
+            json={
+                "senderStaffId": "dt-root-invalid-date-001",
+                "senderUnionId": "union-root-invalid-date-001",
+                "text": {"content": "生成 13月99日正式日报"},
+                "agentCode": "factory_dispatch",
+                "traceId": "trace-root-invalid-date-route-001",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "clarifying"
+        assert response.json()["answer"] == "你想看哪一天的日报或生产情况？"
+    finally:
+        _restore_db_override(previous_overrides, db)

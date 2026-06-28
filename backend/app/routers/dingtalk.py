@@ -46,6 +46,10 @@ from app.services.hermes_day1_intent_service import (
 from app.services.hermes_day1_orchestrator import run_day1_super_brain
 from app.services.hermes_factory_brain_intent_service import classify_factory_brain_intent
 from app.services.hermes_factory_brain_types import FactoryBrainIntent
+from app.services.hermes_root_owner_production_orchestrator import (
+    run_root_owner_production_turn,
+    should_route_root_owner_production_turn,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -558,12 +562,14 @@ def dingtalk_agent_inbound(
     channel_scope = _resolve_inbound_channel_scope(db, group_id=scoped_group_id, payload=payload)
     _ensure_inbound_channel_scope_access(user, channel_scope)
     source_payload = _sanitize_inbound_payload(payload)
+    day1_parse_error: Day1CommandParseError | None = None
     try:
         day1_command = None
         if not _is_legacy_slash_daily_report_command(text):
             day1_command = parse_day1_command(text, default_year=datetime.now().year)
     except Day1CommandParseError as exc:
-        raise HTTPException(status_code=400, detail=exc.code) from exc
+        day1_parse_error = exc
+        day1_command = None
     evidence_duplicate = _find_duplicate_inbound_evidence(
         db,
         channel=channel,
@@ -659,6 +665,54 @@ def dingtalk_agent_inbound(
             'chat_inbox_id': chat_inbox.id,
             'agent_run_id': result.agent_run_id,
             'report_id': result.report_id,
+        }
+
+    root_owner_decision = classify_day1_actor(
+        user,
+        sender_user_id=sender_external_id,
+        sender_union_id=_clean_text(_first_payload_value(payload, 'senderUnionId', 'unionId')),
+        channel=channel,
+        group_id=group_id,
+    )
+    if (
+        channel == 'dingtalk_private'
+        and root_owner_decision.is_root_owner
+        and not bool(getattr(settings, 'HERMES_FACTORY_BRAIN_ENABLED', False))
+        and (
+            should_route_root_owner_production_turn(text)
+            or day1_parse_error is not None
+        )
+    ):
+        try:
+            result = run_root_owner_production_turn(
+                db,
+                text=text,
+                current_user=user,
+                sender_external_id=sender_external_id or None,
+                trace_id=trace_id or None,
+                source_payload={
+                    **source_payload,
+                    **({'day1_parse_error': day1_parse_error.code} if day1_parse_error is not None else {}),
+                },
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        return {
+            'errcode': 0,
+            'errmsg': 'ok',
+            'trace_id': result.trace_id,
+            'agent_code': 'factory_dispatch',
+            'status': result.status,
+            'answer': result.answer,
+            'messages': [result.answer] if result.answer else [],
+            'chat_inbox_id': result.chat_inbox_id,
+            'agent_run_id': result.agent_run_id,
+            'report_id': None,
+            'outbox_message_id': result.outbox_message_id,
+            'dispatch_status': result.dispatch_status,
+            'dispatch_detail': result.dispatch_detail,
         }
 
     factory_brain_intent = _get_factory_brain_route_intent(text)
