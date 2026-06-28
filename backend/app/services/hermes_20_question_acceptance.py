@@ -114,6 +114,11 @@ _ENVIRONMENT_FAILURE_HINTS = (
     "test group",
     "测试群",
 )
+_DINGTALK_FACT_SOURCES = (
+    "dingtalk_group_content",
+    "dingtalk_group_chat",
+    "dingtalk_group_file",
+)
 
 
 def build_20_question_catalog() -> tuple[HermesAcceptanceQuestion, ...]:
@@ -162,6 +167,9 @@ def evaluate_question_snapshot(
 
 def evaluate_acceptance_summary(snapshots: Sequence[AcceptanceTurnSnapshot]) -> AcceptanceSummary:
     catalog = {question.question_id: question for question in build_20_question_catalog()}
+    total = len(catalog)
+    snapshot_question_ids = [snapshot.question_id for snapshot in snapshots]
+    has_complete_coverage = len(snapshot_question_ids) == total and set(snapshot_question_ids) == set(catalog)
     results = tuple(
         evaluate_question_snapshot(catalog[snapshot.question_id], snapshot)
         for snapshot in snapshots
@@ -174,10 +182,11 @@ def evaluate_acceptance_summary(snapshots: Sequence[AcceptanceTurnSnapshot]) -> 
         for result in results
         if result.core_passed and not result.delivery_passed and result.delivery_environment_failure
     )
-    total = len(build_20_question_catalog())
     return AcceptanceSummary(
-        core_passed=core_pass_count == total,
-        delivery_passed=delivery_success_count + environment_failure_count >= total
+        core_passed=has_complete_coverage and core_pass_count == total,
+        delivery_passed=has_complete_coverage
+        and core_pass_count == total
+        and delivery_success_count + environment_failure_count >= total
         and environment_failure_count <= 2,
         core_pass_count=core_pass_count,
         delivery_success_count=delivery_success_count,
@@ -225,7 +234,7 @@ def _understanding_gate(question: HermesAcceptanceQuestion, snapshot: Acceptance
     metric_keys = set(_list_value(recognition.get("metric_keys")))
     if not any(metric_key in metric_keys for metric_key in question.metric_keys):
         return LayerGateResult("understanding", False, "metric_not_recognized")
-    if question.domain not in {recognition.get("domain"), "factory_overview", "anomaly"}:
+    if recognition.get("domain") != question.domain:
         return LayerGateResult("understanding", False, "domain_not_recognized")
     return LayerGateResult("understanding", True, "ok")
 
@@ -235,12 +244,13 @@ def _source_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSna
     trace = evidence.get("trace") if isinstance(evidence.get("trace"), Mapping) else {}
     source_order = _list_value(trace.get("source_order"))
     source_status = trace.get("source_status") if isinstance(trace.get("source_status"), Mapping) else {}
+    checked_sources = set(source_order) | {str(source_key) for source_key in source_status}
     primary_source = str(evidence.get("primary_source") or "")
     if primary_source == "rag" or source_order[:1] == ["rag"]:
         return LayerGateResult("source", False, "rag_used_as_current_fact_source")
-    if question.requires_dingtalk and "dingtalk_group_chat" not in source_order and "dingtalk_group_file" not in source_order:
+    if question.requires_dingtalk and not checked_sources.intersection(_DINGTALK_FACT_SOURCES):
         return LayerGateResult("source", False, "dingtalk_source_not_checked")
-    if question.requires_mes and "mes_readonly" not in source_order and "mes_readonly" not in source_status:
+    if question.requires_mes and "mes_readonly" not in checked_sources:
         return LayerGateResult("source", False, "mes_readonly_not_checked")
     if not source_order and not source_status:
         return LayerGateResult("source", False, "no_real_source_trace")

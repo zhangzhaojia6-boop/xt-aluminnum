@@ -149,3 +149,47 @@ def test_summary_requires_20_core_passes_and_allows_two_environment_delivery_fai
     assert summary.core_pass_count == 20
     assert summary.delivery_success_count == 18
     assert summary.environment_failure_count == 2
+
+
+def test_summary_delivery_fails_when_one_core_question_fails_even_if_all_were_sent() -> None:
+    catalog = build_20_question_catalog()
+    snapshots = [_passing_snapshot(item.question_id) for item in catalog]
+    snapshots[-1].recognition["metric_keys"] = ["wrong_metric"]
+
+    summary = evaluate_acceptance_summary(snapshots)
+
+    assert summary.core_passed is False
+    assert summary.delivery_passed is False
+    assert summary.core_pass_count == 19
+    assert summary.delivery_success_count == 20
+
+
+def test_summary_requires_20_distinct_question_ids() -> None:
+    snapshots = [_passing_snapshot(1) for _ in range(20)]
+
+    summary = evaluate_acceptance_summary(snapshots)
+
+    assert summary.core_passed is False
+    assert summary.delivery_passed is False
+
+
+def test_source_gate_accepts_canonical_dingtalk_group_content_status() -> None:
+    question = build_20_question_catalog()[0]
+    snapshot = _passing_snapshot(1)
+    snapshot.evidence["primary_source"] = "dingtalk_group_content"
+    snapshot.evidence["trace"]["source_order"] = ["mes_readonly", "data_hub_projection"]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is True
+
+
+def test_understanding_gate_rejects_wrong_domain_for_factory_overview() -> None:
+    question = build_20_question_catalog()[19]
+    snapshot = _passing_snapshot(20)
+    snapshot.recognition["domain"] = "energy"
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "domain_not_recognized" in result.failed_reasons
