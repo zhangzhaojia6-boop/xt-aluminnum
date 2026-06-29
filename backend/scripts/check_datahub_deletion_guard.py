@@ -20,15 +20,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, repo_root: Path = ROOT) -> int:
     args = parse_args(argv)
     normalized_paths = [path.replace("\\", "/") for path in args.paths]
-    result = check_candidate_delete_paths(ROOT, normalized_paths)
+    result = check_candidate_delete_paths(repo_root, normalized_paths)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         for item in result["items"]:
             print(f"{item['status']} {item['path']} {item['reason']}")
+            for reference in item["references"]:
+                print(f"  ref {reference}")
     return 0 if result["passed"] else 1
 
 

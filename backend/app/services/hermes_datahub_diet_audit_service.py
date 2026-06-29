@@ -68,10 +68,10 @@ ROUTE_PROTECT_REASON = "生产核心入口路由，减法阶段必须保留。"
 RUNTIME_SCAN_PATTERNS = (
     "backend/app/**/*.py",
     "backend/scripts/**/*.py",
-    "backend/tests/**/*.py",
     "frontend/src/**/*.js",
+    "frontend/src/**/*.ts",
+    "frontend/src/**/*.tsx",
     "frontend/src/**/*.vue",
-    "frontend/tests/**/*.js",
 )
 
 
