@@ -40,6 +40,7 @@ def test_classify_natural_language_rule_add() -> None:
     assert command.action == 'add'
     assert command.risk_level == 'high'
     assert command.structured_rule['rule_type'] == 'source_priority'
+    assert command.structured_rule['priority'] == ['dingtalk_group_content', 'mes_wms', 'hub']
 
 
 def test_classify_temporary_override_does_not_persist() -> None:

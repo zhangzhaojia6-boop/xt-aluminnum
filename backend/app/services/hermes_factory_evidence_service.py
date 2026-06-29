@@ -13,7 +13,7 @@ def collect_factory_evidence(
 ) -> list[FactoryBrainDataReference]:
     references: list[FactoryBrainDataReference] = []
     if 'daily_output' in normalized.metrics:
-        source = 'dingtalk_specialist' if any(
+        source = 'dingtalk_group_content' if any(
             step.tool == 'dingtalk_context_ingestion' for step in planned_steps
         ) else 'datahub'
         references.append(
@@ -56,4 +56,22 @@ def describe_evidence_gap(
     missing = [metric for metric in normalized.metrics if metric not in found]
     if not missing:
         return None
-    return f"当前缺少 {'、'.join(missing)} 的可追溯数据，建议继续查钉钉责任人文件、MES/WMS 明细或历史日报。"
+    missing_labels = '、'.join(_metric_label(metric) for metric in missing)
+    return f"当前缺少 {missing_labels} 的可追溯数据，建议继续查钉钉群文件和聊天内容、MES/WMS 只读明细或历史日报。"
+
+
+def _metric_label(metric: str) -> str:
+    labels = {
+        'daily_output': '日产量',
+        'monthly_output': '月累计产量',
+        'inventory': '库存',
+        'contract_balance': '合同余量',
+        'yield_rate': '成品率',
+        'energy_cost': '能耗成本',
+        'anomaly': '异常',
+        'monthly_operation': '月度经营',
+        'yearly_operation': '年度经营',
+        'artifact_request': '成果物请求',
+        'daily_report': '日报',
+    }
+    return labels.get(str(metric or '').strip(), str(metric or '').strip())

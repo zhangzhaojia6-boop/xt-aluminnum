@@ -56,7 +56,7 @@ def classify_rule_command(text: str) -> LongTermRuleCommand:
         return LongTermRuleCommand(
             action='add',
             raw_text=clean,
-            structured_rule={'rule_type': 'source_priority', 'priority': ['dingtalk_specialist', 'hub', 'mes_wms']},
+            structured_rule={'rule_type': 'source_priority', 'priority': ['dingtalk_group_content', 'mes_wms', 'hub']},
             scope_payload={'domain': 'daily_report'},
             risk_level='high',
             persist=True,

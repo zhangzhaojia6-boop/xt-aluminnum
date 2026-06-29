@@ -6,14 +6,14 @@ def classify_feedback_learning(feedback_text: str, *, is_root_owner: bool) -> di
     if any(token in clean for token in ('Codex', '改', '新增接口', 'SQL', '补测试')):
         if not is_root_owner:
             return {
-                'learning_type': 'construction_request',
+                'learning_type': 'system_optimization_request',
                 'status': 'denied',
-                'reason': '只有 root_owner 可以提交施工任务',
+                'reason': '只有最高权限负责人可以提交系统优化请求',
             }
         return {
-            'learning_type': 'construction_request',
-            'status': 'needs_codex',
-            'reason': '涉及系统施工',
+            'learning_type': 'system_optimization_request',
+            'status': 'needs_system_optimization',
+            'reason': '涉及系统优化执行',
         }
     if any(token in clean for token in ('口径', '按同一', '归一', '车间', '指标')):
         return {

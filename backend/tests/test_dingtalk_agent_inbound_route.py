@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import date
 
@@ -803,7 +803,7 @@ def test_dingtalk_agent_inbound_day1_root_owner_calls_orchestrator_without_forci
                 'trace_id': trace_id,
                 'status': 'ready',
                 'answer': '6月19日正式日报已生成',
-                'reply_messages': ['[1/2] 工厂大脑判断单', '[2/2] 正式日报正文'],
+                'reply_messages': ['[1/2] 智能大脑判断单', '[2/2] 正式日报正文'],
                 'agent_run_id': 301,
                 'report_id': 201,
             },
@@ -834,7 +834,7 @@ def test_dingtalk_agent_inbound_day1_root_owner_calls_orchestrator_without_forci
         assert payload['errcode'] == 0
         assert payload['status'] == 'ready'
         assert payload['answer'] == '6月19日正式日报已生成'
-        assert payload['messages'] == ['[1/2] 工厂大脑判断单', '[2/2] 正式日报正文']
+        assert payload['messages'] == ['[1/2] 智能大脑判断单', '[2/2] 正式日报正文']
         assert payload['chat_inbox_id'] == seen['chat_inbox_id']
         assert payload['agent_run_id'] == 301
         assert payload['report_id'] == 201
@@ -1454,7 +1454,7 @@ def test_dingtalk_agent_inbound_root_owner_private_uses_production_loop_for_soft
         )()
 
     def fail_factory_brain_turn(*_args, **_kwargs):
-        raise AssertionError("root_owner private soft message should not reach factory brain")
+        raise AssertionError("root_owner private soft message should not reach 智能大脑主链路")
 
     def fail_fallback(*_args, **_kwargs):
         raise AssertionError("root_owner private soft message should not reach fallback")
@@ -1654,7 +1654,7 @@ def test_dingtalk_agent_inbound_day1_parse_error_returns_400_outside_root_owner_
     db.commit()
 
     def fail_factory_brain_turn(*_args, **_kwargs):
-        raise AssertionError("Day1 parse error should not reach factory brain outside root_owner private loop")
+        raise AssertionError("Day1 parse error should not reach 智能大脑主链路 outside root_owner private loop")
 
     def fail_fallback(*_args, **_kwargs):
         raise AssertionError("Day1 parse error should not reach fallback outside root_owner private loop")

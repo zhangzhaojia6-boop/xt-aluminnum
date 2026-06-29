@@ -1,4 +1,4 @@
-import subprocess
+﻿import subprocess
 import sys
 from pathlib import Path
 
@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_daily_report_acceptance_requires_conflicts_and_sources() -> None:
     result = evaluate_factory_brain_response(
         scenario='daily_report',
-        response_text='工厂大脑判断单\n正式日报正文\n各车间明细\n数据来源：数据中枢、钉钉专项文件。\n冲突：总产量。',
+        response_text='智能大脑判断单\n正式日报正文\n各车间明细\n数据来源：数据中枢、钉钉专项文件。\n冲突：总产量。',
         tool_trace=[
             {'tool': 'hub_query', 'status': 'ok'},
             {'tool': 'dingtalk_evidence', 'status': 'ok'},
@@ -37,7 +37,7 @@ def test_cli_accepts_business_date_daily_report_smoke() -> None:
         text=True,
     )
 
-    assert 'Hermes factory brain smoke: scenario=daily_report text=生成 2026-06-19 正式日报' in result.stdout
+    assert '鑫泰铝业智能大脑 smoke：scenario=daily_report text=生成 2026-06-19 正式日报' in result.stdout
 
 
 def test_cli_rejects_missing_prompt_arguments() -> None:

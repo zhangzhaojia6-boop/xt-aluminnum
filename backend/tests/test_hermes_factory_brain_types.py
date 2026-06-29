@@ -26,7 +26,7 @@ def test_factory_brain_closed_loop_types_are_serializable_shape() -> None:
         scope='factory',
         org_units=['factory'],
         metrics=['daily_output', 'monthly_output'],
-        data_sources=['dingtalk_specialist', 'mes', 'wms', 'datahub'],
+        data_sources=['dingtalk_group_content', 'mes', 'wms', 'datahub'],
         output_mode='short_answer',
         needs_artifact=False,
     )
@@ -35,7 +35,7 @@ def test_factory_brain_closed_loop_types_are_serializable_shape() -> None:
         value=366.21,
         unit='ton',
         business_date=date(2026, 6, 26),
-        source='dingtalk_specialist',
+        source='dingtalk_group_content',
         business_definition='入库成品日合计，含寄存',
         confidence=0.96,
         metadata={'file_name': '6月26日日报.txt'},

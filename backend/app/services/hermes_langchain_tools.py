@@ -38,7 +38,7 @@ class HermesToolAdapters:
     history_report: ToolCallable
     output_skill_alignment: ToolCallable
     long_term_rules: ToolCallable
-    codex_construction: ToolCallable
+    system_optimization: ToolCallable
     source_map: ToolCallable
 
 
@@ -51,7 +51,7 @@ def build_tool_registry(adapters: HermesToolAdapters) -> dict[str, ToolCallable]
         'history_report': adapters.history_report,
         'output_skill_alignment': adapters.output_skill_alignment,
         'long_term_rules': adapters.long_term_rules,
-        'codex_construction': adapters.codex_construction,
+        'system_optimization': adapters.system_optimization,
         'source_map': adapters.source_map,
     }
 
@@ -77,7 +77,7 @@ def build_production_tool_adapters(
         history_report=partial(_history_report_tool, db=db),
         output_skill_alignment=partial(_output_skill_alignment_tool, db=db, output_skill_root=output_skill_root),
         long_term_rules=partial(_long_term_rules_tool, db=db),
-        codex_construction=partial(_codex_construction_tool, db=db, current_user=current_user),
+        system_optimization=partial(_system_optimization_tool, db=db, current_user=current_user),
         source_map=_source_map_tool,
     )
 
@@ -336,13 +336,13 @@ def _source_map_tool(**kwargs: object) -> ToolResult:
         return _unavailable('fact_source_map', kwargs, exc)
 
 
-def _codex_construction_tool(*, db: Session, current_user: User | None, **kwargs: object) -> ToolResult:
+def _system_optimization_tool(*, db: Session, current_user: User | None, **kwargs: object) -> ToolResult:
     if current_user is None:
         return {
             'status': 'denied',
-            'source': 'codex_construction',
+            'source': 'system_optimization',
             'request': _request_payload(kwargs),
-            'facts': {'message': '缺少 root_owner 身份'},
+            'facts': {'message': '缺少最高权限负责人身份'},
         }
     result = request_codex_construction(
         db,
@@ -353,7 +353,7 @@ def _codex_construction_tool(*, db: Session, current_user: User | None, **kwargs
     )
     return {
         'status': result.status,
-        'source': 'codex_construction',
+        'source': 'system_optimization',
         'request': _request_payload(kwargs),
         'facts': {'run_id': result.run_id, 'message': result.message},
     }

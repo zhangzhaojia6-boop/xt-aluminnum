@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import date
 from importlib import import_module
@@ -8,7 +8,7 @@ from app.services.report.template_daily_report import REQUIRED_FIELDS, render_te
 
 
 BUSINESS_DATE = date(2026, 6, 21)
-BLOCKED_SENTENCE = '当前关键字段缺失，Hermes 未生成正式日报正文；请先补齐缺失字段后重跑。'
+BLOCKED_SENTENCE = '当前关键字段缺失，智能大脑未生成正式日报正文；请先补齐缺失字段后重跑。'
 
 
 def _service():
@@ -164,17 +164,17 @@ def test_ready_template_produces_three_sections_and_preserves_formal_text() -> N
 
     assert result['status'] == 'ready'
     assert result['formal_text'] == '6月21日，车间总产量日合计366吨。'
-    assert result['text'].count('工厂大脑判断单') == 1
+    assert result['text'].count('智能大脑判断单') == 1
     assert result['text'].count('正式日报正文') == 1
     assert result['text'].count('各车间明细') == 1
-    assert result['text'].index('工厂大脑判断单') < result['text'].index('正式日报正文')
+    assert result['text'].index('智能大脑判断单') < result['text'].index('正式日报正文')
     assert result['text'].index('正式日报正文') < result['text'].index('各车间明细')
     assert '6月21日，车间总产量日合计366吨。' in result['text']
     assert len(result['workshop_details']) == 12
     assert '【2050车间】' in result['text']
     assert '日产量：80吨，月累计：2422吨。' in result['text']
     assert '日吨电耗：223.1度，月吨电耗：157.4度。' in result['text']
-    assert 'Hermes判断' in result['text']
+    assert '智能大脑判断' in result['text']
     assert 'None' not in result['text']
     assert 'null' not in result['text']
 
@@ -338,7 +338,7 @@ def test_empty_optional_sources_are_not_listed_as_checked_sources() -> None:
 
     source_names = result['brain_judgment']['source_names']
     assert '模板正式日报' in source_names
-    assert 'Hermes 数据审计' in source_names
+    assert '智能大脑数据审计' in source_names
     assert '钉钉证据' not in source_names
     assert '钉钉文本' not in source_names
     assert 'RAG 知识库' not in source_names

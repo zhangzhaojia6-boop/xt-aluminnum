@@ -46,11 +46,11 @@ def _session(tmp_path):
 
 def test_assistant_query_records_llm_usage(tmp_path, monkeypatch) -> None:
     db, user = _session(tmp_path)
+    captured = {}
 
-    monkeypatch.setattr(
-        assistant_service,
-        'generate_llm_summary_with_usage',
-        lambda **_kwargs: LlmTextResponse(
+    def fake_generate_llm_summary_with_usage(**kwargs):
+        captured['messages'] = kwargs['messages']
+        return LlmTextResponse(
             content=json.dumps(
                 {
                     'summary': '真实 LLM 已生成回答。',
@@ -64,7 +64,12 @@ def test_assistant_query_records_llm_usage(tmp_path, monkeypatch) -> None:
             output_tokens=8,
             total_tokens=20,
             raw_usage={'prompt_tokens': 12, 'completion_tokens': 8, 'total_tokens': 20},
-        ),
+        )
+
+    monkeypatch.setattr(
+        assistant_service,
+        'generate_llm_summary_with_usage',
+        fake_generate_llm_summary_with_usage,
     )
 
     response = assistant_service.run_assistant_query(
@@ -80,6 +85,10 @@ def test_assistant_query_records_llm_usage(tmp_path, monkeypatch) -> None:
     assert usage.input_tokens == 12
     assert usage.output_tokens == 8
     assert usage.total_tokens == 20
+    prompt_text = '\n'.join(message['content'] for message in captured['messages'])
+    assert '鑫泰铝业智能大脑' in prompt_text
+    assert '鑫泰铝业协同平台' not in prompt_text
+    assert '工厂多智能体助手' not in prompt_text
 
 
 def test_assistant_query_enforces_daily_limit(tmp_path, monkeypatch) -> None:

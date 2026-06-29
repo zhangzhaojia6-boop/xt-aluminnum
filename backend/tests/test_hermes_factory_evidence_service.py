@@ -22,7 +22,7 @@ def test_collects_traceable_data_reference_for_daily_output() -> None:
     assert first.unit == 'ton'
     assert first.business_date == date(2026, 6, 26)
     assert first.business_definition
-    assert first.source in {'dingtalk_specialist', 'mes', 'datahub'}
+    assert first.source in {'dingtalk_group_content', 'mes', 'datahub'}
     assert 0.0 <= first.confidence <= 1.0
 
 
@@ -38,7 +38,7 @@ def test_gap_message_still_names_placeholder_metrics_as_missing() -> None:
 
     gap = describe_evidence_gap(normalized, references)
 
-    assert gap == '当前缺少 daily_output、monthly_output 的可追溯数据，建议继续查钉钉责任人文件、MES/WMS 明细或历史日报。'
+    assert gap == '当前缺少 日产量、月累计产量 的可追溯数据，建议继续查钉钉群文件和聊天内容、MES/WMS 只读明细或历史日报。'
 
 
 def test_gap_message_names_missing_metric_without_hallucinating() -> None:
@@ -52,4 +52,4 @@ def test_gap_message_names_missing_metric_without_hallucinating() -> None:
 
     gap = describe_evidence_gap(normalized, [])
 
-    assert gap == '当前缺少 electricity、gas、unit_consumption 的可追溯数据，建议继续查钉钉责任人文件、MES/WMS 明细或历史日报。'
+    assert gap == '当前缺少 electricity、gas、unit_consumption 的可追溯数据，建议继续查钉钉群文件和聊天内容、MES/WMS 只读明细或历史日报。'

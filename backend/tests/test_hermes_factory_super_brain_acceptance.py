@@ -16,5 +16,7 @@ def test_day1_acceptance_for_common_natural_language_questions() -> None:
         )
         assert result['status'] == 'replied'
         assert result['progress_cards'][-1]['stage'] == 'feedback'
-        assert result['normalized_request']['data_sources'][:4] == ['dingtalk_specialist', 'mes', 'wms', 'datahub']
+        assert result['normalized_request']['data_sources'][:4] == ['dingtalk_group_content', 'mes', 'wms', 'datahub']
+        assert '鑫泰铝业智能大脑' in result['response_text']
+        assert '工厂大脑链路' not in result['response_text']
         assert 'Codex token refresh failed' not in result['response_text']

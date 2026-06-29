@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -63,7 +63,7 @@ def test_safe_system_understanding_copy_can_be_ingested_without_secret_values(tm
         assert 'access_token=' not in safe_text
         assert 'BEGIN PRIVATE KEY' not in safe_text
         assert 'END PRIVATE KEY' not in safe_text
-        assert 'Hermes 工厂总控' in safe_text
+        assert '鑫泰铝业智能大脑' in safe_text
 
         document = hermes_rag_service.ingest_file(
             db,

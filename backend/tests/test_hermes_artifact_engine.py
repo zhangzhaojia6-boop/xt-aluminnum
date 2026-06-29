@@ -19,7 +19,7 @@ def test_table_artifact_request_for_output_table() -> None:
             value=366.21,
             unit='ton',
             business_date=date(2026, 6, 26),
-            source='dingtalk_specialist',
+            source='dingtalk_group_content',
             business_definition='入库成品日合计，含寄存',
             confidence=0.96,
         )

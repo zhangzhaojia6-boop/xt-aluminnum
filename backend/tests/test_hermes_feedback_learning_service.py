@@ -22,7 +22,7 @@ def test_non_owner_cannot_submit_construction_candidate() -> None:
     result = classify_feedback_learning('让 Codex 改日报 SQL', is_root_owner=False)
 
     assert result == {
-        'learning_type': 'construction_request',
+        'learning_type': 'system_optimization_request',
         'status': 'denied',
-        'reason': '只有 root_owner 可以提交施工任务',
+        'reason': '只有最高权限负责人可以提交系统优化请求',
     }
