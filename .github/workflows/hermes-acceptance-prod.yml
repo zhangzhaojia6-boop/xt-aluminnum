@@ -1,0 +1,235 @@
+name: Hermes Production Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'hermes-20q' to confirm production Hermes acceptance
+        required: true
+      mode:
+        description: Run preflight only, or send the real 20-question gate
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - run
+      business_date:
+        description: Business date in YYYY-MM-DD; empty uses production current date
+        required: false
+        default: ''
+      limit:
+        description: Optional question limit for controlled smoke; empty means all 20
+        required: false
+        default: ''
+
+jobs:
+  hermes-acceptance-prod:
+    if: github.event.inputs.confirm == 'hermes-20q'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Hermes production acceptance
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          ACCEPTANCE_MODE: ${{ github.event.inputs.mode }}
+          BUSINESS_DATE: ${{ github.event.inputs.business_date }}
+          LIMIT: ${{ github.event.inputs.limit }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          case "$ACCEPTANCE_MODE" in
+            preflight|run) ;;
+            *) echo "unsupported mode"; exit 2 ;;
+          esac
+          if [ -n "$BUSINESS_DATE" ] && ! printf '%s' "$BUSINESS_DATE" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+            echo "business_date must be YYYY-MM-DD"
+            exit 2
+          fi
+          if [ -n "$LIMIT" ] && ! printf '%s' "$LIMIT" | grep -Eq '^[0-9]+$'; then
+            echo "limit must be an integer"
+            exit 2
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "ACCEPTANCE_MODE='$ACCEPTANCE_MODE' BUSINESS_DATE='$BUSINESS_DATE' LIMIT='$LIMIT' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd /srv/aluminum-bypass/backend
+          . .venv/bin/activate
+          python - <<'PY'
+          from __future__ import annotations
+
+          import os
+          import sys
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          from app.config import settings
+          from app.database import get_sessionmaker
+          from app.models.agent_communication import CommunicationChannel
+          from app.models.system import User
+          from app.services.external_readonly_source_registry import (
+              build_external_readonly_sources,
+              health_check_sources,
+          )
+          from app.services.hermes_20_question_acceptance import render_acceptance_report
+          from app.services.hermes_20_question_runner import (
+              DingTalkDeliveryTarget,
+              run_20_question_acceptance,
+          )
+
+
+          def mask(value: object) -> str:
+              text = str(value or "").strip()
+              if not text:
+                  return ""
+              if len(text) <= 8:
+                  return text[:2] + "***" + text[-1:]
+              return text[:4] + "***" + text[-4:]
+
+
+          def channel_score(channel: CommunicationChannel) -> int:
+              meta = channel.metadata_payload if isinstance(channel.metadata_payload, dict) else {}
+              text = " ".join(
+                  [
+                      str(channel.name or ""),
+                      str(channel.target_type or ""),
+                      str(channel.target_key or ""),
+                      str(meta.get("managed_by") or ""),
+                      str(meta.get("owner_name") or ""),
+                  ]
+              ).lower()
+              score = 0
+              if channel.target_type == "acceptance_test":
+                  score += 100
+              if "hermes_20_question_acceptance" in text:
+                  score += 90
+              for token in ("测试", "验收", "调试", "debug", "test", "20问", "20 question"):
+                  if token in text:
+                      score += 40
+              for token in ("生产群", "管理群", "全厂", "工作通知"):
+                  if token in text:
+                      score -= 80
+              if not channel.dry_run:
+                  score += 10
+              return score
+
+
+          def selected_owner_id(db) -> str:
+              configured = sorted(
+                  str(item).strip()
+                  for item in getattr(settings, "hermes_owner_dingtalk_user_ids", set())
+                  if str(item).strip()
+              )
+              if configured:
+                  return configured[0]
+              user = (
+                  db.query(User)
+                  .filter(User.dingtalk_user_id.is_not(None))
+                  .order_by(User.id.asc())
+                  .first()
+              )
+              if user and str(user.dingtalk_user_id or "").strip():
+                  return str(user.dingtalk_user_id).strip()
+              return "666327013924069283"
+
+
+          def business_date_value() -> str:
+              raw = str(os.environ.get("BUSINESS_DATE") or "").strip()
+              if raw:
+                  return raw
+              return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+
+
+          mode = str(os.environ.get("ACCEPTANCE_MODE") or "preflight").strip()
+          limit_raw = str(os.environ.get("LIMIT") or "").strip()
+          limit = int(limit_raw) if limit_raw else None
+          session_factory = get_sessionmaker()
+
+          with session_factory() as db:
+              owner_id = selected_owner_id(db)
+              channels = (
+                  db.query(CommunicationChannel)
+                  .filter(CommunicationChannel.channel_type == "dingtalk_group")
+                  .filter(CommunicationChannel.is_active.is_(True))
+                  .order_by(CommunicationChannel.id.asc())
+                  .all()
+              )
+              ranked = sorted(
+                  [(channel_score(channel), channel) for channel in channels],
+                  key=lambda item: (item[0], not item[1].dry_run, -item[1].id),
+                  reverse=True,
+              )
+              print("DINGTALK_NOTIFY_DRY_RUN=", bool(getattr(settings, "DINGTALK_NOTIFY_DRY_RUN", True)))
+              print("OWNER_ID_MASKED=", mask(owner_id))
+              print("GROUP_CHANNELS_MASKED")
+              for score, channel in ranked:
+                  print(
+                      {
+                          "id": channel.id,
+                          "score": score,
+                          "name": channel.name,
+                          "key": mask(channel.channel_key),
+                          "target_type": channel.target_type,
+                          "target_key": mask(channel.target_key),
+                          "dry_run": channel.dry_run,
+                      }
+                  )
+              candidates = [(score, channel) for score, channel in ranked if score >= 40]
+              if not candidates:
+                  print("NO_APPROVED_DINGTALK_GROUP_CANDIDATE")
+                  sys.exit(20)
+              if len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
+                  print("AMBIGUOUS_DINGTALK_GROUP_CANDIDATE")
+                  sys.exit(21)
+              group = candidates[0][1]
+              print("SELECTED_GROUP_MASKED=", mask(group.channel_key), group.name)
+              if mode == "preflight":
+                  sys.exit(0)
+
+              current_user = db.get(User, 1) or db.query(User).filter(User.role == "admin").order_by(User.id.asc()).first()
+              if current_user is None:
+                  print("NO_ADMIN_USER")
+                  sys.exit(22)
+              source_health = health_check_sources(
+                  build_external_readonly_sources(),
+                  probe=lambda source: None,
+              )
+              outcome = run_20_question_acceptance(
+                  db,
+                  current_user=current_user,
+                  sender_external_id=owner_id,
+                  business_date=datetime.fromisoformat(business_date_value()).date(),
+                  source_health=source_health,
+                  delivery_targets=(
+                      DingTalkDeliveryTarget(
+                          channel_type="dingtalk_group",
+                          channel_key=group.channel_key,
+                      ),
+                  ),
+                  limit=limit,
+              )
+
+          report = render_acceptance_report(outcome.summary)
+          report_path = Path("/srv/aluminum-bypass/docs/superpowers/reports") / (
+              f"{business_date_value()}-hermes-20-question-real-acceptance-production.md"
+          )
+          report_path.write_text(report, encoding="utf-8")
+          print(report)
+          print("REPORT_PATH=", report_path)
+          sys.exit(0 if outcome.summary.core_passed and outcome.summary.delivery_passed else 1)
+          PY
+          REMOTE
