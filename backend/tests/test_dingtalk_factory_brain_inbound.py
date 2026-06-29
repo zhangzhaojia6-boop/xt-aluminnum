@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -89,7 +89,7 @@ def test_dingtalk_inbound_uses_factory_brain_for_rule_first_business_inputs(monk
         lambda *_args, **_kwargs: SimpleNamespace(
             trace_id=trace_id,
             status='replied',
-            answer='工厂大脑回复',
+            answer='智能大脑回复',
             chat_inbox_id=1,
             agent_run_id=1,
         ),

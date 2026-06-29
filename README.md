@@ -53,7 +53,7 @@ npm run dev
 
 **生产部署：**
 
-详见 [DEPLOY.md](./DEPLOY.md)
+详见 [数据中枢云服务器部署 Runbook](./docs/deploy/runbook.md)
 
 **Docker Compose（未来计划）：**
 
@@ -116,18 +116,19 @@ cp .env.example .env
 
 ## 文档索引
 
-- [项目记忆](./memory.md)
-- [长期 AI 产品体系总规范](./docs/longterm-ai-product-system-spec.md)
-- [试点上线前 QA / Readiness Checklist](./docs/pilot-readiness-checklist.md)
-- [Workflow Rollout](./docs/workflow-rollout.md)
-- [MES API Sync Contract Phase 1](./docs/mes-api-sync-contract-phase1.md)
-- [MES Phase 1 字段映射表](./docs/mes-field-mapping-table-phase1.md)
+- [旧项目记忆归档](./docs/archive/root-md-2026-06-27/memory.md)
+- [项目文档入口](./docs/README.md)
+- [产品方向：软件做减法，智能体做加法](./docs/product-direction.md)
+- [当前 PRD：Hermes 真实证据闭环与数据中枢减量增强](./docs/software-minus-agent-plus-prd.md)
+- [智能体工作指南](./docs/agent-operating-guide.md)
+- [系统与界面设计方向](./docs/system-design-direction.md)
+- [Hermes 事实来源地图](./docs/hermes/fact-source-map.md)
+- [数据中枢冻结与候选删除登记表](./docs/datahub-deprecation-register.md)
+- [系统理解合并版](./docs/system-understanding-consolidated-2026-06-14.md)
+- [如果从第一天重来：初始 PRD / AGENTS / DESIGN 与下一步 PRD](./docs/superpowers/plans/2026-06-27-retro-initial-prd-agents-design-and-next-prd.md)
 - [MES API 联调对接清单](./docs/mes-api-integration-checklist.md)
-- [MES API 未就绪期间的两周施工计划](./docs/mes-api-two-week-prep-plan.md)
-- [角色矩阵与首批 SOP 设计](./docs/superpowers/specs/2026-04-06-role-matrix-and-sops-design.md)
 - [API 体系分层规范](./docs/api-system-lane-spec.md)
 - [CLI / Scripts / Rollout Lane Spec](./docs/cli-rollout-lane-spec.md)
-- [长期 AI Skill System 规范](./docs/longterm-ai-skill-system-spec.md)
 
 ## 当前结论
 

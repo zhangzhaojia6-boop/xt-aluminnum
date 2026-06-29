@@ -21,7 +21,7 @@ def test_normalizes_workshop_metric_sources_and_output_mode() -> None:
     assert result.scope == 'workshop'
     assert result.org_units == ['1650']
     assert result.metrics == ['daily_output', 'monthly_output']
-    assert result.data_sources[:4] == ['dingtalk_specialist', 'mes', 'wms', 'datahub']
+    assert result.data_sources[:4] == ['dingtalk_group_content', 'mes', 'wms', 'datahub']
     assert result.output_mode == 'short_answer'
 
 

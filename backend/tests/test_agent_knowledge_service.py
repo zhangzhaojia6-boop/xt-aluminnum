@@ -69,7 +69,9 @@ def test_grounded_prompt_contains_sources_and_no_realtime_permission() -> None:
 
     assert '只允许根据这些来源回答' in prompt
     assert '不能编造实时产量' in prompt
-    assert 'SOURCE' in prompt
+    assert '来源' in prompt
+    assert 'QUESTION' not in prompt
+    assert 'DRAFT_ANSWER' not in prompt
     assert answer['citations'][0]['entry_id'] in prompt
 
 

@@ -56,6 +56,8 @@ def test_root_owner_can_request_heavy_construction(monkeypatch) -> None:
     db.commit()
 
     assert result.status == 'requested'
+    assert result.message == '系统优化请求已记录，等待执行器接管。'
+    assert 'Codex' not in result.message
     assert db.query(HermesCodexConstructionRun).one().authorization_level == 'root_owner'
 
 
@@ -92,6 +94,8 @@ def test_admin_without_configured_root_owner_identity_cannot_request_constructio
     )
 
     assert result.status == 'denied'
+    assert result.message == '只有最高权限负责人可以触发系统优化执行。'
+    assert 'Codex' not in result.message
     assert db.query(HermesCodexConstructionRun).count() == 0
 
 
@@ -128,6 +132,8 @@ def test_non_root_owner_cannot_request_construction(monkeypatch) -> None:
     )
 
     assert result.status == 'denied'
+    assert '系统优化执行' in result.message
+    assert 'Codex' not in result.message
     assert db.query(HermesCodexConstructionRun).count() == 0
 
 
@@ -164,4 +170,6 @@ def test_codex_construction_requires_feature_flag(monkeypatch) -> None:
     )
 
     assert result.status == 'disabled'
+    assert result.message == '系统优化执行能力当前未开启。'
+    assert 'Codex' not in result.message
     assert db.query(HermesCodexConstructionRun).count() == 0

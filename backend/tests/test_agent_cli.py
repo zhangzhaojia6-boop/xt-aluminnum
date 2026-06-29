@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 from types import SimpleNamespace
 
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import Base, get_engine, get_sessionmaker
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.master import Workshop
+from app.models.mes import MesSyncRunLog
 from app.models.rag import (
     HermesApprovedLesson,
     HermesLearningEvent,
@@ -39,6 +41,7 @@ TABLES = [
     DailyReport.__table__,
     ChatInboxMessage.__table__,
     AgentRun.__table__,
+    MesSyncRunLog.__table__,
 ]
 
 
@@ -162,7 +165,7 @@ def test_agent_cli_ingests_safe_system_understanding_copy(tmp_path, monkeypatch,
     source = tmp_path / 'system-understanding.md'
     output = tmp_path / 'system-understanding.rag-safe.md'
     source.write_text(
-        'Hermes 工厂规则：数字来自数据中枢 CLI。\n'
+        '智能大脑规则：数字来自数据中枢 CLI。\n'
         'DINGTALK_CLIENT_SECRET=real-secret-value-1234567890\n'
         '日报口径：7:30 生成前一个业务日。',
         encoding='utf-8',
@@ -558,6 +561,86 @@ def test_dingtalk_command_auto_recognizes_clear_production_question(tmp_path, mo
         assert event.question == '今天包装产量多少'
         assert event.status == 'candidate'
         assert db.query(HermesApprovedLesson).count() == 0
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_mes_status_slash_reports_configured_readonly_link(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    monkeypatch.setattr(agent_cli.settings, 'MES_ADAPTER', 'sqlserver', raising=False)
+    try:
+        db.add(User(id=10, username='zzj-mes-status', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.add(
+            MesSyncRunLog(
+                cursor_key='coil_snapshots',
+                started_at=datetime(2026, 6, 29, 19, 44, tzinfo=timezone.utc),
+                finished_at=datetime(2026, 6, 29, 19, 45, tzinfo=timezone.utc),
+                status='success',
+                fetched_count=50,
+                upserted_count=50,
+                lag_seconds=0,
+            )
+        )
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '/MES状态',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'cid-production',
+            '--trace-id',
+            'trace-mes-status-001',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'mes-status'
+        assert '不是未接入' in payload['reply']
+        assert payload['data']['configured'] is True
+        assert payload['data']['latest']['status'] == 'success'
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.source_payload['handling'] == 'mes_status'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_access_warning_routes_to_mes_status_instead_of_llm(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    monkeypatch.setattr(agent_cli.settings, 'MES_ADAPTER', 'sqlserver', raising=False)
+
+    def fail_agent_command(*_args, **_kwargs):
+        raise AssertionError('MES 接入状态不应该交给普通 Agent 猜')
+
+    monkeypatch.setattr(agent_cli, 'handle_agent_command', fail_agent_command)
+    try:
+        db.add(User(id=11, username='zzj-access-warning', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '提示没有接入？',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'cid-production',
+            '--trace-id',
+            'trace-access-warning-001',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'mes-status'
+        assert payload['data']['configured'] is True
     finally:
         db.close()
         get_engine.cache_clear()

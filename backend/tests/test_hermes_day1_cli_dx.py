@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from datetime import date
@@ -107,12 +107,12 @@ def _patch_day1_orchestrator_pipeline(monkeypatch) -> None:
         'build_day1_three_part_report',
         lambda **_kwargs: {
             'status': 'ready',
-            'text': '工厂大脑判断单\n正式日报正文\n各车间明细',
+            'text': '智能大脑判断单\n正式日报正文\n各车间明细',
             'formal_text': '6月19日正式日报正文',
             'brain_judgment': {'summary': '可以发布', 'risks': []},
             'workshop_details': [{'title': '2050车间', 'lines': ['日产量：80吨。']}],
-            'dingtalk_answer': '工厂大脑判断单\n正式日报正文',
-            'dingtalk_messages': ['工厂大脑判断单', '正式日报正文'],
+            'dingtalk_answer': '智能大脑判断单\n正式日报正文',
+            'dingtalk_messages': ['智能大脑判断单', '正式日报正文'],
             'missing_fields': [],
             'conflicts': [],
         },
@@ -575,7 +575,7 @@ def test_day1_report_runs_real_orchestrator_and_writes_report_run_and_inbox(tmp_
         assert payload['ok'] is True
         assert payload['action'] == 'day1-report'
         assert payload['trace_id'] == 'trace-day1-cli-run-001'
-        assert payload['reply'] == '工厂大脑判断单\n正式日报正文'
+        assert payload['reply'] == '智能大脑判断单\n正式日报正文'
         assert payload['data']['status'] == 'ready'
         assert payload['data']['message_count'] == 2
         assert payload['data']['chat_inbox_id'] is not None

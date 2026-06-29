@@ -25,6 +25,7 @@ from app.services.hermes_root_owner_reply_channel_service import ensure_root_own
 
 
 _CONTEXT_DOMAINS = {"production", "inventory", "energy", "anomaly"}
+_HERMES_PUBLIC_NAME = "鑫泰铝业智能大脑"
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +97,8 @@ def run_root_owner_production_turn(
 
     if plan.needs_clarification:
         decision = EvidenceDecision(primary=None, candidates=(), conflicts=(), missing_sources=[], trace={})
-        answer = plan.clarification_question or "你想看生产、库存、能耗还是异常？"
+        question = plan.clarification_question or "你想看生产、库存、能耗还是异常？"
+        answer = f"{_HERMES_PUBLIC_NAME}需要先确认：{question}"
         status = "clarifying"
     else:
         decision = collect_root_owner_evidence(
@@ -137,7 +139,7 @@ def run_root_owner_production_turn(
         agent_code="factory_dispatch",
         channel_key=channel["channel_key"],
         channel_type=channel["channel_type"],
-        title="Hermes root_owner 私聊回复",
+        title=f"{_HERMES_PUBLIC_NAME}私聊回复",
         content=answer,
         business_date=plan.business_date,
         source_summary=(decision.primary.source_key if decision.primary else "clarification"),
@@ -226,14 +228,15 @@ def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecis
     if decision.primary is None:
         missing = "、".join(decision.missing_sources) or "事实源"
         return (
-            f"{plan.business_date.isoformat()} 这条问题我没有查到可用事实，缺少 {missing}；"
-            "我已记录 trace，建议先补齐对应来源。"
+            f"{_HERMES_PUBLIC_NAME}暂时没有查到 {plan.business_date.isoformat()} 这条问题的可用事实，"
+            f"缺少 {missing}；我已记录追踪编号，建议先补齐对应来源。"
         )
     source_label = _source_label(decision.primary.source_key)
     conflict_text = "；来源有冲突，我已按最高优先级来源采用当前口径" if decision.conflicts else ""
     return (
-        f"{plan.business_date.isoformat()} 我按{source_label}回答：{decision.primary.summary}"
-        f"{conflict_text}；trace_id 会记录本次采用来源、未采用来源和缺失来源。"
+        f"{_HERMES_PUBLIC_NAME}按{source_label}回答 {plan.business_date.isoformat()}："
+        f"{decision.primary.summary}{conflict_text}；"
+        "追踪编号会记录本次采用来源、未采用来源和缺失来源。"
     )
 
 

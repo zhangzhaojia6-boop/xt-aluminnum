@@ -5,10 +5,11 @@ from typing import Any
 
 
 PRIORITY = {
-    'root_owner': 1,
-    'dingtalk_specialist': 2,
+    'dingtalk_group_content': 1,
+    'dingtalk_specialist': 1,
+    'mes_wms': 2,
     'hub': 3,
-    'mes_wms': 4,
+    'root_owner': 4,
     'rag': 99,
     'history_report': 99,
     'output_skill': 99,
@@ -56,7 +57,11 @@ def choose_fact_value(field_key: str, candidates: list[dict[str, Any]]) -> FactD
         if item is not selected and item.get('value') != selected.get('value')
     ]
     source_type = str(selected.get('source_type'))
-    suggested_action = 'mark_hub_field_for_review' if source_type == 'dingtalk_specialist' and conflicts else None
+    suggested_action = (
+        'mark_hub_field_for_review'
+        if source_type in {'dingtalk_group_content', 'dingtalk_specialist'} and conflicts
+        else None
+    )
     return FactDecision(
         field_key=field_key,
         value=selected.get('value'),
@@ -64,6 +69,17 @@ def choose_fact_value(field_key: str, candidates: list[dict[str, Any]]) -> FactD
         source_label=selected.get('source_label'),
         status='selected_with_conflicts' if conflicts else 'selected',
         conflicts=conflicts,
-        reason=f'采用 {source_type} 来源，按日报事实优先级选择。',
+        reason=f'采用 {_source_type_label(source_type)} 来源，按日报事实优先级选择。',
         suggested_action=suggested_action,
     )
+
+
+def _source_type_label(source_type: str) -> str:
+    labels = {
+        'dingtalk_group_content': '钉钉群内容',
+        'dingtalk_specialist': '钉钉群内容',
+        'mes_wms': 'MES/WMS 只读来源',
+        'hub': '数据中枢投影',
+        'root_owner': '最高权限负责人修正',
+    }
+    return labels.get(source_type, source_type)

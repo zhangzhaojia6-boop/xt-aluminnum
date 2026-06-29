@@ -24,7 +24,7 @@ WORKSHOP_DETAIL_SPECS = (
     ('回收车间', 'recovery'),
 )
 
-BLOCKED_FORMAL_TEXT = '当前关键字段缺失，Hermes 未生成正式日报正文；请先补齐缺失字段后重跑。'
+BLOCKED_FORMAL_TEXT = '当前关键字段缺失，智能大脑未生成正式日报正文；请先补齐缺失字段后重跑。'
 DINGTALK_MAX_CHARS = 3500
 
 _OK_DIFF_STATUSES = {'matched', 'match', 'same', 'equal', 'ok', 'ready', 'passed'}
@@ -35,7 +35,7 @@ _SOURCE_LABELS = {
     'template_daily_report': '模板正式日报',
     'daily_fact_bundle': '日报事实包',
     'mes_wms': '外部 MES/WMS 只读源',
-    'audit_run': 'Hermes 数据审计',
+    'audit_run': '智能大脑数据审计',
     'dingtalk_evidence': '钉钉证据',
     'dingtalk_messages': '钉钉文本',
     'rag': 'RAG 知识库',
@@ -247,7 +247,7 @@ def render_three_part_daily_report(
 ) -> str:
     return '\n\n'.join(
         [
-            '工厂大脑判断单\n' + _render_brain_judgment(judgment),
+            '智能大脑判断单\n' + _render_brain_judgment(judgment),
             '正式日报正文\n' + formal_text.strip(),
             '各车间明细\n' + _render_workshop_details(workshop_details),
         ]
@@ -276,11 +276,11 @@ def render_dingtalk_day1_reply(
         [
             '\n'.join(
                 [
-                    f'Hermes 工厂大脑日报｜{business_date_label}',
+                    f'鑫泰铝业智能大脑日报｜{business_date_label}',
                     f'状态：{status_label}',
                     f'字段匹配率：{match_text}',
-                    f'Hermes判断：{judgment_summary}',
-                    f'追踪ID：{trace_id or "暂无"}',
+                    f'智能大脑判断：{judgment_summary}',
+                    f'追踪编号：{trace_id or "暂无"}',
                 ]
             ),
             '正式日报正文\n' + formal_text.strip(),
@@ -317,7 +317,7 @@ def _build_workshop_details(*, values: Mapping[str, Any], sources: Mapping[str, 
                 f'日吨气耗：{_display(gas_daily, "m³")}，月吨气耗：{_display(gas_month, "m³")}。'
             )
         lines.append(f'数据来源：{_workshop_source_text(prefix, values=values, sources=sources)}。')
-        lines.append('Hermes判断：已按模板 facts 纳入全厂日报核验。')
+        lines.append('智能大脑判断：已按模板 facts 纳入全厂日报核验。')
         details.append({'title': title, 'lines': lines})
     return details
 
@@ -505,7 +505,7 @@ def _render_brain_judgment(judgment: Mapping[str, Any]) -> str:
     conflicts = [_as_mapping(item) for item in _as_list(judgment.get('conflicts'))]
     return '\n'.join(
         [
-            f'Hermes判断：{judgment.get("summary") or "暂无"}',
+            f'智能大脑判断：{judgment.get("summary") or "暂无"}',
             f'状态：{judgment.get("status") or "暂无"}',
             f'字段匹配率：{_field_match_rate_text(judgment.get("field_match_rate"))}',
             f'主要风险：{_join_text(risks, empty="暂无明显风险")}。',
@@ -739,7 +739,7 @@ def _summary_text(*, business_date: date, status: str, risks: list[str]) -> str:
         return f'{date_text}日报已按模板正式正文和 facts 明细生成，当前未发现需要阻断的问题。'
     if status == 'ready':
         return f'{date_text}日报已生成，但仍需关注：{_join_text(risks)}。'
-    return f'{date_text}日报需复核，Hermes 已阻断正式正文输出：{_join_text(risks)}。'
+    return f'{date_text}日报需复核，智能大脑已阻断正式正文输出：{_join_text(risks)}。'
 
 
 def _source_names(sources: dict[str, Any]) -> list[str]:

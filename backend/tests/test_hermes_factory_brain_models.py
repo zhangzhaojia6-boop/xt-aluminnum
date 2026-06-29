@@ -39,7 +39,7 @@ def _create_user(db) -> User:
     user = User(
         username='factory-brain-owner',
         password_hash='hashed',
-        name='Factory Brain Owner',
+        name='智能大脑负责人',
         role='admin',
     )
     db.add(user)
@@ -168,7 +168,7 @@ def test_hermes_soul_profile_and_codex_construction_run_can_persist_required_fie
     )
     run = HermesCodexConstructionRun(
         trace_id='trace-factory-brain-001',
-        request_text='帮我做 Hermes factory brain 持久化模型',
+        request_text='帮我做鑫泰铝业智能大脑持久化模型',
         construction_type='light',
         authorization_level='root_owner',
         status='requested',
@@ -188,7 +188,7 @@ def test_hermes_soul_profile_and_codex_construction_run_can_persist_required_fie
     assert stored_profile.version == 1
     assert stored_profile.status == 'active'
     assert stored_run.trace_id == 'trace-factory-brain-001'
-    assert stored_run.request_text == '帮我做 Hermes factory brain 持久化模型'
+    assert stored_run.request_text == '帮我做鑫泰铝业智能大脑持久化模型'
     assert stored_run.construction_type == 'light'
     assert stored_run.authorization_level == 'root_owner'
     assert stored_run.status == 'requested'

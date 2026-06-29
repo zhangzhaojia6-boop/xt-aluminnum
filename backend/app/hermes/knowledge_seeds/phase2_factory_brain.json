@@ -104,7 +104,7 @@
     "knowledge_type": "rule",
     "source_type": "spec",
     "source_ref": "docs/datahub-deprecation-register.md",
-    "content": "MES/WMS 投影、DingTalk 证据、审计日志、DailyFactBundle 快照、历史日报、root_owner 修正、LangGraph checkpoint 和 Codex 施工记录属于保护链路，不进入直接删除范围。",
+    "content": "MES/WMS 投影、DingTalk 证据、审计日志、DailyFactBundle 快照、历史日报、最高权限负责人修正、LangGraph checkpoint 和系统优化执行记录属于保护链路，不进入直接删除范围。",
     "structured_payload": {"layer": "C", "unit_type": "rule", "status": "formal"},
     "confidence": 95,
     "status": "active"

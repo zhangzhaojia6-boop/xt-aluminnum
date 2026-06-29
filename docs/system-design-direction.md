@@ -242,7 +242,7 @@ Hermes 能回答，但没人知道它查了什么。
 - MES 数据库只读读取链路。
 - DailyFactBundle。
 - Hermes 事实来源地图。
-- Hermes / Factory Brain。
+- Hermes / 鑫泰铝业智能大脑。
 - 钉钉证据。
 - MES/WMS 只读投影。
 - 权限和审计。

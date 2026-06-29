@@ -23,7 +23,7 @@ _WORKSHOP_ALIASES = {
     '精整分厂': 'finishing',
 }
 
-_SOURCE_PRIORITY = ['dingtalk_specialist', 'mes', 'wms', 'datahub', 'historical_report', 'rag']
+_SOURCE_PRIORITY = ['dingtalk_group_content', 'mes', 'wms', 'datahub', 'historical_report', 'rag']
 _BARE_WORKSHOP_NUMBER_PATTERN = re.compile(r'(?<!\d)(1650|1850|2050)(?!\d)')
 _LEADING_WORKSHOP_NUMBER_PATTERN = re.compile(
     r'^\s*(1650|1850|2050)(?=(?:今天|昨日|昨天|本月|这个月|产量|日报|月报|年报|分析|情况|数据|发我|给我|车间|冷轧|机组))'

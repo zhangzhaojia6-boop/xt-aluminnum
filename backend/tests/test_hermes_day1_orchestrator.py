@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from importlib import import_module
@@ -113,7 +113,7 @@ def _sources() -> dict[str, Any]:
 def _ready_product() -> dict[str, Any]:
     return {
         'status': 'ready',
-        'text': '工厂大脑判断单\n正式日报正文\n各车间明细',
+        'text': '智能大脑判断单\n正式日报正文\n各车间明细',
         'formal_text': '6月21日正式日报正文',
         'brain_judgment': {'summary': '可以发布', 'risks': []},
         'workshop_details': [{'title': '2050车间', 'lines': ['日产量：80吨。']}],
@@ -243,7 +243,7 @@ def test_ready_run_writes_final_fields_and_delivery_ready(monkeypatch) -> None:
         assert report.quality_gate_status == 'passed'
         assert report.quality_gate_summary == 'Hermes Day-1 三段式日报已生成'
         assert hermes_payload['status'] == 'ready'
-        assert hermes_payload['three_part_text'] == '工厂大脑判断单\n正式日报正文\n各车间明细'
+        assert hermes_payload['three_part_text'] == '智能大脑判断单\n正式日报正文\n各车间明细'
         assert hermes_payload['source_status'] == {'mes': 'ok', 'hub': 'ok'}
     finally:
         db.close()
@@ -405,7 +405,7 @@ def test_existing_daily_report_is_updated_instead_of_duplicated(monkeypatch) -> 
         report = db.get(DailyReport, existing_id)
         assert report.report_data['existing_key'] == {'keep': True}
         assert report.report_data['hermes_day1_super_brain']['status'] == 'ready'
-        assert report.text_summary == '工厂大脑判断单\n正式日报正文\n各车间明细'
+        assert report.text_summary == '智能大脑判断单\n正式日报正文\n各车间明细'
     finally:
         db.close()
 

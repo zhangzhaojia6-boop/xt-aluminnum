@@ -1,3 +1,32 @@
+## Task 3: Evidence Priority Planner
+
+status: DONE
+
+changed files:
+- `backend/app/services/hermes_root_owner_evidence_service.py`
+- `backend/tests/test_hermes_root_owner_evidence_service.py`
+
+commit:
+- `5c13214f` feat: prioritize root owner evidence sources
+
+tests run with outputs:
+- `cd backend; python -m pytest tests/test_hermes_root_owner_evidence_service.py -q` (red step)
+  - output:
+    - `ModuleNotFoundError: No module named 'app.services.hermes_root_owner_evidence_service'`
+- `cd backend; python -m pytest tests/test_hermes_root_owner_evidence_service.py -q` (green step)
+  - output: `3 passed in 2.52s`
+
+self-review:
+- 钉钉群内容候选优先级高于 MES 只读库。
+- 生产域 MES 只读候选优先级高于数据中枢投影。
+- 缺少钉钉、MES、数据中枢投影时，会在 `missing_sources` 和 trace 里明确记录。
+- 本次没有新增 routing、outbox、frontend 或 docs 逻辑；报告文件只按任务要求记录结果，未纳入提交。
+
+concerns:
+- 提交前发现暂存区已有外部文档归档 rename；本次 commit 使用 pathspec，只提交了两个任务文件，没有包含那些既有改动。
+
+---
+
 status: DONE
 
 changed files:
@@ -162,3 +191,100 @@ self-review:
 - 裸数字 workshop 实体现在默认信任，保留上游实体识别结果。
 - 如果原文把同一个数字明确写成吨数，例如 `2050吨`、`2050t`、`2050T`，归一化会拒绝该裸数字实体并保持全厂范围。
 - 文本自身没有实体时仍保持严格规则，`今天产量2050吨发我` 不会被文本匹配误识别为 `2050` 车间。
+
+## Fix Task 3 Review Findings: Evidence Priority Candidates
+
+changed files:
+- `backend/app/services/hermes_root_owner_evidence_service.py`
+- `backend/tests/test_hermes_root_owner_evidence_service.py`
+- `.superpowers/sdd/task-3-report.md`
+
+tests run with outputs:
+- `cd backend; python -m pytest tests/test_hermes_root_owner_evidence_service.py -q` (red step)
+  - output:
+    - `3 failed, 3 passed in 2.99s`
+    - failures:
+      - DingTalk metadata-only candidate still became primary over MES.
+      - Hub reader exception was raised instead of being traced with a redacted reason.
+      - Inventory domain did not call MES/WMS reader for inventory metric keys.
+- `cd backend; python -m pytest tests/test_hermes_root_owner_evidence_service.py -q` (green step)
+  - output: `6 passed in 2.51s`
+
+self-review:
+- DingTalk evidence only participates in primary selection when its value contains a current requested metric fact; metadata-only DingTalk items stay visible as supporting trace evidence.
+- Trace now records per-source status details for DingTalk, MES/WMS and data hub projection, including missing/failed status, reasons, redacted errors and MES query keys.
+- Inventory domain now plans MES/WMS reads for `finished_inbound_daily`, `wip_total` and `remaining_contract_weight`, and MES keeps higher priority than hub projection.
+
+## Fix Task 3 Review Findings: Default DingTalk Facts And Hub Ready
+
+changed files:
+- `backend/app/services/hermes_root_owner_evidence_service.py`
+- `backend/tests/test_hermes_root_owner_evidence_service.py`
+- `.superpowers/sdd/task-3-report.md`
+
+tests run with outputs:
+- `cd backend; python -m pytest tests/test_hermes_root_owner_evidence_service.py -q`
+  - output: `9 passed in 2.47s`
+- `cd backend; python -m compileall app/services/hermes_root_owner_evidence_service.py tests/test_hermes_root_owner_evidence_service.py`
+  - output: success
+
+self-review:
+- 默认 DingTalk reader 现在只从 `facts` / `parsed_facts` / `metrics` / `payload` / `metric_key + value` / 直接指标键里提取当前指标事实；文件名、摘要、raw text 这类元数据仍只作为 supporting evidence。
+- `trace["source_status"]["dingtalk_group_content"]` 现在保留 DingTalk text/file 的 `status`、`error` 和计数；错误内容走 `redact_secret_text()` 脱敏。
+- hub payload 的 `status="ready"` 进入候选排序前归一为 `ok`，trace 里仍保留原始 `ready` 和候选状态。
+
+## Fix Task 3 Second Round Review Findings
+
+changed files:
+- `backend/app/services/hermes_root_owner_evidence_service.py`
+- `backend/tests/test_hermes_root_owner_evidence_service.py`
+- `.superpowers/sdd/task-3-report.md`
+
+tests run with outputs:
+- `cd backend; python -m pytest tests/test_hermes_root_owner_evidence_service.py -q` (red step)
+  - output: `3 failed, 8 passed in 4.39s`
+  - failures:
+    - 未校验的默认 DingTalk `facts` 仍会压过 MES。
+    - MES 真实 `records[query_key] = list[dict]` 形状仍把原始 records 放进 primary.value。
+    - Hub 真实 `facts.values` 形状仍把原始 payload 放进 primary.value。
+- `cd backend; python -m pytest tests/test_hermes_root_owner_evidence_service.py -q`
+  - output: `11 passed in 5.83s`
+- `cd backend; python -m compileall app/services/hermes_root_owner_evidence_service.py tests/test_hermes_root_owner_evidence_service.py`
+  - output: success
+- `git diff --check -- backend/app/services/hermes_root_owner_evidence_service.py backend/tests/test_hermes_root_owner_evidence_service.py`
+  - output: success
+
+self-review:
+- 默认 DingTalk reader 只有在当前指标事实同时满足授权群、责任人/发送人、内容类型、业务时间窗口校验时，才会生成可参与 primary 排序的候选。
+- 未校验的 DingTalk `facts`、raw text、文件摘要和其他原始 item 仍保留在 `supporting_evidence`，不再被递归指标检测误提权。
+- MES 候选现在先按 `message_plan.metric_keys` 抽成 `{metric_key: value}`；真实 `records[query_key]` 列表会按最小字段集合聚合，抽不到当前指标会记录 `no_current_metric_fact` 并不建 primary。
+- Hub 候选现在只从 `facts.values` 或 payload 直接指标键抽当前指标；`status="ready"` 仍可进入候选，但 primary.value 是指标小字典，不是日报大对象。
+
+concerns:
+- 本轮只覆盖当前 Task 3 evidence planner；没有跑后端全量测试，也没有做真实 MES / DingTalk / Hub 生产联调。
+
+## Fix Task 3 Third Round Review Findings
+
+changed files:
+- `backend/app/services/hermes_root_owner_evidence_service.py`
+- `backend/tests/test_hermes_root_owner_evidence_service.py`
+- `.superpowers/sdd/task-3-report.md`
+
+tests run with outputs:
+- `cd backend; python -m pytest tests/test_hermes_root_owner_evidence_service.py -q`
+  - first output after code change: `1 failed, 12 passed in 3.68s`
+  - failure reason: old test still used `authorized_group: required` as a verified marker; updated it to `verified`.
+  - final output: `13 passed in 2.45s`
+- `cd backend; python -m compileall app/services/hermes_root_owner_evidence_service.py tests/test_hermes_root_owner_evidence_service.py`
+  - output: success
+- `git diff --check -- backend/app/services/hermes_root_owner_evidence_service.py backend/tests/test_hermes_root_owner_evidence_service.py`
+  - output: success
+
+self-review:
+- `_validation_truthy()` no longer treats `required` or `business_day_window` as validation success. These now stay as rule descriptions unless another explicit pass marker exists.
+- Default DingTalk facts with `evidence_conditions` such as `authorized_group: required`, `time_range: business_day_window`, and `content_type: [text, file, image]` remain supporting evidence and no longer beat MES.
+- Same-priority DingTalk candidates now sort chat/text before file, then image, without changing DingTalk vs MES vs Hub priority numbers.
+- Commit will include only the service and test files; this report remains in the worktree by request.
+
+concerns:
+- 本轮只跑了 Task 3 指定测试、compileall 和目标 diff check；没有跑后端全量测试，也没有做真实 DingTalk/MES 联调。

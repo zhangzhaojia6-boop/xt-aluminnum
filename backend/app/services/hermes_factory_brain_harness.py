@@ -52,7 +52,7 @@ def _check(
     if name == 'conclusion':
         return '结论' in response_text
     if name == 'judgment':
-        return '工厂大脑判断单' in response_text
+        return '智能大脑判断单' in response_text
     if name == 'formal_report':
         return '正式日报正文' in response_text
     if name == 'workshop_detail':
@@ -63,7 +63,7 @@ def _check(
             if match is None:
                 return False
             sources_part = match.group(1)
-            sources_before_trace_id = re.split(r'(?=(?:trace_id|trace)[：:])', sources_part, maxsplit=1)[0]
+            sources_before_trace_id = re.split(r'(?=(?:追踪编号|trace_id|trace)[：:])', sources_part, maxsplit=1)[0]
             sources_text = sources_before_trace_id.strip()
             if not sources_text:
                 return False
@@ -78,7 +78,7 @@ def _check(
     if name == 'source_map':
         return any(item.get('tool') == 'source_map' and item.get('status') == 'ok' for item in tool_trace)
     if name == 'trace_id':
-        return bool(re.search(r'trace_id[：:]\s*([^\s，。；;、]+)', response_text))
+        return bool(re.search(r'(?:追踪编号|trace_id)[：:]\s*([^\s，。；;、]+)', response_text))
     if name == 'current_fact':
         return any(item.get('tool') == 'hub_query' and item.get('status') == 'ok' for item in tool_trace)
     if name == 'process_knowledge':

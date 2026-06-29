@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import date
 from importlib import import_module
@@ -12,7 +12,7 @@ def _service():
 
 
 def _answer(*, extra_judgment: str = '') -> str:
-    judgment = '工厂大脑判断单\n已对齐。已完成多源查证。'
+    judgment = '智能大脑判断单\n已对齐。已完成多源查证。'
     if extra_judgment:
         judgment += extra_judgment
     return '\n\n'.join(
@@ -143,7 +143,7 @@ def test_evaluate_day1_run_payload_fails_when_required_sections_missing() -> Non
 
     results = service.evaluate_day1_run_payload(
         _payload(),
-        answer='工厂大脑判断单\n只有两段\n\n各车间明细\n缺正式正文标题',
+        answer='智能大脑判断单\n只有两段\n\n各车间明细\n缺正式正文标题',
     )
 
     failed = {item.name: item.detail for item in results if not item.passed}
@@ -173,7 +173,7 @@ def test_evaluate_day1_run_payload_requires_missing_field_note() -> None:
 
     results = service.evaluate_day1_run_payload(
         payload,
-        answer='工厂大脑判断单\n继续生成。\n\n正式日报正文\n这里不应该编造。\n\n各车间明细\n暂无。',
+        answer='智能大脑判断单\n继续生成。\n\n正式日报正文\n这里不应该编造。\n\n各车间明细\n暂无。',
     )
 
     failed = {item.name: item.detail for item in results if not item.passed}
@@ -227,7 +227,7 @@ def test_evaluate_day1_run_payload_requires_difference_fields_when_alignment_low
 
     results = service.evaluate_day1_run_payload(
         payload,
-        answer='工厂大脑判断单\n字段匹配率低于 95%。\n\n正式日报正文\n这里仍然给正文。\n\n各车间明细\n暂无。',
+        answer='智能大脑判断单\n字段匹配率低于 95%。\n\n正式日报正文\n这里仍然给正文。\n\n各车间明细\n暂无。',
     )
 
     failed = {item.name: item.detail for item in results if not item.passed}

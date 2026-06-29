@@ -50,7 +50,7 @@ def test_tool_registry_exposes_only_allowed_tools() -> None:
         history_report=_fake_tool,
         output_skill_alignment=_fake_tool,
         long_term_rules=_fake_tool,
-        codex_construction=_fake_tool,
+        system_optimization=_fake_tool,
         source_map=_fake_tool,
     )
     registry = build_tool_registry(adapters)
@@ -63,9 +63,10 @@ def test_tool_registry_exposes_only_allowed_tools() -> None:
         'history_report',
         'output_skill_alignment',
         'long_term_rules',
-        'codex_construction',
+        'system_optimization',
         'source_map',
     }
+    assert 'codex_construction' not in registry
     assert require_tool('hub_query', registry)(business_date='2026-06-25')['status'] == 'ok'
 
 

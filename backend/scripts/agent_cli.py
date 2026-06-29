@@ -268,6 +268,12 @@ def _cmd_dingtalk_command(db: Session, args: argparse.Namespace, auth: HermesAut
         if day1_command is not None:
             return _cmd_day1_report(db, args, auth, parsed_command=day1_command)
 
+    if _looks_like_mes_status_query(command=command, text=text):
+        inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='mes_status')
+        payload = _cmd_mes_status(db, args, auth)
+        payload.setdefault('data', {})['chat_inbox_id'] = inbox.id
+        return payload
+
     if command in {'查知识', '字段', '口径', 'MES路线', 'mes路线', '缺陷原因', '工艺解释'}:
         inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='rag_query')
         query_text = rest or text
@@ -488,14 +494,16 @@ def _cmd_agent_governance_apply(db: Session, args: argparse.Namespace, auth: Her
 
 def _cmd_mes_status(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
     latest = db.query(MesSyncRunLog).order_by(MesSyncRunLog.started_at.desc(), MesSyncRunLog.id.desc()).first()
+    configured = (settings.MES_ADAPTER or 'null').lower() != 'null'
+    latest_payload = _mes_log_payload(latest)
     return {
         'action': 'mes-status',
-        'reply': 'MES 同步状态已读取',
+        'reply': _mes_status_reply(configured=configured, latest=latest_payload),
         'trace_id': _trace_id(args),
         'data': {
             'adapter': settings.MES_ADAPTER,
-            'latest': _mes_log_payload(latest),
-            'configured': (settings.MES_ADAPTER or 'null').lower() != 'null',
+            'latest': latest_payload,
+            'configured': configured,
         },
     }
 
@@ -803,6 +811,22 @@ def _split_slash_command(text: str) -> tuple[str, str]:
     return parts[0], parts[1].strip() if len(parts) > 1 else ''
 
 
+def _looks_like_mes_status_query(*, command: str, text: str) -> bool:
+    clean = str(text or '').strip()
+    normalized_command = str(command or '').strip().lower()
+    if normalized_command in {'mes状态', 'mes-status', 'mes_status', 'mes接入', 'mes链路'}:
+        return True
+
+    lowered = clean.lower()
+    explicit_subject = any(token in lowered for token in ('mes', 'hermes', '数据中枢', '智能大脑'))
+    status_intent = any(token in clean for token in ('状态', '接入', '链路', '配置', '通不通', '有没有'))
+    if explicit_subject and status_intent:
+        return True
+
+    access_warning = '接入' in clean and any(token in clean for token in ('提示', '没有', '没', '缺少', '缺'))
+    return access_warning
+
+
 def _is_direct_dingtalk_mention(text: str) -> bool:
     clean = str(text or '').strip()
     return clean.startswith('@')
@@ -1094,6 +1118,17 @@ def _mes_log_payload(item: MesSyncRunLog | None) -> dict[str, Any] | None:
         'finished_at': item.finished_at.isoformat() if item.finished_at else None,
         'error_message': redact_secret_text(item.error_message or '') or None,
     }
+
+
+def _mes_status_reply(*, configured: bool, latest: dict[str, Any] | None) -> str:
+    if not configured:
+        return 'MES 只读链路未配置，不能把生产事实回答成已确认。'
+    if latest is None:
+        return 'MES 只读链路已配置；当前没有查到同步记录，需要继续检查同步任务。'
+    if latest.get('status') == 'success':
+        return 'MES 只读链路已配置，不是未接入；最近一次同步成功。'
+    status = latest.get('status') or 'unknown'
+    return f'MES 只读链路已配置；最近一次同步状态为 {status}，需要继续看同步日志。'
 
 
 def _source_record_payload(item) -> dict[str, Any]:

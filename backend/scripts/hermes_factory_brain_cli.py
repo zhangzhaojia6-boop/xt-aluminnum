@@ -47,7 +47,7 @@ def main() -> None:
         text = f'生成 {args.business_date} 正式日报'
     else:
         parser.error('one of --text or --business-date is required')
-    print(f'Hermes factory brain smoke: scenario={args.scenario} text={text}')
+    print(f'鑫泰铝业智能大脑 smoke：scenario={args.scenario} text={text}')
 
 
 if __name__ == '__main__':

@@ -153,7 +153,7 @@ def _normalize_integrations_used(value: Any) -> list[str]:
 def _build_query_prompt(payload: AssistantQueryRequestIn) -> str:
     mode_label = _QUERY_MODE_LABELS.get(payload.mode, payload.mode)
     return (
-        '请围绕“鑫泰铝业协同平台”生成结构化助手回复，严格输出 JSON：'
+        '请以“鑫泰铝业智能大脑”的身份围绕“鑫泰铝业数据中枢”生成结构化中文回复，严格输出 JSON：'
         '{"summary":"...","cards":[{"title":"...","summary":"...","source_labels":["..."]}],'
         '"next_actions":["..."],"integrations_used":["dashboard","runtime_trace","delivery_status"]}。\n'
         '要求：'
@@ -211,7 +211,7 @@ def _build_mock_query_response(payload: AssistantQueryRequestIn) -> AssistantQue
     return AssistantQueryResponseOut(
         mode=payload.mode,
         mock=True,
-        summary='当前为 deterministic 回退，优先关注算法阻塞与交付闭环。',
+        summary='当前为固定兜底回复，优先关注算法阻塞与交付闭环。',
         cards=[
             AssistantResultCardOut(
                 title='阻塞优先级',
@@ -226,7 +226,7 @@ def _build_mock_query_response(payload: AssistantQueryRequestIn) -> AssistantQue
 
 def _build_image_svg(*, caption: str, badge_text: str) -> str:
     safe_caption = escape(caption or '今日产量、异常和交付风险简报图')
-    safe_badge = escape(badge_text or 'deterministic mock')
+    safe_badge = escape(badge_text or '固定兜底')
     return f"""
 <svg xmlns='http://www.w3.org/2000/svg' width='1200' height='720' viewBox='0 0 1200 720'>
   <rect width='1200' height='720' rx='48' fill='#f7fbff'/>
@@ -355,7 +355,7 @@ def run_assistant_query(
         messages = [
             {
                 'role': 'system',
-                'content': '你是工厂多智能体助手。你只能输出中文，并且不能编造未给出的事实。',
+                'content': '你是鑫泰铝业智能大脑。你只能输出中文，并且不能编造未给出的事实。',
             },
             {
                 'role': 'user',
@@ -432,7 +432,7 @@ def build_assistant_image(
     is_mock = True
     caption = '今日产量、异常和交付风险简报图（mock）'
     next_actions = ['保存到日报卡片', '推送到审阅首页', '继续调用真实图像生成']
-    badge_text = 'deterministic mock'
+    badge_text = '固定兜底'
     image_url = ''
 
     if _llm_ready(runtime):
@@ -454,7 +454,7 @@ def build_assistant_image(
                 messages=[
                     {
                         'role': 'system',
-                        'content': '你是工厂日报图卡助手。请输出 JSON，不要输出额外解释。',
+                        'content': '你是鑫泰铝业智能大脑的日报图卡助手。请输出 JSON，不要输出额外解释。',
                     },
                     {
                         'role': 'user',

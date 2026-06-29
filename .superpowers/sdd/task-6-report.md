@@ -1,257 +1,55 @@
-# Task 6 Report: DingTalk Interactive Card Progress Builder
+# Task 6 Report: 管理端来源可见性检查
 
 ## Scope
 
-- Added deterministic progress-stage sequencing in `backend/app/services/hermes_dingtalk_card_service.py`.
-- Added focused card-builder tests in `backend/tests/test_hermes_dingtalk_card_service.py`.
-- Kept changes inside the allowed write scope only.
-
-## Preconditions Verified
-
-- `git branch --show-current` -> `daily-report-manual-alignment`
-- `git rev-parse --short HEAD` -> `cc095559`
-
-## TDD Evidence
-
-### Red
-
-Command:
-
-```bash
-cd backend
-python -m pytest tests/test_hermes_dingtalk_card_service.py -q
-```
-
-Result:
-
-- Failed during collection with `ModuleNotFoundError: No module named 'app.services.hermes_dingtalk_card_service'`.
-- This matched the expected red state from the brief because the service file did not exist yet.
-
-### Green
-
-Implemented the exact deterministic behavior from the brief:
-
-- fixed 7-stage progress sequence
-- each stage keeps the same `trace_id`
-- card payload reuses one `cardBizId` derived from the trace id
-- card exposes only auditable stage labels and fixed feedback actions
+- 仅检查，不改业务代码。
+- 按 brief 跑了指定前端测试和 `rg`。
+- 结论：当前管理端页面已经能看到 outbox logs 和 trace 相关状态，不需要补最小测试或页面改动。
 
 ## Verification
 
-### Focused test
+### Frontend Test
 
 Command:
 
-```bash
-cd backend
-python -m pytest tests/test_hermes_dingtalk_card_service.py -q
+```powershell
+cd frontend
+npm run test -- --run tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/aiAssistantUiContract.test.js
 ```
 
 Result:
 
 ```text
-..                                                                       [100%]
-2 passed in 2.19s
+ok 701
+1..701
+# tests 701
+# pass 701
+# fail 0
 ```
 
-### Syntax check
+### Search
 
 Command:
 
-```bash
-cd backend
-python -m py_compile app/services/hermes_dingtalk_card_service.py tests/test_hermes_dingtalk_card_service.py
-```
-
-Result:
-
-- Passed with no output.
-
-### Final required command
-
-Command:
-
-```bash
-cd backend && python -m pytest tests/test_hermes_dingtalk_card_service.py -q
-```
-
-Result:
-
-- Ran successfully under `cmd` because this workspace PowerShell does not support `&&`.
-
-```text
-..                                                                       [100%]
-2 passed in 2.10s
-```
-
-### Diff hygiene
-
-Command:
-
-```bash
-git diff --check
-```
-
-Result:
-
-- Passed with no output.
-
-## Files Changed
-
-- `backend/app/services/hermes_dingtalk_card_service.py`
-- `backend/tests/test_hermes_dingtalk_card_service.py`
-- `.superpowers/sdd/task-6-report.md`
-
-## Notes
-
-- The repository currently has unrelated existing changes in `AGENTS.md` and untracked `docs/superpowers/*` files. They were left untouched.
-- The instruction mentioned `docs/longterm-ai-skill-system-spec.md`, but that file does not exist in this worktree. This did not block Task 6 because the brief provided exact implementation requirements.
-
-## Reviewer Fix Evidence
-
-### Finding addressed
-
-- `build_progress_card()` no longer exposes caller-provided `progress.details` in DingTalk cards.
-- Card details now come only from fixed stage labels in `_STAGES`; unknown stages fall back to the stage name itself.
-
-### Regression test added
-
-- Added `test_progress_card_uses_auditable_stage_detail_labels`.
-- The test builds `FactoryBrainProgress(stage='querying', details=['内部推理: 先猜一个答案再说'], ...)` and proves the internal text is filtered out while `正在查询数据源` remains.
-
-### Red
-
-Command:
-
-```bash
-cd backend
-python -m pytest tests/test_hermes_dingtalk_card_service.py -q
+```powershell
+rg -n "trace_id|traceId|追踪|outbox|logs|external" frontend/src/views/manage/admin/AgentManagementPage.vue frontend/src/api/agent-management.js frontend/tests/agentManagementPage.test.js
 ```
 
 Result:
 
 ```text
-FAILED tests/test_hermes_dingtalk_card_service.py::test_progress_card_uses_auditable_stage_detail_labels
-AssertionError: assert '内部推理: 先猜一个答案再说' not in ['内部推理: 先猜一个答案再说']
+frontend/src/views/manage/admin/AgentManagementPage.vue:126:              <small>{{ item.trace_id || '无追踪号' }} / {{ executionStateLabel(item) }}</small>
+frontend/src/views/manage/admin/AgentManagementPage.vue:152:          <article v-for="item in outbox" :key="item.id" class="xt-agent-management__row">
+frontend/src/views/manage/admin/AgentManagementPage.vue:155:              <small>{{ item.trace_id }} / 尝试 {{ item.attempts || 0 }} 次</small>
+frontend/src/views/manage/admin/AgentManagementPage.vue:175:        <div v-if="selectedOutboxId" class="xt-agent-management__logs">
+frontend/src/views/manage/admin/AgentManagementPage.vue:183:            <b>{{ externalLogStateLabel(item.status) }}</b>
+frontend/src/api/agent-management.js:37:export async function fetchAgentOutboxLogs(outboxMessageId) {
+frontend/src/api/agent-management.js:38:  const { data } = await api.get(`/agent-management/outbox/${outboxMessageId}/logs`)
+frontend/tests/agentManagementPage.test.js:60:test('AgentManagementPage can dispatch outbox messages and inspect external logs', () => {
 ```
 
-### Green
+## Conclusion
 
-Command:
-
-```bash
-cd backend
-python -m pytest tests/test_hermes_dingtalk_card_service.py -q
-```
-
-Result:
-
-```text
-...                                                                      [100%]
-3 passed in 2.06s
-```
-
-## Reviewer Fix 2: Unsafe Unknown Stage Fallback
-
-### Finding addressed
-
-- `build_progress_card()` no longer uses unknown `progress.stage` text as the card detail fallback.
-- Unknown stages now map to the fixed safe label `状态更新中`, so free-text internal reasoning is not echoed into `card['details']`.
-
-### Regression test added
-
-- Added `test_progress_card_uses_safe_fallback_for_unknown_stage`.
-- The test builds `FactoryBrainProgress(stage='内部推理: 先猜一个答案再说', details=['x'], ...)` and proves `card['details']` becomes `['状态更新中']`.
-
-### Red
-
-Command:
-
-```bash
-cd backend
-python -m pytest tests/test_hermes_dingtalk_card_service.py -q
-```
-
-Result:
-
-```text
-FAILED tests/test_hermes_dingtalk_card_service.py::test_progress_card_uses_safe_fallback_for_unknown_stage
-AssertionError: assert ['内部推理: 先猜一个答案再说'] == ['状态更新中']
-```
-
-### Green
-
-Command:
-
-```bash
-cd backend
-python -m pytest tests/test_hermes_dingtalk_card_service.py -q
-```
-
-Result:
-
-```text
-....                                                                     [100%]
-4 passed in 2.04s
-```
-
-## Reviewer Fix 3: Unknown Stage Leak Through `card['stage']`
-
-### Finding addressed
-
-- `build_progress_card()` no longer copies unknown `progress.stage` text into `card['stage']`.
-- Known stages still keep their exact original stage value.
-- Unknown stages now use fixed safe values:
-  - `card['stage'] = 'status_updating'`
-  - `card['details'] = ['状态更新中']`
-
-### Regression test extended
-
-- Extended `test_progress_card_uses_safe_fallback_for_unknown_stage`.
-- The test now proves both:
-  - unknown stage text is not exposed through `card['stage']`
-  - unknown stage text is not exposed through `card['details']`
-
-### Red
-
-Command:
-
-```bash
-cd backend
-python -m pytest tests/test_hermes_dingtalk_card_service.py -q
-```
-
-Result:
-
-```text
-FAILED tests/test_hermes_dingtalk_card_service.py::test_progress_card_uses_safe_fallback_for_unknown_stage
-AssertionError: assert '内部推理: 先猜一个答案再说' == 'status_updating'
-1 failed, 3 passed in 2.57s
-```
-
-### Green
-
-Command:
-
-```bash
-cd backend && python -m pytest tests/test_hermes_dingtalk_card_service.py -q
-```
-
-Result:
-
-```text
-....                                                                     [100%]
-4 passed in 2.12s
-```
-
-### Diff hygiene
-
-Command:
-
-```bash
-git diff --check
-```
-
-Result:
-
-- Passed with no output.
+- 管理端 `通讯治理台` 已经包含 outbox 分发、外发日志查看、`trace_id` 展示和外发日志接口。
+- 不需要修改前端业务代码。
+- 不需要提交。

@@ -23,7 +23,7 @@ _ALIGNMENT_KEYS = (
     'exact_match',
     'threshold',
 )
-_SECTION_TITLES = ('工厂大脑判断单', '正式日报正文', '各车间明细')
+_SECTION_TITLES = ('智能大脑判断单', '正式日报正文', '各车间明细')
 _TEXT_ENCODINGS = ('utf-8-sig', 'utf-8', 'gb18030', 'gbk')
 _VALID_EVIDENCE_KINDS = {'fact', 'explanation', 'instruction', 'noise'}
 
@@ -158,10 +158,10 @@ def _evaluate_three_part_sections(answer: str) -> HarnessCaseResult:
 def _evaluate_conflicts(*, conflicts: list[Any], answer: str) -> HarnessCaseResult:
     if not conflicts:
         return HarnessCaseResult('conflicts_visible', True, '本次没有冲突。')
-    judgment = _extract_section(answer, '工厂大脑判断单', '正式日报正文')
+    judgment = _extract_section(answer, '智能大脑判断单', '正式日报正文')
     if '冲突' in judgment or '冲突' in answer:
-        return HarnessCaseResult('conflicts_visible', True, '冲突已进入工厂大脑判断单。')
-    return HarnessCaseResult('conflicts_visible', False, '存在 conflicts，但工厂大脑判断单没有明确写出“冲突”。')
+        return HarnessCaseResult('conflicts_visible', True, '冲突已进入智能大脑判断单。')
+    return HarnessCaseResult('conflicts_visible', False, '存在 conflicts，但智能大脑判断单没有明确写出“冲突”。')
 
 
 def _evaluate_missing_fields(*, missing_fields: list[str], answer: str) -> HarnessCaseResult:

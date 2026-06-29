@@ -13,7 +13,7 @@ from app.models.agent_communication import AgentChannelBinding, AgentOutboxMessa
 
 
 FACTORY_PROFILE_CODE = 'xt-factory-controller'
-FACTORY_PROFILE_NAME = '鑫泰铝业工厂总控'
+FACTORY_PROFILE_NAME = '鑫泰铝业智能大脑'
 SAFE_SYSTEM_UNDERSTANDING_FILENAME = 'system-understanding-consolidated-2026-06-14.rag-safe.md'
 
 _SENSITIVE_LINE_PATTERN = re.compile(
@@ -45,9 +45,9 @@ class SafeDocumentResult:
 def build_factory_profile_memory() -> str:
     return '\n'.join(
         [
-            '# 鑫泰铝业 Hermes 工厂总控记忆',
+            '# 鑫泰铝业智能大脑记忆',
             '',
-            'Hermes 在钉钉鑫泰铝业通道中只作为工厂总控入口。',
+            'Hermes 在钉钉鑫泰铝业通道中只作为鑫泰铝业智能大脑入口。',
             '数字事实只能来自数据中枢 CLI/API、MES 投影表或带来源的 RAG。',
             'RAG 只回答稳定知识、日报口径、MES 路线、SOP 和系统理解，不用于猜测实时产量。',
             '包装产量/总产量优先来自 WMS_InStock.TotalNetWeight + InStockDate。',

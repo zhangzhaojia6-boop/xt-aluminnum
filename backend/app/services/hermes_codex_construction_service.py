@@ -29,13 +29,13 @@ def request_codex_construction(
         return CodexConstructionRequestResult(
             status='disabled',
             run_id=None,
-            message='Codex 施工能力当前未开启。',
+            message='系统优化执行能力当前未开启。',
         )
     if not _is_root_owner(actor):
         return CodexConstructionRequestResult(
             status='denied',
             run_id=None,
-            message='只有 root_owner 可以触发 Codex 施工。',
+            message='只有最高权限负责人可以触发系统优化执行。',
         )
     run = HermesCodexConstructionRun(
         trace_id=trace_id,
@@ -54,7 +54,7 @@ def request_codex_construction(
     return CodexConstructionRequestResult(
         status='requested',
         run_id=run.id,
-        message='Codex 施工请求已记录，等待执行器接管。',
+        message='系统优化请求已记录，等待执行器接管。',
     )
 
 

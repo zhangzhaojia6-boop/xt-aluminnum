@@ -16,6 +16,9 @@ from app.services.hermes_root_owner_evidence_service import EvidenceCandidate, E
 from app.services.hermes_root_owner_production_orchestrator import run_root_owner_production_turn
 
 
+_FORBIDDEN_PUBLIC_IDENTITY_TERMS = ("Codex", "Factory Brain", "root_owner", "trace_id", "developer", "engineer")
+
+
 def _db_session() -> Session:
     engine = create_engine("sqlite:///:memory:", future=True)
     Base.metadata.create_all(bind=engine)
@@ -100,8 +103,12 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
         )
 
         assert result.status == "answered"
+        assert "鑫泰铝业智能大脑" in result.answer
         assert "负责人群里确认 118 吨" in result.answer
         assert "钉钉" in result.answer
+        assert "追踪编号" in result.answer
+        for token in _FORBIDDEN_PUBLIC_IDENTITY_TERMS:
+            assert token not in result.answer
         assert result.dispatch_status == "sent"
         assert sent == [result.outbox_message_id]
 
@@ -237,7 +244,9 @@ def test_turn_asks_short_clarification_for_unclear_message(monkeypatch) -> None:
         )
 
         assert result.status == "clarifying"
-        assert result.answer == "你想看生产、库存、能耗还是异常？"
+        assert result.answer == "鑫泰铝业智能大脑需要先确认：你想看生产、库存、能耗还是异常？"
+        for token in _FORBIDDEN_PUBLIC_IDENTITY_TERMS:
+            assert token not in result.answer
         bind = db.get_bind()
         db.close()
         reread_db = _new_session_from(bind)

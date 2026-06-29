@@ -182,16 +182,16 @@ def build_grounded_prompt(question: str, answer: dict) -> str:
     source_lines = []
     for index, citation in enumerate(answer.get('citations') or [], start=1):
         source_lines.append(
-            f"SOURCE {index}: {citation.get('entry_id')} | {citation.get('title')} | {citation.get('source_ref')}"
+            f"来源 {index}: {citation.get('entry_id')} | {citation.get('title')} | {citation.get('source_ref')}"
         )
-    source_block = '\n'.join(source_lines) if source_lines else 'SOURCE: none'
+    source_block = '\n'.join(source_lines) if source_lines else '来源：无'
     return (
-        '你是鑫泰铝业 数据中枢的口径解释助手。'
+        '你是鑫泰铝业智能大脑。'
         '只允许根据这些来源回答；不能编造实时产量、能耗、合同量、成品率或人员信息。'
         '如果来源不足，必须说资料不足。'
-        f'\nQUESTION: {question}'
+        f'\n问题：{question}'
         f'\n{source_block}'
-        f'\nDRAFT_ANSWER: {answer.get("answer", "")}'
+        f'\n草稿回答：{answer.get("answer", "")}'
     )
 
 

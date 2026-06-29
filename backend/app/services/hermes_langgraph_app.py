@@ -14,6 +14,31 @@ from app.services.hermes_factory_normalization_service import normalize_factory_
 from app.services.hermes_factory_task_planner import plan_factory_task
 
 
+_HERMES_PUBLIC_NAME = '鑫泰铝业智能大脑'
+_METRIC_LABELS = {
+    'daily_output': '日产量',
+    'monthly_output': '月累计产量',
+    'inventory': '库存',
+    'contract_balance': '合同余量',
+    'yield_rate': '成品率',
+    'energy_cost': '能耗成本',
+    'anomaly': '异常',
+    'monthly_operation': '月度经营',
+    'yearly_operation': '年度经营',
+    'artifact_request': '成果物请求',
+    'daily_report': '日报',
+}
+_SOURCE_LABELS = {
+    'dingtalk_group_content': '钉钉群文件和聊天内容',
+    'dingtalk_specialist': '钉钉群文件和聊天内容',
+    'mes': 'MES 只读来源',
+    'wms': 'WMS 只读来源',
+    'datahub': '数据中枢投影',
+    'historical_report': '历史日报',
+    'rag': '口径知识库',
+}
+
+
 class FactoryBrainState(TypedDict, total=False):
     trace_id: str
     input_text: str
@@ -115,7 +140,7 @@ def _plan_task(state: FactoryBrainState) -> FactoryBrainState:
         build_progress_card(progress)
         for progress in build_progress_sequence(
             trace_id=str(state.get('trace_id') or ''),
-            title=f"Hermes 正在处理：{str(state.get('input_text') or '').strip()}",
+            title=f"{_HERMES_PUBLIC_NAME}正在处理：{str(state.get('input_text') or '').strip()}",
         )
     ]
     return _advance(
@@ -155,14 +180,24 @@ def _generate_response(state: FactoryBrainState) -> FactoryBrainState:
     references = list(state.get('data_references') or [])
     gap = state.get('evidence_gap')
     if not references and gap:
-        response = str(gap)
+        response = f'{_HERMES_PUBLIC_NAME}暂时还不能确认结果。{gap}'
     else:
-        metrics = '、'.join(str(reference.get('metric')) for reference in references)
-        sources = '、'.join(sorted({str(reference.get('source')) for reference in references}))
-        response = f'已按工厂大脑链路处理。指标：{metrics}。来源：{sources}。'
+        metrics = '、'.join(_metric_label(reference.get('metric')) for reference in references)
+        sources = '、'.join(sorted({_source_label(reference.get('source')) for reference in references}))
+        response = f'{_HERMES_PUBLIC_NAME}已按现场证据链处理。指标：{metrics}。来源：{sources}。'
         if gap:
             response = f'{response}\n{gap}'
     return _advance(state, 'generate_response', response_text=response)
+
+
+def _metric_label(value: object) -> str:
+    text = str(value or '').strip()
+    return _METRIC_LABELS.get(text, text)
+
+
+def _source_label(value: object) -> str:
+    text = str(value or '').strip()
+    return _SOURCE_LABELS.get(text, text)
 
 
 def _persist_memory_and_audit(state: FactoryBrainState) -> FactoryBrainState:
