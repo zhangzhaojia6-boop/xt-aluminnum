@@ -1,169 +1,132 @@
-# Task 5 Report: Evidence Merger And Missing-Data Behavior
+# Task 5 Report: Root Owner Production Turn Orchestrator
 
 ## Scope
 
-- Implemented `collect_factory_evidence()` and `describe_evidence_gap()` in `backend/app/services/hermes_factory_evidence_service.py`.
-- Added focused tests in `backend/tests/test_hermes_factory_evidence_service.py`.
-- Kept changes inside the allowed write scope only.
+- Added `backend/app/services/hermes_root_owner_production_orchestrator.py`.
+- Added `backend/tests/test_hermes_root_owner_production_orchestrator.py`.
+- Left this report in the working tree as requested; it is not included in the commit.
 
-## Preconditions Verified
+## Preconditions
 
-- `git branch --show-current` -> `daily-report-manual-alignment`
-- `git rev-parse --short HEAD` -> `e020e3bd`
+- Branch: `daily-report-manual-alignment`
+- Starting HEAD: `1e206e6d`
+- Existing unrelated working-tree changes were left untouched.
 
-## TDD Evidence
-
-### Red
+## Red
 
 Command:
 
 ```bash
 cd backend
-python -m pytest tests/test_hermes_factory_evidence_service.py -q
+python -m pytest tests/test_hermes_root_owner_production_orchestrator.py -q
 ```
 
 Result:
 
-- Failed during collection with `ModuleNotFoundError: No module named 'app.services.hermes_factory_evidence_service'`
-- This matches the expected red state from the brief because the service file did not exist yet.
+```text
+ModuleNotFoundError: No module named 'app.services.hermes_root_owner_production_orchestrator'
+```
 
-### Green
+## Implementation
 
-Implemented deterministic placeholder evidence behavior:
-
-- `daily_output` produces a traceable placeholder with:
-  - source chosen from the planned tools (`dingtalk_specialist` when DingTalk context ingestion is planned, otherwise `datahub`)
-  - `business_date`
-  - `unit='ton'`
-  - business definition
-  - confidence
-  - metadata for org units and live-query requirement
-- `monthly_output` produces a historical-report placeholder
-- Missing metrics are reported without hallucinating values
-- RAG is not used as a numeric fact source
+- `run_root_owner_production_turn()` now:
+  - records the inbound private message in `ChatInboxMessage`;
+  - reuses `understand_root_owner_message()` for message understanding;
+  - reuses `collect_root_owner_evidence()` for evidence planning and source choice;
+  - records recognition and evidence trace in `AgentRun.result_payload`;
+  - reuses `ensure_root_owner_private_reply_channel()` and queues to its `channel_key` / `channel_type`;
+  - dispatches through existing outbox dispatch with `sender=None`;
+  - asks the short clarification question for unclear messages and still replies through outbox.
+- `should_route_root_owner_production_turn()` now routes business or clarification-needed root owner turns.
+- Added `RootOwnerProductionTurnResult`.
 
 ## Verification
 
-### Focused test
-
 Command:
 
 ```bash
 cd backend
-python -m pytest tests/test_hermes_factory_evidence_service.py -q
+python -m pytest tests/test_hermes_root_owner_production_orchestrator.py -q
 ```
 
 Result:
 
 ```text
-..                                                                       [100%]
-2 passed in 2.10s
+2 passed in 2.65s
 ```
-
-### Syntax check
 
 Command:
 
 ```bash
 cd backend
-python -m py_compile app/services/hermes_factory_evidence_service.py tests/test_hermes_factory_evidence_service.py
-```
-
-Result:
-
-- Passed with no output.
-
-### Final required command
-
-Command:
-
-```bash
-cd backend && python -m pytest tests/test_hermes_factory_evidence_service.py -q
+python -m compileall app/services/hermes_root_owner_production_orchestrator.py tests/test_hermes_root_owner_production_orchestrator.py
 ```
 
 Result:
 
 ```text
-..                                                                       [100%]
-2 passed in 2.09s
+Passed with exit code 0
 ```
-
-### Diff hygiene
 
 Command:
 
 ```bash
-git diff --check
-```
-
-Result:
-
-- Passed with no output.
-
-## Files Changed
-
-- `backend/app/services/hermes_factory_evidence_service.py`
-- `backend/tests/test_hermes_factory_evidence_service.py`
-- `.superpowers/sdd/task-5-report.md`
-
-## Notes
-
-- The repository currently has unrelated existing changes in `AGENTS.md` and untracked `docs/superpowers/*` files. They were left untouched.
-- The instruction mentioned `docs/longterm-ai-skill-system-spec.md`, but that file does not exist in this worktree. This did not block Task 5 because the task brief provided exact implementation requirements.
-
-## Reviewer Fix: Placeholder Evidence Still Counts As Missing
-
-### Preconditions Re-verified
-
-- `git branch --show-current` -> `daily-report-manual-alignment`
-- `git rev-parse --short HEAD` -> `6c5ccf81`
-
-### Red
-
-Command:
-
-```bash
-cd backend
-python -m pytest tests/test_hermes_factory_evidence_service.py -q
-```
-
-Result:
-
-- `test_gap_message_still_names_placeholder_metrics_as_missing` failed.
-- Failure matched the reviewer finding: `describe_evidence_gap()` returned `None` after `collect_factory_evidence()` produced placeholder references with `value=None` and `metadata["needs_live_query"]=True`.
-
-### Fix
-
-- Added regression coverage that first collects `daily_output` evidence, then feeds those references into `describe_evidence_gap()`.
-- Added assertions that collected references keep `business_date` and a non-empty `business_definition`.
-- Tightened completeness logic so a reference only counts as complete when:
-  - `value is not None`
-  - `metadata["needs_live_query"]` is not true
-
-### Green
-
-Command:
-
-```bash
-cd backend
-python -m pytest tests/test_hermes_factory_evidence_service.py -q
+git diff --check -- backend/app/services/hermes_root_owner_production_orchestrator.py backend/tests/test_hermes_root_owner_production_orchestrator.py
 ```
 
 Result:
 
 ```text
-...                                                                      [100%]
-3 passed in 2.11s
+Passed with no output
 ```
 
-### Diff Hygiene
+## Self-check
 
-Command:
+- No new table.
+- No new route.
+- No new message system.
+- Reply channel uses the Task 4 agent-private `channel_key`; real target stays on the channel `target_key`.
+- Replies are natural paragraphs, not marketing or onboarding copy.
+- Evidence trace is stored in `AgentRun.result_payload`.
+- Commit will include only the service and test files.
 
-```bash
-git diff --check
+## Concerns
+
+- No real DingTalk send was performed; dispatch was covered by the focused monkeypatch test.
+- Full backend test suite was not run; only the required Task 5 verification commands were run.
+
+## Review Fix 2026-06-28
+
+### Changes
+
+- `AgentRun.result_payload` now contains a structured `source` block with `source="dingtalk_inbound"`, `root_owner_private_loop=True`, `recognition_reason`, and redacted raw `source_payload`.
+- `AgentRun.result_payload` now contains structured `dispatch` with `outbox_message_id`, `status`, and `detail`.
+- `run_root_owner_production_turn()` now commits and refreshes the run/message after writing the final source and dispatch payload before returning.
+- Clarification turns use the same `source` / `recognition` / `evidence` / `dispatch` payload shape.
+- Tests now close the original session and reopen a new session on the same engine before reading `AgentRun`, so missing persistence is visible.
+
+### Verification
+
+```text
+cd backend; python -m pytest tests/test_hermes_root_owner_production_orchestrator.py -q
+2 passed in 2.62s
+
+cd backend; python -m compileall app/services/hermes_root_owner_production_orchestrator.py tests/test_hermes_root_owner_production_orchestrator.py
+exit code 0
+
+git diff --check -- backend/app/services/hermes_root_owner_production_orchestrator.py backend/tests/test_hermes_root_owner_production_orchestrator.py
+exit code 0
 ```
 
-Result:
+### Self-check
 
-- Passed with no output.
+- No new table.
+- No new route.
+- No unrelated files edited by this fix.
+- Commit will include only the service and test files.
+- Report remains in the working tree as requested.
+
+### Concerns
+
+- No real DingTalk send was performed.
+- Full backend suite was not run; only the required focused checks were run.

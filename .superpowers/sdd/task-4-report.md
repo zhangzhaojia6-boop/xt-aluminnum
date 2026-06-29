@@ -1,139 +1,91 @@
-# Task 4 Report: Factory Task Planner And Capability Registry
+# Task 4 Report: CLI for approved real acceptance runs
 
 ## Status
 
 DONE
 
-## Scope
+## Changed Files
 
-本次只实现 Task 4 要求的两块能力：
+- `backend/scripts/hermes_20_question_acceptance.py`
+- `backend/tests/test_hermes_20_question_runner.py`
 
-- `backend/app/services/hermes_capability_registry.py`
-- `backend/app/services/hermes_factory_task_planner.py`
+## What Changed
 
-并新增对应测试：
+新增 `backend/scripts/hermes_20_question_acceptance.py`，只做 Task 4 要求的最小 CLI 封装：
 
-- `backend/tests/test_hermes_capability_registry.py`
-- `backend/tests/test_hermes_factory_task_planner.py`
+1. 提供 `parse_args()`。
+2. 提供 `parse_delivery_targets()`，返回 `DingTalkDeliveryTarget`。
+3. 默认安全：不带 `--real-delivery` 时，`args.real_delivery` 为 `False`，`main()` 直接拒绝真实验收。
+4. `--target` 只接受 `dingtalk_group:key` 或 `dingtalk_work_notice:key`，并复用 runner 的白名单常量保持一致。
+5. CLI 只调用现有 `run_20_question_acceptance()` 和 `render_acceptance_report()`，没有新增直接调用钉钉发送接口的逻辑。
 
-没有改动 `AGENTS.md`，也没有碰用户明确禁止的未跟踪 spec/plan 文档。
+同时在 `backend/tests/test_hermes_20_question_runner.py` 追加了 2 个 parser/target 解析测试。
 
-## What I Changed
+说明：
 
-### 1. Capability Registry
+- brief 里的示例导入路径是 `backend.scripts...`，但当前仓库现有脚本测试都用 `scripts...`。
+- 这次按仓库当前接口改成 `from scripts.hermes_20_question_acceptance ...`，功能语义不变。
 
-新增 `list_factory_capabilities()`，返回固定能力清单：
-
-- `sql-api-file`
-- `dingtalk-context-ingestion`
-- `rag-retriever`
-- `browse-research`
-- `computer-use-operator`
-- `image-generation`
-
-满足任务要求的优先级：
-
-- SQL / API / 文件解析
-- 钉钉上下文
-- RAG
-- browse
-- computer use
-- image generation
-
-其中测试重点验证：
-
-- 结构化数据优先于 browse
-- browse 优先于 computer use
-- image generation 的能力类型为 `image`
-
-### 2. Factory Task Planner
-
-新增 `plan_factory_task(normalized)`，按固定优先级生成执行步骤：
-
-1. `dingtalk_context_ingestion`
-2. `mes_read`
-3. `wms_read`
-4. `datahub_query`
-5. `historical_report_lookup`
-6. `rag_retriever`
-
-附加规则：
-
-- `output_mode` 为 `analysis` 或 `formal_report` 时，追加 `factory_analysis`
-- `needs_artifact=True` 时，追加 `artifact_engine`
-
-这和 brief 要求的数据源/工具优先级保持一致：
-
-- 钉钉责任人文本/文件
-- MES
-- WMS
-- 数据中枢
-- 历史日报
-- RAG
-
-## TDD Evidence
+## Verification
 
 ### Red
 
-先创建测试，再运行：
-
 ```powershell
 cd backend
-python -m pytest tests/test_hermes_capability_registry.py tests/test_hermes_factory_task_planner.py -q
+python -m pytest -q tests/test_hermes_20_question_runner.py::test_acceptance_cli_requires_explicit_real_delivery_flag tests/test_hermes_20_question_runner.py::test_acceptance_cli_parses_real_delivery_targets
 ```
 
-结果：失败。
+结果：先失败，符合 TDD 红灯预期。
 
-失败原因：
+```text
+ModuleNotFoundError: No module named 'scripts.hermes_20_question_acceptance'
+```
 
-- `ModuleNotFoundError: No module named 'app.services.hermes_capability_registry'`
-- `ModuleNotFoundError: No module named 'app.services.hermes_factory_task_planner'`
-
-### Green
-
-实现后再次运行同一命令：
+### Green: parser tests
 
 ```powershell
 cd backend
-python -m pytest tests/test_hermes_capability_registry.py tests/test_hermes_factory_task_planner.py -q
+python -m pytest -q tests/test_hermes_20_question_runner.py::test_acceptance_cli_requires_explicit_real_delivery_flag tests/test_hermes_20_question_runner.py::test_acceptance_cli_parses_real_delivery_targets
 ```
 
 结果：
 
 ```text
-3 passed in 2.17s
+2 passed in 2.76s
 ```
 
-## Extra Verification
-
-运行了额外检查：
+### Green: full requested suite
 
 ```powershell
 cd backend
-python -m compileall app/services/hermes_capability_registry.py app/services/hermes_factory_task_planner.py
+python -m pytest -q tests/test_hermes_20_question_runner.py tests/test_hermes_20_question_real_acceptance.py tests/test_hermes_real_dingtalk_delivery_gate.py
 ```
 
-结果：通过。
+结果：
+
+```text
+22 passed in 3.69s
+```
+
+### Compile
 
 ```powershell
-git diff --check
+cd backend
+python -m compileall scripts/hermes_20_question_acceptance.py tests/test_hermes_20_question_runner.py
 ```
 
-结果：通过。
+结果：退出码 0，通过。
 
-## Assumptions
+```text
+Compiling 'tests/test_hermes_20_question_runner.py'...
+```
 
-- Task 4 brief 已经是最终批准版本，所以本次没有额外扩展设计或改动其它服务。
-- `normalize_factory_request()` 和共享 dataclass 已由前置任务提供，本次只消费现有接口，不重复实现。
-- 允许写入范围里包含本报告文件，因此将完整执行记录落在这里。
+## Self Check
 
-## Final Outcome
-
-Task 4 已按最小改动完成。
-
-当前工厂大脑已经具备：
-
-- 固定能力注册表
-- 固定任务规划器
-- 对应测试覆盖
-- 红灯到绿灯的验证证据
+- 只改了允许范围内的代码文件和报告文件。
+- 没有修改 `backend/app/services/hermes_20_question_runner.py`。
+- 没有在测试里真实调用钉钉。
+- 没有回滚工作区里其它人的改动。
+- commit 只应包含：
+  - `backend/scripts/hermes_20_question_acceptance.py`
+  - `backend/tests/test_hermes_20_question_runner.py`
