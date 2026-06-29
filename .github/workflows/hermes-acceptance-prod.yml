@@ -41,6 +41,7 @@ jobs:
           ACCEPTANCE_MODE: ${{ github.event.inputs.mode }}
           BUSINESS_DATE: ${{ github.event.inputs.business_date }}
           LIMIT: ${{ github.event.inputs.limit }}
+          DINGTALK_ACCEPTANCE_GROUP_KEY: ${{ secrets.DINGTALK_ACCEPTANCE_GROUP_KEY }}
         run: |
           set -euo pipefail
           test -n "$SSH_HOST"
@@ -64,7 +65,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
 
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "ACCEPTANCE_MODE='$ACCEPTANCE_MODE' BUSINESS_DATE='$BUSINESS_DATE' LIMIT='$LIMIT' bash -s" <<'REMOTE'
+            "ACCEPTANCE_MODE='$ACCEPTANCE_MODE' BUSINESS_DATE='$BUSINESS_DATE' LIMIT='$LIMIT' DINGTALK_ACCEPTANCE_GROUP_KEY='$DINGTALK_ACCEPTANCE_GROUP_KEY' bash -s" <<'REMOTE'
           set -euo pipefail
           cd /srv/aluminum-bypass/backend
           . .venv/bin/activate
@@ -157,6 +158,7 @@ jobs:
           mode = str(os.environ.get("ACCEPTANCE_MODE") or "preflight").strip()
           limit_raw = str(os.environ.get("LIMIT") or "").strip()
           limit = int(limit_raw) if limit_raw else None
+          explicit_group_key = str(os.environ.get("DINGTALK_ACCEPTANCE_GROUP_KEY") or "").strip()
           session_factory = get_sessionmaker()
 
           with session_factory() as db:
@@ -175,6 +177,7 @@ jobs:
               )
               print("DINGTALK_NOTIFY_DRY_RUN=", bool(getattr(settings, "DINGTALK_NOTIFY_DRY_RUN", True)))
               print("OWNER_ID_MASKED=", mask(owner_id))
+              print("GROUP_SECRET_PRESENT=", bool(explicit_group_key))
               print("GROUP_CHANNELS_MASKED")
               for score, channel in ranked:
                   print(
@@ -188,14 +191,28 @@ jobs:
                           "dry_run": channel.dry_run,
                       }
                   )
-              candidates = [(score, channel) for score, channel in ranked if score >= 40]
-              if not candidates:
-                  print("NO_APPROVED_DINGTALK_GROUP_CANDIDATE")
-                  sys.exit(20)
-              if len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
-                  print("AMBIGUOUS_DINGTALK_GROUP_CANDIDATE")
-                  sys.exit(21)
-              group = candidates[0][1]
+              if explicit_group_key:
+                  from app.services import agent_communication_service
+
+                  group = agent_communication_service.register_channel(
+                      db,
+                      channel_type="dingtalk_group",
+                      channel_key=explicit_group_key,
+                      name="Hermes 20 问验收测试群",
+                      target_type="acceptance_test",
+                      target_key="hermes_20_question_acceptance",
+                      dry_run=False,
+                      metadata_payload={"managed_by": "hermes_20_question_acceptance"},
+                  )
+              else:
+                  candidates = [(score, channel) for score, channel in ranked if score >= 40]
+                  if not candidates:
+                      print("NO_APPROVED_DINGTALK_GROUP_CANDIDATE")
+                      sys.exit(20)
+                  if len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
+                      print("AMBIGUOUS_DINGTALK_GROUP_CANDIDATE")
+                      sys.exit(21)
+                  group = candidates[0][1]
               print("SELECTED_GROUP_MASKED=", mask(group.channel_key), group.name)
               if mode == "preflight":
                   sys.exit(0)
