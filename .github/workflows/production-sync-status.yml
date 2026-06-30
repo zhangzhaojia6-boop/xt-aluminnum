@@ -62,6 +62,9 @@ jobs:
 
           if [ "$SYNC_MODE" = "sync" ]; then
             git merge --ff-only origin/main
+            echo "RESTART_SERVICES"
+            systemctl restart aluminum-bypass hermes-gateway
+            systemctl reload nginx || systemctl restart nginx
           fi
 
           echo "PROD_HEAD_AFTER=$(git rev-parse HEAD)"
@@ -72,5 +75,18 @@ jobs:
           systemctl is-active aluminum-bypass hermes-gateway nginx
 
           echo "READYZ"
-          curl -fsS http://127.0.0.1:8000/readyz || curl -skfsS https://xtmijd.com/readyz
+          readyz_ok=0
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8000/readyz || curl -skfsS https://xtmijd.com/readyz; then
+              readyz_ok=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$readyz_ok" != "1" ]; then
+            echo "READYZ_FAILED_AFTER_RESTART"
+            systemctl status aluminum-bypass --no-pager -l || true
+            journalctl -u aluminum-bypass -n 120 --no-pager || true
+            exit 31
+          fi
           REMOTE
