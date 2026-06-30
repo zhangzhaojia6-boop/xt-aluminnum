@@ -11,6 +11,7 @@ from app.services.agent_personal_bootstrap_service import (
     ZHANG_ZHAOJIA_DINGTALK_USER_ID,
     ensure_zhang_zhaojia_personal_agents,
 )
+from app.services.agent_sop_bootstrap_service import ensure_zzj_agent_sop
 
 
 def _db_session():
@@ -97,5 +98,37 @@ def test_zhang_zhaojia_personal_agent_apply_is_idempotent_and_preserves_existing
         assert existing.channel_key == 'management-chat'
         assert existing.target_type == 'management'
         assert existing.dry_run is False
+    finally:
+        db.close()
+
+
+def test_zhang_zhaojia_personal_agent_reapply_preserves_existing_sop_workflow() -> None:
+    db = _db_session()
+    try:
+        ensure_zhang_zhaojia_personal_agents(db, apply=True)
+        ensure_zzj_agent_sop(db, apply=True)
+
+        before = (
+            db.query(AgentProfile)
+            .filter(AgentProfile.code == 'daily_report_secretary_zzj')
+            .one()
+        )
+        before_payload = dict(before.config_payload or {})
+
+        ensure_zhang_zhaojia_personal_agents(db, apply=True)
+
+        after = (
+            db.query(AgentProfile)
+            .filter(AgentProfile.code == 'daily_report_secretary_zzj')
+            .one()
+        )
+        after_payload = after.config_payload or {}
+
+        assert before_payload['workflow'] == after_payload['workflow']
+        assert before_payload['sop_version'] == after_payload['sop_version']
+        assert after_payload['capabilities'] == ['daily_report_preview', 'report_publish_approval_required']
+        assert after_payload['owner_dingtalk_user_id'] == ZHANG_ZHAOJIA_DINGTALK_USER_ID
+        assert after_payload['requires_outbox'] is True
+        assert after_payload['write_operations_require_approval'] is True
     finally:
         db.close()
