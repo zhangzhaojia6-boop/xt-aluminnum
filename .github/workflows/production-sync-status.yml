@@ -1,0 +1,76 @@
+name: Production Sync Status
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'prod-sync' to confirm production repository sync
+        required: true
+      mode:
+        description: Check status only, or fast-forward production to origin/main
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - sync
+
+jobs:
+  production-sync-status:
+    if: github.event.inputs.confirm == 'prod-sync'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Check or sync production repository
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SYNC_MODE: ${{ github.event.inputs.mode }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          case "$SYNC_MODE" in
+            status|sync) ;;
+            *) echo "unsupported mode"; exit 2 ;;
+          esac
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "SYNC_MODE='$SYNC_MODE' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd /srv/aluminum-bypass
+
+          echo "PROD_BRANCH=$(git branch --show-current)"
+          echo "PROD_HEAD_BEFORE=$(git rev-parse HEAD)"
+          git status --short --branch
+
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "PRODUCTION_REPOSITORY_HAS_TRACKED_LOCAL_CHANGES"
+            git status --short
+            exit 30
+          fi
+
+          git fetch origin main
+
+          if [ "$SYNC_MODE" = "sync" ]; then
+            git merge --ff-only origin/main
+          fi
+
+          echo "PROD_HEAD_AFTER=$(git rev-parse HEAD)"
+          echo "ORIGIN_MAIN=$(git rev-parse origin/main)"
+          git status --short --branch
+
+          echo "SERVICE_STATUS"
+          systemctl is-active aluminum-bypass hermes-gateway nginx
+
+          echo "READYZ"
+          curl -fsS http://127.0.0.1:8000/readyz || curl -skfsS https://xtmijd.com/readyz
+          REMOTE
