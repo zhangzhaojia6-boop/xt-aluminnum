@@ -280,7 +280,7 @@ async function tryDingtalkLogin() {
 
 async function tryQrLogin() {
   const qrCode = resolveQueryValue('machine')
-  if (!qrCode) return
+  if (!qrCode) return false
 
   qrLoginPending.value = true
   workshopNotice.value = ''
@@ -288,25 +288,29 @@ async function tryQrLogin() {
     const result = await auth.qrLogin(qrCode)
     if (result?.type === 'workshop_redirect') {
       setWorkshopNotice(result.workshop_name || result.workshop_code)
-      return
+      return true
     }
     ElMessage.success('扫码登录成功')
     await router.replace(auth.isWorkshopDirector ? { name: 'manage-workshop-dashboard' } : { name: 'mobile-entry' })
+    return true
   } catch {
     // error toast is handled by axios interceptor
+    return true
   } finally {
     qrLoginPending.value = false
   }
 }
 
 onMounted(async () => {
+  const qrHandled = await tryQrLogin()
+  if (qrHandled) return
+
   if (isDingTalkRuntime() && !resolveAuthCode()) {
     await router.replace({ name: 'mobile-entry', query: route.query })
     return
   }
   const dingtalkLoggedIn = await tryDingtalkLogin()
   if (dingtalkLoggedIn) return
-  await tryQrLogin()
   if (!resolveQueryValue('machine')) {
     setWorkshopNotice(resolveQueryValue('workshop'))
   }

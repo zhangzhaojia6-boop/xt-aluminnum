@@ -143,6 +143,35 @@ test('machine qr query signs in and lands on the machine-bound entry surface', a
   expect(postedQr).toBe('XT-ZR2-1')
 })
 
+test('machine qr query wins over dingtalk runtime detection', async ({ page }) => {
+  const machine = machineInfo()
+  let postedQr = ''
+  await clearAuthStorage(page)
+  await page.addInitScript(() => {
+    window.dd = { runtime: { permission: {} } }
+  })
+  await mockMobileEntry(page, { machine })
+  await page.route('**/api/v1/auth/qr-login', async (route) => {
+    postedQr = route.request().postDataJSON().qr_code
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        access_token: 'playwright-machine-token',
+        token_type: 'bearer',
+        user: fillUser({ username: 'machine-21' }),
+        machine_info: machine
+      })
+    })
+  })
+
+  await page.goto('/login?machine=XT-ZR2-1')
+
+  await expect(page).toHaveURL(/\/entry$/)
+  await expect(page.getByTestId('mobile-entry')).toBeVisible()
+  expect(postedQr).toBe('XT-ZR2-1')
+})
+
 test('workshop director qr query signs in and lands on the workshop dashboard', async ({ page }) => {
   let postedQr = ''
   await clearAuthStorage(page)
@@ -175,8 +204,14 @@ test('workshop director qr query signs in and lands on the workshop dashboard', 
   await page.route('**/api/v1/aggregation/live/fill-details**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) })
   })
+  await page.route('**/api/v1/aggregation/live/mes-fill-gaps**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) })
+  })
   await page.route('**/api/v1/aggregation/live/pending-assignment**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ summary: { entry_count: 0 } }) })
+  })
+  await page.route('**/api/v1/mes/extended/wip-total-snapshots**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
   })
   await page.route('**/api/v1/mes/extended/workshop-process-records**', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
