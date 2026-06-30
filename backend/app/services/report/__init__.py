@@ -10,7 +10,7 @@ from app.services.report import lane_builders as lane_builders
 from app.services.report import report_generation as report_generation
 
 _MODULES = (_utils, report_generation, lane_builders, dashboard_builder)
-_PUBLIC_ALL = ['generate_daily_reports', 'generate_production_stage_report', 'review_report', 'publish_report', 'finalize_report', 'run_daily_pipeline', 'resolve_report_delivery_payload', 'list_reports', 'get_report', 'build_factory_dashboard', 'build_workshop_dashboard', 'build_statistics_dashboard', 'build_delivery_status', 'build_cumulative', 'build_comparison', 'build_timeseries']
+_PUBLIC_ALL = ['generate_daily_reports', 'review_report', 'publish_report', 'finalize_report', 'run_daily_pipeline', 'resolve_report_delivery_payload', 'list_reports', 'get_report', 'build_factory_dashboard', 'build_workshop_dashboard', 'build_statistics_dashboard', 'build_delivery_status', 'build_cumulative', 'build_comparison', 'build_timeseries']
 
 
 def _all_names() -> set[str]:

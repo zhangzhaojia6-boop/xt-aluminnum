@@ -12,7 +12,6 @@ from app.core.business_time import last_completed_production_business_date
 from app.database import get_sessionmaker
 from app.models.reports import DailyReport
 from app.services import hermes_rag_service
-from app.services import report as report_service
 from app.services.report import template_daily_report
 
 
@@ -69,26 +68,11 @@ def build_daily_report_product(
         'text': text,
         'missing_fields': payload.get('missing_fields') or [],
         'conflicts': payload.get('conflicts') or [],
-        'scheduled_at': '09:30',
+        'scheduled_at': '07:30',
     }
 
 
-def generate_forecast_daily_report(target_date: date | None = None) -> dict[str, str]:
-    business_date = target_date or last_completed_production_business_date()
-    SessionLocal = get_sessionmaker()
-    with SessionLocal() as session:
-        report_service.generate_production_stage_report(
-            db=session,
-            report_date=business_date,
-            stage='forecast',
-            scope='auto_confirmed',
-            output_mode='both',
-            operator=None,
-        )
-    return {'status': 'ok', 'business_date': business_date.isoformat(), 'stage': 'forecast'}
-
-
-def generate_final_daily_report(target_date: date | None = None) -> dict[str, Any]:
+def generate_daily_reports(target_date: date | None = None) -> dict[str, Any]:
     business_date = target_date or last_completed_production_business_date()
     SessionLocal = get_sessionmaker()
     product: dict[str, Any] = {}
@@ -105,14 +89,10 @@ def generate_final_daily_report(target_date: date | None = None) -> dict[str, An
         session.commit()
         reporter_agent.execute(db=session, target_date=business_date)
         session.commit()
-    result: dict[str, Any] = {'status': 'ok', 'business_date': business_date.isoformat(), 'stage': 'final'}
+    result: dict[str, Any] = {'status': 'ok', 'business_date': business_date.isoformat()}
     for key, value in product.items():
         result['report_status' if key == 'status' else key] = value
     return result
-
-
-def generate_daily_reports(target_date: date | None = None) -> dict[str, Any]:
-    return generate_final_daily_report(target_date)
 
 
 def _ensure_daily_report(db: Session, *, target_date: date) -> DailyReport:
