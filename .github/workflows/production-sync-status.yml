@@ -62,6 +62,45 @@ jobs:
 
           if [ "$SYNC_MODE" = "sync" ]; then
             git merge --ff-only origin/main
+            env_file="/srv/aluminum-bypass/backend/.env"
+            if [ -f "$env_file" ]; then
+              cp -p "$env_file" "$env_file.backup-runtime-$(date +%Y%m%d%H%M%S)"
+
+              read_env() {
+                grep -E "^$1=" "$env_file" | tail -n 1 | cut -d= -f2- | tr -d '\r'
+              }
+
+              write_env() {
+                key="$1"
+                value="$2"
+                if grep -qE "^${key}=" "$env_file"; then
+                  sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
+                else
+                  printf '\n%s=%s\n' "$key" "$value" >> "$env_file"
+                fi
+              }
+
+              app_connection_mode="$(read_env APP_CONNECTION_PUSH_MODE | tr '[:upper:]' '[:lower:]')"
+              app_connection_enabled="$(read_env APP_CONNECTION_ENABLED | tr '[:upper:]' '[:lower:]')"
+              case "$app_connection_mode" in
+                disabled|dry_run|enabled|"") ;;
+                *)
+                  if [ "$app_connection_enabled" = "true" ]; then
+                    write_env APP_CONNECTION_PUSH_MODE dry_run
+                  else
+                    write_env APP_CONNECTION_PUSH_MODE disabled
+                  fi
+                  echo "REPAIRED_APP_CONNECTION_PUSH_MODE"
+                  ;;
+              esac
+
+              mobile_mode="$(read_env MOBILE_DATA_ENTRY_MODE | tr '[:upper:]' '[:lower:]')"
+              mobile_mes_display="$(read_env MOBILE_MES_DISPLAY_ENABLED | tr '[:upper:]' '[:lower:]')"
+              if [ "$mobile_mode" = "manual_only" ] && [ "$mobile_mes_display" = "true" ]; then
+                write_env MOBILE_DATA_ENTRY_MODE mes_assisted
+                echo "REPAIRED_MOBILE_DATA_ENTRY_MODE_FOR_MES_DISPLAY"
+              fi
+            fi
             echo "RESTART_SERVICES"
             systemctl restart aluminum-bypass hermes-gateway
             systemctl reload nginx || systemctl restart nginx
