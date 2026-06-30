@@ -96,6 +96,7 @@ def run_alignment_checks(
                         "exact_match": bool(alignment.get("exact_match")),
                         "threshold": alignment.get("threshold"),
                         "missing_fields_count": len(bundle.get("missing_fields") or bundle.get("missing") or []),
+                        "gap_plan": bundle.get("gap_plan") or {},
                     }
                 )
             except Exception as exc:
@@ -114,6 +115,8 @@ def run_alignment_checks(
                         "exact_match": False,
                         "threshold": None,
                         "missing_fields_count": None,
+                        "gap_plan": {},
+                        "action_required": _action_required_for_error(exc),
                         "error": str(exc),
                     }
                 )
@@ -155,6 +158,12 @@ def _print_text(payload: dict[str, Any]) -> None:
         if row.get("error"):
             line = f"{line} error={row['error']}"
         print(line)
+        gap_plan = row.get("gap_plan") or {}
+        if gap_plan.get("item_count"):
+            print(
+                f"  gap_plan status={gap_plan.get('status')} "
+                f"items={gap_plan.get('item_count')} summary={gap_plan.get('summary')}"
+            )
         for diff in row.get("differences") or []:
             print(f"  diff field={diff.get('field')} actual={diff.get('actual')} expected={diff.get('expected')}")
     print(f"passed={payload['passed']}")
@@ -196,6 +205,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         _print_text(payload)
     return 0 if payload["passed"] else 1
+
+
+def _action_required_for_error(exc: Exception) -> str:
+    text = str(exc)
+    if "no such table" in text:
+        return "run_migrations_or_use_production_database"
+    return "inspect_error_and_rerun"
 
 
 if __name__ == "__main__":

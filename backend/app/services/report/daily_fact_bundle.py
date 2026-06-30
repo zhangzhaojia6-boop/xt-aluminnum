@@ -16,6 +16,7 @@ from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_day1_harness_service import build_output_skill_alignment
+from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
 from app.services.report import template_daily_report
 
 
@@ -79,6 +80,11 @@ def build_daily_fact_bundle(
         rendered_text,
         _output_skill_root(),
         business_date,
+    )
+    bundle["gap_plan"] = build_daily_report_gap_plan(
+        missing_fields=bundle.get("missing_fields") or [],
+        alignment=bundle.get("output_skill_alignment") or {},
+        sources=bundle.get("sources") or {},
     )
     if persist_run or snapshot_reason:
         _persist_bundle(
@@ -157,6 +163,7 @@ def _bundle_from_facts(
         "correction_refs": [],
         "dingtalk_refs": [],
         "output_skill_alignment": {},
+        "gap_plan": {},
         "trace_id": trace_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

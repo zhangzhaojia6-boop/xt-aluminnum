@@ -26,6 +26,7 @@ def test_run_alignment_checks_sets_output_skill_root_temporarily(tmp_path) -> No
         return {
             "status": "ready",
             "missing_fields": [],
+            "gap_plan": {"status": "ready", "item_count": 0, "summary": {}, "items": []},
             "output_skill_alignment": {
                 "status": "passed",
                 "file_name": f"{business_date.month}-{business_date.day}.txt",
@@ -48,8 +49,24 @@ def test_run_alignment_checks_sets_output_skill_root_temporarily(tmp_path) -> No
     )
 
     assert [row["status"] for row in rows] == ["passed", "passed"]
+    assert rows[0]["gap_plan"]["status"] == "ready"
     assert calls == [date(2026, 6, 28), date(2026, 6, 29)]
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
+
+
+def test_run_alignment_checks_explains_missing_local_table(tmp_path) -> None:
+    def fake_builder(db, *, business_date, persist_run=False):
+        raise RuntimeError("no such table: multimodal_evidence")
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+    )
+
+    assert rows[0]["status"] == "error"
+    assert rows[0]["action_required"] == "run_migrations_or_use_production_database"
 
 
 def test_checks_passed_requires_all_rows_passed() -> None:

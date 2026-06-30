@@ -13,6 +13,7 @@ from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
 from app.models.reports import DailyReport
 from app.services.report import daily_overview_builder
 from app.services.report._utils import _to_float
+from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
 from app.services.report.mes_fact_bundle import build_mes_fact_bundle
 from app.services.report.template_daily_field_contract import field_group
 from app.services.report.template_daily_fact_sources import collect_template_daily_facts
@@ -390,6 +391,10 @@ def build_template_daily_report_hermes_bundle(
         "mes_fact_bundle": mes_fact_bundle,
         "missing_fields": list(facts.get("missing_fields") or []),
         "conflicts": list(facts.get("conflicts") or []),
+        "gap_plan": build_daily_report_gap_plan(
+            missing_fields=list(facts.get("missing_fields") or []),
+            sources=sources,
+        ),
     }
 
 
@@ -417,6 +422,7 @@ def _persistable_hermes_fact_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         "daily_report_facts": facts,
         "missing_fields": list(bundle.get("missing_fields") or []),
         "conflicts": list(bundle.get("conflicts") or []),
+        "gap_plan": bundle.get("gap_plan") or {},
     }
 
 
@@ -788,6 +794,10 @@ def build_template_daily_report_payload(
         target_date=target_date,
         mes_fact_bundle=mes_fact_bundle,
     )
+    gap_plan = build_daily_report_gap_plan(
+        missing_fields=validation.get("missing_fields") or [],
+        sources=facts.get("sources") or {},
+    )
     return {
         **validation,
         "target_date": target_date.isoformat(),
@@ -795,6 +805,7 @@ def build_template_daily_report_payload(
         "facts": facts,
         "sources": facts.get("sources") or {},
         "hermes_fact_bundle": hermes_fact_bundle,
+        "gap_plan": gap_plan,
     }
 
 
@@ -814,6 +825,7 @@ def apply_template_daily_report_to_report(
         "missing_fields": payload.get("missing_fields") or [],
         "conflicts": payload.get("conflicts") or [],
         "sources": payload.get("sources") or {},
+        "gap_plan": payload.get("gap_plan") or {},
         "hermes_fact_bundle": _persistable_hermes_fact_bundle(payload.get("hermes_fact_bundle") or {}),
     }
     report.report_data = report_data
