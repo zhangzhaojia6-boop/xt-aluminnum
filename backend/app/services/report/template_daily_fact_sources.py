@@ -749,9 +749,14 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
     _set_value(facts, "daily_contract_weight", contracts.get("daily_new"), "contract_projection")
     _set_value(facts, "remaining_contract_weight", contracts.get("remaining"), "contract_projection")
     _set_value(facts, "remaining_contract_delta", contracts.get("remaining_delta"), "contract_projection")
-    _set_value(facts, "daily_yield_rate", yield_rates.get("daily") or yield_rates.get("owner_daily"), "yield_projection")
+    _set_value(
+        facts,
+        "daily_yield_rate",
+        _quality_percent(yield_rates.get("daily") or yield_rates.get("owner_daily")),
+        "yield_projection",
+    )
     _set_value(facts, "daily_yield_delta", yield_rates.get("daily_delta"), "yield_projection")
-    _set_value(facts, "monthly_yield_rate", yield_rates.get("monthly"), "yield_projection")
+    _set_value(facts, "monthly_yield_rate", _quality_percent(yield_rates.get("monthly")), "yield_projection")
     _set_value(facts, "total_electricity_kwh", energy.get("total_electricity"), "owner_or_energy_summary")
     _set_value(facts, "total_gas_m3", energy.get("total_gas"), "owner_or_energy_summary")
     _set_value(facts, "electricity_cost_10k", cost.get("electricity_cost"), "energy_cost")

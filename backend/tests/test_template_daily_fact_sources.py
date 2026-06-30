@@ -300,6 +300,31 @@ def test_template_daily_facts_default_to_current_business_date_for_wip(monkeypat
     assert facts.as_dict()["wip_date"] == "2026-06-17"
 
 
+def test_opening_facts_do_not_publish_impossible_yield_projection(monkeypatch) -> None:
+    def fake_overview(_db, *, target_date: date, wip_date: date | None = None):
+        return {
+            "plant_output": {},
+            "contracts": {},
+            "yield_rates": {"daily": 1741.86, "monthly": 233.26},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        }
+
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        fake_overview,
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+    template_daily_fact_sources.collect_opening_facts(object(), facts)
+
+    assert "daily_yield_rate" not in facts.values
+    assert "monthly_yield_rate" not in facts.values
+
+
 def test_opening_facts_fill_wip_breakdown_from_current_wip_total_snapshot(tmp_path, monkeypatch) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'template-daily-wip-breakdown.db'}", future=True)
     Base.metadata.create_all(engine, tables=[MesWipTotalSnapshot.__table__])
