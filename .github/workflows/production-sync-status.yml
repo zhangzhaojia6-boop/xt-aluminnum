@@ -67,7 +67,7 @@ jobs:
               cp -p "$env_file" "$env_file.backup-runtime-$(date +%Y%m%d%H%M%S)"
 
               read_env() {
-                grep -E "^$1=" "$env_file" | tail -n 1 | cut -d= -f2- | tr -d '\r'
+                { grep -E "^$1=" "$env_file" || true; } | tail -n 1 | cut -d= -f2- | tr -d '\r'
               }
 
               write_env() {
@@ -81,7 +81,9 @@ jobs:
               }
 
               app_connection_mode="$(read_env APP_CONNECTION_PUSH_MODE | tr '[:upper:]' '[:lower:]')"
+              app_connection_mode="${app_connection_mode:-disabled}"
               app_connection_enabled="$(read_env APP_CONNECTION_ENABLED | tr '[:upper:]' '[:lower:]')"
+              app_connection_enabled="${app_connection_enabled:-false}"
               case "$app_connection_mode" in
                 disabled|dry_run|enabled|"") ;;
                 *)
@@ -95,7 +97,9 @@ jobs:
               esac
 
               mobile_mode="$(read_env MOBILE_DATA_ENTRY_MODE | tr '[:upper:]' '[:lower:]')"
+              mobile_mode="${mobile_mode:-manual_only}"
               mobile_mes_display="$(read_env MOBILE_MES_DISPLAY_ENABLED | tr '[:upper:]' '[:lower:]')"
+              mobile_mes_display="${mobile_mes_display:-false}"
               if [ "$mobile_mode" = "manual_only" ] && [ "$mobile_mes_display" = "true" ]; then
                 write_env MOBILE_DATA_ENTRY_MODE mes_assisted
                 echo "REPAIRED_MOBILE_DATA_ENTRY_MODE_FOR_MES_DISPLAY"
