@@ -105,6 +105,14 @@ jobs:
                 echo "REPAIRED_MOBILE_DATA_ENTRY_MODE_FOR_MES_DISPLAY"
               fi
             fi
+            echo "BUILD_FRONTEND"
+            if command -v npm >/dev/null 2>&1; then
+              (cd frontend && npm ci --no-audit --no-fund && npm run build)
+              find frontend/dist/assets -maxdepth 1 -name 'Login-*.js' -printf 'FRONTEND_LOGIN_ASSET=%f\n' | sort | tail -n 1
+            else
+              echo "FRONTEND_BUILD_FAILED_NO_NPM"
+              exit 32
+            fi
             echo "RESTART_SERVICES"
             systemctl restart aluminum-bypass hermes-gateway
             systemctl reload nginx || systemctl restart nginx
