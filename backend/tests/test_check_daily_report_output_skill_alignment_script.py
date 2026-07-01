@@ -79,6 +79,7 @@ def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> 
             "bundle_status": "ready",
             "field_match_rate": 98.5,
             "exact_match": False,
+            "difference_count": 1,
             "missing_fields_count": 1,
             "differences": [
                 {
@@ -111,6 +112,51 @@ def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> 
     assert "total_output_daily" in markdown
     assert "DailyFactBundle" in markdown
     assert "review_source" in markdown
+
+
+def test_render_alignment_markdown_shows_difference_count_and_truncation_notice() -> None:
+    rows = [
+        {
+            "business_date": "2026-06-29",
+            "status": "review_needed",
+            "bundle_status": "ready",
+            "field_match_rate": 80.0,
+            "exact_match": False,
+            "difference_count": 25,
+            "missing_fields_count": 0,
+            "differences": [{"field": f"field_{index}"} for index in range(20)],
+        }
+    ]
+
+    markdown = script.render_alignment_markdown(rows)
+
+    assert "Difference count: 25" in markdown
+    assert "truncated" in markdown
+    assert "--full-differences" in markdown
+    assert "all rows" in markdown
+
+
+def test_render_alignment_markdown_shows_error_details() -> None:
+    rows = [
+        {
+            "business_date": "2026-06-29",
+            "status": "error",
+            "bundle_status": None,
+            "field_match_rate": None,
+            "exact_match": False,
+            "difference_count": None,
+            "missing_fields_count": None,
+            "differences": [],
+            "error": "no such table: multimodal_evidence",
+            "action_required": "run_migrations_or_use_production_database",
+        }
+    ]
+
+    markdown = script.render_alignment_markdown(rows)
+
+    assert "Status: error" in markdown
+    assert "Error: no such table: multimodal_evidence" in markdown
+    assert "Action required: run_migrations_or_use_production_database" in markdown
 
 
 def test_run_alignment_checks_keeps_all_differences_when_enabled(tmp_path) -> None:

@@ -134,20 +134,46 @@ def checks_passed(rows: Sequence[dict[str, Any]]) -> bool:
 def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
     lines = ["# Daily Report Alignment", ""]
     for row in rows:
+        differences = row.get("differences") or []
+        difference_count = row.get("difference_count")
         lines.extend(
             [
                 f"## {row.get('business_date')}",
                 "",
+                f"- Status: {row.get('status')}",
                 f"- Bundle status: {row.get('bundle_status')}",
                 f"- Field match rate: {row.get('field_match_rate')}",
                 f"- Exact match: {row.get('exact_match')}",
+                f"- Difference count: {difference_count}",
                 f"- Missing field count: {row.get('missing_fields_count')}",
                 "",
+            ]
+        )
+        if row.get("error"):
+            lines.extend(
+                [
+                    f"- Error: {row.get('error')}",
+                    f"- Action required: {row.get('action_required')}",
+                    "",
+                ]
+            )
+        if isinstance(difference_count, int) and difference_count > len(differences):
+            lines.extend(
+                [
+                    f"- Differences shown: {len(differences)} of {difference_count}",
+                    "- This artifact is truncated; use --full-differences for all rows.",
+                    "",
+                ]
+            )
+        if row.get("status") == "error" and not differences:
+            lines.append("")
+            continue
+        lines.extend(
+            [
                 "| Field | Expected | Actual | Source | Status | Action |",
                 "|---|---|---|---|---|---|",
             ]
         )
-        differences = row.get("differences") or []
         if differences:
             for diff in differences:
                 lines.append(
