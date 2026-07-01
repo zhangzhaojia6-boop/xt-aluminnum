@@ -51,6 +51,12 @@ def _field_status(closure: dict[str, Any], field_name: str) -> str:
     )
 
 
+def _set_source(bundle: dict[str, Any], field_name: str, source: str) -> None:
+    bundle["facts"][field_name]["source"] = source
+    bundle["facts"][field_name]["source_type"] = source
+    bundle["sources"][field_name] = {"source_type": source}
+
+
 def test_all_critical_fields_confirmed_returns_pass() -> None:
     closure = build_daily_report_fact_closure(_confirmed_bundle())
 
@@ -85,14 +91,53 @@ def test_output_skill_mismatch_blocks_total_output() -> None:
 
 def test_projection_only_source_needs_evidence() -> None:
     bundle = _confirmed_bundle()
-    bundle["facts"]["wip_total"]["source"] = "data_hub_projection"
-    bundle["facts"]["wip_total"]["source_type"] = "data_hub_projection"
-    bundle["sources"]["wip_total"] = {"source_type": "data_hub_projection"}
+    _set_source(bundle, "wip_total", "data_hub_projection")
 
     closure = build_daily_report_fact_closure(bundle)
 
     assert closure["status"] == "blocked"
     assert _field_status(closure, "wip_total") == "needs_evidence"
+
+
+def test_daily_yield_rate_computed_source_is_confirmed() -> None:
+    bundle = _confirmed_bundle()
+    _set_source(bundle, "daily_yield_rate", "computed")
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "pass"
+    assert _field_status(closure, "daily_yield_rate") == "confirmed"
+
+
+def test_daily_fact_bundle_source_passes_for_all_critical_fields() -> None:
+    bundle = _confirmed_bundle()
+    for field in CRITICAL_DAILY_FACT_FIELDS:
+        _set_source(bundle, field, "DailyFactBundle")
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "pass"
+    assert closure["counts"]["confirmed"] == len(CRITICAL_DAILY_FACT_FIELDS)
+
+
+def test_historical_report_for_daily_yield_rate_needs_evidence() -> None:
+    bundle = _confirmed_bundle()
+    _set_source(bundle, "daily_yield_rate", "historical_report")
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "blocked"
+    assert _field_status(closure, "daily_yield_rate") == "needs_evidence"
+
+
+def test_total_electricity_allows_data_hub_manual_source() -> None:
+    bundle = _confirmed_bundle()
+    _set_source(bundle, "total_electricity_kwh", "data_hub_manual")
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "pass"
+    assert _field_status(closure, "total_electricity_kwh") == "confirmed"
 
 
 def test_every_critical_field_has_required_keys() -> None:

@@ -27,15 +27,51 @@ WEAK_SOURCE_MARKERS = (
     "unknown",
     "missing",
 )
-ACCEPTED_SOURCE_MARKERS = (
-    "dingtalk",
-    "root_owner",
-    "mes",
-    "wms",
-    "finished_inbound_output",
-    "owner",
-    "energy_summary",
-)
+FIELD_ALLOWED_SOURCE_MARKERS: dict[str, tuple[str, ...]] = {
+    "total_output_daily": (
+        "dingtalk",
+        "mes",
+        "wms",
+        "dailyfactbundle",
+        "daily_fact_bundle",
+        "root_owner",
+    ),
+    "finished_inbound_daily": (
+        "dingtalk",
+        "wms",
+        "mes",
+        "finished_inbound_output",
+        "dailyfactbundle",
+        "daily_fact_bundle",
+        "root_owner",
+    ),
+    "wip_total": (
+        "mes",
+        "wms",
+        "dingtalk",
+        "dailyfactbundle",
+        "daily_fact_bundle",
+        "root_owner",
+    ),
+    "total_electricity_kwh": (
+        "dingtalk",
+        "dailyfactbundle",
+        "daily_fact_bundle",
+        "data_hub_manual",
+        "owner",
+        "energy_summary",
+        "root_owner",
+    ),
+    "daily_yield_rate": (
+        "mes",
+        "wms",
+        "dailyfactbundle",
+        "daily_fact_bundle",
+        "computed",
+        "root_owner",
+        "dingtalk",
+    ),
+}
 
 
 def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]:
@@ -91,7 +127,7 @@ def _field_status(
         return "mismatch"
     if not _has_value(value) or not source:
         return "missing"
-    if not _is_allowed_source(source_text):
+    if not _is_allowed_source(field, source_text):
         return "needs_evidence"
     return "confirmed"
 
@@ -199,7 +235,10 @@ def _has_value(value: Any) -> bool:
     return value is not None and value != ""
 
 
-def _is_allowed_source(source_text: str) -> bool:
+def _is_allowed_source(field: str, source_text: str) -> bool:
     if any(marker in source_text for marker in WEAK_SOURCE_MARKERS):
         return False
-    return any(marker in source_text for marker in ACCEPTED_SOURCE_MARKERS)
+    return any(
+        marker in source_text
+        for marker in FIELD_ALLOWED_SOURCE_MARKERS[field]
+    )
