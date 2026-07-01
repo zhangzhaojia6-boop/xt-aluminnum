@@ -16,6 +16,7 @@ from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_day1_harness_service import build_output_skill_alignment
+from app.services.report.daily_report_fact_closure import build_daily_report_fact_closure
 from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
 from app.services.report import template_daily_report
 
@@ -86,6 +87,7 @@ def build_daily_fact_bundle(
         alignment=bundle.get("output_skill_alignment") or {},
         sources=bundle.get("sources") or {},
     )
+    bundle["fact_closure"] = build_daily_report_fact_closure(bundle)
     if persist_run or snapshot_reason:
         _persist_bundle(
             db,

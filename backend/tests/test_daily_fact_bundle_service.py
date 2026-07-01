@@ -4,7 +4,7 @@ from collections.abc import Iterator
 import importlib.util
 from datetime import date
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import sqlalchemy as sa
@@ -19,6 +19,7 @@ from app.database import Base
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
+from app.services.report.daily_report_fact_closure import CRITICAL_DAILY_FACT_FIELDS
 
 
 @pytest.fixture()
@@ -45,6 +46,14 @@ def db_session() -> Iterator[Session]:
         yield session
     finally:
         session.close()
+
+
+def _fact_closure_field(bundle: dict[str, Any], field_name: str) -> dict[str, Any]:
+    return next(
+        item
+        for item in bundle["fact_closure"]["critical_fields"]
+        if item["field"] == field_name
+    )
 
 
 def test_daily_fact_bundle_tables_are_registered() -> None:
@@ -125,6 +134,90 @@ def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Se
     assert bundle["missing_fields"] == []
     assert bundle["missing"] == []
     assert bundle["conflicts"] == []
+    assert "fact_closure" in bundle
+    assert {
+        item["field"]
+        for item in bundle["fact_closure"]["critical_fields"]
+    } == set(CRITICAL_DAILY_FACT_FIELDS)
+
+
+def test_daily_fact_bundle_fact_closure_passes_with_all_critical_fields(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {
+                "total_output_daily": 384,
+                "finished_inbound_daily": 126.4,
+                "wip_total": 1136,
+                "total_electricity_kwh": 133201,
+                "daily_yield_rate": 0.88,
+            },
+            "sources": {
+                "total_output_daily": "mes_packaging_output",
+                "finished_inbound_daily": "finished_inbound_output",
+                "wip_total": "mes_wip_distribution",
+                "total_electricity_kwh": "owner_or_energy_summary",
+                "daily_yield_rate": "computed",
+            },
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    closure = bundle["fact_closure"]
+    assert closure["status"] == "pass"
+    assert closure["counts"]["confirmed"] == len(CRITICAL_DAILY_FACT_FIELDS)
+    assert {
+        item["field"]
+        for item in closure["critical_fields"]
+    } == set(CRITICAL_DAILY_FACT_FIELDS)
+
+
+def test_daily_fact_bundle_fact_closure_blocks_missing_critical_field(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {
+                "total_output_daily": 384,
+                "finished_inbound_daily": 126.4,
+                "wip_total": 1136,
+                "daily_yield_rate": 0.88,
+            },
+            "sources": {
+                "total_output_daily": "mes_packaging_output",
+                "finished_inbound_daily": "finished_inbound_output",
+                "wip_total": "mes_wip_distribution",
+                "daily_yield_rate": "computed",
+            },
+            "missing_fields": ["total_electricity_kwh"],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["fact_closure"]["status"] == "blocked"
+    assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "missing"
 
 
 def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: Session) -> None:
@@ -210,6 +303,74 @@ def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: 
     }
     assert bundle["confidence"] == 1.0
     assert bundle["status"] == "ready"
+    closure_field = _fact_closure_field(bundle, "total_output_daily")
+    assert closure_field["status"] == "confirmed"
+    assert closure_field["source"] == "root_owner_correction"
+    assert closure_field["trace_id"] == "trace-root-owner-correction"
+
+
+def test_dingtalk_supplement_can_confirm_critical_field_in_fact_closure(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {"total_electricity_kwh": 133000},
+            "sources": {"total_electricity_kwh": "owner_or_energy_summary"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        User(
+            id=12,
+            username="energy_owner",
+            password_hash="hashed",
+            name="energy_owner",
+            role="admin",
+        )
+    )
+    db_session.flush()
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_file",
+            source_user_id=12,
+            file_uri="dingtalk://energy/2026-06-19.xlsx",
+            recognized_text="6月19日高压电 133201 度",
+            confirmation_status="confirmed",
+            payload={
+                "business_date": "2026-06-19",
+                "include_in_daily_sample": True,
+                "evidence_kind": "fact",
+                "fact_updates": {
+                    "total_electricity_kwh": {
+                        "value": 133201,
+                        "unit": "度",
+                        "reason": "能源负责人钉钉确认",
+                    }
+                },
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+        trace_id="trace-dingtalk-energy",
+    )
+
+    closure_field = _fact_closure_field(bundle, "total_electricity_kwh")
+    assert closure_field["status"] == "confirmed"
+    assert closure_field["source"] == "dingtalk_supplement"
+    assert closure_field["trace_id"] == "trace-dingtalk-energy"
 
 
 def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
