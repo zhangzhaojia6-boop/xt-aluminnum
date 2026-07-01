@@ -544,8 +544,17 @@ def _run_key(*, business_date: date, trace_id: str | None) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
-def _payload_hash(value: Any) -> str:
-    encoded = json.dumps(_json_safe(value), ensure_ascii=False, sort_keys=True).encode("utf-8")
+def _payload_hash(bundle: Mapping[str, Any]) -> str:
+    payload = {
+        "facts": _json_safe(bundle.get("facts") or {}),
+        "sources": _json_safe(bundle.get("sources") or {}),
+        "conflicts": _json_safe(bundle.get("conflicts") or []),
+        "adopted_values": _json_safe(_adopted_values(bundle)),
+        "correction_refs": _json_safe(bundle.get("correction_refs") or []),
+        "dingtalk_refs": _json_safe(bundle.get("dingtalk_refs") or []),
+        "output_skill_alignment": _json_safe(bundle.get("output_skill_alignment") or {}),
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 

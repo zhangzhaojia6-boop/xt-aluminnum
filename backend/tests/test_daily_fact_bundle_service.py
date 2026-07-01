@@ -19,7 +19,15 @@ from app.database import Base
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
-from app.services.report.daily_report_fact_closure import CRITICAL_DAILY_FACT_FIELDS
+
+
+EXPECTED_CRITICAL_DAILY_FACT_FIELDS = {
+    "total_output_daily",
+    "finished_inbound_daily",
+    "wip_total",
+    "total_electricity_kwh",
+    "daily_yield_rate",
+}
 
 
 @pytest.fixture()
@@ -138,7 +146,7 @@ def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Se
     assert {
         item["field"]
         for item in bundle["fact_closure"]["critical_fields"]
-    } == set(CRITICAL_DAILY_FACT_FIELDS)
+    } == EXPECTED_CRITICAL_DAILY_FACT_FIELDS
 
 
 def test_daily_fact_bundle_fact_closure_passes_with_all_critical_fields(
@@ -177,11 +185,11 @@ def test_daily_fact_bundle_fact_closure_passes_with_all_critical_fields(
 
     closure = bundle["fact_closure"]
     assert closure["status"] == "pass"
-    assert closure["counts"]["confirmed"] == len(CRITICAL_DAILY_FACT_FIELDS)
+    assert closure["counts"]["confirmed"] == len(EXPECTED_CRITICAL_DAILY_FACT_FIELDS)
     assert {
         item["field"]
         for item in closure["critical_fields"]
-    } == set(CRITICAL_DAILY_FACT_FIELDS)
+    } == EXPECTED_CRITICAL_DAILY_FACT_FIELDS
 
 
 def test_daily_fact_bundle_fact_closure_blocks_missing_critical_field(
@@ -580,6 +588,38 @@ def test_build_daily_fact_bundle_reuses_existing_run_for_same_run_key(
     assert len(runs) == 1
     assert runs[0].business_date == date(2026, 6, 20)
     assert snapshots == []
+
+
+def test_payload_hash_ignores_runtime_only_fact_closure() -> None:
+    from app.services.report import daily_fact_bundle
+
+    bundle = {
+        "facts": {
+            "total_output_daily": {
+                "value": 366,
+                "source": "mes_packaging_output",
+                "source_type": "mes_packaging_output",
+            }
+        },
+        "sources": {
+            "total_output_daily": {"source": "mes_packaging_output"},
+        },
+        "conflicts": [],
+        "correction_refs": [],
+        "dingtalk_refs": [],
+        "output_skill_alignment": {"status": "passed", "differences": []},
+    }
+    with_runtime_key = {
+        **bundle,
+        "fact_closure": {
+            "status": "pass",
+            "critical_fields": [],
+        },
+    }
+
+    assert daily_fact_bundle._payload_hash(bundle) == daily_fact_bundle._payload_hash(
+        with_runtime_key
+    )
 
 
 def test_daily_fact_bundle_persists_light_run_and_formal_snapshot(
