@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 import os
 
 from scripts import check_daily_report_output_skill_alignment as script
@@ -67,6 +68,94 @@ def test_run_alignment_checks_explains_missing_local_table(tmp_path) -> None:
 
     assert rows[0]["status"] == "error"
     assert rows[0]["action_required"] == "run_migrations_or_use_production_database"
+
+
+def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> None:
+    artifact_dir = tmp_path / "nested" / "artifacts"
+    rows = [
+        {
+            "business_date": "2026-06-29",
+            "status": "review_needed",
+            "bundle_status": "ready",
+            "field_match_rate": 98.5,
+            "exact_match": False,
+            "missing_fields_count": 1,
+            "differences": [
+                {
+                    "field": "total_output_daily",
+                    "expected": "100",
+                    "actual": "99",
+                    "source": "DailyFactBundle",
+                    "status": "conflict",
+                    "action": "review_source",
+                }
+            ],
+        }
+    ]
+
+    paths = script.write_alignment_artifacts(rows, artifact_dir)
+
+    json_path = artifact_dir / "daily_report_alignment.json"
+    markdown_path = artifact_dir / "daily_report_alignment.md"
+    assert artifact_dir.exists()
+    assert paths == {"json": str(json_path), "markdown": str(markdown_path)}
+    assert json_path.exists()
+    assert markdown_path.exists()
+    assert json.loads(json_path.read_text(encoding="utf-8")) == rows
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert "2026-06-29" in markdown
+    assert "ready" in markdown
+    assert "98.5" in markdown
+    assert "False" in markdown
+    assert "1" in markdown
+    assert "total_output_daily" in markdown
+    assert "DailyFactBundle" in markdown
+    assert "review_source" in markdown
+
+
+def test_run_alignment_checks_keeps_all_differences_when_enabled(tmp_path) -> None:
+    differences = [{"field": f"field_{index}"} for index in range(25)]
+
+    def fake_builder(db, *, business_date, persist_run=False):
+        return {
+            "status": "ready",
+            "output_skill_alignment": {
+                "status": "review_needed",
+                "differences": differences,
+            },
+        }
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+        full_differences=True,
+    )
+
+    assert rows[0]["differences"] == differences
+
+
+def test_run_alignment_checks_truncates_differences_by_default(tmp_path) -> None:
+    differences = [{"field": f"field_{index}"} for index in range(25)]
+
+    def fake_builder(db, *, business_date, persist_run=False):
+        return {
+            "status": "ready",
+            "output_skill_alignment": {
+                "status": "review_needed",
+                "differences": differences,
+            },
+        }
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+    )
+
+    assert rows[0]["differences"] == differences[:20]
 
 
 def test_checks_passed_requires_all_rows_passed() -> None:

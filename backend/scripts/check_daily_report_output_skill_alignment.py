@@ -74,6 +74,7 @@ def run_alignment_checks(
     business_dates: Sequence[date],
     output_skill_root: Path,
     bundle_builder: BundleBuilder = build_daily_fact_bundle,
+    full_differences: bool = False,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     with temporary_output_skill_root(output_skill_root):
@@ -81,6 +82,9 @@ def run_alignment_checks(
             try:
                 bundle = bundle_builder(db, business_date=business_date, persist_run=False)
                 alignment = bundle.get("output_skill_alignment") or {}
+                differences = list(alignment.get("differences") or [])
+                if not full_differences:
+                    differences = differences[:20]
                 rows.append(
                     {
                         "business_date": business_date.isoformat(),
@@ -91,7 +95,7 @@ def run_alignment_checks(
                         "matched_fields": alignment.get("matched_fields"),
                         "expected_fields": alignment.get("expected_fields"),
                         "difference_count": alignment.get("difference_count"),
-                        "differences": list(alignment.get("differences") or [])[:20],
+                        "differences": differences,
                         "char_match_rate": alignment.get("char_match_rate"),
                         "exact_match": bool(alignment.get("exact_match")),
                         "threshold": alignment.get("threshold"),
@@ -127,6 +131,54 @@ def checks_passed(rows: Sequence[dict[str, Any]]) -> bool:
     return bool(rows) and all(row.get("status") == "passed" for row in rows)
 
 
+def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
+    lines = ["# Daily Report Alignment", ""]
+    for row in rows:
+        lines.extend(
+            [
+                f"## {row.get('business_date')}",
+                "",
+                f"- Bundle status: {row.get('bundle_status')}",
+                f"- Field match rate: {row.get('field_match_rate')}",
+                f"- Exact match: {row.get('exact_match')}",
+                f"- Missing field count: {row.get('missing_fields_count')}",
+                "",
+                "| Field | Expected | Actual | Source | Status | Action |",
+                "|---|---|---|---|---|---|",
+            ]
+        )
+        differences = row.get("differences") or []
+        if differences:
+            for diff in differences:
+                lines.append(
+                    "| "
+                    + " | ".join(
+                        [
+                            _markdown_cell(diff.get("field")),
+                            _markdown_cell(diff.get("expected")),
+                            _markdown_cell(diff.get("actual")),
+                            _markdown_cell(diff.get("source")),
+                            _markdown_cell(diff.get("status")),
+                            _markdown_cell(diff.get("action") or diff.get("action_required")),
+                        ]
+                    )
+                    + " |"
+                )
+        else:
+            lines.append("|  |  |  |  |  |  |")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_alignment_artifacts(rows: Sequence[dict[str, Any]], artifact_dir: Path) -> dict[str, str]:
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    json_path = artifact_dir / "daily_report_alignment.json"
+    md_path = artifact_dir / "daily_report_alignment.md"
+    json_path.write_text(json.dumps(list(rows), ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+    md_path.write_text(render_alignment_markdown(rows), encoding="utf-8")
+    return {"json": str(json_path), "markdown": str(md_path)}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Check generated daily reports against D:/输出skill locked report text files."
@@ -135,6 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--date", action="append", type=parse_business_date, help="Business date, repeatable")
     parser.add_argument("--end-date", type=parse_business_date, help="Last business date when --date is not provided")
     parser.add_argument("--days", type=int, default=3, help="How many recent completed business days to check")
+    parser.add_argument("--artifact-dir", type=Path, help="Directory where alignment artifacts are written")
+    parser.add_argument("--full-differences", action="store_true", help="Keep all alignment differences")
     parser.add_argument("--json", action="store_true", help="Output JSON only")
     return parser
 
@@ -148,6 +202,9 @@ def _selected_dates(args: argparse.Namespace) -> list[date]:
 
 def _print_text(payload: dict[str, Any]) -> None:
     print(f"output_skill_root={payload['output_skill_root']}")
+    artifacts = payload.get("artifacts") or {}
+    if artifacts:
+        print(f"artifacts json={artifacts.get('json')} markdown={artifacts.get('markdown')}")
     for row in payload["results"]:
         line = (
             f"{row['business_date']} status={row['status']} "
@@ -190,6 +247,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             db,
             business_dates=business_dates,
             output_skill_root=output_skill_root,
+            full_differences=args.full_differences,
         )
     finally:
         db.close()
@@ -200,11 +258,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         "passed": checks_passed(rows),
         "results": rows,
     }
+    if args.artifact_dir:
+        payload["artifacts"] = write_alignment_artifacts(rows, args.artifact_dir)
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
     else:
         _print_text(payload)
     return 0 if payload["passed"] else 1
+
+
+def _markdown_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).replace("\n", " ").replace("|", "\\|")
 
 
 def _action_required_for_error(exc: Exception) -> str:
