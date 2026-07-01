@@ -68,15 +68,6 @@ FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
         "quality_yield_daily",
     },
 }
-FIELD_ALLOWED_SOURCE_PREFIXES: dict[str, tuple[str, ...]] = {
-    "total_output_daily": ("mes_", "wms_"),
-    "finished_inbound_daily": ("mes_", "wms_"),
-    "wip_total": ("mes_", "wms_"),
-    "total_electricity_kwh": (),
-    "daily_yield_rate": ("mes_", "wms_"),
-}
-
-
 def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]:
     facts = _mapping(bundle.get("facts"))
     sources = _mapping(bundle.get("sources"))
@@ -250,9 +241,4 @@ def _is_allowed_source(field: str, source_types: list[str]) -> bool:
     if any(source_type in WEAK_SOURCE_TYPES for source_type in source_types):
         return False
     allowed = FIELD_ALLOWED_SOURCE_TYPES[field]
-    prefixes = FIELD_ALLOWED_SOURCE_PREFIXES[field]
-    return any(
-        source_type in allowed
-        or any(source_type.startswith(prefix) for prefix in prefixes)
-        for source_type in source_types
-    )
+    return any(source_type in allowed for source_type in source_types)

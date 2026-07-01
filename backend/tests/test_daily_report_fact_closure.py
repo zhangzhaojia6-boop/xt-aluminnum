@@ -121,6 +121,22 @@ def test_weak_source_type_with_mes_in_free_text_still_needs_evidence() -> None:
     assert _field_status(closure, "total_output_daily") == "needs_evidence"
 
 
+def test_pseudo_mes_or_wms_source_strings_need_evidence() -> None:
+    for source in (
+        "MES screenshot from chat",
+        "WMS screenshot in chat",
+        "mes_random_note",
+        "wms_unverified_text",
+    ):
+        bundle = _confirmed_bundle()
+        _set_source(bundle, "total_output_daily", source)
+
+        closure = build_daily_report_fact_closure(bundle)
+
+        assert closure["status"] == "blocked"
+        assert _field_status(closure, "total_output_daily") == "needs_evidence"
+
+
 def test_real_bundle_source_types_confirm_where_intended() -> None:
     bundle = _confirmed_bundle()
     _set_source(bundle, "total_output_daily", "mes_packaging_output")
