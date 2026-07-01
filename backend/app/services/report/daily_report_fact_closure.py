@@ -19,58 +19,61 @@ CRITICAL_DAILY_FACT_FIELDS = (
 )
 
 BLOCKING_STATUSES = {"missing", "mismatch", "needs_evidence"}
-WEAK_SOURCE_MARKERS = (
-    "projection",
+WEAK_SOURCE_TYPES = {
+    "data_hub_projection",
+    "yield_projection",
+    "contract_projection",
     "rag",
     "historical_report",
     "output_skill",
     "unknown",
     "missing",
-)
-FIELD_ALLOWED_SOURCE_MARKERS: dict[str, tuple[str, ...]] = {
-    "total_output_daily": (
-        "dingtalk",
-        "mes",
-        "wms",
-        "dailyfactbundle",
+}
+FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
+    "total_output_daily": {
+        "dingtalk_supplement",
+        "root_owner_correction",
         "daily_fact_bundle",
-        "root_owner",
-    ),
-    "finished_inbound_daily": (
-        "dingtalk",
-        "wms",
-        "mes",
+        "mes_packaging_output",
+    },
+    "finished_inbound_daily": {
+        "dingtalk_supplement",
+        "root_owner_correction",
+        "daily_fact_bundle",
         "finished_inbound_output",
-        "dailyfactbundle",
+        "wms_direct",
+    },
+    "wip_total": {
+        "dingtalk_supplement",
+        "root_owner_correction",
         "daily_fact_bundle",
-        "root_owner",
-    ),
-    "wip_total": (
-        "mes",
-        "wms",
-        "dingtalk",
-        "dailyfactbundle",
-        "daily_fact_bundle",
-        "root_owner",
-    ),
-    "total_electricity_kwh": (
-        "dingtalk",
-        "dailyfactbundle",
+        "mes_wip_distribution",
+        "mes_wip_total_snapshot",
+    },
+    "total_electricity_kwh": {
+        "dingtalk_supplement",
+        "root_owner_correction",
         "daily_fact_bundle",
         "data_hub_manual",
-        "owner",
-        "energy_summary",
-        "root_owner",
-    ),
-    "daily_yield_rate": (
-        "mes",
-        "wms",
-        "dailyfactbundle",
+        "owner_daily",
+        "owner_or_energy_summary",
+        "manual_mobile_coil",
+        "energy_cost",
+    },
+    "daily_yield_rate": {
+        "dingtalk_supplement",
+        "root_owner_correction",
         "daily_fact_bundle",
         "computed",
-        "root_owner",
-        "dingtalk",
-    ),
+        "quality_yield_daily",
+    },
+}
+FIELD_ALLOWED_SOURCE_PREFIXES: dict[str, tuple[str, ...]] = {
+    "total_output_daily": ("mes_", "wms_"),
+    "finished_inbound_daily": ("mes_", "wms_"),
+    "wip_total": ("mes_", "wms_"),
+    "total_electricity_kwh": (),
+    "daily_yield_rate": ("mes_", "wms_"),
 }
 
 
@@ -90,10 +93,10 @@ def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]
     counts: Counter[str] = Counter()
     for field in CRITICAL_DAILY_FACT_FIELDS:
         fact = _mapping(facts.get(field))
-        source = _source_for_field(fact, sources.get(field))
-        source_text = _source_evidence_text(fact, sources.get(field))
+        source_types = _source_types(fact, sources.get(field))
+        source = source_types[0] if source_types else None
         value = _value_for_field(bundle, fact, field)
-        status = _field_status(field, value, source, source_text, missing_fields, mismatch_fields)
+        status = _field_status(field, value, source_types, missing_fields, mismatch_fields)
         counts[status] += 1
         critical_fields.append(
             {
@@ -116,8 +119,7 @@ def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]
 def _field_status(
     field: str,
     value: Any,
-    source: str | None,
-    source_text: str,
+    source_types: list[str],
     missing_fields: set[str],
     mismatch_fields: set[str],
 ) -> str:
@@ -125,9 +127,9 @@ def _field_status(
         return "missing"
     if field in mismatch_fields:
         return "mismatch"
-    if not _has_value(value) or not source:
+    if not _has_value(value) or not source_types:
         return "missing"
-    if not _is_allowed_source(field, source_text):
+    if not _is_allowed_source(field, source_types):
         return "needs_evidence"
     return "confirmed"
 
@@ -162,8 +164,7 @@ def _is_missing_field(
         return True
     fact = _mapping(facts.get(field))
     value = _value_for_field(bundle, fact, field)
-    source = _source_for_field(fact, sources.get(field))
-    return not _has_value(value) or not source
+    return not _has_value(value) or not _source_types(fact, sources.get(field))
 
 
 def _is_marked_missing(raw_missing: Any, field: str) -> bool:
@@ -200,26 +201,22 @@ def _value_for_field(bundle: Mapping[str, Any], fact: Mapping[str, Any], field: 
     return bundle.get(field)
 
 
-def _source_for_field(fact: Mapping[str, Any], source_detail: Any) -> str | None:
-    source_values = _source_values(fact) + _source_values(source_detail)
-    return source_values[0] if source_values else None
-
-
-def _source_evidence_text(fact: Mapping[str, Any], source_detail: Any) -> str:
-    return " ".join(_source_values(fact) + _source_values(source_detail)).lower()
-
-
-def _source_values(value: Any) -> list[str]:
-    if isinstance(value, Mapping):
-        values: list[str] = []
-        for key in ("source", "source_type", "source_detail", "source_ref"):
-            raw = value.get(key)
-            if _has_value(raw):
-                values.append(str(raw))
-        return values
-    if _has_value(value):
-        return [str(value)]
-    return []
+def _source_types(fact: Mapping[str, Any], source_detail: Any) -> list[str]:
+    source = _mapping(source_detail)
+    values = (
+        fact.get("source_type"),
+        fact.get("source"),
+        source.get("source_type"),
+        source.get("source"),
+    )
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        source_type = _normalize_source_type(value)
+        if source_type and source_type not in seen:
+            normalized.append(source_type)
+            seen.add(source_type)
+    return normalized
 
 
 def _trace_id_for_field(
@@ -235,10 +232,27 @@ def _has_value(value: Any) -> bool:
     return value is not None and value != ""
 
 
-def _is_allowed_source(field: str, source_text: str) -> bool:
-    if any(marker in source_text for marker in WEAK_SOURCE_MARKERS):
+def _normalize_source_type(value: Any) -> str | None:
+    if not _has_value(value):
+        return None
+    source_type = str(value).strip().lower()
+    for char in (" ", "/", "-"):
+        source_type = source_type.replace(char, "_")
+    while "__" in source_type:
+        source_type = source_type.replace("__", "_")
+    source_type = source_type.strip("_")
+    if source_type == "dailyfactbundle":
+        return "daily_fact_bundle"
+    return source_type or None
+
+
+def _is_allowed_source(field: str, source_types: list[str]) -> bool:
+    if any(source_type in WEAK_SOURCE_TYPES for source_type in source_types):
         return False
+    allowed = FIELD_ALLOWED_SOURCE_TYPES[field]
+    prefixes = FIELD_ALLOWED_SOURCE_PREFIXES[field]
     return any(
-        marker in source_text
-        for marker in FIELD_ALLOWED_SOURCE_MARKERS[field]
+        source_type in allowed
+        or any(source_type.startswith(prefix) for prefix in prefixes)
+        for source_type in source_types
     )
