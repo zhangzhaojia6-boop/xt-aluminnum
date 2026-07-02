@@ -32,6 +32,7 @@ class AcceptanceTurnSnapshot:
     evidence: dict[str, Any]
     dispatch: dict[str, Any]
     source_health: dict[str, Any]
+    required_source_health: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +119,32 @@ _DINGTALK_FACT_SOURCES = (
     "dingtalk_group_content",
     "dingtalk_group_chat",
     "dingtalk_group_file",
+)
+_NON_LANGUAGE_TOKENS = (
+    "鑫泰铝业智能大脑",
+    "来源",
+    "状态",
+    "追踪编号",
+    "confirmed",
+    "candidate",
+    "missing",
+    "conflict",
+    "answer",
+    "readonly",
+    "read only",
+    "trace",
+    "mes/wms",
+    "mes",
+    "wms",
+    "rag",
+    ":",
+    "：",
+    ".",
+    "。",
+    ";",
+    "；",
+    ",",
+    "，",
 )
 
 
@@ -229,13 +256,15 @@ def render_acceptance_report(summary: AcceptanceSummary) -> str:
 
 def _understanding_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:
     recognition = snapshot.recognition or {}
-    if recognition.get("needs_clarification") is True:
-        return LayerGateResult("understanding", False, "needs_clarification")
     metric_keys = set(_list_value(recognition.get("metric_keys")))
     if not any(metric_key in metric_keys for metric_key in question.metric_keys):
         return LayerGateResult("understanding", False, "metric_not_recognized")
     if recognition.get("domain") != question.domain:
         return LayerGateResult("understanding", False, "domain_not_recognized")
+    if recognition.get("needs_clarification") is True:
+        if _is_unfamiliar_dingtalk_wording_gap(snapshot):
+            return LayerGateResult("understanding", True, "ok")
+        return LayerGateResult("understanding", False, "needs_clarification")
     return LayerGateResult("understanding", True, "ok")
 
 
@@ -256,12 +285,17 @@ def _source_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSna
         return LayerGateResult("source", False, "mes_readonly_not_checked")
     if not source_order and not source_status:
         return LayerGateResult("source", False, "no_real_source_trace")
+    required_source_health_gate = _required_source_health_gate(snapshot)
+    if required_source_health_gate is not None:
+        return required_source_health_gate
     return LayerGateResult("source", True, "ok")
 
 
 def _answer_gate(snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:
     answer = str(snapshot.answer or "")
     if "鑫泰铝业智能大脑" not in answer or "追踪编号" not in answer:
+        return LayerGateResult("answer", False, "public_identity_or_language_failed")
+    if not _contains_meaningful_chinese(answer):
         return LayerGateResult("answer", False, "public_identity_or_language_failed")
     answer_casefolded = answer.casefold()
     if any(term.casefold() in answer_casefolded for term in _FORBIDDEN_PUBLIC_TERMS):
@@ -311,6 +345,55 @@ def _list_value(value: Any) -> list[str]:
     if isinstance(value, Sequence):
         return [str(item) for item in value]
     return [str(value)]
+
+
+def _required_source_health_gate(snapshot: AcceptanceTurnSnapshot) -> LayerGateResult | None:
+    for item in snapshot.required_source_health or ():
+        key = str(item or "").strip()
+        if not key:
+            continue
+        payload_value = (snapshot.source_health or {}).get(key)
+        payload = payload_value if isinstance(payload_value, Mapping) else {}
+        if not payload:
+            return LayerGateResult("source", False, f"{key}_required_but_missing")
+        status = str(payload.get("status") or "").strip().lower()
+        if status not in {"ok", "pass", "passed", "ready", "confirmed"}:
+            return LayerGateResult("source", False, f"{key}_not_passed")
+    return None
+
+
+def _is_unfamiliar_dingtalk_wording_gap(snapshot: AcceptanceTurnSnapshot) -> bool:
+    recognition_reason = str((snapshot.recognition or {}).get("recognition_reason") or "")
+    if "unfamiliar_dingtalk_wording" not in recognition_reason:
+        return False
+    evidence = snapshot.evidence or {}
+    for key in ("actions", "pending_actions", "follow_up_actions"):
+        if _has_action_items(evidence.get(key)):
+            return True
+    gap_plan = evidence.get("gap_plan")
+    if isinstance(gap_plan, Mapping) and _has_action_items(gap_plan.get("items")):
+        return True
+    return False
+
+
+def _has_action_items(value: Any) -> bool:
+    if isinstance(value, Mapping):
+        value = [value]
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return False
+    for item in value:
+        if isinstance(item, Mapping) and any(item.get(key) for key in ("next_step", "action", "reason", "type")):
+            return True
+        if isinstance(item, str) and item.strip():
+            return True
+    return False
+
+
+def _contains_meaningful_chinese(answer: str) -> bool:
+    normalized = str(answer or "").casefold()
+    for token in _NON_LANGUAGE_TOKENS:
+        normalized = normalized.replace(token, "")
+    return any("\u4e00" <= char <= "\u9fff" for char in normalized)
 
 
 def _gate_text(gate: LayerGateResult) -> str:

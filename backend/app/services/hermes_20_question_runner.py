@@ -39,6 +39,7 @@ def run_20_question_acceptance(
     sender_external_id: str,
     business_date: date,
     source_health: dict[str, Any] | None = None,
+    required_source_health: tuple[str, ...] = (),
     delivery_targets: Sequence[DingTalkDeliveryTarget] = (),
     limit: int | None = None,
 ) -> Hermes20QuestionRunOutcome:
@@ -74,6 +75,7 @@ def run_20_question_acceptance(
                 answer=result.answer,
                 outbox_message_id=result.outbox_message_id,
                 source_health=source_health or {},
+                required_source_health=required_source_health,
                 target_results=target_results,
             )
         )
@@ -92,6 +94,7 @@ def build_snapshot_from_turn(
     answer: str,
     outbox_message_id: int | None,
     source_health: dict[str, Any],
+    required_source_health: tuple[str, ...],
     target_results: list[dict[str, Any]] | None = None,
 ) -> AcceptanceTurnSnapshot:
     run = (
@@ -111,6 +114,7 @@ def build_snapshot_from_turn(
         evidence=dict(payload.get("evidence") or {}),
         dispatch=dispatch,
         source_health=source_health,
+        required_source_health=tuple(required_source_health or ()),
     )
 
 

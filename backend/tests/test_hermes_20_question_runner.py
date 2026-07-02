@@ -296,6 +296,31 @@ def test_acceptance_cli_parses_real_delivery_targets() -> None:
     ]
 
 
+def test_acceptance_cli_parses_daily_report_gate_args() -> None:
+    from scripts.hermes_20_question_acceptance import parse_args
+
+    args = parse_args(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--target",
+            "dingtalk_group:test-group",
+            "--real-delivery",
+            "--require-daily-report-gate",
+            "--output-skill-root",
+            "D:/输出skill",
+            "--alignment-artifact-dir",
+            "docs/superpowers/reports/daily-report-fact-closure-smoke",
+        ]
+    )
+
+    assert args.require_daily_report_gate is True
+    assert args.output_skill_root == "D:/输出skill"
+    assert args.alignment_artifact_dir == "docs/superpowers/reports/daily-report-fact-closure-smoke"
+
+
 def test_acceptance_cli_main_requires_real_delivery_flag_before_db(monkeypatch, capsys) -> None:
     from scripts import hermes_20_question_acceptance as cli
 
@@ -397,3 +422,78 @@ def test_acceptance_cli_main_rejects_report_path_outside_reports_dir_before_db(m
 
     assert exit_code == 2
     assert capsys.readouterr().out.strip() == "report_path_outside_reports_dir"
+
+
+def test_acceptance_cli_main_attaches_daily_report_gate_when_required(monkeypatch, tmp_path) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    db = _db_session()
+    db.add(_user())
+    db.commit()
+
+    class _SessionFactory:
+        def __call__(self):
+            return self
+
+        def __enter__(self):
+            return db
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(cli, "get_sessionmaker", lambda: _SessionFactory())
+    monkeypatch.setattr(cli, "resolve_report_path", lambda _value: tmp_path / "report.md")
+    monkeypatch.setattr(
+        cli,
+        "build_daily_report_gate_payload",
+        lambda *_args, **_kwargs: {
+            "source_key": "daily_report_gate",
+            "status": "passed",
+            "business_date": "2026-06-27",
+            "output_skill_alignment": {"status": "passed"},
+            "fact_closure": {"status": "pass"},
+            "gap_plan": {"status": "ready"},
+        },
+    )
+    monkeypatch.setattr(
+        cli,
+        "health_check_sources",
+        lambda *_args, **_kwargs: {"mes_readonly": {"status": "unknown"}},
+    )
+    monkeypatch.setattr(cli, "render_acceptance_report", lambda _summary: "# report\n")
+
+    def fake_run(*_args, **kwargs):
+        captured["source_health"] = kwargs["source_health"]
+        captured["required_source_health"] = kwargs["required_source_health"]
+        return SimpleNamespace(summary=SimpleNamespace(core_passed=True, delivery_passed=True))
+
+    monkeypatch.setattr(cli, "run_20_question_acceptance", fake_run)
+
+    exit_code = cli.main(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--target",
+            "dingtalk_group:test-group",
+            "--real-delivery",
+            "--require-daily-report-gate",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["required_source_health"] == ("daily_report_gate",)
+    assert captured["source_health"] == {
+        "mes_readonly": {"status": "unknown"},
+        "daily_report_gate": {
+            "source_key": "daily_report_gate",
+            "status": "passed",
+            "business_date": "2026-06-27",
+            "output_skill_alignment": {"status": "passed"},
+            "fact_closure": {"status": "pass"},
+            "gap_plan": {"status": "ready"},
+        },
+    }

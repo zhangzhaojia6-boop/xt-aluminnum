@@ -54,6 +54,7 @@ def _passing_snapshot(question_id: int, *, answer: str | None = None) -> Accepta
                 "failure_reason": "source_not_configured",
             }
         },
+        required_source_health=(),
     )
 
 
@@ -81,6 +82,23 @@ def test_answer_gate_rejects_internal_identity_and_trace_id_copy() -> None:
     snapshot = _passing_snapshot(
         1,
         answer="Factory Brain answered with trace_id: abc. 来源：MES。状态：confirmed。",
+    )
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "answer" in result.failed_gate_names
+    assert "public_identity_or_language_failed" in result.failed_reasons
+
+
+def test_answer_gate_rejects_answer_that_is_not_really_chinese() -> None:
+    question = build_20_question_catalog()[0]
+    snapshot = _passing_snapshot(
+        1,
+        answer=(
+            "鑫泰铝业智能大脑 answer confirmed. "
+            "来源: MES/WMS readonly. 状态: confirmed. 追踪编号: trace-q."
+        ),
     )
 
     result = evaluate_question_snapshot(question, snapshot)
@@ -200,6 +218,66 @@ def test_source_gate_accepts_canonical_dingtalk_group_content_status() -> None:
     result = evaluate_question_snapshot(question, snapshot)
 
     assert result.core_passed is True
+
+
+def test_daily_report_gate_present_passes_source_health_prerequisite() -> None:
+    question = build_20_question_catalog()[0]
+    snapshot = _passing_snapshot(1)
+    snapshot.required_source_health = ("daily_report_gate",)
+    snapshot.source_health["daily_report_gate"] = {
+        "source_key": "daily_report_gate",
+        "status": "passed",
+        "business_date": "2026-06-27",
+        "output_skill_alignment": {"status": "passed"},
+        "fact_closure": {"status": "pass"},
+        "gap_plan": {"status": "ready"},
+    }
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is True
+    assert "source" not in result.failed_gate_names
+
+
+def test_daily_report_gate_missing_fails_only_when_required() -> None:
+    question = build_20_question_catalog()[0]
+    optional_snapshot = _passing_snapshot(1)
+    required_snapshot = _passing_snapshot(1)
+    required_snapshot.required_source_health = ("daily_report_gate",)
+
+    optional_result = evaluate_question_snapshot(question, optional_snapshot)
+    required_result = evaluate_question_snapshot(question, required_snapshot)
+
+    assert optional_result.core_passed is True
+    assert required_result.core_passed is False
+    assert "source" in required_result.failed_gate_names
+    assert "daily_report_gate_required_but_missing" in required_result.failed_reasons
+
+
+def test_unfamiliar_dingtalk_wording_becomes_action_not_hard_parse_failure() -> None:
+    question = build_20_question_catalog()[14]
+    snapshot = _passing_snapshot(15)
+    snapshot.status = "clarifying"
+    snapshot.answer = (
+        "鑫泰铝业智能大脑已把这条钉钉原话记录成待补证据动作。"
+        "来源：钉钉群聊天内容。状态：candidate。追踪编号：trace-q15。"
+    )
+    snapshot.recognition["needs_clarification"] = True
+    snapshot.recognition["recognition_reason"] = "unfamiliar_dingtalk_wording"
+    snapshot.evidence["actions"] = [
+        {
+            "type": "follow_up",
+            "reason": "unfamiliar_dingtalk_wording",
+            "next_step": "请专项责任人补充标准字段或截图。",
+        }
+    ]
+    snapshot.evidence["missing_sources"] = ["dingtalk_field_mapping"]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is True
+    assert "understanding" not in result.failed_gate_names
+    assert result.status == "missing"
 
 
 def test_understanding_gate_rejects_wrong_domain_for_factory_overview() -> None:
