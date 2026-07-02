@@ -51,6 +51,14 @@ py -3 backend\scripts\check_daily_report_output_skill_alignment.py --days 3 --ou
 
 当前结论不是“字段失败”，而是“事实包构建前置数据库连接失败”。
 
+按天状态如下：
+
+| Business date | total_output_daily | finished_inbound_daily | wip_total | total_electricity_kwh | daily_yield_rate |
+|---|---|---|---|---|---|
+| 2026-06-29 | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable |
+| 2026-06-30 | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable |
+| 2026-07-01 | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable | not_evaluated: database unavailable |
+
 ## MES/WMS Read Health
 
 本地 smoke 未进入 MES/WMS 读取阶段，因为 PostgreSQL 事实包构建前置连接失败。
