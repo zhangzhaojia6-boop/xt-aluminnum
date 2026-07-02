@@ -484,6 +484,64 @@ def test_dingtalk_structured_list_field_key_applies_to_fact_closure(
     assert closure_field["source"] == "dingtalk_supplement"
 
 
+def test_dingtalk_structured_date_mismatch_records_candidate_trace(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {"total_output_daily": 355},
+            "sources": {"total_output_daily": "mes_packaging_output"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            source_user_id=None,
+            recognized_text="今日总产量371吨",
+            confirmation_status="confirmed",
+            payload={
+                "business_date": "2026-06-18",
+                "include_in_daily_sample": True,
+                "evidence_kind": "fact",
+                "trace_id": "trace-structured-date-mismatch",
+                "fact_updates": {
+                    "total_output_daily": {
+                        "value": 371,
+                        "unit": "吨",
+                    }
+                },
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["facts"]["total_output_daily"]["value"] == 355
+    assert bundle["facts"]["total_output_daily"]["source"] == "mes_packaging_output"
+    assert bundle["dingtalk_refs"] == []
+    assert bundle["conflicts"] == [
+        {
+            "field": "total_output_daily",
+            "type": "dingtalk_candidate_not_applied",
+            "candidate_value": 371,
+            "reason": "payload_business_date_missing_or_mismatch",
+            "trace_id": "trace-structured-date-mismatch",
+            "evidence_id": 1,
+        }
+    ]
+
+
 def test_unstructured_dingtalk_evidence_with_matching_business_date_applies_to_fact_closure(
     monkeypatch,
     db_session: Session,

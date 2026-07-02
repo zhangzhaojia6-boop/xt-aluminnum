@@ -390,9 +390,20 @@ def _apply_dingtalk_supplements(
 
         has_structured_updates = "fact_updates" in payload
         if has_structured_updates:
-            if str(payload.get("business_date") or "") != business_date_text:
-                continue
             update_items = _iter_fact_updates(payload.get("fact_updates"))
+            if str(payload.get("business_date") or "") != business_date_text:
+                for field_name, item in update_items:
+                    if _has_fact_value(item.get("value")):
+                        _append_unapplied_dingtalk_candidate(
+                            conflicts,
+                            row=row,
+                            candidate={
+                                "field": field_name,
+                                "value": item.get("value"),
+                                "trace_id": _payload_trace_id(payload, row),
+                            },
+                        )
+                continue
         else:
             candidates = extract_daily_fact_update_candidates(
                 {
@@ -506,6 +517,14 @@ def _append_unapplied_dingtalk_candidate(
             "evidence_id": row.id,
         }
     )
+
+
+def _payload_trace_id(payload: Mapping[str, Any], row: MultimodalEvidence) -> str:
+    for key in ("trace_id", "id"):
+        value = payload.get(key)
+        if value is not None and value != "":
+            return str(value)
+    return str(row.id or "")
 
 
 def _candidate_confidence(candidate: Mapping[str, Any]) -> float:

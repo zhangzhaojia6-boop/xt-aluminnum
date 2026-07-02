@@ -139,19 +139,23 @@ def _value_near_any_phrase(
 ) -> tuple[int | float, str] | None:
     for phrase in phrases:
         for phrase_match in re.finditer(re.escape(phrase), text):
-            window = text[max(0, phrase_match.start() - 8) : phrase_match.end() + 24]
-            if any(marker in window for marker in guard_markers):
-                continue
-
             after = text[phrase_match.end() : phrase_match.end() + 24]
             after_match = NUMBER_WITH_UNIT_RE.search(after)
-            value_unit = _value_unit_from_match(after_match, expected_unit=expected_unit)
-            if value_unit is not None:
-                return value_unit
+            if after_match is not None:
+                local_start = max(0, phrase_match.start() - 6)
+                local_end = phrase_match.end() + after_match.end()
+                segment = text[local_start:local_end]
+                if not any(marker in segment for marker in guard_markers):
+                    value_unit = _value_unit_from_match(after_match, expected_unit=expected_unit)
+                    if value_unit is not None:
+                        return value_unit
 
             before = text[max(0, phrase_match.start() - 16) : phrase_match.start()]
             before_matches = list(NUMBER_WITH_UNIT_RE.finditer(before))
             for before_match in reversed(before_matches):
+                segment = before[before_match.start() :] + text[phrase_match.start() : phrase_match.end()]
+                if any(marker in segment for marker in guard_markers):
+                    continue
                 value_unit = _value_unit_from_match(before_match, expected_unit=expected_unit)
                 if value_unit is not None:
                     return value_unit

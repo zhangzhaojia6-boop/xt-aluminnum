@@ -68,6 +68,23 @@ def test_plain_chinese_examples_produce_expected_candidates(
     assert candidates[0]["raw_text"] == text
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "今日总产量371吨，包装产量360吨",
+        "今日总产量371吨；包装360吨",
+        "今日总产量371吨，较昨日350吨增长",
+    ],
+)
+def test_plain_text_accepts_daily_output_inside_mixed_messages(text: str) -> None:
+    candidates = extract_daily_fact_update_candidates({"recognized_text": text})
+
+    assert len(candidates) == 1
+    assert candidates[0]["field"] == "total_output_daily"
+    assert candidates[0]["value"] == 371
+    assert candidates[0]["unit"] == "吨"
+
+
 def test_unknown_text_returns_empty_candidates() -> None:
     assert extract_daily_fact_update_candidates({"recognized_text": "辛苦了，收到"}) == []
 
