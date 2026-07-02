@@ -424,6 +424,8 @@ def _apply_dingtalk_supplements(
                 old_unit = old_fact.get("unit") or old_unit
 
             new_value = item.get("value")
+            if not _has_fact_value(new_value):
+                continue
             new_unit = item.get("unit") or old_unit
             reason = str(item.get("reason") or "钉钉补充事实")
             source_detail = {
@@ -520,17 +522,25 @@ def _remove_applied_missing_fields(bundle: dict[str, Any], applied_fields: set[s
     bundle["missing"] = missing
 
 
+def _has_fact_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    return True
+
+
 def _iter_fact_updates(fact_updates: Any) -> list[tuple[str, Mapping[str, Any]]]:
     if isinstance(fact_updates, Mapping):
-        if "field_name" in fact_updates:
-            field_name = str(fact_updates.get("field_name") or "").strip()
+        if "field" in fact_updates or "field_name" in fact_updates:
+            field_name = str(fact_updates.get("field") or fact_updates.get("field_name") or "").strip()
             return [(field_name, fact_updates)] if field_name else []
         updates: list[tuple[str, Mapping[str, Any]]] = []
         for raw_field_name, item in fact_updates.items():
             if not isinstance(item, Mapping):
                 continue
-            if "field_name" in item:
-                field_name = str(item.get("field_name") or "").strip()
+            if "field" in item or "field_name" in item:
+                field_name = str(item.get("field") or item.get("field_name") or "").strip()
             else:
                 field_name = str(raw_field_name or "").strip()
             if field_name:
@@ -541,7 +551,7 @@ def _iter_fact_updates(fact_updates: Any) -> list[tuple[str, Mapping[str, Any]]]
         for item in fact_updates:
             if not isinstance(item, Mapping):
                 continue
-            field_name = str(item.get("field_name") or "").strip()
+            field_name = str(item.get("field") or item.get("field_name") or "").strip()
             if field_name:
                 updates.append((field_name, item))
         return updates

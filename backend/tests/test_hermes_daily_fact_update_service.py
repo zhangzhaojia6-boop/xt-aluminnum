@@ -73,6 +73,18 @@ def test_unknown_text_returns_empty_candidates() -> None:
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "本月累计产量371吨",
+        "昨日总产量371吨",
+        "今日包装产量371吨",
+    ],
+)
+def test_plain_text_rejects_non_daily_final_output_markers(text: str) -> None:
+    assert extract_daily_fact_update_candidates({"recognized_text": text}) == []
+
+
+@pytest.mark.parametrize(
     "evidence",
     [
         {},

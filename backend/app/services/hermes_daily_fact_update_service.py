@@ -8,6 +8,14 @@ from typing import Any
 SOURCE = "dingtalk_supplement"
 DEFAULT_CONFIDENCE = 0.95
 TEXT_CONFIDENCE = 0.86
+GENERAL_NON_DAILY_MARKERS = ("本月", "月累计", "累计", "过程量", "预估", "预计", "约", "大概")
+FIELD_GUARD_MARKERS = {
+    "total_output_daily": GENERAL_NON_DAILY_MARKERS + ("昨日", "包装"),
+    "finished_inbound_daily": GENERAL_NON_DAILY_MARKERS,
+    "total_electricity_kwh": GENERAL_NON_DAILY_MARKERS,
+    "wip_total": GENERAL_NON_DAILY_MARKERS,
+    "daily_yield_rate": GENERAL_NON_DAILY_MARKERS,
+}
 
 FIELD_SPECS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("total_output_daily", "吨", ("总产量", "日产量", "产量")),
@@ -51,6 +59,8 @@ def _structured_candidates(
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for field, item in _iter_fact_updates(fact_updates):
+        if not _has_value(item.get("value")):
+            continue
         candidate = {
             "field": field,
             "value": item.get("value"),
@@ -97,7 +107,12 @@ def _iter_fact_updates(fact_updates: Any) -> list[tuple[str, Mapping[str, Any]]]
 def _plain_text_candidates(raw_text: str, *, trace_id: str) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for field, default_unit, phrases in FIELD_SPECS:
-        value_unit = _value_near_any_phrase(raw_text, phrases, expected_unit=default_unit)
+        value_unit = _value_near_any_phrase(
+            raw_text,
+            phrases,
+            expected_unit=default_unit,
+            guard_markers=FIELD_GUARD_MARKERS.get(field, ()),
+        )
         if value_unit is None:
             continue
         value, unit = value_unit
@@ -120,9 +135,14 @@ def _value_near_any_phrase(
     phrases: tuple[str, ...],
     *,
     expected_unit: str,
+    guard_markers: tuple[str, ...],
 ) -> tuple[int | float, str] | None:
     for phrase in phrases:
         for phrase_match in re.finditer(re.escape(phrase), text):
+            window = text[max(0, phrase_match.start() - 8) : phrase_match.end() + 24]
+            if any(marker in window for marker in guard_markers):
+                continue
+
             after = text[phrase_match.end() : phrase_match.end() + 24]
             after_match = NUMBER_WITH_UNIT_RE.search(after)
             value_unit = _value_unit_from_match(after_match, expected_unit=expected_unit)
@@ -183,6 +203,14 @@ def _confidence(value: Any, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _has_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    return True
 
 
 def _normalize_unit(unit: str) -> str:

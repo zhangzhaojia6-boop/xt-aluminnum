@@ -381,6 +381,109 @@ def test_dingtalk_supplement_can_confirm_critical_field_in_fact_closure(
     assert closure_field["trace_id"] == "trace-dingtalk-energy"
 
 
+def test_dingtalk_structured_none_value_does_not_clear_missing_field(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {},
+            "sources": {},
+            "missing_fields": ["total_output_daily"],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            source_user_id=None,
+            recognized_text="今日总产量待确认",
+            confirmation_status="confirmed",
+            payload={
+                "business_date": "2026-06-19",
+                "include_in_daily_sample": True,
+                "evidence_kind": "fact",
+                "fact_updates": {
+                    "total_output_daily": {
+                        "value": None,
+                        "unit": "吨",
+                    }
+                },
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert "total_output_daily" not in bundle["facts"]
+    assert bundle["missing_fields"] == ["total_output_daily"]
+    assert bundle["missing"] == ["total_output_daily"]
+    assert bundle["status"] == "blocked"
+    assert bundle["dingtalk_refs"] == []
+    closure_field = _fact_closure_field(bundle, "total_output_daily")
+    assert closure_field["status"] == "missing"
+
+
+def test_dingtalk_structured_list_field_key_applies_to_fact_closure(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {},
+            "sources": {},
+            "missing_fields": ["total_output_daily"],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            source_user_id=None,
+            recognized_text="今日总产量371吨",
+            confirmation_status="confirmed",
+            payload={
+                "business_date": "2026-06-19",
+                "include_in_daily_sample": True,
+                "evidence_kind": "fact",
+                "fact_updates": [
+                    {
+                        "field": "total_output_daily",
+                        "value": 371,
+                        "unit": "吨",
+                    }
+                ],
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["facts"]["total_output_daily"]["value"] == 371
+    assert bundle["facts"]["total_output_daily"]["source"] == "dingtalk_supplement"
+    assert bundle["missing_fields"] == []
+    assert bundle["status"] == "ready"
+    closure_field = _fact_closure_field(bundle, "total_output_daily")
+    assert closure_field["status"] == "confirmed"
+    assert closure_field["source"] == "dingtalk_supplement"
+
+
 def test_unstructured_dingtalk_evidence_with_matching_business_date_applies_to_fact_closure(
     monkeypatch,
     db_session: Session,
