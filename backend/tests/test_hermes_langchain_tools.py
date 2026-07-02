@@ -1,4 +1,5 @@
 from typing import cast
+import json
 
 import httpx
 from sqlalchemy import Table, create_engine
@@ -24,6 +25,16 @@ _DINGTALK_TABLES: tuple[Table, Table] = (
 
 def _fake_tool(**kwargs: object) -> ToolResult:
     return {'status': 'ok', 'request': kwargs}
+
+
+class _MesReadServiceStub:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self._adapter = type('AdapterProbe', (), {})()
+        self._payload = payload
+
+    def read_sources(self, **kwargs: object) -> dict[str, object]:
+        _ = kwargs
+        return self._payload
 
 
 def _db() -> Session:
@@ -111,6 +122,7 @@ def test_hub_query_tool_returns_structured_payload() -> None:
     assert result['source'] == 'data_hub'
     assert 'request' in result
     assert 'facts' in result
+    assert result['source_guidance']['tool_priority'] == 3
 
 
 def test_dingtalk_evidence_tool_returns_group_content_priority_first() -> None:
@@ -146,6 +158,8 @@ def test_dingtalk_evidence_tool_returns_group_content_priority_first() -> None:
         assert payload['source'] == 'dingtalk_group_content'
         assert payload['facts'][0]['source_key'] in {'dingtalk_group_file', 'dingtalk_group_chat'}
         assert payload['facts'][0]['priority'] == 10
+        assert payload['source_guidance']['tool_priority'] == 1
+        assert payload['source_guidance']['priority_order'][0]['label'] == '钉钉群聊天/群文件'
     finally:
         db.close()
 
@@ -288,3 +302,66 @@ def test_dingtalk_evidence_tool_limit_sorts_image_after_text_and_file() -> None:
         ]
     finally:
         db.close()
+
+
+def test_mes_wms_read_tool_exposes_readonly_health_summary() -> None:
+    payload = build_production_tool_adapters(
+        _db(),
+        mes_read_service=_MesReadServiceStub(
+            {
+                'records': {
+                    'workshop_process_records': [{'id': 'row-1'}],
+                    'finished_inbound_records': [{'id': 'row-2'}, {'id': 'row-3'}],
+                },
+                'source_status': {
+                    'mes': 'ok',
+                    'sources': {
+                        'workshop_process_records': {'status': 'ok', 'count': 1},
+                        'finished_inbound_records': {'status': 'ok', 'count': 2},
+                    },
+                },
+                'source_errors': {'finished_inbound_records': 'missing secondary index'},
+            }
+        ),
+    ).mes_wms_read(business_date='2026-06-25', query_keys='workshop_process_records,finished_inbound_records')
+
+    assert payload['status'] == 'ok'
+    assert payload['source'] == 'mes_wms_readonly'
+    assert payload['source_guidance']['tool_priority'] == 2
+    assert payload['source_health'] == {
+        'adapter': 'AdapterProbe',
+        'readonly': True,
+        'query_keys': ['workshop_process_records', 'finished_inbound_records'],
+        'source_errors': {'finished_inbound_records': 'missing secondary index'},
+        'record_count': 3,
+        'service_status': 'ok',
+    }
+
+
+def test_mes_wms_read_tool_missing_service_still_reports_readonly_health() -> None:
+    payload = build_production_tool_adapters(_db()).mes_wms_read(
+        business_date='2026-06-25',
+        query_keys='workshop_process_records',
+    )
+
+    assert payload['status'] == 'unavailable'
+    assert payload['reason'] == 'mes_read_service_missing'
+    assert payload['source_health'] == {
+        'adapter': 'service_missing',
+        'readonly': True,
+        'query_keys': ['workshop_process_records'],
+        'source_errors': {'service': 'mes_read_service_missing'},
+        'record_count': 0,
+        'service_status': 'missing',
+    }
+
+
+def test_rag_route_guidance_does_not_claim_current_numeric_fact_or_english_identity() -> None:
+    payload = build_production_tool_adapters(_db()).rag_route(query='今天产量规则是什么')
+
+    guidance_text = json.dumps(payload['source_guidance'], ensure_ascii=False).lower()
+
+    assert payload['source_guidance']['tool_priority'] == 4
+    assert '不作为当前实时数字事实来源' in payload['source_guidance']['tool_usage']
+    assert 'developer' not in guidance_text
+    assert 'factory brain' not in guidance_text
