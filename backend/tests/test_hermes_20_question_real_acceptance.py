@@ -138,6 +138,20 @@ def test_source_gate_rejects_rag_as_current_fact_source() -> None:
     assert "rag_used_as_current_fact_source" in result.failed_reasons
 
 
+def test_source_gate_rejects_source_status_with_only_rag() -> None:
+    question = build_20_question_catalog()[0]
+    snapshot = _passing_snapshot(1)
+    snapshot.evidence["primary_source"] = ""
+    snapshot.evidence["trace"]["source_order"] = []
+    snapshot.evidence["trace"]["source_status"] = {"rag": {"status": "ok"}}
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "source" in result.failed_gate_names
+    assert "rag_used_as_current_fact_source" in result.failed_reasons
+
+
 def test_source_gate_accepts_energy_readonly_disabled_as_known_missing_state() -> None:
     question = build_20_question_catalog()[4]
     snapshot = _passing_snapshot(5)

@@ -3,6 +3,8 @@
 ## 2026-06-29
 
 - Status: error
+- Alignment status: error
+- Fact closure status: missing
 - Bundle status: None
 - Field match rate: None
 - Exact match: False
@@ -21,6 +23,8 @@ connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection re
 ## 2026-06-30
 
 - Status: error
+- Alignment status: error
+- Fact closure status: missing
 - Bundle status: None
 - Field match rate: None
 - Exact match: False
@@ -39,6 +43,8 @@ connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection re
 ## 2026-07-01
 
 - Status: error
+- Alignment status: error
+- Fact closure status: missing
 - Bundle status: None
 - Field match rate: None
 - Exact match: False

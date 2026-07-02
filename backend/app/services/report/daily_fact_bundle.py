@@ -6,6 +6,7 @@ from decimal import Decimal
 import hashlib
 import json
 import os
+import re
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
@@ -414,7 +415,12 @@ def _apply_dingtalk_supplements(
             )
             if not candidates:
                 continue
-            if not _payload_business_date_matches(payload, business_date_text):
+            if not _candidate_business_date_matches(
+                payload,
+                row=row,
+                candidates=candidates,
+                business_date=business_date,
+            ):
                 for candidate in candidates:
                     _append_unapplied_dingtalk_candidate(conflicts, row=row, candidate=candidate)
                 continue
@@ -500,6 +506,46 @@ def _payload_business_date_matches(payload: Mapping[str, Any], business_date_tex
         if str(payload.get(key) or "") == business_date_text:
             return True
     return False
+
+
+def _candidate_business_date_matches(
+    payload: Mapping[str, Any],
+    *,
+    row: MultimodalEvidence,
+    candidates: list[Mapping[str, Any]],
+    business_date: date,
+) -> bool:
+    business_date_text = business_date.isoformat()
+    if _payload_business_date_matches(payload, business_date_text):
+        return True
+    if _payload_has_business_date(payload):
+        return False
+    raw_text = " ".join(
+        str(text or "")
+        for text in [
+            row.recognized_text,
+            *(candidate.get("raw_text") for candidate in candidates),
+        ]
+    )
+    return _recognized_text_matches_business_date(raw_text, business_date)
+
+
+def _payload_has_business_date(payload: Mapping[str, Any]) -> bool:
+    return any(payload.get(key) not in (None, "") for key in ("business_date", "target_date", "date"))
+
+
+def _recognized_text_matches_business_date(text: str, business_date: date) -> bool:
+    clean = str(text or "")
+    if "今日" in clean or "今天" in clean:
+        return True
+    month = business_date.month
+    day = business_date.day
+    month_day_patterns = (
+        rf"(?<!\d)0?{month}\s*月\s*0?{day}\s*日",
+        rf"{business_date.year}\s*年\s*0?{month}\s*月\s*0?{day}\s*日",
+        re.escape(business_date.isoformat()),
+    )
+    return any(re.search(pattern, clean) for pattern in month_day_patterns)
 
 
 def _append_unapplied_dingtalk_candidate(

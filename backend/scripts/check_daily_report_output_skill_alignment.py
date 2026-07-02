@@ -82,13 +82,21 @@ def run_alignment_checks(
             try:
                 bundle = bundle_builder(db, business_date=business_date, persist_run=False)
                 alignment = bundle.get("output_skill_alignment") or {}
+                fact_closure = bundle.get("fact_closure") or {}
+                alignment_status = str(alignment.get("status") or "missing")
+                fact_closure_status = str(fact_closure.get("status") or "missing")
                 differences = list(alignment.get("differences") or [])
                 if not full_differences:
                     differences = differences[:20]
                 rows.append(
                     {
                         "business_date": business_date.isoformat(),
-                        "status": alignment.get("status") or "missing",
+                        "status": _row_status(
+                            alignment_status=alignment_status,
+                            fact_closure_status=fact_closure_status,
+                        ),
+                        "alignment_status": alignment_status,
+                        "fact_closure": fact_closure,
                         "bundle_status": bundle.get("status"),
                         "file_name": alignment.get("file_name"),
                         "field_match_rate": alignment.get("field_match_rate"),
@@ -108,6 +116,8 @@ def run_alignment_checks(
                     {
                         "business_date": business_date.isoformat(),
                         "status": "error",
+                        "alignment_status": "error",
+                        "fact_closure": {},
                         "bundle_status": None,
                         "file_name": None,
                         "field_match_rate": None,
@@ -128,7 +138,7 @@ def run_alignment_checks(
 
 
 def checks_passed(rows: Sequence[dict[str, Any]]) -> bool:
-    return bool(rows) and all(row.get("status") == "passed" for row in rows)
+    return bool(rows) and all(_row_passed(row) for row in rows)
 
 
 def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
@@ -141,6 +151,8 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
                 f"## {row.get('business_date')}",
                 "",
                 f"- Status: {row.get('status')}",
+                f"- Alignment status: {row.get('alignment_status')}",
+                f"- Fact closure status: {_fact_closure_status(row)}",
                 f"- Bundle status: {row.get('bundle_status')}",
                 f"- Field match rate: {row.get('field_match_rate')}",
                 f"- Exact match: {row.get('exact_match')}",
@@ -168,6 +180,32 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
         if row.get("status") == "error" and not differences:
             lines.append("")
             continue
+        fact_closure = row.get("fact_closure") if isinstance(row.get("fact_closure"), dict) else {}
+        critical_fields = fact_closure.get("critical_fields") if isinstance(fact_closure, dict) else None
+        if isinstance(critical_fields, list) and critical_fields:
+            lines.extend(
+                [
+                    "| Critical field | Closure status | Source | Trace | Action |",
+                    "|---|---|---|---|---|",
+                ]
+            )
+            for item in critical_fields:
+                if not isinstance(item, dict):
+                    continue
+                lines.append(
+                    "| "
+                    + " | ".join(
+                        [
+                            _markdown_cell(item.get("field")),
+                            _markdown_cell(item.get("status")),
+                            _markdown_cell(item.get("source")),
+                            _markdown_cell(item.get("trace_id")),
+                            _markdown_cell(item.get("action")),
+                        ]
+                    )
+                    + " |"
+                )
+            lines.append("")
         lines.extend(
             [
                 "| Field | Expected | Actual | Source | Status | Action |",
@@ -234,6 +272,8 @@ def _print_text(payload: dict[str, Any]) -> None:
     for row in payload["results"]:
         line = (
             f"{row['business_date']} status={row['status']} "
+            f"alignment={row.get('alignment_status')} "
+            f"fact_closure={_fact_closure_status(row)} "
             f"field_match_rate={row['field_match_rate']} "
             f"matched={row['matched_fields']}/{row['expected_fields']} "
             f"file={row['file_name']}"
@@ -297,6 +337,25 @@ def _markdown_cell(value: Any) -> str:
     if value is None:
         return ""
     return str(value).replace("\n", " ").replace("|", "\\|")
+
+
+def _row_status(*, alignment_status: str, fact_closure_status: str) -> str:
+    if alignment_status == "passed" and fact_closure_status == "pass":
+        return "passed"
+    if alignment_status == "passed":
+        return "blocked"
+    return alignment_status or "missing"
+
+
+def _row_passed(row: dict[str, Any]) -> bool:
+    return row.get("status") == "passed" and _fact_closure_status(row) == "pass"
+
+
+def _fact_closure_status(row: dict[str, Any]) -> str:
+    fact_closure = row.get("fact_closure")
+    if not isinstance(fact_closure, dict):
+        return "missing"
+    return str(fact_closure.get("status") or "missing")
 
 
 def _action_required_for_error(exc: Exception) -> str:

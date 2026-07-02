@@ -277,7 +277,11 @@ def _source_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSna
     source_status = source_status_value if isinstance(source_status_value, Mapping) else {}
     checked_sources = set(source_order) | {str(source_key) for source_key in source_status}
     primary_source = str(evidence.get("primary_source") or "")
-    if primary_source == "rag" or source_order[:1] == ["rag"]:
+    if (
+        _is_rag_like_source(primary_source)
+        or (source_order and _is_rag_like_source(source_order[0]))
+        or _only_rag_sources(checked_sources)
+    ):
         return LayerGateResult("source", False, "rag_used_as_current_fact_source")
     if question.requires_dingtalk and not checked_sources.intersection(_DINGTALK_FACT_SOURCES):
         return LayerGateResult("source", False, "dingtalk_source_not_checked")
@@ -345,6 +349,17 @@ def _list_value(value: Any) -> list[str]:
     if isinstance(value, Sequence):
         return [str(item) for item in value]
     return [str(value)]
+
+
+def _only_rag_sources(sources: set[str]) -> bool:
+    return bool(sources) and all(_is_rag_like_source(source) for source in sources)
+
+
+def _is_rag_like_source(source: Any) -> bool:
+    normalized = str(source or "").strip().lower()
+    for char in (" ", "-", "/"):
+        normalized = normalized.replace(char, "_")
+    return normalized == "rag" or normalized.startswith("rag_") or normalized.endswith("_rag")
 
 
 def _required_source_health_gate(snapshot: AcceptanceTurnSnapshot) -> LayerGateResult | None:
