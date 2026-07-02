@@ -305,3 +305,48 @@ test('fact closure surface does not introduce helper marketing text fields', () 
     assert.equal(forbiddenKey in surface.criticalFields[0], false)
   }
 })
+
+test('fact closure surface falls back cleanly when fact closure payload is absent or malformed', () => {
+  assert.deepEqual(buildFactClosureSurface(), {
+    status: 'unknown',
+    blockedCount: 0,
+    criticalFields: [],
+  })
+
+  assert.deepEqual(buildFactClosureSurface(null), {
+    status: 'unknown',
+    blockedCount: 0,
+    criticalFields: [],
+  })
+
+  assert.deepEqual(buildFactClosureSurface({
+    status: 'candidate',
+    critical_fields: null,
+  }), {
+    status: 'candidate',
+    blockedCount: 0,
+    criticalFields: [],
+  })
+
+  assert.deepEqual(buildFactClosureSurface({
+    status: 'conflict',
+    critical_fields: 'not-an-array',
+  }), {
+    status: 'conflict',
+    blockedCount: 0,
+    criticalFields: [],
+  })
+})
+
+test('fact closure surface ignores null field entries instead of crashing', () => {
+  const surface = buildFactClosureSurface({
+    status: 'missing',
+    critical_fields: [null],
+  })
+
+  assert.deepEqual(surface, {
+    status: 'missing',
+    blockedCount: 0,
+    criticalFields: [],
+  })
+})

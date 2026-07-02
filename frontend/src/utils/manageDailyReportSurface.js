@@ -206,11 +206,12 @@ export function buildFactClosureSurface(factClosure) {
   const fields = Array.isArray(factClosure?.critical_fields)
     ? factClosure.critical_fields
     : []
+  const validFields = fields.filter((field) => field && typeof field === 'object' && !Array.isArray(field))
 
   return {
     status: factClosure?.status || 'unknown',
-    blockedCount: fields.filter((field) => field.status !== 'confirmed').length,
-    criticalFields: fields.map((field) => ({
+    blockedCount: validFields.filter((field) => field.status !== 'confirmed').length,
+    criticalFields: validFields.map((field) => ({
       key: field.field,
       status: field.status,
       source: field.source || '暂无可信来源',
