@@ -391,7 +391,7 @@ def _apply_dingtalk_supplements(
         has_structured_updates = "fact_updates" in payload
         if has_structured_updates:
             update_items = _iter_fact_updates(payload.get("fact_updates"))
-            if str(payload.get("business_date") or "") != business_date_text:
+            if not _payload_business_date_matches(payload, business_date_text):
                 for field_name, item in update_items:
                     if _has_fact_value(item.get("value")):
                         _append_unapplied_dingtalk_candidate(
@@ -451,6 +451,10 @@ def _apply_dingtalk_supplements(
             if not has_structured_updates:
                 source_detail["recognized_text"] = item.get("raw_text") or row.recognized_text
                 trace_id = item.get("trace_id")
+                if trace_id:
+                    source_detail["trace_id"] = trace_id
+            else:
+                trace_id = item.get("trace_id") or _payload_explicit_trace_id(payload)
                 if trace_id:
                     source_detail["trace_id"] = trace_id
             facts[field_name] = _fact_item(
@@ -520,11 +524,18 @@ def _append_unapplied_dingtalk_candidate(
 
 
 def _payload_trace_id(payload: Mapping[str, Any], row: MultimodalEvidence) -> str:
+    trace_id = _payload_explicit_trace_id(payload)
+    if trace_id:
+        return trace_id
+    return str(row.id or "")
+
+
+def _payload_explicit_trace_id(payload: Mapping[str, Any]) -> str:
     for key in ("trace_id", "id"):
         value = payload.get(key)
         if value is not None and value != "":
             return str(value)
-    return str(row.id or "")
+    return ""
 
 
 def _candidate_confidence(candidate: Mapping[str, Any]) -> float:

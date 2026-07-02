@@ -432,7 +432,7 @@ def test_dingtalk_structured_none_value_does_not_clear_missing_field(
     assert closure_field["status"] == "missing"
 
 
-def test_dingtalk_structured_list_field_key_applies_to_fact_closure(
+def test_dingtalk_structured_list_field_key_target_date_applies_with_trace(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -458,9 +458,10 @@ def test_dingtalk_structured_list_field_key_applies_to_fact_closure(
             recognized_text="今日总产量371吨",
             confirmation_status="confirmed",
             payload={
-                "business_date": "2026-06-19",
+                "target_date": "2026-06-19",
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
+                "trace_id": "trace-structured",
                 "fact_updates": [
                     {
                         "field": "total_output_daily",
@@ -477,11 +478,14 @@ def test_dingtalk_structured_list_field_key_applies_to_fact_closure(
 
     assert bundle["facts"]["total_output_daily"]["value"] == 371
     assert bundle["facts"]["total_output_daily"]["source"] == "dingtalk_supplement"
+    assert bundle["facts"]["total_output_daily"]["source_detail"]["trace_id"] == "trace-structured"
+    assert bundle["facts"]["total_output_daily"]["source_ref"]["trace_id"] == "trace-structured"
     assert bundle["missing_fields"] == []
     assert bundle["status"] == "ready"
     closure_field = _fact_closure_field(bundle, "total_output_daily")
     assert closure_field["status"] == "confirmed"
     assert closure_field["source"] == "dingtalk_supplement"
+    assert closure_field["trace_id"] == "trace-structured"
 
 
 def test_dingtalk_structured_date_mismatch_records_candidate_trace(
