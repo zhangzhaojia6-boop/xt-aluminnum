@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   buildDailyComparisonCards,
   buildDailySettlementCards,
+  buildFactClosureSurface,
   buildDailyWorkshopRows,
   buildDailyWipRows,
   MISSING_DAILY_VALUE
@@ -192,4 +193,115 @@ test('daily wip rows keep source positions and show daily snapshot reference', (
   assert.equal(rows[0].feedingText, '投料 12.3 吨')
   assert.equal(rows[0].sourceLabel, '外部 MES 当日快照参考')
   assert.deepEqual(rows.map((row) => row.title), ['园区在线', '新厂北线', '1650/2050冷轧'])
+})
+
+test('fact closure surface shows zero blocked count when critical facts are confirmed', () => {
+  const surface = buildFactClosureSurface({
+    status: 'confirmed',
+    critical_fields: [
+      {
+        field: 'total_output_daily',
+        status: 'confirmed',
+        source: '钉钉群日报',
+        action: '已完成',
+        trace_id: 'trace-1',
+      },
+      {
+        field: 'finished_inbound_daily',
+        status: 'confirmed',
+        source: '成品入库单',
+        action: '已完成',
+        trace_id: 'trace-2',
+      },
+    ],
+  })
+
+  assert.equal(surface.status, 'confirmed')
+  assert.equal(surface.blockedCount, 0)
+  assert.deepEqual(surface.criticalFields, [
+    {
+      key: 'total_output_daily',
+      status: 'confirmed',
+      source: '钉钉群日报',
+      action: '已完成',
+      traceId: 'trace-1',
+    },
+    {
+      key: 'finished_inbound_daily',
+      status: 'confirmed',
+      source: '成品入库单',
+      action: '已完成',
+      traceId: 'trace-2',
+    },
+  ])
+})
+
+test('fact closure surface counts missing and mismatch facts as blocked', () => {
+  const surface = buildFactClosureSurface({
+    status: 'conflict',
+    critical_fields: [
+      {
+        field: 'total_output_daily',
+        status: 'missing',
+        action: '追补日报',
+      },
+      {
+        field: 'finished_inbound_daily',
+        status: 'mismatch',
+        source: 'MES/WMS 对比',
+        trace_id: 'trace-3',
+      },
+      {
+        field: 'daily_yield_rate',
+        status: 'confirmed',
+        source: '日报快照',
+      },
+    ],
+  })
+
+  assert.equal(surface.status, 'conflict')
+  assert.equal(surface.blockedCount, 2)
+  assert.deepEqual(surface.criticalFields, [
+    {
+      key: 'total_output_daily',
+      status: 'missing',
+      source: '暂无可信来源',
+      action: '追补日报',
+      traceId: '',
+    },
+    {
+      key: 'finished_inbound_daily',
+      status: 'mismatch',
+      source: 'MES/WMS 对比',
+      action: '等待鑫泰铝业智能大脑追踪',
+      traceId: 'trace-3',
+    },
+    {
+      key: 'daily_yield_rate',
+      status: 'confirmed',
+      source: '日报快照',
+      action: '等待鑫泰铝业智能大脑追踪',
+      traceId: '',
+    },
+  ])
+})
+
+test('fact closure surface does not introduce helper marketing text fields', () => {
+  const surface = buildFactClosureSurface({
+    critical_fields: [{ field: 'total_output_daily', status: 'missing' }],
+  })
+
+  assert.equal(surface.criticalFields[0].source, '暂无可信来源')
+  assert.deepEqual(
+    Object.keys(surface).sort(),
+    ['blockedCount', 'criticalFields', 'status']
+  )
+  assert.deepEqual(
+    Object.keys(surface.criticalFields[0]).sort(),
+    ['action', 'key', 'source', 'status', 'traceId']
+  )
+  for (const forbiddenKey of ['description', 'explanation', 'helperText', 'tooltip', 'note', 'rationale']) {
+    assert.equal(forbiddenKey in surface, false)
+    assert.equal(forbiddenKey in surface.criticalFields[0], false)
+  }
 })
