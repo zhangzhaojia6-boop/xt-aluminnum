@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.business_time import resolve_production_business_date
 from app.core.redaction import filter_sensitive_mapping
 from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
@@ -527,17 +528,15 @@ def _candidate_business_date_matches(
             *(candidate.get("raw_text") for candidate in candidates),
         ]
     )
-    return _recognized_text_matches_business_date(raw_text, business_date)
+    return _recognized_text_matches_business_date(raw_text, business_date, row.created_at)
 
 
 def _payload_has_business_date(payload: Mapping[str, Any]) -> bool:
     return any(payload.get(key) not in (None, "") for key in ("business_date", "target_date", "date"))
 
 
-def _recognized_text_matches_business_date(text: str, business_date: date) -> bool:
+def _recognized_text_matches_business_date(text: str, business_date: date, created_at: Any = None) -> bool:
     clean = str(text or "")
-    if "今日" in clean or "今天" in clean:
-        return True
     month = business_date.month
     day = business_date.day
     month_day_patterns = (
@@ -545,7 +544,24 @@ def _recognized_text_matches_business_date(text: str, business_date: date) -> bo
         rf"{business_date.year}\s*年\s*0?{month}\s*月\s*0?{day}\s*日",
         re.escape(business_date.isoformat()),
     )
-    return any(re.search(pattern, clean) for pattern in month_day_patterns)
+    if any(re.search(pattern, clean) for pattern in month_day_patterns):
+        return True
+    if "今日" in clean or "今天" in clean:
+        return _created_at_business_date(created_at) == business_date
+    return False
+
+
+def _created_at_business_date(value: Any) -> date | None:
+    if isinstance(value, datetime):
+        return resolve_production_business_date(value)
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return resolve_production_business_date(datetime.fromisoformat(value))
+        except ValueError:
+            return None
+    return None
 
 
 def _append_unapplied_dingtalk_candidate(

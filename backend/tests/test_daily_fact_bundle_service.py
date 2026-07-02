@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 import importlib.util
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -641,6 +641,7 @@ def test_unstructured_dingtalk_today_without_payload_date_applies_to_current_bun
             source_user_id=None,
             recognized_text="今日总产量371吨",
             confirmation_status="confirmed",
+            created_at=datetime(2026, 6, 19, 9, 0),
             payload={
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
@@ -696,6 +697,7 @@ def test_unstructured_dingtalk_month_day_without_payload_date_applies_to_matchin
             source_user_id=None,
             recognized_text="6月19日用电18420度",
             confirmation_status="confirmed",
+            created_at=datetime(2026, 6, 18, 16, 0),
             payload={
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
@@ -714,6 +716,58 @@ def test_unstructured_dingtalk_month_day_without_payload_date_applies_to_matchin
     assert "total_electricity_kwh" not in bundle["missing_fields"]
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_electricity_kwh"]}]
     assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "confirmed"
+
+
+def test_unstructured_dingtalk_today_from_other_business_day_records_candidate_trace(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {"total_output_daily": 355},
+            "sources": {"total_output_daily": "mes_packaging_output"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            source_user_id=None,
+            recognized_text="今日总产量371吨",
+            confirmation_status="confirmed",
+            created_at=datetime(2026, 6, 18, 12, 0),
+            payload={
+                "include_in_daily_sample": True,
+                "evidence_kind": "fact",
+                "trace_id": "trace-old-today-output",
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["facts"]["total_output_daily"]["value"] == 355
+    assert bundle["facts"]["total_output_daily"]["source"] == "mes_packaging_output"
+    assert bundle["dingtalk_refs"] == []
+    assert bundle["conflicts"] == [
+        {
+            "field": "total_output_daily",
+            "type": "dingtalk_candidate_not_applied",
+            "candidate_value": 371,
+            "reason": "payload_business_date_missing_or_mismatch",
+            "trace_id": "trace-old-today-output",
+            "evidence_id": 1,
+        }
+    ]
 
 
 def test_unstructured_dingtalk_evidence_without_safe_business_date_records_candidate_trace(
