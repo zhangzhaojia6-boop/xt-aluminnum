@@ -28,36 +28,6 @@ ToolCallable = Callable[..., ToolResult]
 _DINGTALK_EVIDENCE_TYPES = ('text', 'file', 'image', 'attachment', 'dingtalk_file', 'dingtalk_text')
 _DINGTALK_TEXT_EVIDENCE_TYPES = {'text', 'dingtalk_text'}
 _DINGTALK_FILE_EVIDENCE_TYPES = {'file', 'attachment', 'dingtalk_file'}
-_SOURCE_GUIDANCE_LANES: tuple[dict[str, object], ...] = (
-    {
-        'priority': 1,
-        'source_key': 'dingtalk_group_content',
-        'label': '钉钉群聊天/群文件',
-        'usage': '先看钉钉群聊天和群文件证据，作为当前事实第一优先级。',
-        'current_numeric_fact': True,
-    },
-    {
-        'priority': 2,
-        'source_key': 'mes_wms_readonly',
-        'label': 'MES/WMS 只读事实',
-        'usage': '再看 MES/WMS 只读读取结果，作为第二优先级事实来源。',
-        'current_numeric_fact': True,
-    },
-    {
-        'priority': 3,
-        'source_key': 'data_hub',
-        'label': '数据中枢 bundle/投影',
-        'usage': '再看数据中枢 bundle、投影和汇总结果，作为第三优先级事实来源。',
-        'current_numeric_fact': True,
-    },
-    {
-        'priority': 4,
-        'source_key': 'rag',
-        'label': 'RAG 规则/定义/历史上下文',
-        'usage': '只用于规则、定义、历史上下文，不作为当前实时数字事实来源。',
-        'current_numeric_fact': False,
-    },
-)
 _TOOL_GUIDANCE_HINTS: dict[str, dict[str, object]] = {
     'dingtalk_group_content': {
         'priority': FACT_SOURCE_PRIORITY['dingtalk_group_content'],
@@ -75,6 +45,32 @@ _TOOL_GUIDANCE_HINTS: dict[str, dict[str, object]] = {
         'priority': 4,
         'usage': '当前工具只用于规则、定义、历史上下文，不作为当前实时数字事实来源。',
     },
+    'fact_source_map': {
+        'usage': '具体指标来源以 facts 里的 priority_sources 和 summary 为准。',
+    },
+}
+_METRIC_SOURCE_LABELS: dict[str, str] = {
+    'dingtalk_group_content': '钉钉群聊天/群文件',
+    'dingtalk_specialist': '钉钉专项责任人证据',
+    'mes/wms readonly': 'MES/WMS 只读事实',
+    'wms final document': 'WMS 最终单据',
+    'data_hub_projection': '数据中枢投影',
+    'data_hub_manual': '数据中枢人工录入',
+    'dailyfactbundle': 'DailyFactBundle',
+    'daily_reports': '历史日报',
+    'historical_report': '历史日报',
+    'rag': 'RAG 规则/定义/历史上下文',
+    'computed': '计算口径',
+    'root_owner': '最高权限负责人修正',
+    'operationperiodsnapshot': '周期快照',
+    'dailyreporthistoryrecord': '日报历史记录',
+    'multimodal_evidence': '多模态证据',
+    'data_quality_issues': '数据质量问题记录',
+    'authorized_group': '授权群条件',
+    'specialist_sender': '专项责任人发送条件',
+    'content_type': '内容类型条件',
+    'time_range': '时间范围条件',
+    'iot_energy_future': '后续物联网能耗来源',
 }
 
 
@@ -487,20 +483,62 @@ def _tool_result(
         'source': source,
         'request': _request_payload(kwargs),
         'facts': facts,
-        'source_guidance': _source_guidance(source),
+        'source_guidance': _source_guidance(source, kwargs),
     }
     payload.update(extra)
     return payload
 
 
-def _source_guidance(source: str) -> dict[str, object]:
+def _source_guidance(source: str, kwargs: Mapping[str, object]) -> dict[str, object]:
     hint = _TOOL_GUIDANCE_HINTS.get(source, {})
-    return {
+    guidance = {
         'tool_source': source,
         'tool_priority': hint.get('priority'),
         'tool_usage': hint.get('usage', '当前工具不会改变四层来源优先级，只提供补充信息。'),
-        'priority_order': [dict(item) for item in _SOURCE_GUIDANCE_LANES],
+        'source_rules': [
+            '钉钉群聊天/群文件优先于一般汇总结果时，应按来源地图和 trace 判断。',
+            'MES/WMS 只读来源只能读，不能写回外部系统。',
+            'RAG 只用于规则、定义、历史上下文，不作为当前实时数字事实来源。',
+        ],
     }
+    metric_key = str(kwargs.get('metric_key') or '').strip()
+    if metric_key and source != 'fact_source_map':
+        priority_order = _metric_priority_order(metric_key)
+        if priority_order is not None:
+            guidance['metric_key'] = metric_key
+            guidance['priority_order'] = priority_order
+    return guidance
+
+
+def _metric_priority_order(metric_key: str) -> list[dict[str, object]] | None:
+    try:
+        item = find_fact_source(metric_key)
+    except KeyError:
+        return None
+    priority_sources = item.get('priority_sources')
+    if not isinstance(priority_sources, list):
+        return None
+    result: list[dict[str, object]] = []
+    for index, source_name in enumerate(priority_sources, start=1):
+        source_text = str(source_name)
+        result.append(
+            {
+                'priority': index,
+                'source_key': source_text,
+                'label': _metric_source_label(source_text),
+                'current_numeric_fact': _metric_source_is_current_fact(source_text),
+            }
+        )
+    return result
+
+
+def _metric_source_label(source_name: str) -> str:
+    clean_name = str(source_name).strip()
+    return _METRIC_SOURCE_LABELS.get(clean_name.lower(), clean_name)
+
+
+def _metric_source_is_current_fact(source_name: str) -> bool:
+    return 'rag' not in str(source_name).strip().lower()
 
 
 def _mes_read_health(
@@ -511,7 +549,7 @@ def _mes_read_health(
     fallback_errors: Mapping[str, str] | None = None,
     service_status: str | None = None,
 ) -> dict[str, object]:
-    source_errors = dict((facts.get('source_errors') or fallback_errors or {}))
+    source_errors = _sanitize_source_errors(facts.get('source_errors') or fallback_errors or {})
     adapter = getattr(mes_read_service, '_adapter', None) if mes_read_service is not None else None
     return {
         'adapter': type(adapter).__name__ if adapter is not None else (
@@ -523,6 +561,15 @@ def _mes_read_health(
         'record_count': _record_count((facts.get('records') or {})) if isinstance(facts, Mapping) else 0,
         'service_status': service_status
         or str(((facts.get('source_status') or {}) if isinstance(facts, Mapping) else {}).get('mes') or 'unknown'),
+    }
+
+
+def _sanitize_source_errors(source_errors: object) -> dict[str, str]:
+    if not isinstance(source_errors, Mapping):
+        return {}
+    return {
+        str(key): redact_secret_text(str(value))
+        for key, value in source_errors.items()
     }
 
 
