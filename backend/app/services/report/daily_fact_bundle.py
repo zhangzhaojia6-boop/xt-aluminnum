@@ -15,6 +15,7 @@ from app.core.redaction import filter_sensitive_mapping
 from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
+from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
 from app.services.hermes_day1_harness_service import build_output_skill_alignment
 from app.services.report.daily_report_fact_closure import build_daily_report_fact_closure
 from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
@@ -47,6 +48,8 @@ SOURCE_PRIORITY = {
 
 FIELD_UNITS = {
     "total_output_daily": "吨",
+    "finished_inbound_daily": "吨",
+    "wip_total": "吨",
     "total_output_month": "吨",
     "total_electricity_kwh": "度",
     "total_gas_m3": "m³",
@@ -376,18 +379,42 @@ def _apply_dingtalk_supplements(
     conflicts = list(bundle.get("conflicts") or [])
     dingtalk_refs = list(bundle.get("dingtalk_refs") or [])
     business_date_text = business_date.isoformat()
+    applied_field_names: set[str] = set()
 
     for row in rows:
         payload = row.payload if isinstance(row.payload, Mapping) else {}
-        if str(payload.get("business_date") or "") != business_date_text:
-            continue
         if payload.get("include_in_daily_sample") is not True:
             continue
         if str(payload.get("evidence_kind") or "") != "fact":
             continue
 
+        has_structured_updates = "fact_updates" in payload
+        if has_structured_updates:
+            if str(payload.get("business_date") or "") != business_date_text:
+                continue
+            update_items = _iter_fact_updates(payload.get("fact_updates"))
+        else:
+            candidates = extract_daily_fact_update_candidates(
+                {
+                    "id": row.id,
+                    "recognized_text": row.recognized_text,
+                    "payload": payload,
+                }
+            )
+            if not candidates:
+                continue
+            if not _payload_business_date_matches(payload, business_date_text):
+                for candidate in candidates:
+                    _append_unapplied_dingtalk_candidate(conflicts, row=row, candidate=candidate)
+                continue
+            update_items = [
+                (str(candidate.get("field") or "").strip(), candidate)
+                for candidate in candidates
+                if str(candidate.get("field") or "").strip()
+            ]
+
         applied_fields: list[str] = []
-        for field_name, item in _iter_fact_updates(payload.get("fact_updates")):
+        for field_name, item in update_items:
             old_fact = facts.get(field_name)
             old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
             old_source = None
@@ -408,6 +435,11 @@ def _apply_dingtalk_supplements(
                 "recognized_text": row.recognized_text,
                 "business_date": business_date_text,
             }
+            if not has_structured_updates:
+                source_detail["recognized_text"] = item.get("raw_text") or row.recognized_text
+                trace_id = item.get("trace_id")
+                if trace_id:
+                    source_detail["trace_id"] = trace_id
             facts[field_name] = _fact_item(
                 value=new_value,
                 unit=new_unit,
@@ -415,12 +447,13 @@ def _apply_dingtalk_supplements(
                 source_type="dingtalk_supplement",
                 priority=90,
                 freshness="supplemented",
-                confidence=0.95,
+                confidence=0.95 if has_structured_updates else _candidate_confidence(item),
                 adoption_reason=reason,
                 source_detail=source_detail,
                 source_ref=source_detail,
             )
             applied_fields.append(field_name)
+            applied_field_names.add(field_name)
             if old_value != new_value:
                 conflicts.append(
                     {
@@ -440,7 +473,51 @@ def _apply_dingtalk_supplements(
     bundle["facts"] = facts
     bundle["conflicts"] = conflicts
     bundle["dingtalk_refs"] = dingtalk_refs
+    if applied_field_names:
+        _remove_applied_missing_fields(bundle, applied_field_names)
     return _refresh_bundle_metadata(bundle)
+
+
+def _payload_business_date_matches(payload: Mapping[str, Any], business_date_text: str) -> bool:
+    for key in ("business_date", "target_date", "date"):
+        if str(payload.get(key) or "") == business_date_text:
+            return True
+    return False
+
+
+def _append_unapplied_dingtalk_candidate(
+    conflicts: list[Any],
+    *,
+    row: MultimodalEvidence,
+    candidate: Mapping[str, Any],
+) -> None:
+    field_name = str(candidate.get("field") or "").strip()
+    if not field_name:
+        return
+    conflicts.append(
+        {
+            "field": field_name,
+            "type": "dingtalk_candidate_not_applied",
+            "candidate_value": candidate.get("value"),
+            "reason": "payload_business_date_missing_or_mismatch",
+            "trace_id": candidate.get("trace_id") or "",
+            "evidence_id": row.id,
+        }
+    )
+
+
+def _candidate_confidence(candidate: Mapping[str, Any]) -> float:
+    try:
+        return float(candidate.get("confidence"))
+    except (TypeError, ValueError):
+        return 0.95
+
+
+def _remove_applied_missing_fields(bundle: dict[str, Any], applied_fields: set[str]) -> None:
+    missing_fields = [field for field in bundle.get("missing_fields") or [] if field not in applied_fields]
+    missing = [field for field in bundle.get("missing") or [] if field not in applied_fields]
+    bundle["missing_fields"] = missing_fields
+    bundle["missing"] = missing
 
 
 def _iter_fact_updates(fact_updates: Any) -> list[tuple[str, Mapping[str, Any]]]:
@@ -529,7 +606,7 @@ def _conflict_blocks_ready(conflict: Any) -> bool:
     if not isinstance(conflict, Mapping):
         return True
     conflict_type = str(conflict.get("type") or "").strip()
-    if conflict_type in {"root_owner_correction", "dingtalk_supplement"}:
+    if conflict_type in {"root_owner_correction", "dingtalk_supplement", "dingtalk_candidate_not_applied"}:
         return False
     if conflict_type == "source_error":
         return True
