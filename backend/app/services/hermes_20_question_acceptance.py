@@ -382,9 +382,7 @@ def _has_action_items(value: Any) -> bool:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         return False
     for item in value:
-        if isinstance(item, Mapping) and any(item.get(key) for key in ("next_step", "action", "reason", "type")):
-            return True
-        if isinstance(item, str) and item.strip():
+        if isinstance(item, Mapping) and any(str(item.get(key) or "").strip() for key in ("next_step", "action")):
             return True
     return False
 

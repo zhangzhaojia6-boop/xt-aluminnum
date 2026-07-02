@@ -280,6 +280,40 @@ def test_unfamiliar_dingtalk_wording_becomes_action_not_hard_parse_failure() -> 
     assert result.status == "missing"
 
 
+def test_unfamiliar_dingtalk_wording_with_type_only_action_still_fails_understanding_gate() -> None:
+    question = build_20_question_catalog()[14]
+    snapshot = _passing_snapshot(15)
+    snapshot.status = "clarifying"
+    snapshot.recognition["needs_clarification"] = True
+    snapshot.recognition["recognition_reason"] = "unfamiliar_dingtalk_wording"
+    snapshot.evidence["actions"] = [{"type": "follow_up"}]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "understanding" in result.failed_gate_names
+    assert "needs_clarification" in result.failed_reasons
+
+
+def test_unfamiliar_dingtalk_wording_with_action_text_can_pass_understanding_gate() -> None:
+    question = build_20_question_catalog()[14]
+    snapshot = _passing_snapshot(15)
+    snapshot.status = "clarifying"
+    snapshot.answer = (
+        "鑫泰铝业智能大脑已把这条钉钉原话记录成待补证据动作。"
+        "来源：钉钉群聊天内容。状态：candidate。追踪编号：trace-q15。"
+    )
+    snapshot.recognition["needs_clarification"] = True
+    snapshot.recognition["recognition_reason"] = "unfamiliar_dingtalk_wording"
+    snapshot.evidence["actions"] = [{"action": "请补充原始钉钉消息截图"}]
+    snapshot.evidence["missing_sources"] = ["dingtalk_field_mapping"]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is True
+    assert "understanding" not in result.failed_gate_names
+
+
 def test_understanding_gate_rejects_wrong_domain_for_factory_overview() -> None:
     question = build_20_question_catalog()[19]
     snapshot = _passing_snapshot(20)

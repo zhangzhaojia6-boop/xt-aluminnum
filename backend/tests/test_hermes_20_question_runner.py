@@ -321,6 +321,67 @@ def test_acceptance_cli_parses_daily_report_gate_args() -> None:
     assert args.alignment_artifact_dir == "docs/superpowers/reports/daily-report-fact-closure-smoke"
 
 
+def test_resolve_artifact_dir_rejects_absolute_path() -> None:
+    from scripts.hermes_20_question_acceptance import resolve_artifact_dir
+
+    try:
+        resolve_artifact_dir("D:/temp/outside-artifacts")
+    except ValueError as exc:
+        assert str(exc) == "alignment_artifact_dir_outside_reports_dir"
+    else:
+        raise AssertionError("expected absolute artifact dir to be rejected")
+
+
+def test_resolve_artifact_dir_rejects_dot_dot_escape() -> None:
+    from scripts.hermes_20_question_acceptance import resolve_artifact_dir
+
+    try:
+        resolve_artifact_dir("docs/superpowers/reports/../secrets")
+    except ValueError as exc:
+        assert str(exc) == "alignment_artifact_dir_outside_reports_dir"
+    else:
+        raise AssertionError("expected parent traversal artifact dir to be rejected")
+
+
+def test_build_daily_report_gate_payload_redacts_sensitive_exception_and_artifact(monkeypatch, tmp_path) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    sensitive = "RuntimeError: token=abc123 secret=xyz dsn=postgres://u:p@host/db"
+    written_rows: list[dict[str, object]] = []
+
+    monkeypatch.setattr(cli, "resolve_output_skill_root", lambda _value: tmp_path)
+    monkeypatch.setattr(
+        cli,
+        "build_daily_fact_bundle",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError(sensitive)),
+    )
+    monkeypatch.setattr(
+        cli,
+        "write_alignment_artifacts",
+        lambda rows, _artifact_dir: written_rows.extend(rows) or {"json": "x.json", "markdown": "x.md"},
+    )
+
+    payload = cli.build_daily_report_gate_payload(
+        object(),
+        business_date=date(2026, 6, 27),
+        output_skill_root=str(tmp_path),
+        alignment_artifact_dir="docs/superpowers/reports/daily-report-fact-closure-smoke",
+    )
+
+    assert payload["status"] == "error"
+    assert payload["failure_reason"] == "daily_report_gate_build_failed"
+    assert "error" not in payload
+    assert written_rows
+    row = written_rows[0]
+    text = repr({"payload": payload, "row": row})
+    assert "abc123" not in text
+    assert "xyz" not in text
+    assert "postgres://u:p@host/db" not in text
+    assert "token=<redacted>" in text
+    assert "secret=<redacted>" in text
+    assert "<redacted-connection-uri>" in text
+
+
 def test_acceptance_cli_main_requires_real_delivery_flag_before_db(monkeypatch, capsys) -> None:
     from scripts import hermes_20_question_acceptance as cli
 
@@ -497,3 +558,31 @@ def test_acceptance_cli_main_attaches_daily_report_gate_when_required(monkeypatc
             "gap_plan": {"status": "ready"},
         },
     }
+
+
+def test_acceptance_cli_main_rejects_artifact_dir_outside_reports_dir_before_db(monkeypatch, capsys) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    monkeypatch.setattr(cli, "get_sessionmaker", lambda: (_ for _ in ()).throw(AssertionError("db_should_not_run")))
+    monkeypatch.setattr(
+        cli,
+        "run_20_question_acceptance",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("runner_should_not_run")),
+    )
+
+    exit_code = cli.main(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--target",
+            "dingtalk_group:test-group",
+            "--real-delivery",
+            "--alignment-artifact-dir",
+            "../outside",
+        ]
+    )
+
+    assert exit_code == 2
+    assert capsys.readouterr().out.strip() == "alignment_artifact_dir_outside_reports_dir"

@@ -15,6 +15,7 @@ if str(BACKEND_ROOT) not in sys.path:
 
 load_dotenv(BACKEND_ROOT / ".env")
 
+from app.core.redaction import redact_secret_text
 from app.database import get_sessionmaker
 from app.models.system import User
 from app.services.external_readonly_source_registry import (
@@ -86,9 +87,15 @@ def resolve_artifact_dir(value: str | None) -> Path | None:
     if not raw_value:
         return None
     candidate = Path(raw_value)
-    if candidate.is_absolute():
-        return candidate
-    return REPO_ROOT / candidate
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError("alignment_artifact_dir_outside_reports_dir")
+    reports_root_resolved = REPORTS_ROOT.resolve()
+    resolved = (REPO_ROOT / candidate).resolve()
+    try:
+        resolved.relative_to(reports_root_resolved)
+    except ValueError as exc:
+        raise ValueError("alignment_artifact_dir_outside_reports_dir") from exc
+    return resolved
 
 
 def build_daily_report_gate_payload(
@@ -127,8 +134,10 @@ def build_daily_report_gate_payload(
         except Exception as exc:  # noqa: BLE001
             payload["status"] = "error"
             payload["failure_reason"] = "daily_report_gate_build_failed"
-            payload["error"] = str(exc)
-            row = _daily_report_gate_artifact_row(payload, error=str(exc))
+            row = _daily_report_gate_artifact_row(
+                payload,
+                error=redact_secret_text(f"{type(exc).__name__}: {exc}"),
+            )
         else:
             alignment = dict(bundle.get("output_skill_alignment") or {})
             fact_closure = dict(bundle.get("fact_closure") or {})
@@ -191,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
         delivery_targets = parse_delivery_targets(args.target)
         business_date = date.fromisoformat(args.business_date)
         report_path = resolve_report_path(args.report_path)
+        resolve_artifact_dir(args.alignment_artifact_dir)
     except ValueError as exc:
         print(str(exc))
         return 2
