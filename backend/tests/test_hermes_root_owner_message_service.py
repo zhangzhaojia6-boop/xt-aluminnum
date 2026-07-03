@@ -199,6 +199,19 @@ def test_output_inbound_conflict_is_anomaly_question() -> None:
     assert plan.metric_keys == ("total_output_daily", "finished_inbound_daily")
 
 
+def test_explicit_metric_question_wins_over_previous_domain() -> None:
+    plan = understand_root_owner_message(
+        "产量和入库为什么对不上？",
+        default_business_date=date(2026, 6, 27),
+        previous_domain="energy",
+    )
+
+    assert plan.domain == "anomaly"
+    assert plan.intent == "conflict_explanation"
+    assert plan.metric_keys == ("total_output_daily", "finished_inbound_daily")
+    assert "metric_phrase_match" in plan.recognition_reason
+
+
 def test_uses_previous_domain_for_short_follow_up() -> None:
     plan = understand_root_owner_message(
         "那为啥对不上",

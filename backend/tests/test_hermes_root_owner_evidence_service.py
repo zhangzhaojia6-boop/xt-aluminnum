@@ -209,6 +209,39 @@ def test_inventory_domain_queries_mes_for_inventory_metrics_and_prefers_mes_over
     ]
 
 
+def test_energy_domain_checks_mes_readonly_even_without_energy_fact() -> None:
+    class MesReader:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def read_sources(self, **kwargs):
+            self.calls.append(kwargs)
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {},
+            }
+
+    mes_reader = MesReader()
+
+    decision = collect_root_owner_evidence(
+        db=None,
+        message_plan=_message_plan(domain="energy", metric_keys=("total_electricity_kwh",)),
+        trace_id="trace-energy-mes",
+        dingtalk_reader=lambda **_kwargs: [],
+        mes_reader=mes_reader,
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    assert mes_reader.calls == [
+        {
+            "business_date": date(2026, 6, 27),
+            "query_keys": ["workshop_process_records", "finished_inbound_records"],
+        }
+    ]
+    assert decision.trace["source_status"]["mes_readonly"]["status"] == "ok"
+    assert decision.trace["source_status"]["mes_readonly"]["reason"] == "no_current_metric_fact"
+
+
 def test_default_dingtalk_reader_promotes_structured_metric_fact_over_mes(monkeypatch) -> None:
     def read_dingtalk_evidence(self, *, business_date):
         return {

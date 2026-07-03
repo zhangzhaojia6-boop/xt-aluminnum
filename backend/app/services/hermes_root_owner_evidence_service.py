@@ -45,7 +45,7 @@ _PRODUCTION_QUERY_KEYS = {
     "wip_total": "wip_totals",
     "remaining_contract_weight": "stock_records",
 }
-_MES_DOMAINS = {"production", "factory_overview", "anomaly", "inventory", "quality", "operations"}
+_MES_DOMAINS = {"production", "factory_overview", "anomaly", "inventory", "quality", "operations", "energy"}
 _DINGTALK_FACT_FIELDS = ("facts", "parsed_facts", "metrics", "payload")
 _VALIDATION_CONTAINER_FIELDS = ("metadata", "validation", "fact_validation", "evidence_conditions")
 _VALIDATION_TRUE_TEXT = {

@@ -107,26 +107,6 @@ def understand_root_owner_message(
 
     business_date, date_reason = _resolve_business_date(normalized, base_business_date)
 
-    can_use_previous_domain = previous_domain in {"production", "inventory", "energy", "anomaly"} and (
-        _looks_like_date_only_follow_up(normalized)
-        or (_looks_like_follow_up(normalized) and _has_business_anchor(normalized))
-    )
-    if can_use_previous_domain:
-        intent = "conflict_explanation" if _looks_like_conflict_explanation(normalized) else "follow_up"
-        metric_keys = _DOMAIN_INTENT.get(previous_domain, _DOMAIN_INTENT["factory_overview"])[1]
-        return RootOwnerMessagePlan(
-            raw_text=raw_text,
-            normalized_text=normalized,
-            business_date=business_date,
-            domain=previous_domain,
-            intent=intent,
-            metric_keys=metric_keys,
-            confidence=0.68,
-            needs_clarification=False,
-            clarification_question=None,
-            recognition_reason=_join_reasons("context_follow_up", "soft_semantic_match", date_reason, typo_changed),
-        )
-
     metric_phrase = _match_metric_phrase_rule(normalized)
     if metric_phrase is not None:
         domain, intent, metric_keys = metric_phrase
@@ -155,6 +135,26 @@ def understand_root_owner_message(
             needs_clarification=False,
             clarification_question=None,
             recognition_reason=_join_reasons("metric_phrase_match", "anomaly", date_reason, typo_changed),
+        )
+
+    can_use_previous_domain = previous_domain in {"production", "inventory", "energy", "anomaly"} and (
+        _looks_like_date_only_follow_up(normalized)
+        or (_looks_like_follow_up(normalized) and _has_business_anchor(normalized))
+    )
+    if can_use_previous_domain:
+        intent = "conflict_explanation" if _looks_like_conflict_explanation(normalized) else "follow_up"
+        metric_keys = _DOMAIN_INTENT.get(previous_domain, _DOMAIN_INTENT["factory_overview"])[1]
+        return RootOwnerMessagePlan(
+            raw_text=raw_text,
+            normalized_text=normalized,
+            business_date=business_date,
+            domain=previous_domain,
+            intent=intent,
+            metric_keys=metric_keys,
+            confidence=0.68,
+            needs_clarification=False,
+            clarification_question=None,
+            recognition_reason=_join_reasons("context_follow_up", "soft_semantic_match", date_reason, typo_changed),
         )
 
     if _has_any(normalized, _BUSINESS_MISSING_TERMS):
