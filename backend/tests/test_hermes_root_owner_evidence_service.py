@@ -552,6 +552,44 @@ def test_mes_real_records_shape_normalizes_to_metric_fact() -> None:
     assert decision.primary.value == {"total_output_daily": 100.0}
 
 
+def test_mes_metadata_shape_normalizes_quality_and_wip_metrics() -> None:
+    class MesReader:
+        def read_sources(self, **kwargs):
+            query_keys = kwargs["query_keys"]
+            if query_keys == ["yield_records"]:
+                return {
+                    "source_status": {"mes": "ok"},
+                    "records": {"yield_records": [{"metadata": {"YieldRate": 84.86}}]},
+                }
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {"wip_totals": [{"workshop_name": "冷轧", "doing_weight": 12.5}]},
+            }
+
+    quality_decision = collect_root_owner_evidence(
+        db=None,
+        message_plan=_message_plan(domain="quality", metric_keys=("daily_yield_rate",)),
+        trace_id="trace-quality-yield",
+        dingtalk_reader=lambda **_kwargs: [],
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: None,
+    )
+    wip_decision = collect_root_owner_evidence(
+        db=None,
+        message_plan=_message_plan(domain="production", metric_keys=("wip_total",)),
+        trace_id="trace-wip-total",
+        dingtalk_reader=lambda **_kwargs: [],
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    assert quality_decision.primary.source_key == "mes_readonly"
+    assert quality_decision.primary.value == {"daily_yield_rate": 84.86}
+    assert quality_decision.trace["source_status"]["mes_readonly"]["query_keys"] == ["yield_records"]
+    assert wip_decision.primary.source_key == "mes_readonly"
+    assert wip_decision.primary.value == {"wip_total": 12.5}
+
+
 def test_hub_ready_status_can_be_primary_when_mes_is_missing() -> None:
     decision = collect_root_owner_evidence(
         db=None,

@@ -53,6 +53,17 @@ _DOMAIN_INTENT = {
         ("total_output_daily", "finished_inbound_daily", "total_electricity_kwh", "anomaly_explanation_daily"),
     ),
 }
+_METRIC_PHRASE_RULES: tuple[tuple[str, str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("quality", "quality_summary", ("daily_yield_rate",), ("成品率", "成材率", "良品率", "合格率")),
+    ("cost", "cost_summary", ("cost_per_ton",), ("成本折算", "吨成本", "每吨成本", "元/吨")),
+    ("production", "production_summary", ("wip_total",), ("在制料", "在制")),
+    ("operations", "contract_summary", ("remaining_contract_weight",), ("总余合同", "余合同", "合同余量", "剩余合同")),
+    ("operation_period", "period_summary", ("monthly_total_output",), ("本月累计产量", "月累计产量", "本月产量累计")),
+    ("operation_period", "period_summary", ("annual_total_output",), ("今年累计产量", "年累计产量", "年度累计产量")),
+    ("evidence", "evidence_summary", ("dingtalk_specialist_evidence",), ("专项责任人", "钉钉证据", "责任人钉钉")),
+    ("anomaly", "source_status", ("source_status",), ("最不可信", "缺少正式来源", "缺正式来源", "哪些指标缺")),
+    ("factory_overview", "daily_report_readiness", ("daily_report_readiness",), ("日报能不能自动生成", "日报自动生成", "能不能自动生成日报")),
+)
 
 
 def understand_root_owner_message(
@@ -114,6 +125,36 @@ def understand_root_owner_message(
             needs_clarification=False,
             clarification_question=None,
             recognition_reason=_join_reasons("context_follow_up", "soft_semantic_match", date_reason, typo_changed),
+        )
+
+    metric_phrase = _match_metric_phrase_rule(normalized)
+    if metric_phrase is not None:
+        domain, intent, metric_keys = metric_phrase
+        return RootOwnerMessagePlan(
+            raw_text=raw_text,
+            normalized_text=normalized,
+            business_date=business_date,
+            domain=domain,
+            intent=intent,
+            metric_keys=metric_keys,
+            confidence=0.82,
+            needs_clarification=False,
+            clarification_question=None,
+            recognition_reason=_join_reasons("metric_phrase_match", domain, date_reason, typo_changed),
+        )
+
+    if _looks_like_output_inbound_conflict(normalized):
+        return RootOwnerMessagePlan(
+            raw_text=raw_text,
+            normalized_text=normalized,
+            business_date=business_date,
+            domain="anomaly",
+            intent="conflict_explanation",
+            metric_keys=("total_output_daily", "finished_inbound_daily"),
+            confidence=0.82,
+            needs_clarification=False,
+            clarification_question=None,
+            recognition_reason=_join_reasons("metric_phrase_match", "anomaly", date_reason, typo_changed),
         )
 
     if _has_any(normalized, _BUSINESS_MISSING_TERMS):
@@ -274,6 +315,17 @@ def _looks_like_factory_overview_ask(text: str) -> bool:
 
 def _has_business_anchor(text: str) -> bool:
     return any(score > 0 for score in _score_domains(text).values())
+
+
+def _match_metric_phrase_rule(text: str) -> tuple[str, str, tuple[str, ...]] | None:
+    for domain, intent, metric_keys, terms in _METRIC_PHRASE_RULES:
+        if _has_any(text, terms):
+            return domain, intent, metric_keys
+    return None
+
+
+def _looks_like_output_inbound_conflict(text: str) -> bool:
+    return _looks_like_conflict_explanation(text) and _has_any(text, ("产量",)) and _has_any(text, ("入库", "成品入库"))
 
 
 def _looks_like_conflict_explanation(text: str, scores: dict[str, int] | None = None) -> bool:

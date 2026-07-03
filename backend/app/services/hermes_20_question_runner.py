@@ -7,6 +7,9 @@ from typing import Any, Sequence
 
 from sqlalchemy.orm import Session
 
+from app.adapters import get_mes_adapter, set_mes_adapter
+from app.adapters.factory import create_mes_adapter
+from app.adapters.mes_adapter import NullMesAdapter
 from app.models.agent_communication import AgentRun, AgentOutboxMessage, ExternalMessageLog
 from app.models.system import User
 from app.services import agent_communication_service
@@ -16,6 +19,7 @@ from app.services.hermes_20_question_acceptance import (
     build_20_question_catalog,
     evaluate_acceptance_summary,
 )
+from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.hermes_root_owner_production_orchestrator import run_root_owner_production_turn
 
 _ALLOWED_DELIVERY_CHANNEL_TYPES = frozenset(
@@ -50,6 +54,7 @@ def run_20_question_acceptance(
     if limit is not None:
         questions = questions[: max(1, int(limit))]
     snapshots: list[AcceptanceTurnSnapshot] = []
+    mes_reader = _build_mes_reader()
     for question in questions:
         trace_id = f"hermes-20q-{business_date.isoformat()}-{question.question_id:02d}"
         result = run_root_owner_production_turn(
@@ -60,6 +65,7 @@ def run_20_question_acceptance(
             trace_id=trace_id,
             source_payload={"source": "hermes_20_question_acceptance", "question_id": question.question_id},
             default_business_date=business_date,
+            mes_reader=mes_reader,
         )
         target_results = _dispatch_approved_targets(
             db,
@@ -86,6 +92,17 @@ def run_20_question_acceptance(
         snapshots=tuple(snapshots),
         summary=evaluate_acceptance_summary(snapshots),
     )
+
+
+def _build_mes_reader() -> HermesMesReadService | None:
+    adapter = get_mes_adapter()
+    if isinstance(adapter, NullMesAdapter):
+        try:
+            adapter = create_mes_adapter()
+            set_mes_adapter(adapter)
+        except Exception:  # noqa: BLE001
+            return None
+    return HermesMesReadService(adapter)
 
 
 def build_snapshot_from_turn(

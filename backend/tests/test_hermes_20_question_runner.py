@@ -117,6 +117,80 @@ def test_runner_builds_snapshots_from_existing_turn_outputs(monkeypatch) -> None
     assert outcome.snapshots[0].dispatch["log_status"] == "sent"
 
 
+def test_runner_passes_mes_reader_to_each_production_turn(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_user())
+    db.commit()
+    mes_reader = object()
+    seen_mes_readers = []
+
+    monkeypatch.setattr(runner, "_build_mes_reader", lambda: mes_reader)
+
+    def fake_turn(**kwargs):
+        seen_mes_readers.append(kwargs["mes_reader"])
+        trace_id = kwargs["trace_id"]
+        outbox = AgentOutboxMessage(
+            dispatch_key=f"dispatch-{trace_id}",
+            status="sent",
+            message_type="markdown",
+            title="鑫泰铝业智能大脑私聊回复",
+            content="ok",
+            trace_id=trace_id,
+        )
+        db.add(outbox)
+        db.flush()
+        run = AgentRun(
+            trace_id=trace_id,
+            agent_code="xintai-root-owner-production",
+            status="answered",
+            status_color="green",
+            answer=f"鑫泰铝业智能大脑回答。来源：MES/WMS 只读链路。状态：confirmed。追踪编号：{trace_id}。",
+            result_payload={
+                "recognition": {
+                    "domain": "production",
+                    "metric_keys": ["total_output_daily"],
+                    "business_date": "2026-06-27",
+                    "needs_clarification": False,
+                },
+                "evidence": {
+                    "primary_source": "mes_readonly",
+                    "candidate_sources": ["mes_readonly"],
+                    "missing_sources": [],
+                    "conflicts": [],
+                    "trace": {
+                        "source_order": ["mes_readonly"],
+                        "source_status": {"mes_readonly": {"status": "ok"}},
+                    },
+                },
+            },
+        )
+        db.add(run)
+        db.commit()
+        return SimpleNamespace(
+            trace_id=trace_id,
+            status="answered",
+            answer=run.answer,
+            chat_inbox_id=1,
+            agent_run_id=run.id,
+            outbox_message_id=outbox.id,
+            dispatch_status="sent",
+            dispatch_detail="ok",
+        )
+
+    monkeypatch.setattr(runner, "run_root_owner_production_turn", lambda *args, **kwargs: fake_turn(**kwargs))
+
+    outcome = run_20_question_acceptance(
+        db,
+        current_user=db.get(User, 1),
+        sender_external_id="dt-root-001",
+        business_date=date(2026, 6, 27),
+        limit=1,
+    )
+
+    assert seen_mes_readers == [mes_reader]
+    assert outcome.snapshots[0].evidence["primary_source"] == "mes_readonly"
+
+
 def test_runner_rejects_unsupported_delivery_target_channel_type(monkeypatch) -> None:
     db = _db_session()
     db.add(_user())

@@ -162,6 +162,43 @@ def test_business_anchored_why_can_request_conflict_explanation() -> None:
     assert plan.needs_clarification is False
 
 
+def test_understands_20_question_metric_phrases_without_hard_exact_sentence() -> None:
+    cases = (
+        ("今天成品率是多少？分子分母是什么？", "quality", ("daily_yield_rate",)),
+        ("今天成本折算元/吨是多少？", "cost", ("cost_per_ton",)),
+        ("今天在制料是多少？", "production", ("wip_total",)),
+        ("现在总余合同量是多少？", "operations", ("remaining_contract_weight",)),
+        ("本月累计产量是多少？", "operation_period", ("monthly_total_output",)),
+        ("今年累计产量是多少？", "operation_period", ("annual_total_output",)),
+        ("哪些数字来自专项责任人钉钉证据？", "evidence", ("dingtalk_specialist_evidence",)),
+        ("今天哪个关键数字最不可信？", "anomaly", ("source_status",)),
+        ("哪些指标缺少正式来源？", "anomaly", ("source_status",)),
+        ("今天日报能不能自动生成？还缺什么？", "factory_overview", ("daily_report_readiness",)),
+    )
+
+    for message, expected_domain, expected_metrics in cases:
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+        )
+
+        assert plan.domain == expected_domain, message
+        assert plan.metric_keys == expected_metrics, message
+        assert plan.needs_clarification is False, message
+        assert "metric_phrase_match" in plan.recognition_reason
+
+
+def test_output_inbound_conflict_is_anomaly_question() -> None:
+    plan = understand_root_owner_message(
+        "产量和入库为什么对不上？",
+        default_business_date=date(2026, 6, 27),
+    )
+
+    assert plan.domain == "anomaly"
+    assert plan.intent == "conflict_explanation"
+    assert plan.metric_keys == ("total_output_daily", "finished_inbound_daily")
+
+
 def test_uses_previous_domain_for_short_follow_up() -> None:
     plan = understand_root_owner_message(
         "那为啥对不上",

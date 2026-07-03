@@ -225,18 +225,22 @@ def _recognition_domain_from_run(run: AgentRun) -> str | None:
 
 
 def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:
+    trace_id = str(decision.trace.get("trace_id") or "").strip()
     if decision.primary is None:
         missing = "、".join(decision.missing_sources) or "事实源"
+        checked_sources = _checked_source_labels(decision)
         return (
-            f"{_HERMES_PUBLIC_NAME}暂时没有查到 {plan.business_date.isoformat()} 这条问题的可用事实，"
-            f"缺少 {missing}；我已记录追踪编号，建议先补齐对应来源。"
+            f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()} 暂时没有查到可用正式事实，"
+            f"缺少 {missing}，建议先补齐对应来源。"
+            f"来源：{checked_sources}。状态：missing。追踪编号：{trace_id}。"
         )
     source_label = _source_label(decision.primary.source_key)
     conflict_text = "；来源有冲突，我已按最高优先级来源采用当前口径" if decision.conflicts else ""
+    status = "conflict" if decision.conflicts else str(decision.primary.status or "confirmed")
     return (
-        f"{_HERMES_PUBLIC_NAME}按{source_label}回答 {plan.business_date.isoformat()}："
+        f"{_HERMES_PUBLIC_NAME}回答：按{source_label}读取 {plan.business_date.isoformat()}，"
         f"{decision.primary.summary}{conflict_text}；"
-        "追踪编号会记录本次采用来源、未采用来源和缺失来源。"
+        f"来源：{_source_labels(decision)}。状态：{status}。追踪编号：{trace_id}。"
     )
 
 
@@ -248,6 +252,18 @@ def _source_label(source_key: str) -> str:
         "data_hub_projection": "数据中枢投影",
     }
     return labels.get(source_key, source_key)
+
+
+def _source_labels(decision: EvidenceDecision) -> str:
+    labels = [_source_label(candidate.source_key) for candidate in decision.candidates]
+    return "、".join(dict.fromkeys(label for label in labels if label)) or "未形成可用来源"
+
+
+def _checked_source_labels(decision: EvidenceDecision) -> str:
+    trace = decision.trace if isinstance(decision.trace, Mapping) else {}
+    source_status = trace.get("source_status") if isinstance(trace.get("source_status"), Mapping) else {}
+    labels = [_source_label(str(source_key)) for source_key in source_status]
+    return "已检查" + "、".join(labels) if labels else "未形成可用来源"
 
 
 def _status_color(decision: EvidenceDecision) -> str:

@@ -41,10 +41,11 @@ _PRODUCTION_QUERY_KEYS = {
     "workshop_output_daily": "workshop_process_records",
     "finished_inbound_daily": "finished_inbound_records",
     "daily_input_weight": "material_records",
+    "daily_yield_rate": "yield_records",
     "wip_total": "wip_totals",
     "remaining_contract_weight": "stock_records",
 }
-_MES_DOMAINS = {"production", "factory_overview", "anomaly", "inventory"}
+_MES_DOMAINS = {"production", "factory_overview", "anomaly", "inventory", "quality", "operations"}
 _DINGTALK_FACT_FIELDS = ("facts", "parsed_facts", "metrics", "payload")
 _VALIDATION_CONTAINER_FIELDS = ("metadata", "validation", "fact_validation", "evidence_conditions")
 _VALIDATION_TRUE_TEXT = {
@@ -75,7 +76,8 @@ _MES_METRIC_FIELD_ALIASES = {
     "workshop_output_daily": ("workshop_output_daily", "net_weight", "weight", "output_weight", "quantity"),
     "finished_inbound_daily": ("finished_inbound_daily", "net_weight", "weight", "output_weight", "quantity"),
     "daily_input_weight": ("daily_input_weight", "net_weight", "weight", "input_weight", "quantity"),
-    "wip_total": ("wip_total", "total_weight", "weight", "quantity"),
+    "daily_yield_rate": ("daily_yield_rate", "yield_rate", "plant_wide_yield_rate", "YieldRate", "Yield", "CraftYield", "value"),
+    "wip_total": ("wip_total", "total_weight", "doing_weight", "DoingWeight", "weight", "quantity"),
     "remaining_contract_weight": (
         "remaining_contract_weight",
         "remaining_weight",
@@ -557,8 +559,9 @@ def _mes_record_metric_number(record: Any, metric_key: str) -> float | None:
     if direct:
         return _metric_number_or_none(direct.get(metric_key))
     for field in _MES_METRIC_FIELD_ALIASES.get(metric_key, ()):
-        if _has_metric_value(record.get(field)):
-            number = _metric_number_or_none(record.get(field))
+        value = _mapping_value(record, field)
+        if _has_metric_value(value):
+            number = _metric_number_or_none(value)
             if number is not None:
                 return number
     return None
@@ -626,6 +629,23 @@ def _supported_dingtalk_content_type(value: Any) -> bool:
 
 def _has_metric_value(value: Any) -> bool:
     return value is not None and value != ""
+
+
+def _mapping_value(value: Mapping[str, Any], field: str) -> Any:
+    if field in value:
+        return value[field]
+    field_lower = field.lower()
+    for key, item in value.items():
+        if str(key).lower() == field_lower:
+            return item
+    metadata = value.get("metadata")
+    if isinstance(metadata, Mapping):
+        if field in metadata:
+            return metadata[field]
+        for key, item in metadata.items():
+            if str(key).lower() == field_lower:
+                return item
+    return None
 
 
 def _metric_number_or_none(value: Any) -> float | None:
