@@ -129,6 +129,13 @@ jobs:
               return score
 
 
+          def acceptance_channel_type(channel_key: str) -> str:
+              clean_key = str(channel_key or "").strip().lower()
+              if clean_key.startswith("http://") or clean_key.startswith("https://"):
+                  return "dingtalk_custom_robot"
+              return "dingtalk_group"
+
+
           def selected_owner_id(db) -> str:
               configured = sorted(
                   str(item).strip()
@@ -165,7 +172,7 @@ jobs:
               owner_id = selected_owner_id(db)
               channels = (
                   db.query(CommunicationChannel)
-                  .filter(CommunicationChannel.channel_type == "dingtalk_group")
+                  .filter(CommunicationChannel.channel_type.in_(("dingtalk_group", "dingtalk_custom_robot")))
                   .filter(CommunicationChannel.is_active.is_(True))
                   .order_by(CommunicationChannel.id.asc())
                   .all()
@@ -194,9 +201,10 @@ jobs:
               if explicit_group_key:
                   from app.services import agent_communication_service
 
+                  explicit_channel_type = acceptance_channel_type(explicit_group_key)
                   group = agent_communication_service.register_channel(
                       db,
-                      channel_type="dingtalk_group",
+                      channel_type=explicit_channel_type,
                       channel_key=explicit_group_key,
                       name="Hermes 20 问验收测试群",
                       target_type="acceptance_test",
@@ -233,7 +241,7 @@ jobs:
                   source_health=source_health,
                   delivery_targets=(
                       DingTalkDeliveryTarget(
-                          channel_type="dingtalk_group",
+                          channel_type=group.channel_type,
                           channel_key=group.channel_key,
                       ),
                   ),

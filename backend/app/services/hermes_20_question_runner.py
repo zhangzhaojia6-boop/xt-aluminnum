@@ -17,7 +17,9 @@ from app.services.hermes_20_question_acceptance import (
 )
 from app.services.hermes_root_owner_production_orchestrator import run_root_owner_production_turn
 
-_ALLOWED_DELIVERY_CHANNEL_TYPES = frozenset({"dingtalk_group", "dingtalk_work_notice"})
+_ALLOWED_DELIVERY_CHANNEL_TYPES = frozenset(
+    {"dingtalk_group", "dingtalk_work_notice", "dingtalk_custom_robot"}
+)
 
 
 @dataclass(frozen=True, slots=True)

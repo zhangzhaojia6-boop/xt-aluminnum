@@ -150,7 +150,7 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
     _install_fake_turn(monkeypatch, db)
 
     call_order: list[tuple[str, str, str]] = []
-    outbox_ids = iter((9001, 9002))
+    outbox_ids = iter((9001, 9002, 9003))
 
     def fake_register_agent(*args, **kwargs):
         assert kwargs["code"] == "hermes_20_question_acceptance"
@@ -203,6 +203,7 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
         delivery_targets=[
             DingTalkDeliveryTarget(channel_type="dingtalk_group", channel_key="factory-group"),
             DingTalkDeliveryTarget(channel_type="dingtalk_work_notice", channel_key="dt-user-001"),
+            DingTalkDeliveryTarget(channel_type="dingtalk_custom_robot", channel_key="https://example.test/robot"),
         ],
     )
 
@@ -218,13 +219,18 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
         ("queue_bound_message", "dingtalk_work_notice", "dt-user-001"),
         ("dispatch_outbox_message", "9002", ""),
         ("list_external_logs", "9002", ""),
+        ("register_channel", "dingtalk_custom_robot", "https://example.test/robot"),
+        ("bind_agent_to_channel", "dingtalk_custom_robot", "https://example.test/robot"),
+        ("queue_bound_message", "dingtalk_custom_robot", "https://example.test/robot"),
+        ("dispatch_outbox_message", "9003", ""),
+        ("list_external_logs", "9003", ""),
     ]
 
     snapshot = outcome.snapshots[0]
     assert snapshot.dispatch["status"] == "sent"
     assert snapshot.dispatch["detail"] == "all_targets_sent"
-    assert snapshot.dispatch["delivery_sent_count"] == 3
-    assert snapshot.dispatch["delivery_target_count"] == 3
+    assert snapshot.dispatch["delivery_sent_count"] == 4
+    assert snapshot.dispatch["delivery_target_count"] == 4
     assert snapshot.dispatch["target_results"] == [
         {
             "status": "sent",
@@ -241,6 +247,14 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
             "log_status": "sent",
             "channel_type": "dingtalk_work_notice",
             "channel_key": "dt-user-001",
+        },
+        {
+            "status": "sent",
+            "detail": "queued",
+            "outbox_message_id": 9003,
+            "log_status": "sent",
+            "channel_type": "dingtalk_custom_robot",
+            "channel_key": "https://example.test/robot",
         },
     ]
 
