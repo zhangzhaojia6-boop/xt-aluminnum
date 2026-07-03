@@ -55,7 +55,16 @@ jobs:
           artifact_dir="/srv/aluminum-bypass/docs/superpowers/reports/daily-report-fact-closure-production-${RUN_ID}"
           rm -rf "$output_root"
           mkdir -p "$output_root" "$artifact_dir"
-          unzip -q "$REMOTE_BUNDLE" -d "$output_root"
+          python3 - "$REMOTE_BUNDLE" "$output_root" <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import sys
+
+          bundle = Path(sys.argv[1])
+          output_root = Path(sys.argv[2])
+          with ZipFile(bundle) as archive:
+              archive.extractall(output_root)
+          PY
           rm -f "$REMOTE_BUNDLE"
 
           cd /srv/aluminum-bypass/backend
