@@ -102,7 +102,7 @@ def test_assistant_query_returns_answer_contract_for_review_home(monkeypatch: py
     payload = response.json()
     assert payload['mode'] == 'answer'
     assert payload['mock'] is True
-    assert payload['summary'] == '当前为 deterministic 回退，优先关注算法阻塞与交付闭环。'
+    assert payload['summary'] == '当前为固定兜底回复，优先关注算法阻塞与交付闭环。'
     assert payload['cards'][0]['title'] == '阻塞优先级'
     assert payload['cards'][0]['source_labels'] == ['算法流水线', '执行交付助手']
     assert payload['integrations_used'] == ['dashboard', 'runtime_trace', 'delivery_status']

@@ -89,7 +89,7 @@ def test_dingtalk_first_message_contains_date_status_match_judgment_and_trace_id
     assert '6月21日' in first
     assert '状态：已对齐' in first
     assert '字段匹配率：96.5%' in first
-    assert 'Hermes判断' in first
+    assert '智能大脑判断' in first
     assert 'trace-day1-message-001' in first
 
 
@@ -266,4 +266,4 @@ def test_long_dingtalk_output_splits_cleanly_without_engineering_artifacts() -> 
     for title in ('【铸轧分厂】', '【2050车间】', '【回收车间】'):
         containing = [message for message in messages if title in message]
         assert len(containing) == 1
-        assert 'Hermes判断' in containing[0]
+        assert '智能大脑判断' in containing[0]
