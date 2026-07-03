@@ -150,6 +150,7 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
     _install_fake_turn(monkeypatch, db)
 
     call_order: list[tuple[str, str, str]] = []
+    dedupe_keys: list[str] = []
     outbox_ids = iter((9001, 9002, 9003))
 
     def fake_register_agent(*args, **kwargs):
@@ -158,6 +159,9 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
         return SimpleNamespace(code=kwargs["code"])
 
     def fake_register_channel(*args, **kwargs):
+        if kwargs["channel_type"] == "dingtalk_custom_robot":
+            assert "https://example.test/robot" not in kwargs["name"]
+            assert kwargs["target_key"] == "hermes_20_question_acceptance"
         call_order.append(("register_channel", kwargs["channel_type"], kwargs["channel_key"]))
         return SimpleNamespace(channel_type=kwargs["channel_type"], channel_key=kwargs["channel_key"])
 
@@ -166,6 +170,7 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
         return SimpleNamespace()
 
     def fake_queue(*args, **kwargs):
+        dedupe_keys.append(kwargs["dedupe_key"])
         call_order.append(("queue_bound_message", kwargs["channel_type"], kwargs["channel_key"]))
         return SimpleNamespace(id=next(outbox_ids))
 
@@ -225,6 +230,8 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
         ("dispatch_outbox_message", "9003", ""),
         ("list_external_logs", "9003", ""),
     ]
+    assert all(len(item) <= 160 for item in dedupe_keys)
+    assert all("https://example.test/robot" not in item for item in dedupe_keys)
 
     snapshot = outcome.snapshots[0]
     assert snapshot.dispatch["status"] == "sent"

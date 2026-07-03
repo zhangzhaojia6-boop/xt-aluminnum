@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+import hashlib
 from typing import Any, Sequence
 
 from sqlalchemy.orm import Session
@@ -148,9 +149,9 @@ def _dispatch_approved_targets(
                 db,
                 channel_type=target.channel_type,
                 channel_key=target.channel_key,
-                name=f"20问验收-{target.channel_key}",
+                name=f"20问验收-{target.channel_type}",
                 target_type="acceptance_test",
-                target_key=target.channel_key,
+                target_key=_delivery_target_key(target),
                 dry_run=False,
                 metadata_payload={"managed_by": "hermes_20_question_acceptance"},
             )
@@ -172,7 +173,7 @@ def _dispatch_approved_targets(
                 source_summary=f"question_{question_id}",
                 trace_id=trace_id,
                 payload={"question_id": question_id, "acceptance_target": True},
-                dedupe_key=f"{trace_id}:{channel.channel_type}:{channel.channel_key}",
+                dedupe_key=_delivery_dedupe_key(trace_id, channel_type=channel.channel_type, channel_key=channel.channel_key),
             )
             outcome = agent_communication_service.dispatch_outbox_message(db, message.id)
             logs = agent_communication_service.list_external_logs(db, outbox_message_id=message.id)
@@ -204,6 +205,17 @@ def _dispatch_approved_targets(
 def _validate_delivery_target(target: DingTalkDeliveryTarget) -> None:
     if target.channel_type not in _ALLOWED_DELIVERY_CHANNEL_TYPES:
         raise ValueError(f"unsupported delivery target channel_type: {target.channel_type}")
+
+
+def _delivery_target_key(target: DingTalkDeliveryTarget) -> str:
+    if target.channel_type == "dingtalk_work_notice":
+        return target.channel_key
+    return "hermes_20_question_acceptance"
+
+
+def _delivery_dedupe_key(trace_id: str, *, channel_type: str, channel_key: str) -> str:
+    digest = hashlib.sha256(f"{channel_type}:{channel_key}".encode("utf-8")).hexdigest()[:16]
+    return f"{trace_id}:{channel_type}:{digest}"
 
 
 def _dispatch_payload(
