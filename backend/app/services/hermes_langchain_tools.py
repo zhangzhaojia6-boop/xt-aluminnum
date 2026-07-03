@@ -14,6 +14,7 @@ from app.models.reports import DailyReport
 from app.models.system import User
 from app.services.hermes_codex_construction_service import request_codex_construction
 from app.services.hermes_data_audit_service import HermesDataAuditService
+from app.services.hermes_fact_priority_service import PRIORITY as FACT_SOURCE_PRIORITY
 from app.services.hermes_long_term_rule_service import list_active_rules
 from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.hermes_fact_source_map_service import find_fact_source, source_summary_for_metric
@@ -27,6 +28,50 @@ ToolCallable = Callable[..., ToolResult]
 _DINGTALK_EVIDENCE_TYPES = ('text', 'file', 'image', 'attachment', 'dingtalk_file', 'dingtalk_text')
 _DINGTALK_TEXT_EVIDENCE_TYPES = {'text', 'dingtalk_text'}
 _DINGTALK_FILE_EVIDENCE_TYPES = {'file', 'attachment', 'dingtalk_file'}
+_TOOL_GUIDANCE_HINTS: dict[str, dict[str, object]] = {
+    'dingtalk_group_content': {
+        'priority': FACT_SOURCE_PRIORITY['dingtalk_group_content'],
+        'usage': '当前工具优先读取钉钉群聊天和群文件证据。',
+    },
+    'mes_wms_readonly': {
+        'priority': FACT_SOURCE_PRIORITY['mes_wms'],
+        'usage': '当前工具读取 MES/WMS 只读事实，不写回外部系统。',
+    },
+    'data_hub': {
+        'priority': FACT_SOURCE_PRIORITY['hub'],
+        'usage': '当前工具读取数据中枢 bundle、投影和汇总结果。',
+    },
+    'rag': {
+        'priority': 4,
+        'usage': '当前工具只用于规则、定义、历史上下文，不作为当前实时数字事实来源。',
+    },
+    'fact_source_map': {
+        'usage': '具体指标来源以 facts 里的 priority_sources 和 summary 为准。',
+    },
+}
+_METRIC_SOURCE_LABELS: dict[str, str] = {
+    'dingtalk_group_content': '钉钉群聊天/群文件',
+    'dingtalk_specialist': '钉钉专项责任人证据',
+    'mes/wms readonly': 'MES/WMS 只读事实',
+    'wms final document': 'WMS 最终单据',
+    'data_hub_projection': '数据中枢投影',
+    'data_hub_manual': '数据中枢人工录入',
+    'dailyfactbundle': 'DailyFactBundle',
+    'daily_reports': '历史日报',
+    'historical_report': '历史日报',
+    'rag': 'RAG 规则/定义/历史上下文',
+    'computed': '计算口径',
+    'root_owner': '最高权限负责人修正',
+    'operationperiodsnapshot': '周期快照',
+    'dailyreporthistoryrecord': '日报历史记录',
+    'multimodal_evidence': '多模态证据',
+    'data_quality_issues': '数据质量问题记录',
+    'authorized_group': '授权群条件',
+    'specialist_sender': '专项责任人发送条件',
+    'content_type': '内容类型条件',
+    'time_range': '时间范围条件',
+    'iot_energy_future': '后续物联网能耗来源',
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,40 +131,64 @@ def _hub_query_tool(*, db: Session, **kwargs: object) -> ToolResult:
     try:
         business_date = _parse_business_date(kwargs.get('business_date'))
         payload = template_daily_report.build_template_daily_report_payload(db, target_date=business_date)
-        return {
-            'status': payload.get('status', 'ok'),
-            'source': 'data_hub',
-            'request': _request_payload(kwargs),
-            'facts': payload.get('facts') or payload.get('hermes_fact_bundle') or {},
-        }
+        return _tool_result(
+            status=payload.get('status', 'ok'),
+            source='data_hub',
+            kwargs=kwargs,
+            facts=payload.get('facts') or payload.get('hermes_fact_bundle') or {},
+        )
     except Exception as exc:
         return _unavailable('data_hub', kwargs, exc)
 
 
 def _mes_wms_read_tool(*, mes_read_service: HermesMesReadService | None, **kwargs: object) -> ToolResult:
+    query_keys = _string_list(kwargs.get('query_keys'), ['workshop_process_records', 'finished_inbound_records'])
     if mes_read_service is None:
-        return {
-            'status': 'unavailable',
-            'source': 'mes_wms_readonly',
-            'request': _request_payload(kwargs),
-            'facts': {},
-            'reason': 'mes_read_service_missing',
-        }
+        return _tool_result(
+            status='unavailable',
+            source='mes_wms_readonly',
+            kwargs=kwargs,
+            facts={},
+            reason='mes_read_service_missing',
+            source_health=_mes_read_health(
+                mes_read_service=None,
+                query_keys=query_keys,
+                facts={},
+                fallback_errors={'service': 'mes_read_service_missing'},
+                service_status='missing',
+            ),
+        )
     try:
         business_date = _parse_business_date(kwargs.get('business_date'))
-        query_keys = _string_list(kwargs.get('query_keys'), ['workshop_process_records', 'finished_inbound_records'])
-        return {
-            'status': 'ok',
-            'source': 'mes_wms_readonly',
-            'request': _request_payload(kwargs),
-            'facts': mes_read_service.read_sources(
-                business_date=business_date,
+        facts = mes_read_service.read_sources(
+            business_date=business_date,
+            query_keys=query_keys,
+            workshop_name=str(kwargs.get('workshop_name') or '').strip() or None,
+        )
+        return _tool_result(
+            status='ok',
+            source='mes_wms_readonly',
+            kwargs=kwargs,
+            facts=facts,
+            source_health=_mes_read_health(
+                mes_read_service=mes_read_service,
                 query_keys=query_keys,
-                workshop_name=str(kwargs.get('workshop_name') or '').strip() or None,
+                facts=facts,
             ),
-        }
+        )
     except Exception as exc:
-        return _unavailable('mes_wms_readonly', kwargs, exc)
+        return _unavailable(
+            'mes_wms_readonly',
+            kwargs,
+            exc,
+            source_health=_mes_read_health(
+                mes_read_service=mes_read_service,
+                query_keys=query_keys,
+                facts={},
+                fallback_errors={'service': redact_secret_text(str(exc))},
+                service_status='failed',
+            ),
+        )
 
 
 def _dingtalk_evidence_tool(*, db: Session, **kwargs: object) -> ToolResult:
@@ -168,12 +237,12 @@ def _dingtalk_evidence_tool(*, db: Session, **kwargs: object) -> ToolResult:
                 )
             )
         candidates.sort(key=lambda item: item[0])
-        return {
-            'status': 'ok',
-            'source': 'dingtalk_group_content',
-            'request': _request_payload(kwargs),
-            'facts': [fact for _sort_key, fact in candidates[:limit]],
-        }
+        return _tool_result(
+            status='ok',
+            source='dingtalk_group_content',
+            kwargs=kwargs,
+            facts=[fact for _sort_key, fact in candidates[:limit]],
+        )
     except Exception as exc:
         return _unavailable('dingtalk_group_content', kwargs, exc)
 
@@ -254,7 +323,7 @@ def _rag_route_tool(*, db: Session, current_user: User | None, **kwargs: object)
             workshop=str(kwargs.get('workshop') or '').strip() or None,
             machine_code=str(kwargs.get('machine_code') or '').strip() or None,
         )
-        return {'status': 'ok', 'source': 'rag', 'request': _request_payload(kwargs), 'facts': result}
+        return _tool_result(status='ok', source='rag', kwargs=kwargs, facts=result)
     except Exception as exc:
         return _unavailable('rag', kwargs, exc)
 
@@ -273,7 +342,7 @@ def _history_report_tool(*, db: Session, **kwargs: object) -> ToolResult:
             }
             for report in reports
         ]
-        return {'status': 'ok', 'source': 'daily_reports', 'request': _request_payload(kwargs), 'facts': facts}
+        return _tool_result(status='ok', source='daily_reports', kwargs=kwargs, facts=facts)
     except Exception as exc:
         return _unavailable('daily_reports', kwargs, exc)
 
@@ -291,12 +360,12 @@ def _output_skill_alignment_tool(
             fields=_string_list(kwargs.get('fields'), []),
             mes_query_keys=_string_list(kwargs.get('mes_query_keys'), []),
         )
-        return {
-            'status': run.status,
-            'source': 'output_skill_alignment',
-            'request': _request_payload(kwargs),
-            'facts': {'run_id': run.id},
-        }
+        return _tool_result(
+            status=run.status,
+            source='output_skill_alignment',
+            kwargs=kwargs,
+            facts={'run_id': run.id},
+        )
     except Exception as exc:
         return _unavailable('output_skill_alignment', kwargs, exc)
 
@@ -317,7 +386,7 @@ def _long_term_rules_tool(*, db: Session, **kwargs: object) -> ToolResult:
             }
             for rule in rules
         ]
-        return {'status': 'ok', 'source': 'long_term_rules', 'request': _request_payload(kwargs), 'facts': facts}
+        return _tool_result(status='ok', source='long_term_rules', kwargs=kwargs, facts=facts)
     except Exception as exc:
         return _unavailable('long_term_rules', kwargs, exc)
 
@@ -326,24 +395,24 @@ def _source_map_tool(**kwargs: object) -> ToolResult:
     try:
         metric_key = str(kwargs.get('metric_key') or '').strip()
         item = find_fact_source(metric_key)
-        return {
-            'status': 'ok',
-            'source': 'fact_source_map',
-            'request': _request_payload(kwargs),
-            'facts': {**item, 'summary': source_summary_for_metric(metric_key)},
-        }
+        return _tool_result(
+            status='ok',
+            source='fact_source_map',
+            kwargs=kwargs,
+            facts={**item, 'summary': source_summary_for_metric(metric_key)},
+        )
     except Exception as exc:
         return _unavailable('fact_source_map', kwargs, exc)
 
 
 def _system_optimization_tool(*, db: Session, current_user: User | None, **kwargs: object) -> ToolResult:
     if current_user is None:
-        return {
-            'status': 'denied',
-            'source': 'system_optimization',
-            'request': _request_payload(kwargs),
-            'facts': {'message': '缺少最高权限负责人身份'},
-        }
+        return _tool_result(
+            status='denied',
+            source='system_optimization',
+            kwargs=kwargs,
+            facts={'message': '缺少最高权限负责人身份'},
+        )
     result = request_codex_construction(
         db,
         actor=current_user,
@@ -351,12 +420,12 @@ def _system_optimization_tool(*, db: Session, current_user: User | None, **kwarg
         trace_id=str(kwargs.get('trace_id') or ''),
         construction_type=str(kwargs.get('construction_type') or 'light'),
     )
-    return {
-        'status': result.status,
-        'source': 'system_optimization',
-        'request': _request_payload(kwargs),
-        'facts': {'run_id': result.run_id, 'message': result.message},
-    }
+    return _tool_result(
+        status=result.status,
+        source='system_optimization',
+        kwargs=kwargs,
+        facts={'run_id': result.run_id, 'message': result.message},
+    )
 
 
 def _parse_business_date(value: object) -> date:
@@ -401,11 +470,125 @@ def _int_arg(value: object, *, default: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(parsed, maximum))
 
 
-def _unavailable(source: str, kwargs: Mapping[str, object], exc: Exception) -> ToolResult:
-    return {
-        'status': 'unavailable',
+def _tool_result(
+    *,
+    status: str,
+    source: str,
+    kwargs: Mapping[str, object],
+    facts: object,
+    **extra: object,
+) -> ToolResult:
+    payload: ToolResult = {
+        'status': status,
         'source': source,
         'request': _request_payload(kwargs),
-        'facts': {},
-        'reason': redact_secret_text(str(exc)),
+        'facts': facts,
+        'source_guidance': _source_guidance(source, kwargs),
     }
+    payload.update(extra)
+    return payload
+
+
+def _source_guidance(source: str, kwargs: Mapping[str, object]) -> dict[str, object]:
+    hint = _TOOL_GUIDANCE_HINTS.get(source, {})
+    guidance = {
+        'tool_source': source,
+        'tool_priority': hint.get('priority'),
+        'tool_usage': hint.get('usage', '当前工具不会改变四层来源优先级，只提供补充信息。'),
+        'source_rules': [
+            '钉钉群聊天/群文件优先于一般汇总结果时，应按来源地图和 trace 判断。',
+            'MES/WMS 只读来源只能读，不能写回外部系统。',
+            'RAG 只用于规则、定义、历史上下文，不作为当前实时数字事实来源。',
+        ],
+    }
+    metric_key = str(kwargs.get('metric_key') or '').strip()
+    if metric_key and source != 'fact_source_map':
+        priority_order = _metric_priority_order(metric_key)
+        if priority_order is not None:
+            guidance['metric_key'] = metric_key
+            guidance['priority_order'] = priority_order
+    return guidance
+
+
+def _metric_priority_order(metric_key: str) -> list[dict[str, object]] | None:
+    try:
+        item = find_fact_source(metric_key)
+    except KeyError:
+        return None
+    priority_sources = item.get('priority_sources')
+    if not isinstance(priority_sources, list):
+        return None
+    result: list[dict[str, object]] = []
+    for index, source_name in enumerate(priority_sources, start=1):
+        source_text = str(source_name)
+        result.append(
+            {
+                'priority': index,
+                'source_key': source_text,
+                'label': _metric_source_label(source_text),
+                'current_numeric_fact': _metric_source_is_current_fact(source_text),
+            }
+        )
+    return result
+
+
+def _metric_source_label(source_name: str) -> str:
+    clean_name = str(source_name).strip()
+    return _METRIC_SOURCE_LABELS.get(clean_name.lower(), clean_name)
+
+
+def _metric_source_is_current_fact(source_name: str) -> bool:
+    return 'rag' not in str(source_name).strip().lower()
+
+
+def _mes_read_health(
+    *,
+    mes_read_service: HermesMesReadService | None,
+    query_keys: list[str],
+    facts: Mapping[str, object],
+    fallback_errors: Mapping[str, str] | None = None,
+    service_status: str | None = None,
+) -> dict[str, object]:
+    source_errors = _sanitize_source_errors(facts.get('source_errors') or fallback_errors or {})
+    adapter = getattr(mes_read_service, '_adapter', None) if mes_read_service is not None else None
+    return {
+        'adapter': type(adapter).__name__ if adapter is not None else (
+            type(mes_read_service).__name__ if mes_read_service is not None else 'service_missing'
+        ),
+        'readonly': True,
+        'query_keys': query_keys,
+        'source_errors': source_errors,
+        'record_count': _record_count((facts.get('records') or {})) if isinstance(facts, Mapping) else 0,
+        'service_status': service_status
+        or str(((facts.get('source_status') or {}) if isinstance(facts, Mapping) else {}).get('mes') or 'unknown'),
+    }
+
+
+def _sanitize_source_errors(source_errors: object) -> dict[str, str]:
+    if not isinstance(source_errors, Mapping):
+        return {}
+    return {
+        str(key): redact_secret_text(str(value))
+        for key, value in source_errors.items()
+    }
+
+
+def _record_count(records: object) -> int:
+    if isinstance(records, Mapping):
+        return sum(_record_count(value) for value in records.values())
+    if isinstance(records, list):
+        return len(records)
+    if records is None:
+        return 0
+    return 1
+
+
+def _unavailable(source: str, kwargs: Mapping[str, object], exc: Exception, **extra: object) -> ToolResult:
+    return _tool_result(
+        status='unavailable',
+        source=source,
+        kwargs=kwargs,
+        facts={},
+        reason=redact_secret_text(str(exc)),
+        **extra,
+    )

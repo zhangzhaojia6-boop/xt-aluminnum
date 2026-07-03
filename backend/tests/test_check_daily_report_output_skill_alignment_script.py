@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 import os
 
 from scripts import check_daily_report_output_skill_alignment as script
@@ -27,6 +28,7 @@ def test_run_alignment_checks_sets_output_skill_root_temporarily(tmp_path) -> No
             "status": "ready",
             "missing_fields": [],
             "gap_plan": {"status": "ready", "item_count": 0, "summary": {}, "items": []},
+            "fact_closure": {"status": "pass", "critical_fields": []},
             "output_skill_alignment": {
                 "status": "passed",
                 "file_name": f"{business_date.month}-{business_date.day}.txt",
@@ -49,6 +51,8 @@ def test_run_alignment_checks_sets_output_skill_root_temporarily(tmp_path) -> No
     )
 
     assert [row["status"] for row in rows] == ["passed", "passed"]
+    assert [row["alignment_status"] for row in rows] == ["passed", "passed"]
+    assert rows[0]["fact_closure"]["status"] == "pass"
     assert rows[0]["gap_plan"]["status"] == "ready"
     assert calls == [date(2026, 6, 28), date(2026, 6, 29)]
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
@@ -69,7 +73,219 @@ def test_run_alignment_checks_explains_missing_local_table(tmp_path) -> None:
     assert rows[0]["action_required"] == "run_migrations_or_use_production_database"
 
 
+def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> None:
+    artifact_dir = tmp_path / "nested" / "artifacts"
+    rows = [
+        {
+            "business_date": "2026-06-29",
+            "status": "review_needed",
+            "bundle_status": "ready",
+            "field_match_rate": 98.5,
+            "exact_match": False,
+            "difference_count": 1,
+            "missing_fields_count": 1,
+            "alignment_status": "review_needed",
+            "fact_closure": {
+                "status": "blocked",
+                "critical_fields": [
+                    {
+                        "field": "total_output_daily",
+                        "status": "mismatch",
+                        "source": "DailyFactBundle",
+                        "trace_id": "trace-output",
+                        "action": "review_source",
+                    }
+                ],
+            },
+            "differences": [
+                {
+                    "field": "total_output_daily",
+                    "expected": "100",
+                    "actual": "99",
+                    "source": "DailyFactBundle",
+                    "status": "conflict",
+                    "action": "review_source",
+                }
+            ],
+        }
+    ]
+
+    paths = script.write_alignment_artifacts(rows, artifact_dir)
+
+    json_path = artifact_dir / "daily_report_alignment.json"
+    markdown_path = artifact_dir / "daily_report_alignment.md"
+    assert artifact_dir.exists()
+    assert paths == {"json": str(json_path), "markdown": str(markdown_path)}
+    assert json_path.exists()
+    assert markdown_path.exists()
+    assert json.loads(json_path.read_text(encoding="utf-8")) == rows
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert "2026-06-29" in markdown
+    assert "ready" in markdown
+    assert "98.5" in markdown
+    assert "False" in markdown
+    assert "Fact closure status: blocked" in markdown
+    assert "trace-output" in markdown
+    assert "1" in markdown
+    assert "total_output_daily" in markdown
+    assert "DailyFactBundle" in markdown
+    assert "review_source" in markdown
+
+
+def test_render_alignment_markdown_shows_difference_count_and_truncation_notice() -> None:
+    rows = [
+        {
+            "business_date": "2026-06-29",
+            "status": "review_needed",
+            "bundle_status": "ready",
+            "field_match_rate": 80.0,
+            "exact_match": False,
+            "difference_count": 25,
+            "missing_fields_count": 0,
+            "alignment_status": "review_needed",
+            "fact_closure": {"status": "blocked", "critical_fields": []},
+            "differences": [{"field": f"field_{index}"} for index in range(20)],
+        }
+    ]
+
+    markdown = script.render_alignment_markdown(rows)
+
+    assert "Difference count: 25" in markdown
+    assert "truncated" in markdown
+    assert "--full-differences" in markdown
+    assert "all rows" in markdown
+
+
+def test_render_alignment_markdown_shows_error_details() -> None:
+    rows = [
+        {
+            "business_date": "2026-06-29",
+            "status": "error",
+            "bundle_status": None,
+            "field_match_rate": None,
+            "exact_match": False,
+            "difference_count": None,
+            "missing_fields_count": None,
+            "differences": [],
+            "error": "no such table: multimodal_evidence",
+            "action_required": "run_migrations_or_use_production_database",
+        }
+    ]
+
+    markdown = script.render_alignment_markdown(rows)
+
+    assert "Status: error" in markdown
+    assert "Error: no such table: multimodal_evidence" in markdown
+    assert "Action required: run_migrations_or_use_production_database" in markdown
+
+
+def test_run_alignment_checks_keeps_all_differences_when_enabled(tmp_path) -> None:
+    differences = [{"field": f"field_{index}"} for index in range(25)]
+
+    def fake_builder(db, *, business_date, persist_run=False):
+        return {
+            "status": "ready",
+            "fact_closure": {"status": "blocked", "critical_fields": []},
+            "output_skill_alignment": {
+                "status": "review_needed",
+                "differences": differences,
+            },
+        }
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+        full_differences=True,
+    )
+
+    assert rows[0]["differences"] == differences
+
+
+def test_run_alignment_checks_truncates_differences_by_default(tmp_path) -> None:
+    differences = [{"field": f"field_{index}"} for index in range(25)]
+
+    def fake_builder(db, *, business_date, persist_run=False):
+        return {
+            "status": "ready",
+            "fact_closure": {"status": "blocked", "critical_fields": []},
+            "output_skill_alignment": {
+                "status": "review_needed",
+                "differences": differences,
+            },
+        }
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+    )
+
+    assert rows[0]["differences"] == differences[:20]
+
+
 def test_checks_passed_requires_all_rows_passed() -> None:
-    assert script.checks_passed([{"status": "passed"}, {"status": "passed"}]) is True
-    assert script.checks_passed([{"status": "passed"}, {"status": "review_needed"}]) is False
+    assert script.checks_passed(
+        [
+            {"status": "passed", "fact_closure": {"status": "pass"}},
+            {"status": "passed", "fact_closure": {"status": "pass"}},
+        ]
+    ) is True
+    assert script.checks_passed(
+        [
+            {"status": "passed", "fact_closure": {"status": "pass"}},
+            {"status": "review_needed", "fact_closure": {"status": "pass"}},
+        ]
+    ) is False
+    assert script.checks_passed(
+        [{"status": "passed", "fact_closure": {"status": "blocked"}}]
+    ) is False
+    assert script.checks_passed([{"status": "passed"}]) is False
     assert script.checks_passed([]) is False
+
+
+def test_run_alignment_checks_blocks_when_fact_closure_is_blocked(tmp_path) -> None:
+    def fake_builder(db, *, business_date, persist_run=False):
+        return {
+            "status": "ready",
+            "missing_fields": [],
+            "gap_plan": {"status": "ready", "item_count": 0, "summary": {}, "items": []},
+            "fact_closure": {
+                "status": "blocked",
+                "critical_fields": [
+                    {
+                        "field": "total_electricity_kwh",
+                        "status": "missing",
+                        "source": None,
+                        "trace_id": "trace-missing-energy",
+                        "action": "补充高压总用电量",
+                    }
+                ],
+            },
+            "output_skill_alignment": {
+                "status": "passed",
+                "file_name": "2026-6-29.txt",
+                "field_match_rate": 100.0,
+                "matched_fields": 130,
+                "expected_fields": 130,
+                "difference_count": 0,
+                "differences": [],
+                "char_match_rate": 100.0,
+                "exact_match": True,
+                "threshold": 95.0,
+            },
+        }
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+    )
+
+    assert rows[0]["alignment_status"] == "passed"
+    assert rows[0]["status"] == "blocked"
+    assert rows[0]["fact_closure"]["status"] == "blocked"
+    assert script.checks_passed(rows) is False

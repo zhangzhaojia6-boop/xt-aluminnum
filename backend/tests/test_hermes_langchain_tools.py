@@ -1,4 +1,5 @@
 from typing import cast
+import json
 
 import httpx
 from sqlalchemy import Table, create_engine
@@ -24,6 +25,16 @@ _DINGTALK_TABLES: tuple[Table, Table] = (
 
 def _fake_tool(**kwargs: object) -> ToolResult:
     return {'status': 'ok', 'request': kwargs}
+
+
+class _MesReadServiceStub:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self._adapter = type('AdapterProbe', (), {})()
+        self._payload = payload
+
+    def read_sources(self, **kwargs: object) -> dict[str, object]:
+        _ = kwargs
+        return self._payload
 
 
 def _db() -> Session:
@@ -79,6 +90,7 @@ def test_source_map_tool_explains_metric_source() -> None:
     assert result['source'] == 'fact_source_map'
     assert result['facts']['metric_key'] == 'total_output_daily'
     assert '车间总产量' in result['facts']['summary']
+    assert 'priority_order' not in result['source_guidance']
 
 
 def test_model_401_becomes_degraded_error() -> None:
@@ -111,6 +123,22 @@ def test_hub_query_tool_returns_structured_payload() -> None:
     assert result['source'] == 'data_hub'
     assert 'request' in result
     assert 'facts' in result
+    assert result['source_guidance']['tool_priority'] == 3
+    assert 'priority_order' not in result['source_guidance']
+
+
+def test_hub_query_tool_uses_metric_specific_priority_order_when_metric_key_present() -> None:
+    registry = build_tool_registry(build_production_tool_adapters(_db()))
+
+    result = registry['hub_query'](
+        business_date='2026-06-25',
+        metric_key='workshop_output_daily',
+    )
+
+    assert result['source_guidance']['metric_key'] == 'workshop_output_daily'
+    assert result['source_guidance']['priority_order'][0]['source_key'] == 'MES/WMS readonly'
+    assert result['source_guidance']['priority_order'][0]['label'] == 'MES/WMS 只读事实'
+    assert result['source_guidance']['priority_order'][1]['source_key'] == 'data_hub_projection'
 
 
 def test_dingtalk_evidence_tool_returns_group_content_priority_first() -> None:
@@ -146,6 +174,8 @@ def test_dingtalk_evidence_tool_returns_group_content_priority_first() -> None:
         assert payload['source'] == 'dingtalk_group_content'
         assert payload['facts'][0]['source_key'] in {'dingtalk_group_file', 'dingtalk_group_chat'}
         assert payload['facts'][0]['priority'] == 10
+        assert payload['source_guidance']['tool_priority'] == 1
+        assert 'priority_order' not in payload['source_guidance']
     finally:
         db.close()
 
@@ -288,3 +318,107 @@ def test_dingtalk_evidence_tool_limit_sorts_image_after_text_and_file() -> None:
         ]
     finally:
         db.close()
+
+
+def test_mes_wms_read_tool_exposes_readonly_health_summary() -> None:
+    payload = build_production_tool_adapters(
+        _db(),
+        mes_read_service=_MesReadServiceStub(
+            {
+                'records': {
+                    'workshop_process_records': [{'id': 'row-1'}],
+                    'finished_inbound_records': [{'id': 'row-2'}, {'id': 'row-3'}],
+                },
+                'source_status': {
+                    'mes': 'ok',
+                    'sources': {
+                        'workshop_process_records': {'status': 'ok', 'count': 1},
+                        'finished_inbound_records': {'status': 'ok', 'count': 2},
+                    },
+                },
+                'source_errors': {'finished_inbound_records': 'missing secondary index'},
+            }
+        ),
+    ).mes_wms_read(business_date='2026-06-25', query_keys='workshop_process_records,finished_inbound_records')
+
+    assert payload['status'] == 'ok'
+    assert payload['source'] == 'mes_wms_readonly'
+    assert payload['source_guidance']['tool_priority'] == 2
+    assert payload['source_health'] == {
+        'adapter': 'AdapterProbe',
+        'readonly': True,
+        'query_keys': ['workshop_process_records', 'finished_inbound_records'],
+        'source_errors': {'finished_inbound_records': 'missing secondary index'},
+        'record_count': 3,
+        'service_status': 'ok',
+    }
+
+
+def test_mes_wms_read_tool_redacts_source_health_errors() -> None:
+    payload = build_production_tool_adapters(
+        _db(),
+        mes_read_service=_MesReadServiceStub(
+            {
+                'records': {},
+                'source_status': {'mes': 'failed', 'sources': {}},
+                'source_errors': {'finished_inbound_records': 'password=plain-pass token=secret-token'},
+            }
+        ),
+    ).mes_wms_read(business_date='2026-06-25')
+
+    assert payload['source_health']['source_errors'] == {
+        'finished_inbound_records': 'password=<redacted> token=<redacted>'
+    }
+
+
+def test_mes_wms_read_tool_missing_service_still_reports_readonly_health() -> None:
+    payload = build_production_tool_adapters(_db()).mes_wms_read(
+        business_date='2026-06-25',
+        query_keys='workshop_process_records',
+    )
+
+    assert payload['status'] == 'unavailable'
+    assert payload['reason'] == 'mes_read_service_missing'
+    assert payload['source_health'] == {
+        'adapter': 'service_missing',
+        'readonly': True,
+        'query_keys': ['workshop_process_records'],
+        'source_errors': {'service': 'mes_read_service_missing'},
+        'record_count': 0,
+        'service_status': 'missing',
+    }
+
+
+def test_rag_route_guidance_does_not_claim_current_numeric_fact_or_english_identity() -> None:
+    payload = build_production_tool_adapters(_db()).rag_route(query='今天产量规则是什么')
+
+    guidance_text = json.dumps(payload['source_guidance'], ensure_ascii=False).lower()
+
+    assert payload['source_guidance']['tool_priority'] == 4
+    assert '不作为当前实时数字事实来源' in payload['source_guidance']['tool_usage']
+    assert 'priority_order' not in payload['source_guidance']
+    assert 'developer' not in guidance_text
+    assert 'factory brain' not in guidance_text
+
+
+def test_all_production_tools_keep_core_result_contract_and_cover_unavailable_branch() -> None:
+    registry = build_tool_registry(build_production_tool_adapters(_db()))
+
+    results = {
+        'hub_query': registry['hub_query'](business_date='2026-06-25'),
+        'mes_wms_read': registry['mes_wms_read'](business_date='2026-06-25'),
+        'dingtalk_evidence': registry['dingtalk_evidence'](limit=1),
+        'rag_route': registry['rag_route'](query='今天产量规则是什么'),
+        'history_report': registry['history_report'](business_date='2026-06-25'),
+        'output_skill_alignment': registry['output_skill_alignment'](business_date='2026-06-25'),
+        'long_term_rules': registry['long_term_rules'](),
+        'system_optimization': registry['system_optimization'](text='检查来源'),
+        'source_map': registry['source_map'](metric_key='total_output_daily'),
+    }
+
+    statuses = set()
+    for result in results.values():
+        assert {'status', 'source', 'request', 'facts', 'source_guidance'} <= set(result.keys())
+        statuses.add(result['status'])
+
+    assert 'unavailable' in statuses

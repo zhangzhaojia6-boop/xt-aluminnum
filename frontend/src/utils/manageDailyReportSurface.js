@@ -201,3 +201,22 @@ export function buildDailyWipRows(rows = []) {
       }
     })
 }
+
+export function buildFactClosureSurface(factClosure) {
+  const fields = Array.isArray(factClosure?.critical_fields)
+    ? factClosure.critical_fields
+    : []
+  const validFields = fields.filter((field) => field && typeof field === 'object' && !Array.isArray(field))
+
+  return {
+    status: factClosure?.status || 'unknown',
+    blockedCount: validFields.filter((field) => field.status !== 'confirmed').length,
+    criticalFields: validFields.map((field) => ({
+      key: field.field,
+      status: field.status,
+      source: field.source || '暂无可信来源',
+      action: field.action || '等待鑫泰铝业智能大脑追踪',
+      traceId: field.trace_id || '',
+    })),
+  }
+}

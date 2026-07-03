@@ -6,16 +6,20 @@ from decimal import Decimal
 import hashlib
 import json
 import os
+import re
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.business_time import resolve_production_business_date
 from app.core.redaction import filter_sensitive_mapping
 from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
+from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
 from app.services.hermes_day1_harness_service import build_output_skill_alignment
+from app.services.report.daily_report_fact_closure import build_daily_report_fact_closure
 from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
 from app.services.report import template_daily_report
 
@@ -46,6 +50,8 @@ SOURCE_PRIORITY = {
 
 FIELD_UNITS = {
     "total_output_daily": "吨",
+    "finished_inbound_daily": "吨",
+    "wip_total": "吨",
     "total_output_month": "吨",
     "total_electricity_kwh": "度",
     "total_gas_m3": "m³",
@@ -86,6 +92,7 @@ def build_daily_fact_bundle(
         alignment=bundle.get("output_skill_alignment") or {},
         sources=bundle.get("sources") or {},
     )
+    bundle["fact_closure"] = build_daily_report_fact_closure(bundle)
     if persist_run or snapshot_reason:
         _persist_bundle(
             db,
@@ -374,18 +381,58 @@ def _apply_dingtalk_supplements(
     conflicts = list(bundle.get("conflicts") or [])
     dingtalk_refs = list(bundle.get("dingtalk_refs") or [])
     business_date_text = business_date.isoformat()
+    applied_field_names: set[str] = set()
 
     for row in rows:
         payload = row.payload if isinstance(row.payload, Mapping) else {}
-        if str(payload.get("business_date") or "") != business_date_text:
-            continue
         if payload.get("include_in_daily_sample") is not True:
             continue
         if str(payload.get("evidence_kind") or "") != "fact":
             continue
 
+        has_structured_updates = "fact_updates" in payload
+        if has_structured_updates:
+            update_items = _iter_fact_updates(payload.get("fact_updates"))
+            if not _payload_business_date_matches(payload, business_date_text):
+                for field_name, item in update_items:
+                    if _has_fact_value(item.get("value")):
+                        _append_unapplied_dingtalk_candidate(
+                            conflicts,
+                            row=row,
+                            candidate={
+                                "field": field_name,
+                                "value": item.get("value"),
+                                "trace_id": _payload_trace_id(payload, row),
+                            },
+                        )
+                continue
+        else:
+            candidates = extract_daily_fact_update_candidates(
+                {
+                    "id": row.id,
+                    "recognized_text": row.recognized_text,
+                    "payload": payload,
+                }
+            )
+            if not candidates:
+                continue
+            if not _candidate_business_date_matches(
+                payload,
+                row=row,
+                candidates=candidates,
+                business_date=business_date,
+            ):
+                for candidate in candidates:
+                    _append_unapplied_dingtalk_candidate(conflicts, row=row, candidate=candidate)
+                continue
+            update_items = [
+                (str(candidate.get("field") or "").strip(), candidate)
+                for candidate in candidates
+                if str(candidate.get("field") or "").strip()
+            ]
+
         applied_fields: list[str] = []
-        for field_name, item in _iter_fact_updates(payload.get("fact_updates")):
+        for field_name, item in update_items:
             old_fact = facts.get(field_name)
             old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
             old_source = None
@@ -395,6 +442,8 @@ def _apply_dingtalk_supplements(
                 old_unit = old_fact.get("unit") or old_unit
 
             new_value = item.get("value")
+            if not _has_fact_value(new_value):
+                continue
             new_unit = item.get("unit") or old_unit
             reason = str(item.get("reason") or "钉钉补充事实")
             source_detail = {
@@ -406,6 +455,15 @@ def _apply_dingtalk_supplements(
                 "recognized_text": row.recognized_text,
                 "business_date": business_date_text,
             }
+            if not has_structured_updates:
+                source_detail["recognized_text"] = item.get("raw_text") or row.recognized_text
+                trace_id = item.get("trace_id")
+                if trace_id:
+                    source_detail["trace_id"] = trace_id
+            else:
+                trace_id = item.get("trace_id") or _payload_explicit_trace_id(payload)
+                if trace_id:
+                    source_detail["trace_id"] = trace_id
             facts[field_name] = _fact_item(
                 value=new_value,
                 unit=new_unit,
@@ -413,12 +471,13 @@ def _apply_dingtalk_supplements(
                 source_type="dingtalk_supplement",
                 priority=90,
                 freshness="supplemented",
-                confidence=0.95,
+                confidence=0.95 if has_structured_updates else _candidate_confidence(item),
                 adoption_reason=reason,
                 source_detail=source_detail,
                 source_ref=source_detail,
             )
             applied_fields.append(field_name)
+            applied_field_names.add(field_name)
             if old_value != new_value:
                 conflicts.append(
                     {
@@ -438,20 +497,142 @@ def _apply_dingtalk_supplements(
     bundle["facts"] = facts
     bundle["conflicts"] = conflicts
     bundle["dingtalk_refs"] = dingtalk_refs
+    if applied_field_names:
+        _remove_applied_missing_fields(bundle, applied_field_names)
     return _refresh_bundle_metadata(bundle)
+
+
+def _payload_business_date_matches(payload: Mapping[str, Any], business_date_text: str) -> bool:
+    for key in ("business_date", "target_date", "date"):
+        if str(payload.get(key) or "") == business_date_text:
+            return True
+    return False
+
+
+def _candidate_business_date_matches(
+    payload: Mapping[str, Any],
+    *,
+    row: MultimodalEvidence,
+    candidates: list[Mapping[str, Any]],
+    business_date: date,
+) -> bool:
+    business_date_text = business_date.isoformat()
+    if _payload_business_date_matches(payload, business_date_text):
+        return True
+    if _payload_has_business_date(payload):
+        return False
+    raw_text = " ".join(
+        str(text or "")
+        for text in [
+            row.recognized_text,
+            *(candidate.get("raw_text") for candidate in candidates),
+        ]
+    )
+    return _recognized_text_matches_business_date(raw_text, business_date, row.created_at)
+
+
+def _payload_has_business_date(payload: Mapping[str, Any]) -> bool:
+    return any(payload.get(key) not in (None, "") for key in ("business_date", "target_date", "date"))
+
+
+def _recognized_text_matches_business_date(text: str, business_date: date, created_at: Any = None) -> bool:
+    clean = str(text or "")
+    month = business_date.month
+    day = business_date.day
+    month_day_patterns = (
+        rf"(?<!\d)0?{month}\s*月\s*0?{day}\s*日",
+        rf"{business_date.year}\s*年\s*0?{month}\s*月\s*0?{day}\s*日",
+        re.escape(business_date.isoformat()),
+    )
+    if any(re.search(pattern, clean) for pattern in month_day_patterns):
+        return True
+    if "今日" in clean or "今天" in clean:
+        return _created_at_business_date(created_at) == business_date
+    return False
+
+
+def _created_at_business_date(value: Any) -> date | None:
+    if isinstance(value, datetime):
+        return resolve_production_business_date(value)
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return resolve_production_business_date(datetime.fromisoformat(value))
+        except ValueError:
+            return None
+    return None
+
+
+def _append_unapplied_dingtalk_candidate(
+    conflicts: list[Any],
+    *,
+    row: MultimodalEvidence,
+    candidate: Mapping[str, Any],
+) -> None:
+    field_name = str(candidate.get("field") or "").strip()
+    if not field_name:
+        return
+    conflicts.append(
+        {
+            "field": field_name,
+            "type": "dingtalk_candidate_not_applied",
+            "candidate_value": candidate.get("value"),
+            "reason": "payload_business_date_missing_or_mismatch",
+            "trace_id": candidate.get("trace_id") or "",
+            "evidence_id": row.id,
+        }
+    )
+
+
+def _payload_trace_id(payload: Mapping[str, Any], row: MultimodalEvidence) -> str:
+    trace_id = _payload_explicit_trace_id(payload)
+    if trace_id:
+        return trace_id
+    return str(row.id or "")
+
+
+def _payload_explicit_trace_id(payload: Mapping[str, Any]) -> str:
+    for key in ("trace_id", "id"):
+        value = payload.get(key)
+        if value is not None and value != "":
+            return str(value)
+    return ""
+
+
+def _candidate_confidence(candidate: Mapping[str, Any]) -> float:
+    try:
+        return float(candidate.get("confidence"))
+    except (TypeError, ValueError):
+        return 0.95
+
+
+def _remove_applied_missing_fields(bundle: dict[str, Any], applied_fields: set[str]) -> None:
+    missing_fields = [field for field in bundle.get("missing_fields") or [] if field not in applied_fields]
+    missing = [field for field in bundle.get("missing") or [] if field not in applied_fields]
+    bundle["missing_fields"] = missing_fields
+    bundle["missing"] = missing
+
+
+def _has_fact_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    return True
 
 
 def _iter_fact_updates(fact_updates: Any) -> list[tuple[str, Mapping[str, Any]]]:
     if isinstance(fact_updates, Mapping):
-        if "field_name" in fact_updates:
-            field_name = str(fact_updates.get("field_name") or "").strip()
+        if "field" in fact_updates or "field_name" in fact_updates:
+            field_name = str(fact_updates.get("field") or fact_updates.get("field_name") or "").strip()
             return [(field_name, fact_updates)] if field_name else []
         updates: list[tuple[str, Mapping[str, Any]]] = []
         for raw_field_name, item in fact_updates.items():
             if not isinstance(item, Mapping):
                 continue
-            if "field_name" in item:
-                field_name = str(item.get("field_name") or "").strip()
+            if "field" in item or "field_name" in item:
+                field_name = str(item.get("field") or item.get("field_name") or "").strip()
             else:
                 field_name = str(raw_field_name or "").strip()
             if field_name:
@@ -462,7 +643,7 @@ def _iter_fact_updates(fact_updates: Any) -> list[tuple[str, Mapping[str, Any]]]
         for item in fact_updates:
             if not isinstance(item, Mapping):
                 continue
-            field_name = str(item.get("field_name") or "").strip()
+            field_name = str(item.get("field") or item.get("field_name") or "").strip()
             if field_name:
                 updates.append((field_name, item))
         return updates
@@ -527,7 +708,7 @@ def _conflict_blocks_ready(conflict: Any) -> bool:
     if not isinstance(conflict, Mapping):
         return True
     conflict_type = str(conflict.get("type") or "").strip()
-    if conflict_type in {"root_owner_correction", "dingtalk_supplement"}:
+    if conflict_type in {"root_owner_correction", "dingtalk_supplement", "dingtalk_candidate_not_applied"}:
         return False
     if conflict_type == "source_error":
         return True
@@ -542,8 +723,17 @@ def _run_key(*, business_date: date, trace_id: str | None) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
-def _payload_hash(value: Any) -> str:
-    encoded = json.dumps(_json_safe(value), ensure_ascii=False, sort_keys=True).encode("utf-8")
+def _payload_hash(bundle: Mapping[str, Any]) -> str:
+    payload = {
+        "facts": _json_safe(bundle.get("facts") or {}),
+        "sources": _json_safe(bundle.get("sources") or {}),
+        "conflicts": _json_safe(bundle.get("conflicts") or []),
+        "adopted_values": _json_safe(_adopted_values(bundle)),
+        "correction_refs": _json_safe(bundle.get("correction_refs") or []),
+        "dingtalk_refs": _json_safe(bundle.get("dingtalk_refs") or []),
+        "output_skill_alignment": _json_safe(bundle.get("output_skill_alignment") or {}),
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
