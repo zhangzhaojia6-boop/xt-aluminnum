@@ -10,6 +10,10 @@ on:
         description: Recent business days to compare
         required: true
         default: '3'
+      reference_mode:
+        description: Use compare for pure real-source validation; adopt only for parser/rendering regression
+        required: true
+        default: 'compare'
 
 jobs:
   daily-report-alignment-prod:
@@ -26,6 +30,7 @@ jobs:
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
           OUTPUT_SKILL_ZIP_B64: ${{ secrets.DAILY_REPORT_OUTPUT_SKILL_ZIP_B64 }}
           DAYS: ${{ github.event.inputs.days }}
+          REFERENCE_MODE: ${{ github.event.inputs.reference_mode }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -37,6 +42,13 @@ jobs:
             echo "days must be 1-99"
             exit 2
           fi
+          case "$REFERENCE_MODE" in
+            compare|adopt) ;;
+            *)
+              echo "reference_mode must be compare or adopt"
+              exit 2
+              ;;
+          esac
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
@@ -49,7 +61,7 @@ jobs:
           scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=no "$bundle" "$SSH_USER@$SSH_HOST:$remote_bundle"
 
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "REMOTE_BUNDLE='$remote_bundle' DAYS='$DAYS' RUN_ID='$RUN_ID' bash -s" <<'REMOTE'
+            "REMOTE_BUNDLE='$remote_bundle' DAYS='$DAYS' REFERENCE_MODE='$REFERENCE_MODE' RUN_ID='$RUN_ID' bash -s" <<'REMOTE'
           set -euo pipefail
           output_root="/tmp/xintai-output-skill-${RUN_ID}"
           artifact_dir="/srv/aluminum-bypass/docs/superpowers/reports/daily-report-fact-closure-production-${RUN_ID}"
@@ -73,6 +85,7 @@ jobs:
           python scripts/check_daily_report_output_skill_alignment.py \
             --output-skill-root "$output_root" \
             --days "$DAYS" \
+            --reference-mode "$REFERENCE_MODE" \
             --artifact-dir "$artifact_dir" \
             --full-differences \
             --json

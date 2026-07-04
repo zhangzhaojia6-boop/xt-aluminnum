@@ -28,6 +28,9 @@ from app.services.report.daily_fact_bundle import build_daily_fact_bundle
 
 
 BundleBuilder = Callable[..., dict[str, Any]]
+REFERENCE_MODE_COMPARE = "compare"
+REFERENCE_MODE_ADOPT = "adopt"
+REFERENCE_MODE_CHOICES = (REFERENCE_MODE_COMPARE, REFERENCE_MODE_ADOPT)
 
 
 def parse_business_date(value: str) -> date:
@@ -56,11 +59,16 @@ def resolve_output_skill_root(raw_root: str | None) -> Path | None:
 
 
 @contextmanager
-def temporary_output_skill_root(root: Path):
+def temporary_output_skill_root(root: Path, *, reference_mode: str = REFERENCE_MODE_COMPARE):
+    if reference_mode not in REFERENCE_MODE_CHOICES:
+        raise ValueError(f"unsupported output skill reference mode: {reference_mode}")
     previous = os.environ.get("OUTPUT_SKILL_ROOT")
     previous_mode = os.environ.get("OUTPUT_SKILL_REFERENCE_MODE")
     os.environ["OUTPUT_SKILL_ROOT"] = str(root)
-    os.environ["OUTPUT_SKILL_REFERENCE_MODE"] = "adopt"
+    if reference_mode == REFERENCE_MODE_ADOPT:
+        os.environ["OUTPUT_SKILL_REFERENCE_MODE"] = REFERENCE_MODE_ADOPT
+    else:
+        os.environ.pop("OUTPUT_SKILL_REFERENCE_MODE", None)
     try:
         yield
     finally:
@@ -81,9 +89,10 @@ def run_alignment_checks(
     output_skill_root: Path,
     bundle_builder: BundleBuilder = build_daily_fact_bundle,
     full_differences: bool = False,
+    reference_mode: str = REFERENCE_MODE_COMPARE,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    with temporary_output_skill_root(output_skill_root):
+    with temporary_output_skill_root(output_skill_root, reference_mode=reference_mode):
         for business_date in business_dates:
             try:
                 bundle = bundle_builder(db, business_date=business_date, persist_run=False)
@@ -251,7 +260,7 @@ def write_alignment_artifacts(rows: Sequence[dict[str, Any]], artifact_dir: Path
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Check generated daily reports against D:/输出skill locked report text files."
+        description="Check generated daily reports against D:/输出skill answer-key report text files."
     )
     parser.add_argument("--output-skill-root", help="Reference folder, for example D:/输出skill")
     parser.add_argument("--date", action="append", type=parse_business_date, help="Business date, repeatable")
@@ -259,6 +268,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--days", type=int, default=3, help="How many recent completed business days to check")
     parser.add_argument("--artifact-dir", type=Path, help="Directory where alignment artifacts are written")
     parser.add_argument("--full-differences", action="store_true", help="Keep all alignment differences")
+    parser.add_argument(
+        "--reference-mode",
+        choices=REFERENCE_MODE_CHOICES,
+        default=REFERENCE_MODE_COMPARE,
+        help=(
+            "compare keeps D:/输出skill as an answer key only; "
+            "adopt allows official daily report facts to fill the bundle for parser/rendering regression."
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="Output JSON only")
     return parser
 
@@ -320,6 +338,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             business_dates=business_dates,
             output_skill_root=output_skill_root,
             full_differences=args.full_differences,
+            reference_mode=args.reference_mode,
         )
     finally:
         db.close()
@@ -328,6 +347,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "output_skill_root": str(output_skill_root),
         "business_dates": [item.isoformat() for item in business_dates],
         "passed": checks_passed(rows),
+        "reference_mode": args.reference_mode,
         "results": rows,
     }
     if args.artifact_dir:

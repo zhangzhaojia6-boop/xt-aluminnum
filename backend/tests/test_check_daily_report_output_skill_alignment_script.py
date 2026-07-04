@@ -15,16 +15,17 @@ def test_recent_business_dates_returns_oldest_to_newest() -> None:
     ]
 
 
-def test_run_alignment_checks_sets_output_skill_root_temporarily(tmp_path) -> None:
+def test_run_alignment_checks_uses_compare_mode_by_default(tmp_path) -> None:
     previous = os.environ.get("OUTPUT_SKILL_ROOT")
     previous_mode = os.environ.get("OUTPUT_SKILL_REFERENCE_MODE")
+    os.environ["OUTPUT_SKILL_REFERENCE_MODE"] = "adopt"
     calls: list[date] = []
 
     def fake_builder(db, *, business_date, persist_run=False):
         assert db == "db"
         assert persist_run is False
         assert os.environ["OUTPUT_SKILL_ROOT"] == str(tmp_path)
-        assert os.environ["OUTPUT_SKILL_REFERENCE_MODE"] == "adopt"
+        assert "OUTPUT_SKILL_REFERENCE_MODE" not in os.environ
         calls.append(business_date)
         return {
             "status": "ready",
@@ -57,6 +58,45 @@ def test_run_alignment_checks_sets_output_skill_root_temporarily(tmp_path) -> No
     assert rows[0]["fact_closure"]["status"] == "pass"
     assert rows[0]["gap_plan"]["status"] == "ready"
     assert calls == [date(2026, 6, 28), date(2026, 6, 29)]
+    assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
+    assert os.environ.get("OUTPUT_SKILL_REFERENCE_MODE") == "adopt"
+    if previous_mode is None:
+        os.environ.pop("OUTPUT_SKILL_REFERENCE_MODE", None)
+    else:
+        os.environ["OUTPUT_SKILL_REFERENCE_MODE"] = previous_mode
+
+
+def test_run_alignment_checks_can_enable_adopt_mode_explicitly(tmp_path) -> None:
+    previous = os.environ.get("OUTPUT_SKILL_ROOT")
+    previous_mode = os.environ.get("OUTPUT_SKILL_REFERENCE_MODE")
+
+    def fake_builder(db, *, business_date, persist_run=False):
+        assert os.environ["OUTPUT_SKILL_ROOT"] == str(tmp_path)
+        assert os.environ["OUTPUT_SKILL_REFERENCE_MODE"] == "adopt"
+        return {
+            "status": "ready",
+            "missing_fields": [],
+            "gap_plan": {"status": "ready", "item_count": 0, "summary": {}, "items": []},
+            "fact_closure": {"status": "pass", "critical_fields": []},
+            "output_skill_alignment": {
+                "status": "passed",
+                "field_match_rate": 100.0,
+                "matched_fields": 130,
+                "expected_fields": 130,
+                "difference_count": 0,
+                "differences": [],
+            },
+        }
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+        reference_mode="adopt",
+    )
+
+    assert rows[0]["status"] == "passed"
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
     assert os.environ.get("OUTPUT_SKILL_REFERENCE_MODE") == previous_mode
 

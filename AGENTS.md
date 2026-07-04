@@ -85,7 +85,23 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## 5. Codex Environment Authority
+## 5. User-Corrected Error Learning
+
+**When the owner points out an error, turn it into a rule before continuing.**
+
+- Acknowledge the concrete error in plain language.
+- Extract the reusable lesson, not just the one-off fix.
+- If the lesson affects future tasks, write it into the appropriate long-term memory or project rule file before resuming execution.
+- Do not repeat the same claim until it has been re-verified under the corrected rule.
+
+Daily report alignment hard rule:
+
+- `D:\输出skill` is an answer key for verification, not a data source for proving real-source capability.
+- A gate only proves `MES + 数据中枢 + 扫码补录 + 钉钉证据` can generate an aligned daily report when `D:\输出skill` is used only for comparison.
+- If `OUTPUT_SKILL_REFERENCE_MODE=adopt` or `official_daily_report` is used to fill facts, the result proves parser/rendering/reference adoption only. It must never be described as proof that MES and 数据中枢 alone produced the aligned report.
+- For real capability validation, run the pure real-source alignment gate with the output-skill reference in compare-only mode.
+
+## 6. Codex Environment Authority
 
 Codex has highest practical operator authority for this repository when the owner asks for a working result. Codex is allowed to configure whatever project environment is needed to complete the user's requested goal end to end, including secrets, production services, and user-data workflows.
 
