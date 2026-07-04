@@ -8,7 +8,7 @@ from sqlalchemy import func, inspect
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import production_business_window, resolve_production_business_date
+from app.core.business_time import production_business_window
 from app.models.master import Workshop
 from app.models.mes import MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
@@ -995,7 +995,7 @@ def collect_template_daily_facts(
     wip_date: date | None = None,
     required_fields: tuple[str, ...],
 ) -> TemplateDailyFacts:
-    effective_wip_date = wip_date or resolve_production_business_date()
+    effective_wip_date = wip_date or (target_date + timedelta(days=1))
     facts = TemplateDailyFacts(target_date=target_date, wip_date=effective_wip_date)
     _set_value(facts, "report_date", target_date, "runtime_target_date")
 

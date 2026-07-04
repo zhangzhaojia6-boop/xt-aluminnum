@@ -347,14 +347,8 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
     assert facts.sources["hot_roll_daily"]["source_type"] == "mes_material_records"
 
 
-def test_template_daily_facts_default_to_current_business_date_for_wip(monkeypatch) -> None:
+def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> None:
     seen: dict[str, date] = {}
-
-    monkeypatch.setattr(
-        template_daily_fact_sources,
-        "resolve_production_business_date",
-        lambda: date(2026, 6, 17),
-    )
 
     def fake_overview(_db, *, target_date: date, wip_date: date | None = None):
         seen["target_date"] = target_date
