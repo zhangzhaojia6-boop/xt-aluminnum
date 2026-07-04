@@ -33,6 +33,7 @@ FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
     "total_output_daily": {
         "dingtalk_supplement",
         "root_owner_correction",
+        "datahub_final_daily_report",
         "official_daily_report",
         "daily_fact_bundle",
         "mes_packaging_output",
@@ -40,6 +41,7 @@ FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
     "finished_inbound_daily": {
         "dingtalk_supplement",
         "root_owner_correction",
+        "datahub_final_daily_report",
         "official_daily_report",
         "daily_fact_bundle",
         "finished_inbound_output",
@@ -48,6 +50,7 @@ FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
     "wip_total": {
         "dingtalk_supplement",
         "root_owner_correction",
+        "datahub_final_daily_report",
         "official_daily_report",
         "daily_fact_bundle",
         "mes_wip_distribution",
@@ -56,6 +59,7 @@ FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
     "total_electricity_kwh": {
         "dingtalk_supplement",
         "root_owner_correction",
+        "datahub_final_daily_report",
         "official_daily_report",
         "daily_fact_bundle",
         "data_hub_manual",
@@ -67,6 +71,7 @@ FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
     "daily_yield_rate": {
         "dingtalk_supplement",
         "root_owner_correction",
+        "datahub_final_daily_report",
         "official_daily_report",
         "daily_fact_bundle",
         "computed",

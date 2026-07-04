@@ -44,6 +44,7 @@ SOURCE_PRIORITY = {
     "energy_cost": 60,
     "contract_projection": 60,
     "yield_projection": 60,
+    "datahub_final_daily_report": 88,
     "official_daily_report": 88,
     "historical_report": 40,
     "rag": 30,

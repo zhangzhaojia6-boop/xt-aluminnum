@@ -13,7 +13,7 @@ from app.models.master import Workshop
 from app.models.mes import MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
-from app.models.reports import DailyReport
+from app.models.reports import DailyReport, DailyReportHistoryRecord
 from app.services.report import daily_overview_builder
 from app.services.report._utils import _to_float
 from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
@@ -36,6 +36,7 @@ SOURCE_PRIORITY = {
     "mes_stock_records": 72,
     "mes_stock_records_missing": 72,
     "finished_inbound_output": 72,
+    "datahub_final_daily_report": 88,
     "previous_final_report": 70,
     "computed": 65,
     "owner_or_energy_summary": 62,
@@ -923,6 +924,70 @@ def collect_yesterday_comparison_facts(db: Session, facts: TemplateDailyFacts) -
         )
 
 
+def collect_datahub_final_daily_report_facts(db: Session, facts: TemplateDailyFacts) -> None:
+    reference = _datahub_final_daily_report_reference(db, facts.target_date)
+    if reference is None:
+        return
+    parsed = parse_output_skill_daily_report(str(reference.get("text") or ""))
+    if not parsed:
+        return
+    source_extra = {
+        "source_table": reference.get("source_table"),
+        "report_id": reference.get("report_id"),
+        "business_date": facts.target_date.isoformat(),
+    }
+    for field_name, value in parsed.items():
+        _set_value(facts, field_name, value, "datahub_final_daily_report", **source_extra)
+
+
+def _datahub_final_daily_report_reference(db: Session, target_date: date) -> dict[str, Any] | None:
+    if not hasattr(db, "query"):
+        return None
+    if _has_table(db, DailyReport.__tablename__):
+        try:
+            row = (
+                db.query(DailyReport)
+                .filter(DailyReport.report_date == target_date)
+                .filter(DailyReport.report_type == "production")
+                .filter(DailyReport.final_text_summary.isnot(None))
+                .order_by(
+                    DailyReport.final_confirmed_at.desc(),
+                    DailyReport.published_at.desc(),
+                    DailyReport.id.desc(),
+                )
+                .first()
+            )
+        except (OperationalError, ProgrammingError):
+            db.rollback()
+            row = None
+        if row is not None and str(row.final_text_summary or "").strip():
+            return {
+                "source_table": DailyReport.__tablename__,
+                "report_id": row.id,
+                "text": row.final_text_summary,
+            }
+
+    if _has_table(db, DailyReportHistoryRecord.__tablename__):
+        try:
+            history = (
+                db.query(DailyReportHistoryRecord)
+                .filter(DailyReportHistoryRecord.report_type == "daily")
+                .filter(DailyReportHistoryRecord.business_date == target_date)
+                .order_by(DailyReportHistoryRecord.created_at.desc(), DailyReportHistoryRecord.id.desc())
+                .first()
+            )
+        except (OperationalError, ProgrammingError):
+            db.rollback()
+            history = None
+        if history is not None and str(history.report_text or "").strip():
+            return {
+                "source_table": DailyReportHistoryRecord.__tablename__,
+                "report_id": history.id,
+                "text": history.report_text,
+            }
+    return None
+
+
 def collect_template_daily_facts(
     db: Session,
     *,
@@ -942,6 +1007,7 @@ def collect_template_daily_facts(
     collect_recovery_and_overhaul_facts(db, facts)
     collect_quality_yield_facts(db, facts)
     collect_yesterday_comparison_facts(db, facts)
+    collect_datahub_final_daily_report_facts(db, facts)
 
     facts.missing_fields = [key for key in required_fields if facts.values.get(key) is None]
     return facts

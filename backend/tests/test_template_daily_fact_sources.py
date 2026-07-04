@@ -10,7 +10,7 @@ from app.models.master import Workshop
 from app.models.mes import MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
-from app.models.reports import DailyReport
+from app.models.reports import DailyReport, DailyReportHistoryRecord
 from app.services.report import template_daily_fact_sources
 from app.services.report.template_daily_fact_sources import collect_template_daily_facts
 from app.services.report.template_daily_report import REQUIRED_FIELDS
@@ -31,6 +31,7 @@ def _session(tmp_path):
             MesWorkshopProcessRecord.__table__,
             MesWipTotalSnapshot.__table__,
             DailyReport.__table__,
+            DailyReportHistoryRecord.__table__,
             QualityYieldDaily.__table__,
         ],
     )
@@ -107,6 +108,7 @@ def test_source_priority_covers_current_template_fact_sources() -> None:
         "mes_packaging_output",
         "mes_stock_header_records",
         "finished_inbound_output",
+        "datahub_final_daily_report",
         "mes_delivery_records",
         "mes_wip_distribution",
         "mes_wip_total_snapshot",
@@ -165,6 +167,99 @@ def test_set_value_keeps_high_priority_zero_against_lower_priority_source() -> N
 
     assert facts.values["total_output_daily"] == 0
     assert facts.sources["total_output_daily"]["source_type"] == "owner_daily"
+
+
+def test_datahub_final_daily_report_overrides_lower_priority_projection(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+
+    def fake_overview(_db, *, target_date: date, wip_date: date | None = None):
+        return {
+            "plant_output": {
+                "daily_output": 111,
+                "monthly_output": 111,
+                "yesterday_output": 100,
+            },
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        }
+
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        fake_overview,
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    report_text = (
+        "6月16日，车间总产量日合计328吨（外加工0吨）比昨日↑22吨，"
+        "月累计5014吨（外加工月累计270吨）。"
+    )
+    with SessionLocal() as db:
+        db.add(
+            DailyReport(
+                report_date=REPORT_DATE,
+                report_type="production",
+                final_text_summary=report_text,
+                is_final_version=True,
+            )
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["total_output_daily"] == 328
+    assert facts.values["total_output_month"] == 5014
+    assert facts.sources["total_output_daily"]["source_type"] == "datahub_final_daily_report"
+    assert facts.sources["total_output_daily"]["source_table"] == "daily_reports"
+
+
+def test_owner_daily_keeps_priority_over_datahub_final_daily_report(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {},
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        _seed_owner_daily_payload(db, {"total_output_daily": 400})
+        db.add(
+            DailyReportHistoryRecord(
+                report_type="daily",
+                business_date=REPORT_DATE,
+                report_text=(
+                    "6月16日，车间总产量日合计328吨（外加工0吨）比昨日↑22吨，"
+                    "月累计5014吨（外加工月累计270吨）。"
+                ),
+                report_payload={},
+                source_summary={},
+                facts_hash="facts",
+                text_hash="text",
+            )
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["total_output_daily"] == 400
+    assert facts.values["total_output_month"] == 5014
+    assert facts.sources["total_output_daily"]["source_type"] == "owner_daily"
+    assert facts.sources["total_output_month"]["source_type"] == "datahub_final_daily_report"
 
 
 def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
