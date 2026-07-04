@@ -1289,6 +1289,52 @@ def test_daily_fact_bundle_includes_output_skill_alignment(
     assert bundle["gap_plan"]["status"] == "ready"
 
 
+def test_daily_fact_bundle_adopts_output_skill_reference_in_alignment_mode(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+    from app.services.report.template_daily_report import REQUIRED_FIELDS
+
+    fixture_dir = Path(__file__).parent / "fixtures" / "output_skill_daily_reports"
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {},
+            "sources": {},
+            "missing_fields": list(REQUIRED_FIELDS),
+            "conflicts": [],
+        },
+    )
+    monkeypatch.setenv("OUTPUT_SKILL_ROOT", str(fixture_dir))
+    monkeypatch.setenv("OUTPUT_SKILL_REFERENCE_MODE", "adopt")
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 16))
+
+    assert bundle["output_skill_alignment"]["status"] == "passed"
+    assert bundle["output_skill_alignment"]["field_match_rate"] == 100.0
+    assert bundle["missing_fields"] == []
+    assert bundle["fact_closure"]["status"] == "pass"
+    assert bundle["facts"]["total_output_daily"]["value"] == 328
+    assert bundle["facts"]["total_output_daily"]["source_type"] == "official_daily_report"
+    assert bundle["facts"]["total_output_daily"]["source_detail"] == {
+        "source": "official_daily_report",
+        "source_type": "official_daily_report",
+        "reference_kind": "output_skill_daily_report",
+        "file_name": "2026-6-16_日报正文.txt",
+        "business_date": "2026-06-16",
+    }
+    assert bundle["output_skill_refs"] == [
+        {
+            "file_name": "2026-6-16_日报正文.txt",
+            "field_count": len(REQUIRED_FIELDS),
+            "field_names": list(REQUIRED_FIELDS),
+        }
+    ]
+
+
 def test_daily_fact_bundle_includes_gap_plan_for_output_skill_differences(
     monkeypatch,
     tmp_path: Path,

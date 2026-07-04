@@ -58,7 +58,9 @@ def resolve_output_skill_root(raw_root: str | None) -> Path | None:
 @contextmanager
 def temporary_output_skill_root(root: Path):
     previous = os.environ.get("OUTPUT_SKILL_ROOT")
+    previous_mode = os.environ.get("OUTPUT_SKILL_REFERENCE_MODE")
     os.environ["OUTPUT_SKILL_ROOT"] = str(root)
+    os.environ["OUTPUT_SKILL_REFERENCE_MODE"] = "adopt"
     try:
         yield
     finally:
@@ -66,6 +68,10 @@ def temporary_output_skill_root(root: Path):
             os.environ.pop("OUTPUT_SKILL_ROOT", None)
         else:
             os.environ["OUTPUT_SKILL_ROOT"] = previous
+        if previous_mode is None:
+            os.environ.pop("OUTPUT_SKILL_REFERENCE_MODE", None)
+        else:
+            os.environ["OUTPUT_SKILL_REFERENCE_MODE"] = previous_mode
 
 
 def run_alignment_checks(

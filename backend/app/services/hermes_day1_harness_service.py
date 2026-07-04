@@ -79,10 +79,23 @@ def summarize_harness_results(results: list[HarnessCaseResult]) -> dict[str, Any
 
 
 def load_output_skill_daily_text(root: str | Path | None, business_date: date) -> str | None:
+    reference = load_output_skill_daily_reference(root, business_date)
+    if reference is None:
+        return None
+    return str(reference.get('text') or '')
+
+
+def load_output_skill_daily_reference(root: str | Path | None, business_date: date) -> dict[str, Any] | None:
     matched_file = _find_output_skill_daily_file(root, business_date)
     if matched_file is None:
         return None
-    return _read_text_file(matched_file)
+    text = _read_text_file(matched_file)
+    if text is None:
+        return None
+    return {
+        'file_name': matched_file.name,
+        'text': text,
+    }
 
 
 def build_output_skill_alignment(

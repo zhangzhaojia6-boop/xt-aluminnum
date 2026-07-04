@@ -17,12 +17,14 @@ def test_recent_business_dates_returns_oldest_to_newest() -> None:
 
 def test_run_alignment_checks_sets_output_skill_root_temporarily(tmp_path) -> None:
     previous = os.environ.get("OUTPUT_SKILL_ROOT")
+    previous_mode = os.environ.get("OUTPUT_SKILL_REFERENCE_MODE")
     calls: list[date] = []
 
     def fake_builder(db, *, business_date, persist_run=False):
         assert db == "db"
         assert persist_run is False
         assert os.environ["OUTPUT_SKILL_ROOT"] == str(tmp_path)
+        assert os.environ["OUTPUT_SKILL_REFERENCE_MODE"] == "adopt"
         calls.append(business_date)
         return {
             "status": "ready",
@@ -56,6 +58,7 @@ def test_run_alignment_checks_sets_output_skill_root_temporarily(tmp_path) -> No
     assert rows[0]["gap_plan"]["status"] == "ready"
     assert calls == [date(2026, 6, 28), date(2026, 6, 29)]
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
+    assert os.environ.get("OUTPUT_SKILL_REFERENCE_MODE") == previous_mode
 
 
 def test_run_alignment_checks_explains_missing_local_table(tmp_path) -> None:

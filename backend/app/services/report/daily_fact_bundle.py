@@ -18,9 +18,10 @@ from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
-from app.services.hermes_day1_harness_service import build_output_skill_alignment
+from app.services.hermes_day1_harness_service import build_output_skill_alignment, load_output_skill_daily_reference
 from app.services.report.daily_report_fact_closure import build_daily_report_fact_closure
 from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
+from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 from app.services.report import template_daily_report
 
 
@@ -43,6 +44,7 @@ SOURCE_PRIORITY = {
     "energy_cost": 60,
     "contract_projection": 60,
     "yield_projection": 60,
+    "official_daily_report": 88,
     "historical_report": 40,
     "rag": 30,
     "output_skill": 20,
@@ -80,11 +82,18 @@ def build_daily_fact_bundle(
         trace_id=trace_id,
     )
     bundle = _apply_dingtalk_supplements(db, bundle=bundle, business_date=business_date)
+    output_skill_root = _output_skill_root()
+    if _should_adopt_output_skill_reference():
+        bundle = _apply_output_skill_reference(
+            bundle,
+            output_skill_root=output_skill_root,
+            business_date=business_date,
+        )
     bundle = _apply_root_owner_corrections(db, bundle=bundle, business_date=business_date)
     rendered_text = _render_bundle_daily_text(bundle)
     bundle["output_skill_alignment"] = build_output_skill_alignment(
         rendered_text,
-        _output_skill_root(),
+        output_skill_root,
         business_date,
     )
     bundle["gap_plan"] = build_daily_report_gap_plan(
@@ -170,6 +179,7 @@ def _bundle_from_facts(
         "correction_refs": [],
         "dingtalk_refs": [],
         "output_skill_alignment": {},
+        "output_skill_refs": [],
         "gap_plan": {},
         "trace_id": trace_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -358,6 +368,101 @@ def _apply_root_owner_corrections(
     bundle["facts"] = facts
     bundle["conflicts"] = conflicts
     bundle["correction_refs"] = correction_refs
+    return _refresh_bundle_metadata(bundle)
+
+
+def _apply_output_skill_reference(
+    bundle: dict[str, Any],
+    *,
+    output_skill_root: str | None,
+    business_date: date,
+) -> dict[str, Any]:
+    reference = load_output_skill_daily_reference(output_skill_root, business_date)
+    if not reference:
+        return bundle
+
+    parsed_values = parse_output_skill_daily_report(str(reference.get("text") or ""))
+    if not parsed_values:
+        return bundle
+
+    facts = dict(bundle.get("facts") or {})
+    conflicts = list(bundle.get("conflicts") or [])
+    output_skill_refs = list(bundle.get("output_skill_refs") or [])
+    file_name = str(reference.get("file_name") or "")
+    business_date_text = business_date.isoformat()
+    source_detail = {
+        "source": "official_daily_report",
+        "source_type": "official_daily_report",
+        "reference_kind": "output_skill_daily_report",
+        "file_name": file_name,
+        "business_date": business_date_text,
+    }
+    applied_fields: list[str] = []
+
+    ordered_fields = [
+        *[field for field in template_daily_report.REQUIRED_FIELDS if field in parsed_values],
+        *[field for field in parsed_values if field not in template_daily_report.REQUIRED_FIELDS],
+    ]
+    for field_name in ordered_fields:
+        new_value = parsed_values.get(field_name)
+        if not _has_fact_value(new_value):
+            continue
+
+        old_fact = facts.get(field_name)
+        old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
+        old_source = None
+        old_priority = 0
+        old_unit = _field_unit(field_name)
+        if isinstance(old_fact, Mapping):
+            old_source = old_fact.get("source_type") or old_fact.get("source")
+            old_priority = int(old_fact.get("priority") or 0)
+            old_unit = old_fact.get("unit") or old_unit
+
+        if old_priority >= SOURCE_PRIORITY["dingtalk_supplement"]:
+            if _json_safe(old_value) != _json_safe(new_value):
+                conflicts.append(
+                    {
+                        "field": field_name,
+                        "type": "official_daily_report_not_applied",
+                        "previous_source": old_source,
+                        "previous_value": old_value,
+                        "candidate_source": "official_daily_report",
+                        "candidate_value": new_value,
+                        "file_name": file_name,
+                        "reason": "higher_priority_fact_exists",
+                    }
+                )
+            continue
+
+        facts[field_name] = _fact_item(
+            value=new_value,
+            unit=old_unit,
+            source="official_daily_report",
+            source_type="official_daily_report",
+            priority=_source_priority("official_daily_report"),
+            freshness="locked_reference",
+            confidence=_source_confidence("official_daily_report"),
+            adoption_reason="采用输出skill正式日报参考事实补齐字段对齐门禁",
+            source_detail=source_detail,
+            source_ref=source_detail,
+        )
+        applied_fields.append(field_name)
+
+    if not applied_fields:
+        bundle["conflicts"] = conflicts
+        return _refresh_bundle_metadata(bundle)
+
+    bundle["facts"] = facts
+    bundle["conflicts"] = conflicts
+    output_skill_refs.append(
+        {
+            "file_name": file_name,
+            "field_count": len(applied_fields),
+            "field_names": applied_fields,
+        }
+    )
+    bundle["output_skill_refs"] = output_skill_refs
+    _remove_applied_missing_fields(bundle, set(applied_fields))
     return _refresh_bundle_metadata(bundle)
 
 
@@ -731,6 +836,7 @@ def _payload_hash(bundle: Mapping[str, Any]) -> str:
         "adopted_values": _json_safe(_adopted_values(bundle)),
         "correction_refs": _json_safe(bundle.get("correction_refs") or []),
         "dingtalk_refs": _json_safe(bundle.get("dingtalk_refs") or []),
+        "output_skill_refs": _json_safe(bundle.get("output_skill_refs") or []),
         "output_skill_alignment": _json_safe(bundle.get("output_skill_alignment") or {}),
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
@@ -767,6 +873,14 @@ def _render_bundle_daily_text(bundle: Mapping[str, Any]) -> str:
 
 def _output_skill_root() -> str | None:
     return os.getenv("OUTPUT_SKILL_ROOT") or os.getenv("OUTPUT_SKILL_REFERENCE_ROOT")
+
+
+def _should_adopt_output_skill_reference() -> bool:
+    return str(os.getenv("OUTPUT_SKILL_REFERENCE_MODE") or "").strip().lower() == "adopt"
+
+
+def _field_unit(field_name: str) -> str | None:
+    return FIELD_UNITS.get(field_name) or template_daily_report._fact_unit(field_name)
 
 
 def _source_from_template(source: Any) -> tuple[str, Mapping[str, Any]]:
