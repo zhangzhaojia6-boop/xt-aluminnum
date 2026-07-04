@@ -31,6 +31,13 @@ BundleBuilder = Callable[..., dict[str, Any]]
 REFERENCE_MODE_COMPARE = "compare"
 REFERENCE_MODE_ADOPT = "adopt"
 REFERENCE_MODE_CHOICES = (REFERENCE_MODE_COMPARE, REFERENCE_MODE_ADOPT)
+KEY_FACT_SOURCE_FIELDS = (
+    "total_output_daily",
+    "finished_inbound_daily",
+    "wip_total",
+    "total_electricity_kwh",
+    "daily_yield_rate",
+)
 
 
 def parse_business_date(value: str) -> date:
@@ -106,6 +113,7 @@ def run_alignment_checks(
                 rows.append(
                     {
                         "business_date": business_date.isoformat(),
+                        "reference_mode": reference_mode,
                         "status": _row_status(
                             alignment_status=alignment_status,
                             fact_closure_status=fact_closure_status,
@@ -124,12 +132,15 @@ def run_alignment_checks(
                         "threshold": alignment.get("threshold"),
                         "missing_fields_count": len(bundle.get("missing_fields") or bundle.get("missing") or []),
                         "gap_plan": bundle.get("gap_plan") or {},
+                        "source_summary": _source_summary(bundle),
+                        "key_fact_sources": _key_fact_sources(bundle, fact_closure),
                     }
                 )
             except Exception as exc:
                 rows.append(
                     {
                         "business_date": business_date.isoformat(),
+                        "reference_mode": reference_mode,
                         "status": "error",
                         "alignment_status": "error",
                         "fact_closure": {},
@@ -145,6 +156,8 @@ def run_alignment_checks(
                         "threshold": None,
                         "missing_fields_count": None,
                         "gap_plan": {},
+                        "source_summary": {},
+                        "key_fact_sources": {},
                         "action_required": _action_required_for_error(exc),
                         "error": str(exc),
                     }
@@ -167,6 +180,7 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
                 "",
                 f"- Status: {row.get('status')}",
                 f"- Alignment status: {row.get('alignment_status')}",
+                f"- Reference mode: {row.get('reference_mode')}",
                 f"- Fact closure status: {_fact_closure_status(row)}",
                 f"- Bundle status: {row.get('bundle_status')}",
                 f"- Field match rate: {row.get('field_match_rate')}",
@@ -176,6 +190,16 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
                 "",
             ]
         )
+        source_summary = row.get("source_summary") if isinstance(row.get("source_summary"), dict) else {}
+        source_counts = source_summary.get("source_counts") if isinstance(source_summary, dict) else None
+        if isinstance(source_counts, dict) and source_counts:
+            lines.extend(
+                [
+                    f"- Source counts: {_source_counts_text(source_counts)}",
+                    f"- Datahub final daily report fields: {source_summary.get('datahub_final_daily_report_field_count', 0)}",
+                    "",
+                ]
+            )
         if row.get("error"):
             lines.extend(
                 [
@@ -216,6 +240,31 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
                             _markdown_cell(item.get("source")),
                             _markdown_cell(item.get("trace_id")),
                             _markdown_cell(item.get("action")),
+                        ]
+                    )
+                    + " |"
+            )
+            lines.append("")
+        key_fact_sources = row.get("key_fact_sources") if isinstance(row.get("key_fact_sources"), dict) else {}
+        if key_fact_sources:
+            lines.extend(
+                [
+                    "| Key fact | Value | Source | Source type | Source ref |",
+                    "|---|---|---|---|---|",
+                ]
+            )
+            for field_name, item in key_fact_sources.items():
+                if not isinstance(item, dict):
+                    continue
+                lines.append(
+                    "| "
+                    + " | ".join(
+                        [
+                            _markdown_cell(field_name),
+                            _markdown_cell(item.get("value")),
+                            _markdown_cell(item.get("source")),
+                            _markdown_cell(item.get("source_type")),
+                            _markdown_cell(item.get("source_ref")),
                         ]
                     )
                     + " |"
@@ -382,6 +431,62 @@ def _fact_closure_status(row: dict[str, Any]) -> str:
     if not isinstance(fact_closure, dict):
         return "missing"
     return str(fact_closure.get("status") or "missing")
+
+
+def _source_summary(bundle: dict[str, Any]) -> dict[str, Any]:
+    facts = bundle.get("facts") if isinstance(bundle, dict) else None
+    if not isinstance(facts, dict):
+        return {"source_counts": {}, "datahub_final_daily_report_field_count": 0}
+
+    counts: dict[str, int] = {}
+    datahub_fields: list[str] = []
+    for field_name, fact in facts.items():
+        if not isinstance(fact, dict):
+            continue
+        source = str(fact.get("source_type") or fact.get("source") or "unknown")
+        counts[source] = counts.get(source, 0) + 1
+        if source == "datahub_final_daily_report":
+            datahub_fields.append(str(field_name))
+
+    return {
+        "source_counts": dict(sorted(counts.items())),
+        "datahub_final_daily_report_field_count": len(datahub_fields),
+        "datahub_final_daily_report_fields": sorted(datahub_fields)[:50],
+    }
+
+
+def _key_fact_sources(bundle: dict[str, Any], fact_closure: dict[str, Any]) -> dict[str, Any]:
+    facts = bundle.get("facts") if isinstance(bundle, dict) else None
+    if not isinstance(facts, dict):
+        return {}
+
+    fields = list(KEY_FACT_SOURCE_FIELDS)
+    critical_fields = fact_closure.get("critical_fields") if isinstance(fact_closure, dict) else None
+    if isinstance(critical_fields, list):
+        for item in critical_fields:
+            if isinstance(item, dict) and item.get("field"):
+                field_name = str(item["field"])
+                if field_name not in fields:
+                    fields.append(field_name)
+
+    result: dict[str, Any] = {}
+    for field_name in fields:
+        fact = facts.get(field_name)
+        if not isinstance(fact, dict):
+            result[field_name] = {"status": "missing"}
+            continue
+        result[field_name] = {
+            "value": fact.get("value"),
+            "source": fact.get("source"),
+            "source_type": fact.get("source_type"),
+            "priority": fact.get("priority"),
+            "source_ref": fact.get("source_ref"),
+        }
+    return result
+
+
+def _source_counts_text(source_counts: dict[str, Any]) -> str:
+    return ", ".join(f"{key}={value}" for key, value in source_counts.items())
 
 
 def _action_required_for_error(exc: Exception) -> str:

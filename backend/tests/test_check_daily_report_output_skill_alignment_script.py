@@ -30,6 +30,15 @@ def test_run_alignment_checks_uses_compare_mode_by_default(tmp_path) -> None:
         return {
             "status": "ready",
             "missing_fields": [],
+            "facts": {
+                "total_output_daily": {
+                    "value": 100,
+                    "source": "mes_packaging_output",
+                    "source_type": "mes_packaging_output",
+                    "priority": 80,
+                    "source_ref": {"business_date": business_date.isoformat()},
+                }
+            },
             "gap_plan": {"status": "ready", "item_count": 0, "summary": {}, "items": []},
             "fact_closure": {"status": "pass", "critical_fields": []},
             "output_skill_alignment": {
@@ -54,8 +63,11 @@ def test_run_alignment_checks_uses_compare_mode_by_default(tmp_path) -> None:
     )
 
     assert [row["status"] for row in rows] == ["passed", "passed"]
+    assert [row["reference_mode"] for row in rows] == ["compare", "compare"]
     assert [row["alignment_status"] for row in rows] == ["passed", "passed"]
     assert rows[0]["fact_closure"]["status"] == "pass"
+    assert rows[0]["source_summary"]["source_counts"] == {"mes_packaging_output": 1}
+    assert rows[0]["key_fact_sources"]["total_output_daily"]["source_type"] == "mes_packaging_output"
     assert rows[0]["gap_plan"]["status"] == "ready"
     assert calls == [date(2026, 6, 28), date(2026, 6, 29)]
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
@@ -97,6 +109,7 @@ def test_run_alignment_checks_can_enable_adopt_mode_explicitly(tmp_path) -> None
     )
 
     assert rows[0]["status"] == "passed"
+    assert rows[0]["reference_mode"] == "adopt"
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
     assert os.environ.get("OUTPUT_SKILL_REFERENCE_MODE") == previous_mode
 
@@ -168,6 +181,7 @@ def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> 
     assert "98.5" in markdown
     assert "False" in markdown
     assert "Fact closure status: blocked" in markdown
+    assert "Reference mode" in markdown
     assert "trace-output" in markdown
     assert "1" in markdown
     assert "total_output_daily" in markdown
