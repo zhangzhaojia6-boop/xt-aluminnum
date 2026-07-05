@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -329,6 +329,51 @@ def test_contract_projection_daily_input_fills_cold_roll_input(tmp_path, monkeyp
 
     assert facts.values["cold_roll_input_daily"] == 237.0
     assert facts.sources["cold_roll_input_daily"]["source_type"] == "contract_projection"
+
+
+def test_finished_inbound_becomes_template_total_output_when_packaging_diverges(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {
+                "daily_output": 197.0,
+                "monthly_output": 372.0,
+                "yesterday_output": 175.0,
+                "finished_inbound_output": 222.4,
+                "finished_inbound_monthly_output": 405.0,
+                "finished_inbound_source": "mes_stock_header_records",
+            },
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {"total": 4.0, "cost_per_ton": 203.0, "basis_weight": 197.0},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "_query_finished_inbound_totals_by_date",
+        lambda *_args, **_kwargs: {REPORT_DATE - timedelta(days=1): 177.6},
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["total_output_daily"] == 222.4
+    assert facts.values["total_output_month"] == 405.0
+    assert facts.values["total_output_delta"] == 44.8
+    assert facts.sources["total_output_daily"]["source_type"] == "mes_stock_header_records"
+    assert facts.sources["total_output_daily"]["basis"] == "finished_inbound_as_template_total_output"
+    assert facts.values["cost_basis_weight"] == 222.4
+    assert facts.values["cost_per_ton"] == 180.0
+    assert facts.sources["cost_basis_weight"]["source_type"] == "computed"
 
 
 def test_owner_daily_keeps_priority_over_datahub_final_daily_report(tmp_path, monkeypatch) -> None:

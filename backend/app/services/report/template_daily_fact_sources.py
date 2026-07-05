@@ -28,6 +28,7 @@ from app.services.report.output_skill_report_parser import parse_output_skill_da
 
 SUBMITTED_STATUSES = ("submitted", "verified", "approved")
 DATAHUB_TEMPLATE_REPORT_KEY = "template_daily_report"
+OFFICIAL_TOTAL_OUTPUT_DIVERGENCE_TONS = 20.0
 
 SOURCE_PRIORITY = {
     "owner_daily": 100,
@@ -821,14 +822,34 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
         "source_table": "WMS_InStock" if plant_output.get("finished_inbound_source") == "mes_stock_header_records" else None,
         "date_column": "InStockDate" if plant_output.get("finished_inbound_source") == "mes_stock_header_records" else None,
     }
-    _set_value(facts, "total_output_daily", plant_output.get("daily_output"), "mes_packaging_output", **output_source_extra)
-    _set_value(facts, "total_output_month", plant_output.get("monthly_output"), "mes_packaging_output", **output_source_extra)
+    official_output = _official_template_total_output(db, facts.target_date, plant_output)
+    official_source_extra = output_source_extra
+    if official_output["source_type"] != "mes_packaging_output":
+        official_source_extra = {
+            **inbound_source_extra,
+            "basis": "finished_inbound_as_template_total_output",
+            "packaging_output": plant_output.get("daily_output"),
+        }
+    _set_value(
+        facts,
+        "total_output_daily",
+        official_output["daily"],
+        official_output["source_type"],
+        **official_source_extra,
+    )
+    _set_value(
+        facts,
+        "total_output_month",
+        official_output["monthly"],
+        official_output["source_type"],
+        **official_source_extra,
+    )
     _set_value(
         facts,
         "total_output_delta",
-        _to_float(plant_output.get("daily_output")) - _to_float(plant_output.get("yesterday_output")),
-        "mes_packaging_output",
-        **output_source_extra,
+        official_output["delta"],
+        official_output["source_type"],
+        **official_source_extra,
     )
     _set_value(
         facts,
@@ -892,6 +913,78 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
     _set_value(facts, "total_cost_10k", cost.get("total"), "energy_cost")
     _set_value(facts, "cost_per_ton", cost.get("cost_per_ton"), "energy_cost")
     _set_value(facts, "cost_basis_weight", cost.get("basis_weight"), "energy_cost")
+    if official_output["source_type"] != "mes_packaging_output":
+        official_daily = _to_float(official_output["daily"])
+        total_cost = _to_float(cost.get("total"))
+        _set_value(
+            facts,
+            "cost_basis_weight",
+            official_daily,
+            "computed",
+            basis="official_total_output",
+            source_type_used=official_output["source_type"],
+        )
+        if official_daily > 0 and total_cost > 0:
+            _set_value(
+                facts,
+                "cost_per_ton",
+                round(total_cost * 10000 / official_daily, 0),
+                "computed",
+                basis="official_total_output",
+                source_type_used=official_output["source_type"],
+            )
+
+
+def _official_template_total_output(
+    db: Session,
+    target_date: date,
+    plant_output: dict[str, Any],
+) -> dict[str, Any]:
+    source_type = "mes_packaging_output"
+    daily = plant_output.get("daily_output")
+    monthly = plant_output.get("monthly_output")
+    yesterday = plant_output.get("yesterday_output")
+    if _should_use_finished_inbound_as_template_total_output(plant_output):
+        source_type = str(plant_output.get("finished_inbound_source") or "finished_inbound_output")
+        daily = plant_output.get("finished_inbound_output")
+        monthly = plant_output.get("finished_inbound_monthly_output")
+        previous_inbound = _finished_inbound_output_for_date(db, target_date - timedelta(days=1))
+        if previous_inbound is not None:
+            yesterday = previous_inbound
+    delta = None
+    if daily not in (None, "") and yesterday not in (None, ""):
+        delta = _to_float(daily) - _to_float(yesterday)
+    return {
+        "daily": daily,
+        "monthly": monthly,
+        "delta": delta,
+        "source_type": source_type,
+    }
+
+
+def _should_use_finished_inbound_as_template_total_output(plant_output: dict[str, Any]) -> bool:
+    inbound_source = str(plant_output.get("finished_inbound_source") or "")
+    if inbound_source == "mes_stock_records_missing":
+        return False
+    inbound_daily = _to_float(plant_output.get("finished_inbound_output"))
+    if inbound_daily <= 0:
+        return False
+    packaging_daily = _to_float(plant_output.get("daily_output"))
+    if packaging_daily <= 0:
+        return True
+    return abs(inbound_daily - packaging_daily) > OFFICIAL_TOTAL_OUTPUT_DIVERGENCE_TONS
+
+
+def _finished_inbound_output_for_date(db: Session, business_date: date) -> float | None:
+    try:
+        totals = daily_overview_builder._query_finished_inbound_totals_by_date(db, business_date, business_date)
+    except Exception:
+        return None
+    value = totals.get(business_date)
+    if value in (None, ""):
+        return None
+    parsed = _to_float(value)
+    return parsed if parsed > 0 else None
 
 
 def collect_manual_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
