@@ -424,3 +424,51 @@ def test_source_diagnostics_reports_real_wip_candidates(tmp_path) -> None:
     assert wip["mes_wip_total_snapshots"]["rows"] == 1
     assert wip["mes_wip_total_snapshots"]["weight_tons"] == 4
     assert diagnostics["dingtalk"]["status"] == "missing_table"
+
+
+def test_source_diagnostics_reports_datahub_final_report_parseability(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'alignment-datahub-diagnostics.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            script.DailyReport.__table__,
+            script.DailyReportHistoryRecord.__table__,
+        ],
+    )
+    Session = sessionmaker(bind=engine, future=True)
+    db = Session()
+    business_date = date(2026, 6, 29)
+    report_text = "6月29日车间总产量日合计100吨，入库成品日合计98吨，日成品率83.2%。"
+    try:
+        db.add(
+            script.DailyReport(
+                report_date=business_date,
+                report_type="production",
+                final_text_summary=report_text,
+                text_summary="6月29日车间总产量日合计90吨。",
+            )
+        )
+        db.add(
+            script.DailyReportHistoryRecord(
+                report_type="daily",
+                business_date=business_date,
+                report_text=report_text,
+                report_payload={},
+                source_summary={},
+                facts_hash="facts",
+                text_hash="text",
+            )
+        )
+        db.commit()
+
+        diagnostics = script._source_diagnostics(db, business_date, wip_date=business_date)
+    finally:
+        db.close()
+
+    datahub = diagnostics["datahub_final_report"]
+    assert datahub["status"] == "ready"
+    assert datahub["daily_report"]["production_rows"] == 1
+    assert datahub["daily_report"]["production_final_text_rows"] == 1
+    assert datahub["daily_report"]["latest_final_text_parseable_fields"] >= 3
+    assert datahub["history"]["daily_rows"] == 1
+    assert datahub["history"]["latest_report_text_parseable_fields"] >= 3

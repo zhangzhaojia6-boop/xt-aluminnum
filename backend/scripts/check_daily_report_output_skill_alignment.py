@@ -28,7 +28,9 @@ from app.core.business_time import last_completed_production_business_date, prod
 from app.database import get_sessionmaker
 from app.models.agent_communication import MultimodalEvidence
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot
+from app.models.reports import DailyReport, DailyReportHistoryRecord
 from app.services.report.daily_fact_bundle import build_daily_fact_bundle
+from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 
 
 BundleBuilder = Callable[..., dict[str, Any]]
@@ -475,6 +477,7 @@ def _source_diagnostics(db: Any, business_date: date, *, wip_date: date | None =
         "wip_date": effective_wip_date.isoformat(),
         "wip": _wip_source_diagnostics(db, effective_wip_date),
         "dingtalk": _dingtalk_source_diagnostics(db, business_date),
+        "datahub_final_report": _datahub_final_report_diagnostics(db, business_date),
     }
 
 
@@ -628,6 +631,105 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
     }
 
 
+def _datahub_final_report_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    daily_report = _daily_report_diagnostics(db, business_date)
+    history = _daily_report_history_diagnostics(db, business_date)
+    if daily_report.get("status") == "missing_table" and history.get("status") == "missing_table":
+        return {"status": "missing_table", "daily_report": daily_report, "history": history}
+    return {"status": "ready", "daily_report": daily_report, "history": history}
+
+
+def _daily_report_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    if not _table_exists(db, DailyReport.__tablename__):
+        return {"status": "missing_table"}
+    try:
+        total_rows = _count_query(db.query(DailyReport.id).filter(DailyReport.report_date == business_date))
+        production_rows = _count_query(
+            db.query(DailyReport.id).filter(
+                DailyReport.report_date == business_date,
+                DailyReport.report_type == "production",
+            )
+        )
+        production_final_text_rows = _count_query(
+            db.query(DailyReport.id).filter(
+                DailyReport.report_date == business_date,
+                DailyReport.report_type == "production",
+                DailyReport.final_text_summary.isnot(None),
+                DailyReport.final_text_summary != "",
+            )
+        )
+        production_text_rows = _count_query(
+            db.query(DailyReport.id).filter(
+                DailyReport.report_date == business_date,
+                DailyReport.report_type == "production",
+                DailyReport.text_summary.isnot(None),
+                DailyReport.text_summary != "",
+            )
+        )
+        latest = (
+            db.query(DailyReport)
+            .filter(DailyReport.report_date == business_date, DailyReport.report_type == "production")
+            .order_by(
+                DailyReport.final_confirmed_at.desc(),
+                DailyReport.published_at.desc(),
+                DailyReport.id.desc(),
+            )
+            .first()
+        )
+    except Exception as exc:
+        return {"status": "error", "error": type(exc).__name__}
+    return {
+        "status": "ready",
+        "rows": total_rows,
+        "production_rows": production_rows,
+        "production_final_text_rows": production_final_text_rows,
+        "production_text_rows": production_text_rows,
+        "latest_production_report_id": getattr(latest, "id", None),
+        "latest_final_text_parseable_fields": _parseable_field_count(getattr(latest, "final_text_summary", None)),
+        "latest_text_parseable_fields": _parseable_field_count(getattr(latest, "text_summary", None)),
+    }
+
+
+def _daily_report_history_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    if not _table_exists(db, DailyReportHistoryRecord.__tablename__):
+        return {"status": "missing_table"}
+    try:
+        total_rows = _count_query(
+            db.query(DailyReportHistoryRecord.id).filter(DailyReportHistoryRecord.business_date == business_date)
+        )
+        daily_rows = _count_query(
+            db.query(DailyReportHistoryRecord.id).filter(
+                DailyReportHistoryRecord.business_date == business_date,
+                DailyReportHistoryRecord.report_type == "daily",
+            )
+        )
+        latest = (
+            db.query(DailyReportHistoryRecord)
+            .filter(
+                DailyReportHistoryRecord.business_date == business_date,
+                DailyReportHistoryRecord.report_type == "daily",
+            )
+            .order_by(DailyReportHistoryRecord.created_at.desc(), DailyReportHistoryRecord.id.desc())
+            .first()
+        )
+    except Exception as exc:
+        return {"status": "error", "error": type(exc).__name__}
+    return {
+        "status": "ready",
+        "rows": total_rows,
+        "daily_rows": daily_rows,
+        "latest_daily_history_id": getattr(latest, "id", None),
+        "latest_report_text_parseable_fields": _parseable_field_count(getattr(latest, "report_text", None)),
+    }
+
+
+def _parseable_field_count(text: Any) -> int:
+    clean = str(text or "").strip()
+    if not clean:
+        return 0
+    return len(parse_output_skill_daily_report(clean))
+
+
 def _render_source_diagnostics(source_diagnostics: dict[str, Any]) -> list[str]:
     if source_diagnostics.get("status") != "ready":
         return [f"- Source diagnostics: {source_diagnostics.get('status')}"]
@@ -644,6 +746,13 @@ def _render_source_diagnostics(source_diagnostics: dict[str, Any]) -> list[str]:
     dingtalk = source_diagnostics.get("dingtalk") if isinstance(source_diagnostics.get("dingtalk"), dict) else {}
     if dingtalk:
         lines.append(f"  - dingtalk: {_source_diagnostic_item_text(dingtalk)}")
+    datahub = (
+        source_diagnostics.get("datahub_final_report")
+        if isinstance(source_diagnostics.get("datahub_final_report"), dict)
+        else {}
+    )
+    if datahub:
+        lines.append(f"  - datahub_final_report: {_source_diagnostic_item_text(datahub)}")
     return lines
 
 
