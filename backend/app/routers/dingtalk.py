@@ -36,6 +36,10 @@ from app.schemas.auth import LoginResponse, UserInfo
 from app.services.audit_service import log_action
 from app.services import dingtalk_service
 from app.services.agent_command_service import AgentCommandError, handle_agent_command
+from app.services.dingtalk_energy_ingest_service import (
+    ingest_dingtalk_energy_file,
+    resolve_dingtalk_energy_business_date,
+)
 from app.services.hermes_day1_evidence_service import Day1EvidenceError, record_day1_dingtalk_evidence
 from app.services.hermes_day1_intent_service import (
     Day1CommandParseError,
@@ -616,11 +620,15 @@ def dingtalk_agent_inbound(
                 'report_id': None,
             }
         try:
+            evidence_business_date = resolve_dingtalk_energy_business_date(
+                source_payload,
+                file_name=_clean_text(_first_payload_value(source_payload, 'fileName', 'file_name', 'name')),
+            )
             evidence = record_day1_dingtalk_evidence(
                 db,
                 payload=source_payload,
                 actor=user,
-                business_date=None,
+                business_date=evidence_business_date,
                 channel=channel,
                 group_id=group_id or None,
                 trace_id=trace_id,
@@ -630,6 +638,12 @@ def dingtalk_agent_inbound(
         except Day1EvidenceError as exc:
             db.rollback()
             raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
+
+        energy_ingest = (
+            ingest_dingtalk_energy_file(db, payload=source_payload, evidence=evidence, trace_id=trace_id)
+            if evidence is not None
+            else None
+        )
 
         return {
             'errcode': 0,
@@ -641,6 +655,7 @@ def dingtalk_agent_inbound(
             'messages': [],
             'should_reply': False,
             'evidence_id': evidence.id if evidence is not None else None,
+            'energy_ingest': energy_ingest,
             'chat_inbox_id': None,
             'agent_run_id': None,
             'report_id': None,

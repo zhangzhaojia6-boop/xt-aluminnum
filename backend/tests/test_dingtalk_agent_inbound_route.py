@@ -1,8 +1,11 @@
 ﻿from __future__ import annotations
 
+import base64
 from datetime import date
+from pathlib import Path
 
 from fastapi.testclient import TestClient
+import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -19,6 +22,8 @@ from app.models.agent_communication import (
     CommunicationChannel,
     MultimodalEvidence,
 )
+from app.models.energy import EnergyImportRecord
+from app.models.imports import ImportBatch, ImportRow
 from app.models.master import Workshop
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.reports import DailyReport
@@ -41,6 +46,9 @@ DINGTALK_AGENT_TABLES = [
     ChatInboxMessage.__table__,
     AgentRun.__table__,
     MultimodalEvidence.__table__,
+    ImportBatch.__table__,
+    ImportRow.__table__,
+    EnergyImportRecord.__table__,
     DailyReport.__table__,
 ]
 
@@ -66,6 +74,19 @@ def _restore_db_override(previous_overrides, db: Session) -> None:
     db.close()
     app.dependency_overrides.clear()
     app.dependency_overrides.update(previous_overrides)
+
+
+def _write_dingtalk_energy_workbook(path: Path) -> None:
+    frame = pd.DataFrame(
+        [
+            ['7月份各车间电耗统计表', '', '', '', ''],
+            ['车间/日期', '1日', '2日', '3日', '4日'],
+            ['铸锭', 100, 200, 300, 400],
+            ['热轧', 10, 20, 30, 40],
+        ]
+    )
+    with pd.ExcelWriter(path, engine='openpyxl') as writer:
+        frame.to_excel(writer, index=False, header=False, sheet_name='用量')
 
 
 def test_dingtalk_agent_inbound_forwards_bound_manager_message_to_agent(monkeypatch) -> None:
@@ -260,10 +281,13 @@ def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent
         payload = response.json()
         assert payload['action'] == 'dingtalk-evidence-recorded'
         assert payload['should_reply'] is False
+        assert payload['energy_ingest']['status'] == 'skipped'
+        assert payload['energy_ingest']['reason'] == 'no_inline_file_content'
         assert payload['chat_inbox_id'] is None
         assert payload['agent_run_id'] is None
         assert db.query(ChatInboxMessage).count() == 0
         assert db.query(AgentRun).count() == 0
+        assert db.query(EnergyImportRecord).count() == 0
 
         evidence = db.query(MultimodalEvidence).one()
         assert payload['evidence_id'] == evidence.id
@@ -274,6 +298,74 @@ def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent
         assert evidence.payload['file_name'] == '7月5日抄表.xlsx'
         assert evidence.payload['evidence_kind'] == 'fact'
         assert evidence.payload['metric_write_allowed'] is False
+        assert evidence.payload['business_date'] == '2026-07-05'
+        assert evidence.payload['energy_ingest']['status'] == 'skipped'
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_promotes_inline_energy_workbook(monkeypatch, tmp_path: Path) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=13,
+            username='energy-inline-manager',
+            password_hash='x',
+            name='能耗负责人',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-energy-inline-001',
+            dingtalk_union_id='union-energy-inline-001',
+        )
+    )
+    db.commit()
+
+    workbook = tmp_path / '7月份各车间电耗统计表.xlsx'
+    _write_dingtalk_energy_workbook(workbook)
+    encoded = base64.b64encode(workbook.read_bytes()).decode('ascii')
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(
+        'app.services.dingtalk_energy_ingest_service.settings.UPLOAD_DIR',
+        str(tmp_path / 'uploads'),
+        raising=False,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-energy-files',
+                'conversationType': 'group',
+                'senderStaffId': 'dt-energy-inline-001',
+                'senderUnionId': 'union-energy-inline-001',
+                'msgtype': 'file',
+                'fileName': '7月份各车间电耗统计表.xlsx',
+                'mediaId': 'media-energy-20260704',
+                'fileContentBase64': encoded,
+                'business_date': '2026-07-04',
+                'traceId': 'trace-dingtalk-inline-energy-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['action'] == 'dingtalk-evidence-recorded'
+        assert payload['energy_ingest']['status'] == 'promoted'
+        assert payload['energy_ingest']['business_date'] == '2026-07-04'
+        assert payload['energy_ingest']['record_rows_written'] == 2
+
+        records = db.query(EnergyImportRecord).order_by(EnergyImportRecord.workshop_code.asc()).all()
+        assert [(row.workshop_code, row.energy_type, float(row.energy_value)) for row in records] == [
+            ('RZ', 'electricity', 40.0),
+            ('ZD', 'electricity', 400.0),
+        ]
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['business_date'] == '2026-07-04'
+        assert evidence.payload['energy_ingest']['status'] == 'promoted'
     finally:
         _restore_db_override(previous_overrides, db)
 
