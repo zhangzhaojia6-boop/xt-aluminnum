@@ -410,7 +410,7 @@ def test_source_diagnostics_reports_real_wip_candidates(tmp_path) -> None:
         )
         db.commit()
 
-        diagnostics = script._source_diagnostics(db, business_date)
+        diagnostics = script._source_diagnostics(db, business_date, wip_date=business_date)
     finally:
         db.close()
 

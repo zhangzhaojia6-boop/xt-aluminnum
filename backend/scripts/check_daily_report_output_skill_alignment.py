@@ -465,12 +465,15 @@ def _source_summary(bundle: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+def _source_diagnostics(db: Any, business_date: date, *, wip_date: date | None = None) -> dict[str, Any]:
     if not hasattr(db, "query"):
         return {"status": "unavailable", "reason": "db_session_missing"}
+    effective_wip_date = wip_date or (business_date + timedelta(days=1))
     return {
         "status": "ready",
-        "wip": _wip_source_diagnostics(db, business_date),
+        "business_date": business_date.isoformat(),
+        "wip_date": effective_wip_date.isoformat(),
+        "wip": _wip_source_diagnostics(db, effective_wip_date),
         "dingtalk": _dingtalk_source_diagnostics(db, business_date),
     }
 
@@ -628,7 +631,11 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
 def _render_source_diagnostics(source_diagnostics: dict[str, Any]) -> list[str]:
     if source_diagnostics.get("status") != "ready":
         return [f"- Source diagnostics: {source_diagnostics.get('status')}"]
-    lines = ["- Source diagnostics:"]
+    lines = [
+        "- Source diagnostics: "
+        f"business_date={source_diagnostics.get('business_date')}, "
+        f"wip_date={source_diagnostics.get('wip_date')}"
+    ]
     wip = source_diagnostics.get("wip") if isinstance(source_diagnostics.get("wip"), dict) else {}
     for name, item in wip.items():
         if not isinstance(item, dict):
