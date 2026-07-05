@@ -852,6 +852,8 @@ def test_collect_day1_sources_returns_output_skill_alignment_when_reference_root
         'field_match_rate': 100.0,
         'matched_fields': 130,
         'expected_fields': 130,
+        'numeric_tolerance': 20.0,
+        'tolerance_matched_fields': 0,
         'difference_count': 0,
         'differences': [],
         'char_match_rate': 100.0,
