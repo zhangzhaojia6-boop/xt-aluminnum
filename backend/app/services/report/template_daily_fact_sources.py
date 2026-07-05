@@ -952,7 +952,7 @@ def _official_template_total_output(
         if previous_inbound is not None:
             yesterday = previous_inbound
     if _to_float(yesterday) <= 0:
-        previous_output = _previous_official_template_total_output(db, target_date, source_type)
+        previous_output = _previous_official_template_total_output(db, target_date, source_type, plant_output)
         if previous_output is not None:
             yesterday = previous_output
     delta = None
@@ -991,14 +991,30 @@ def _finished_inbound_output_for_date(db: Session, business_date: date) -> float
     return parsed if parsed > 0 else None
 
 
-def _previous_official_template_total_output(db: Session, target_date: date, source_type: str) -> float | None:
+def _previous_official_template_total_output(
+    db: Session,
+    target_date: date,
+    source_type: str,
+    plant_output: dict[str, Any],
+) -> float | None:
     previous_date = target_date - timedelta(days=1)
-    if source_type in {"mes_stock_header_records", "finished_inbound_output"}:
-        return _finished_inbound_output_for_date(db, previous_date)
+    if source_type in {"mes_stock_header_records", "finished_inbound_output"} or _has_finished_inbound_output(
+        plant_output
+    ):
+        inbound = _finished_inbound_output_for_date(db, previous_date)
+        if inbound is not None:
+            return inbound
     packaging = _packaging_output_for_date(db, previous_date)
     if packaging is not None:
         return packaging
     return _finished_inbound_output_for_date(db, previous_date)
+
+
+def _has_finished_inbound_output(plant_output: dict[str, Any]) -> bool:
+    inbound_source = str(plant_output.get("finished_inbound_source") or "")
+    if inbound_source == "mes_stock_records_missing":
+        return False
+    return _to_float(plant_output.get("finished_inbound_output")) > 0
 
 
 def _packaging_output_for_date(db: Session, business_date: date) -> float | None:
