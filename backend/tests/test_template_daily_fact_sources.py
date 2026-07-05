@@ -169,6 +169,11 @@ def test_set_value_keeps_high_priority_zero_against_lower_priority_source() -> N
     assert facts.sources["total_output_daily"]["source_type"] == "owner_daily"
 
 
+def test_wip_snapshot_weight_keeps_ton_values_and_converts_kg_values() -> None:
+    assert template_daily_fact_sources._wip_snapshot_weight_tons(279.5) == 279.5
+    assert template_daily_fact_sources._wip_snapshot_weight_tons(264254.65) == 264.25465
+
+
 def test_datahub_final_daily_report_overrides_lower_priority_projection(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
 

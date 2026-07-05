@@ -212,7 +212,10 @@ def _matches_any(value: Any, tokens: tuple[str, ...]) -> bool:
 
 
 def _wip_snapshot_weight_tons(value: Any) -> float:
-    return _to_float(value) / 1000
+    weight = _to_float(value)
+    if weight > 1000:
+        return weight / 1000
+    return weight
 
 
 def _wip_bucket(workshop_name: Any, process_name: Any) -> str | None:
