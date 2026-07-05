@@ -446,6 +446,12 @@ def test_source_diagnostics_reports_datahub_final_report_parseability(tmp_path) 
                 report_type="production",
                 final_text_summary=report_text,
                 text_summary="6月29日车间总产量日合计90吨。",
+                report_data={
+                    "template_daily_report": {
+                        "status": "ready",
+                        "text": report_text,
+                    }
+                },
             )
         )
         db.add(
@@ -470,5 +476,7 @@ def test_source_diagnostics_reports_datahub_final_report_parseability(tmp_path) 
     assert datahub["daily_report"]["production_rows"] == 1
     assert datahub["daily_report"]["production_final_text_rows"] == 1
     assert datahub["daily_report"]["latest_final_text_parseable_fields"] >= 3
+    assert datahub["daily_report"]["latest_template_report_status"] == "ready"
+    assert datahub["daily_report"]["latest_template_text_parseable_fields"] >= 3
     assert datahub["history"]["daily_rows"] == 1
     assert datahub["history"]["latest_report_text_parseable_fields"] >= 3

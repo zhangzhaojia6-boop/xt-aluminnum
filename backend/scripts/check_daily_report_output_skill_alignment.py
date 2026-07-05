@@ -44,6 +44,7 @@ KEY_FACT_SOURCE_FIELDS = (
     "total_electricity_kwh",
     "daily_yield_rate",
 )
+DATAHUB_TEMPLATE_REPORT_KEY = "template_daily_report"
 
 
 def parse_business_date(value: str) -> date:
@@ -687,6 +688,10 @@ def _daily_report_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
         "latest_production_report_id": getattr(latest, "id", None),
         "latest_final_text_parseable_fields": _parseable_field_count(getattr(latest, "final_text_summary", None)),
         "latest_text_parseable_fields": _parseable_field_count(getattr(latest, "text_summary", None)),
+        "latest_template_report_status": _template_report_payload_value(latest, "status"),
+        "latest_template_text_parseable_fields": _parseable_field_count(
+            _template_report_payload_value(latest, "text")
+        ),
     }
 
 
@@ -728,6 +733,18 @@ def _parseable_field_count(text: Any) -> int:
     if not clean:
         return 0
     return len(parse_output_skill_daily_report(clean))
+
+
+def _template_report_payload_value(report: Any, key: str) -> Any:
+    if report is None:
+        return None
+    report_data = getattr(report, "report_data", None)
+    if not isinstance(report_data, dict):
+        return None
+    payload = report_data.get(DATAHUB_TEMPLATE_REPORT_KEY)
+    if not isinstance(payload, dict):
+        return None
+    return payload.get(key)
 
 
 def _render_source_diagnostics(source_diagnostics: dict[str, Any]) -> list[str]:

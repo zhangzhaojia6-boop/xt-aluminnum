@@ -27,6 +27,7 @@ from app.services.report.output_skill_report_parser import parse_output_skill_da
 
 
 SUBMITTED_STATUSES = ("submitted", "verified", "approved")
+DATAHUB_TEMPLATE_REPORT_KEY = "template_daily_report"
 
 SOURCE_PRIORITY = {
     "owner_daily": 100,
@@ -1058,6 +1059,7 @@ def collect_datahub_final_daily_report_facts(db: Session, facts: TemplateDailyFa
         return
     source_extra = {
         "source_table": reference.get("source_table"),
+        "source_payload_key": reference.get("source_payload_key"),
         "report_id": reference.get("report_id"),
         "business_date": facts.target_date.isoformat(),
     }
@@ -1074,7 +1076,6 @@ def _datahub_final_daily_report_reference(db: Session, target_date: date) -> dic
                 db.query(DailyReport)
                 .filter(DailyReport.report_date == target_date)
                 .filter(DailyReport.report_type == "production")
-                .filter(DailyReport.final_text_summary.isnot(None))
                 .order_by(
                     DailyReport.final_confirmed_at.desc(),
                     DailyReport.published_at.desc(),
@@ -1091,6 +1092,9 @@ def _datahub_final_daily_report_reference(db: Session, target_date: date) -> dic
                 "report_id": row.id,
                 "text": row.final_text_summary,
             }
+        template_reference = _datahub_template_daily_report_reference(row)
+        if template_reference is not None:
+            return template_reference
 
     if _has_table(db, DailyReportHistoryRecord.__tablename__):
         try:
@@ -1111,6 +1115,26 @@ def _datahub_final_daily_report_reference(db: Session, target_date: date) -> dic
                 "text": history.report_text,
             }
     return None
+
+
+def _datahub_template_daily_report_reference(row: DailyReport | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    report_data = row.report_data if isinstance(row.report_data, dict) else {}
+    payload = report_data.get(DATAHUB_TEMPLATE_REPORT_KEY)
+    if not isinstance(payload, dict):
+        return None
+    if str(payload.get("status") or "").strip().lower() != "ready":
+        return None
+    text = str(payload.get("text") or "").strip()
+    if not text:
+        return None
+    return {
+        "source_table": DailyReport.__tablename__,
+        "source_payload_key": DATAHUB_TEMPLATE_REPORT_KEY,
+        "report_id": row.id,
+        "text": text,
+    }
 
 
 def collect_template_daily_facts(

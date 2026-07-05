@@ -222,6 +222,88 @@ def test_datahub_final_daily_report_overrides_lower_priority_projection(tmp_path
     assert facts.sources["total_output_daily"]["source_table"] == "daily_reports"
 
 
+def test_datahub_template_daily_report_text_is_used_when_ready(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {"daily_output": 111, "monthly_output": 111},
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    report_text = (
+        "6月16日，车间总产量日合计328吨（外加工0吨）比昨日↑22吨，"
+        "月累计5014吨（外加工月累计270吨）。"
+    )
+    with SessionLocal() as db:
+        db.add(
+            DailyReport(
+                report_date=REPORT_DATE,
+                report_type="production",
+                report_data={
+                    "template_daily_report": {
+                        "status": "ready",
+                        "text": report_text,
+                    }
+                },
+            )
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["total_output_daily"] == 328
+    assert facts.values["total_output_month"] == 5014
+    assert facts.sources["total_output_daily"]["source_type"] == "datahub_final_daily_report"
+    assert facts.sources["total_output_daily"]["source_payload_key"] == "template_daily_report"
+
+
+def test_datahub_template_daily_report_text_is_ignored_when_blocked(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {"daily_output": 111, "monthly_output": 111},
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    with SessionLocal() as db:
+        db.add(
+            DailyReport(
+                report_date=REPORT_DATE,
+                report_type="production",
+                report_data={
+                    "template_daily_report": {
+                        "status": "blocked",
+                        "text": "6月16日，车间总产量日合计328吨。",
+                    }
+                },
+            )
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["total_output_daily"] == 111
+    assert facts.sources["total_output_daily"]["source_type"] != "datahub_final_daily_report"
+
+
 def test_owner_daily_keeps_priority_over_datahub_final_daily_report(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
 
