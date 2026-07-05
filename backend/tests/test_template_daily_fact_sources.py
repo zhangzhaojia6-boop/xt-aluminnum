@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.master import Workshop
-from app.models.mes import MesDailyWipSnapshot, MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport, DailyReportHistoryRecord
@@ -598,6 +598,84 @@ def test_opening_facts_do_not_use_output_skill_wip_snapshot_source(tmp_path, mon
     assert facts.values["wip_1650_2050_cold"] == 12.5
     assert facts.values["wip_total"] == 12.5
     assert facts.sources["wip_total"]["source_type"] == "mes_wip_total_snapshot"
+
+
+def test_opening_facts_use_coil_snapshot_before_partial_wip_total(tmp_path, monkeypatch) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'template-daily-wip-coil-before-total.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    SessionLocal = sessionmaker(bind=engine, future=True, expire_on_commit=False)
+    with SessionLocal() as db:
+        db.add_all(
+            [
+                MesCoilSnapshot(
+                    coil_id="MES:1650",
+                    tracking_card_no="1650",
+                    business_date=date(2026, 6, 17),
+                    current_workshop="1650车间",
+                    current_process="冷轧",
+                    material_weight=279_500.0,
+                ),
+                MesCoilSnapshot(
+                    coil_id="MES:1850",
+                    tracking_card_no="1850",
+                    business_date=date(2026, 6, 17),
+                    current_workshop="1850车间",
+                    current_process="冷轧",
+                    material_weight=87_500.0,
+                ),
+                MesCoilSnapshot(
+                    coil_id="MES:NORTH",
+                    tracking_card_no="NORTH",
+                    business_date=date(2026, 6, 17),
+                    current_workshop="新厂在线车间",
+                    current_process="北线退火",
+                    material_weight=201_000.0,
+                ),
+                MesCoilSnapshot(
+                    coil_id="MES:STOCK",
+                    tracking_card_no="STOCK",
+                    business_date=date(2026, 6, 17),
+                    current_workshop="精整",
+                    current_process="包装",
+                    material_weight=999_000.0,
+                    status_name="已入库",
+                ),
+                MesWipTotalSnapshot(
+                    source_id="partial-total",
+                    workshop_name="拉矫车间",
+                    process_name="包装",
+                    doing_count=1,
+                    doing_weight_tons=9.5,
+                    snapshot_at=datetime(2026, 6, 17, 8, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {},
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_business_date": "2026-06-17",
+            "wip_distribution": [],
+        },
+    )
+
+    with SessionLocal() as db:
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        template_daily_fact_sources.collect_opening_facts(db, facts, wip_date=date(2026, 6, 17))
+
+    assert facts.values["wip_1650_2050_cold"] == 279.5
+    assert facts.values["wip_1850_cold"] == 87.5
+    assert facts.values["wip_new_north"] == 201.0
+    assert facts.values["wip_finishing"] == 0.0
+    assert facts.values["wip_total"] == 568.0
+    assert facts.sources["wip_total"]["source_type"] == "mes_coil_snapshot_business_date"
 
 
 def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> None:

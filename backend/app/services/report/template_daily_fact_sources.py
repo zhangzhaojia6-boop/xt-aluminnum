@@ -4,13 +4,19 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from sqlalchemy import func, inspect, or_
+from sqlalchemy import and_, func, inspect, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.business_time import production_business_window
 from app.models.master import Workshop
-from app.models.mes import MesDailyWipSnapshot, MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
+from app.models.mes import (
+    MesCoilSnapshot,
+    MesDailyWipSnapshot,
+    MesMaterialRecord,
+    MesWipTotalSnapshot,
+    MesWorkshopProcessRecord,
+)
 from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport, DailyReportHistoryRecord
@@ -47,6 +53,7 @@ SOURCE_PRIORITY = {
     "mes_delivery_records": 45,
     "mes_wip_distribution": 40,
     "mes_daily_wip_snapshot": 40,
+    "mes_coil_snapshot_business_date": 40,
     "mes_wip_total_snapshot": 40,
     "mes_material_records": 35,
     "mes_workshop_process_records": 35,
@@ -319,6 +326,66 @@ def _wip_breakdown_from_daily_snapshots(db: Session, business_date: date) -> dic
         bucket = _wip_bucket(workshop, process)
         if bucket is not None:
             values[bucket] += _wip_snapshot_weight_tons(weight)
+    values["wip_anneal_total"] = values["wip_new_north"] + values["wip_new_south"] + values["wip_park_anneal"]
+    values["wip_finishing_total"] = values["wip_straightening"] + values["wip_finishing"] + values["wip_park_finishing"]
+    values["wip_total"] = (
+        values["wip_1650_2050_cold"]
+        + values["wip_1850_cold"]
+        + values["wip_milling"]
+        + values["wip_anneal_total"]
+        + values["wip_finishing_total"]
+        + values["wip_hot_plate_shearing"]
+        + values["wip_coating"]
+    )
+    if values["wip_total"] <= 0:
+        return {}
+    return {key: round(value, 3) for key, value in values.items()}
+
+
+def _wip_breakdown_from_coil_snapshots(db: Session, business_date: date) -> dict[str, float]:
+    values = {key: 0.0 for key in WIP_BREAKDOWN_FIELDS}
+    if not hasattr(db, "query"):
+        return {}
+    if not _has_table(db, MesCoilSnapshot.__tablename__):
+        return {}
+    try:
+        def present(column):
+            return and_(column.isnot(None), column != "")
+
+        workshop_label = func.coalesce(
+            func.nullif(MesCoilSnapshot.current_workshop, ""),
+            func.nullif(MesCoilSnapshot.workshop_code, ""),
+            func.nullif(MesCoilSnapshot.next_process, ""),
+        )
+        process_label = func.coalesce(
+            func.nullif(MesCoilSnapshot.current_process, ""),
+            func.nullif(MesCoilSnapshot.next_process, ""),
+            "",
+        )
+        not_finished_stock = and_(
+            MesCoilSnapshot.in_stock_date.is_(None),
+            or_(MesCoilSnapshot.status_name.is_(None), MesCoilSnapshot.status_name != "已入库"),
+        )
+        rows = (
+            db.query(workshop_label, process_label, func.sum(MesCoilSnapshot.material_weight))
+            .filter(
+                MesCoilSnapshot.business_date == business_date,
+                MesCoilSnapshot.delivery_date.is_(None),
+                MesCoilSnapshot.allocation_date.is_(None),
+                not_finished_stock,
+                or_(present(MesCoilSnapshot.current_process), present(MesCoilSnapshot.next_process)),
+            )
+            .group_by(workshop_label, process_label)
+            .all()
+        )
+    except (OperationalError, ProgrammingError):
+        return {}
+    if not rows:
+        return {}
+    for workshop, process, weight in rows:
+        bucket = _wip_bucket(workshop, process)
+        if bucket is not None:
+            values[bucket] += _to_float(weight) / 1000
     values["wip_anneal_total"] = values["wip_new_north"] + values["wip_new_south"] + values["wip_park_anneal"]
     values["wip_finishing_total"] = values["wip_straightening"] + values["wip_finishing"] + values["wip_park_finishing"]
     values["wip_total"] = (
@@ -790,6 +857,9 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
         )
     wip_breakdown = _wip_breakdown_from_daily_snapshots(db, effective_wip_date)
     wip_breakdown_source = "mes_daily_wip_snapshot"
+    if not wip_breakdown:
+        wip_breakdown = _wip_breakdown_from_coil_snapshots(db, effective_wip_date)
+        wip_breakdown_source = "mes_coil_snapshot_business_date"
     if not wip_breakdown:
         wip_breakdown = _wip_breakdown_from_total_snapshots(db, effective_wip_date)
         wip_breakdown_source = "mes_wip_total_snapshot"
