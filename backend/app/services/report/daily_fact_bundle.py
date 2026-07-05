@@ -50,6 +50,8 @@ SOURCE_PRIORITY = {
     "rag": 30,
     "output_skill": 20,
 }
+DINGTALK_CONFIRMED_STATUSES = ("confirmed", "human_confirmed")
+MIN_DINGTALK_DAILY_REPORT_FIELDS = 3
 
 FIELD_UNITS = {
     "total_output_daily": "吨",
@@ -476,7 +478,7 @@ def _apply_dingtalk_supplements(
     rows = (
         db.query(MultimodalEvidence)
         .filter(MultimodalEvidence.payload.is_not(None))
-        .filter(MultimodalEvidence.confirmation_status == "confirmed")
+        .filter(MultimodalEvidence.confirmation_status.in_(DINGTALK_CONFIRMED_STATUSES))
         .order_by(MultimodalEvidence.created_at.asc(), MultimodalEvidence.id.asc())
         .all()
     )
@@ -490,115 +492,118 @@ def _apply_dingtalk_supplements(
     applied_field_names: set[str] = set()
 
     for row in rows:
-        payload = row.payload if isinstance(row.payload, Mapping) else {}
-        if payload.get("include_in_daily_sample") is not True:
-            continue
-        if str(payload.get("evidence_kind") or "") != "fact":
-            continue
+        base_payload = row.payload if isinstance(row.payload, Mapping) else {}
+        for payload in _iter_dingtalk_fact_payloads(base_payload):
+            payload_is_daily_fact = _is_dingtalk_daily_fact_payload(payload)
+            has_structured_updates = "fact_updates" in payload
+            if not payload_is_daily_fact and not _has_parseable_dingtalk_daily_report(row):
+                continue
 
-        has_structured_updates = "fact_updates" in payload
-        if has_structured_updates:
-            update_items = _iter_fact_updates(payload.get("fact_updates"))
-            if not _payload_business_date_matches(payload, business_date_text):
-                for field_name, item in update_items:
-                    if _has_fact_value(item.get("value")):
-                        _append_unapplied_dingtalk_candidate(
-                            conflicts,
-                            row=row,
-                            candidate={
-                                "field": field_name,
-                                "value": item.get("value"),
-                                "trace_id": _payload_trace_id(payload, row),
-                            },
-                        )
-                continue
-        else:
-            candidates = extract_daily_fact_update_candidates(
-                {
-                    "id": row.id,
-                    "recognized_text": row.recognized_text,
-                    "payload": payload,
-                }
-            )
-            if not candidates:
-                continue
-            if not _candidate_business_date_matches(
-                payload,
-                row=row,
-                candidates=candidates,
-                business_date=business_date,
-            ):
-                for candidate in candidates:
-                    _append_unapplied_dingtalk_candidate(conflicts, row=row, candidate=candidate)
-                continue
-            update_items = [
-                (str(candidate.get("field") or "").strip(), candidate)
-                for candidate in candidates
-                if str(candidate.get("field") or "").strip()
-            ]
-
-        applied_fields: list[str] = []
-        for field_name, item in update_items:
-            old_fact = facts.get(field_name)
-            old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
-            old_source = None
-            old_unit = FIELD_UNITS.get(field_name)
-            if isinstance(old_fact, Mapping):
-                old_source = old_fact.get("source_type") or old_fact.get("source")
-                old_unit = old_fact.get("unit") or old_unit
-
-            new_value = item.get("value")
-            if not _has_fact_value(new_value):
-                continue
-            new_unit = item.get("unit") or old_unit
-            reason = str(item.get("reason") or "钉钉补充事实")
-            source_detail = {
-                "source": "dingtalk_supplement",
-                "evidence_id": row.id,
-                "source_user_id": row.source_user_id,
-                "file_uri": row.file_uri,
-                "evidence_type": row.evidence_type,
-                "recognized_text": row.recognized_text,
-                "business_date": business_date_text,
-            }
-            if not has_structured_updates:
-                source_detail["recognized_text"] = item.get("raw_text") or row.recognized_text
-                trace_id = item.get("trace_id")
-                if trace_id:
-                    source_detail["trace_id"] = trace_id
+            if has_structured_updates:
+                update_items = _iter_fact_updates(payload.get("fact_updates"))
+                if not _payload_business_date_matches(payload, business_date_text):
+                    for field_name, item in update_items:
+                        if _has_fact_value(item.get("value")):
+                            _append_unapplied_dingtalk_candidate(
+                                conflicts,
+                                row=row,
+                                candidate={
+                                    "field": field_name,
+                                    "value": item.get("value"),
+                                    "trace_id": _payload_trace_id(payload, row),
+                                },
+                            )
+                    continue
             else:
-                trace_id = item.get("trace_id") or _payload_explicit_trace_id(payload)
-                if trace_id:
-                    source_detail["trace_id"] = trace_id
-            facts[field_name] = _fact_item(
-                value=new_value,
-                unit=new_unit,
-                source="dingtalk_supplement",
-                source_type="dingtalk_supplement",
-                priority=90,
-                freshness="supplemented",
-                confidence=0.95 if has_structured_updates else _candidate_confidence(item),
-                adoption_reason=reason,
-                source_detail=source_detail,
-                source_ref=source_detail,
-            )
-            applied_fields.append(field_name)
-            applied_field_names.add(field_name)
-            if old_value != new_value:
-                conflicts.append(
-                    {
-                        "field": field_name,
-                        "type": "dingtalk_supplement",
-                        "previous_source": old_source,
-                        "previous_value": old_value,
-                        "adopted_source": "dingtalk_supplement",
-                        "adopted_value": new_value,
-                        "reason": reason,
-                    }
-                )
+                candidates = _dingtalk_daily_report_candidates(row, payload)
+                if not candidates and payload_is_daily_fact:
+                    candidates = extract_daily_fact_update_candidates(
+                        {
+                            "id": row.id,
+                            "recognized_text": row.recognized_text,
+                            "payload": payload,
+                        }
+                    )
+                if not candidates:
+                    continue
+                if not _candidate_business_date_matches(
+                    payload,
+                    row=row,
+                    candidates=candidates,
+                    business_date=business_date,
+                ):
+                    for candidate in candidates:
+                        _append_unapplied_dingtalk_candidate(conflicts, row=row, candidate=candidate)
+                    continue
+                update_items = [
+                    (str(candidate.get("field") or "").strip(), candidate)
+                    for candidate in candidates
+                    if str(candidate.get("field") or "").strip()
+                ]
 
-        if applied_fields:
-            dingtalk_refs.append({"id": row.id, "field_names": applied_fields})
+            applied_fields: list[str] = []
+            for field_name, item in update_items:
+                old_fact = facts.get(field_name)
+                old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
+                old_source = None
+                old_unit = FIELD_UNITS.get(field_name)
+                if isinstance(old_fact, Mapping):
+                    old_source = old_fact.get("source_type") or old_fact.get("source")
+                    old_unit = old_fact.get("unit") or old_unit
+
+                new_value = item.get("value")
+                if not _has_fact_value(new_value):
+                    continue
+                new_unit = item.get("unit") or old_unit
+                reason = str(item.get("reason") or "钉钉补充事实")
+                source_detail = {
+                    "source": "dingtalk_supplement",
+                    "evidence_id": row.id,
+                    "source_user_id": row.source_user_id,
+                    "file_uri": row.file_uri,
+                    "evidence_type": row.evidence_type,
+                    "recognized_text": row.recognized_text,
+                    "business_date": business_date_text,
+                }
+                if not has_structured_updates:
+                    source_detail["recognized_text"] = item.get("raw_text") or row.recognized_text
+                    trace_id = item.get("trace_id")
+                    if trace_id:
+                        source_detail["trace_id"] = trace_id
+                else:
+                    trace_id = item.get("trace_id") or _payload_explicit_trace_id(payload)
+                    if trace_id:
+                        source_detail["trace_id"] = trace_id
+                facts[field_name] = _fact_item(
+                    value=new_value,
+                    unit=new_unit,
+                    source="dingtalk_supplement",
+                    source_type="dingtalk_supplement",
+                    priority=90,
+                    freshness="supplemented",
+                    confidence=0.95 if has_structured_updates else _candidate_confidence(item),
+                    adoption_reason=reason,
+                    source_detail=source_detail,
+                    source_ref=source_detail,
+                )
+                applied_fields.append(field_name)
+                applied_field_names.add(field_name)
+                if old_value != new_value:
+                    conflicts.append(
+                        {
+                            "field": field_name,
+                            "type": "dingtalk_supplement",
+                            "previous_source": old_source,
+                            "previous_value": old_value,
+                            "adopted_source": "dingtalk_supplement",
+                            "adopted_value": new_value,
+                            "reason": reason,
+                        }
+                    )
+
+            if applied_fields:
+                dingtalk_refs.append({"id": row.id, "field_names": applied_fields})
+                break
 
     bundle["facts"] = facts
     bundle["conflicts"] = conflicts
@@ -606,6 +611,49 @@ def _apply_dingtalk_supplements(
     if applied_field_names:
         _remove_applied_missing_fields(bundle, applied_field_names)
     return _refresh_bundle_metadata(bundle)
+
+
+def _iter_dingtalk_fact_payloads(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    confirm_result = payload.get("confirm_result")
+    if not isinstance(confirm_result, Mapping):
+        return [payload]
+    merged = dict(payload)
+    merged.update(confirm_result)
+    return [merged, payload]
+
+
+def _is_dingtalk_daily_fact_payload(payload: Mapping[str, Any]) -> bool:
+    if "fact_updates" in payload:
+        return True
+    return payload.get("include_in_daily_sample") is True and str(payload.get("evidence_kind") or "") == "fact"
+
+
+def _has_parseable_dingtalk_daily_report(row: MultimodalEvidence) -> bool:
+    return bool(_dingtalk_daily_report_candidates(row, {}))
+
+
+def _dingtalk_daily_report_candidates(
+    row: MultimodalEvidence,
+    payload: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    parsed_values = parse_output_skill_daily_report(str(row.recognized_text or ""))
+    candidates = [
+        {
+            "field": str(field_name),
+            "value": value,
+            "unit": _field_unit(str(field_name)),
+            "confidence": 0.95,
+            "source": "dingtalk_supplement",
+            "trace_id": _payload_trace_id(payload, row),
+            "raw_text": row.recognized_text,
+            "reason": "钉钉日报正文解析",
+        }
+        for field_name, value in parsed_values.items()
+        if field_name != "report_date" and _has_fact_value(value)
+    ]
+    if len(candidates) < MIN_DINGTALK_DAILY_REPORT_FIELDS:
+        return []
+    return candidates
 
 
 def _payload_business_date_matches(payload: Mapping[str, Any], business_date_text: str) -> bool:
