@@ -333,6 +333,16 @@ def _extract_agent_text(payload: dict[str, Any]) -> str:
     return _clean_text(content_value)
 
 
+def _has_inbound_evidence_payload(payload: dict[str, Any]) -> bool:
+    file_ref = _clean_text(
+        _first_payload_value(payload, 'fileName', 'file_name', 'mediaId', 'media_id', 'fileId', 'file_id')
+    )
+    if file_ref:
+        return True
+    msg_type = _clean_text(_first_payload_value(payload, 'msgtype', 'msgType', 'messageType')).lower()
+    return msg_type in {'file', 'image', 'voice', 'attachment'}
+
+
 def _sanitize_inbound_payload(value: Any) -> Any:
     if isinstance(value, dict):
         cleaned: dict[str, Any] = {}
@@ -546,7 +556,8 @@ def dingtalk_agent_inbound(
 ) -> dict[str, Any]:
     _ensure_inbound_token(inbound_token)
     text = _extract_agent_text(payload)
-    if not text:
+    evidence_only = not text and _has_inbound_evidence_payload(payload)
+    if not text and not evidence_only:
         raise HTTPException(status_code=400, detail='command_text_required')
 
     user = _resolve_inbound_user(db, payload)
@@ -582,6 +593,59 @@ def dingtalk_agent_inbound(
     channel_scope = _resolve_inbound_channel_scope(db, group_id=scoped_group_id, payload=payload)
     _ensure_inbound_channel_scope_access(user, channel_scope)
     source_payload = _sanitize_inbound_payload(payload)
+    if evidence_only:
+        evidence_duplicate = _find_duplicate_inbound_evidence(
+            db,
+            channel=channel,
+            group_id=group_id or None,
+            trace_id=trace_id,
+        )
+        if evidence_duplicate is not None:
+            return {
+                'errcode': 0,
+                'errmsg': 'ok',
+                'action': 'dingtalk-evidence-duplicate',
+                'status': 'duplicate',
+                'trace_id': trace_id,
+                'answer': '',
+                'messages': [],
+                'should_reply': False,
+                'evidence_id': evidence_duplicate.id,
+                'chat_inbox_id': None,
+                'agent_run_id': None,
+                'report_id': None,
+            }
+        try:
+            evidence = record_day1_dingtalk_evidence(
+                db,
+                payload=source_payload,
+                actor=user,
+                business_date=None,
+                channel=channel,
+                group_id=group_id or None,
+                trace_id=trace_id,
+                recognized_text='',
+            )
+            db.commit()
+        except Day1EvidenceError as exc:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
+
+        return {
+            'errcode': 0,
+            'errmsg': 'ok',
+            'action': 'dingtalk-evidence-recorded',
+            'status': 'recorded',
+            'trace_id': trace_id,
+            'answer': '',
+            'messages': [],
+            'should_reply': False,
+            'evidence_id': evidence.id if evidence is not None else None,
+            'chat_inbox_id': None,
+            'agent_run_id': None,
+            'report_id': None,
+        }
+
     day1_parse_error: Day1CommandParseError | None = None
     try:
         day1_command = None

@@ -33,7 +33,8 @@ class Day1EvidenceClassification:
 
 
 def classify_dingtalk_evidence(text: str, *, file_name: str | None = None) -> Day1EvidenceClassification:
-    haystack = f'{file_name or ""} {str(text or "")}'
+    clean_file_name = str(file_name or '').strip()
+    haystack = f'{clean_file_name} {str(text or "")}'
     matched_keywords = [
         keyword
         for keyword in (*FACT_KEYWORDS, *EXPLANATION_KEYWORDS, *INSTRUCTION_KEYWORDS)
@@ -46,6 +47,8 @@ def classify_dingtalk_evidence(text: str, *, file_name: str | None = None) -> Da
         return Day1EvidenceClassification('explanation', 'medium', True, matched_keywords)
     if any(keyword in haystack for keyword in FACT_KEYWORDS):
         return Day1EvidenceClassification('fact', 'high', True, matched_keywords)
+    if clean_file_name:
+        return Day1EvidenceClassification('fact', 'medium', True, matched_keywords)
     return Day1EvidenceClassification('noise', 'low', False, matched_keywords)
 
 
@@ -93,12 +96,8 @@ def record_day1_dingtalk_evidence(
 ) -> MultimodalEvidence | None:
     file_name = _clean_payload_text(payload, 'fileName', 'file_name')
     raw_file_id = _clean_payload_text(payload, 'mediaId', 'fileId', 'file_id')
-    if file_name and not raw_file_id:
-        raise Day1EvidenceError('file_media_id_missing')
 
     classification = classify_dingtalk_evidence(recognized_text, file_name=file_name)
-    if classification.evidence_kind == 'noise':
-        return None
 
     file_hash = hashlib.sha1(raw_file_id.encode('utf-8')).hexdigest() if raw_file_id else None
     evidence_type = 'attachment' if file_name or raw_file_id else 'text'

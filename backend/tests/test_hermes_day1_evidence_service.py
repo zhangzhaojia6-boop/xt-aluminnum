@@ -5,7 +5,6 @@ import hashlib
 from importlib import import_module
 from types import SimpleNamespace
 
-import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -30,6 +29,7 @@ def test_classify_dingtalk_evidence_covers_fact_explanation_instruction_and_nois
     fact = service.classify_dingtalk_evidence('今日日报：冷轧产量 32 吨')
     explanation = service.classify_dingtalk_evidence('热轧停机，原因是设备故障')
     instruction = service.classify_dingtalk_evidence('日报产量按这个附件补录，以这个为准')
+    generic_file = service.classify_dingtalk_evidence('', file_name='7月5日抄表.xlsx')
     noise = service.classify_dingtalk_evidence('收到，谢谢')
 
     assert fact.evidence_kind == 'fact'
@@ -46,6 +46,10 @@ def test_classify_dingtalk_evidence_covers_fact_explanation_instruction_and_nois
     assert instruction.evidence_grade == 'high'
     assert instruction.include_in_daily_sample is True
     assert {'日报', '产量', '补录', '以这个为准'}.issubset(set(instruction.matched_keywords))
+
+    assert generic_file.evidence_kind == 'fact'
+    assert generic_file.evidence_grade == 'medium'
+    assert generic_file.include_in_daily_sample is True
 
     assert noise.evidence_kind == 'noise'
     assert noise.evidence_grade == 'low'
@@ -158,23 +162,26 @@ def test_record_day1_dingtalk_attachment_without_text_marks_text_unavailable() -
         db.close()
 
 
-def test_record_day1_dingtalk_file_name_without_media_id_raises_error() -> None:
+def test_record_day1_dingtalk_file_name_without_media_id_still_records_trace() -> None:
     service = _day1_service()
     db = _db_session()
     try:
-        with pytest.raises(service.Day1EvidenceError, match='file_media_id_missing'):
-            service.record_day1_dingtalk_evidence(
-                db,
-                payload={'fileName': '每日产量.xlsx'},
-                actor=None,
-                business_date=None,
-                channel='dingtalk_group',
-                group_id=None,
-                trace_id='trace-file-missing-media',
-                recognized_text='日报产量 32 吨',
-            )
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={'fileName': '每日产量.xlsx'},
+            actor=None,
+            business_date=None,
+            channel='dingtalk_group',
+            group_id=None,
+            trace_id='trace-file-missing-media',
+            recognized_text='日报产量 32 吨',
+        )
 
-        assert db.query(MultimodalEvidence).count() == 0
+        assert evidence is not None
+        assert evidence.file_uri is None
+        assert evidence.payload['file_name'] == '每日产量.xlsx'
+        assert evidence.payload['file_hash'] is None
+        assert db.query(MultimodalEvidence).count() == 1
     finally:
         db.close()
 
@@ -217,7 +224,7 @@ def test_record_day1_dingtalk_evidence_stores_audit_metadata_and_filters_sensiti
         db.close()
 
 
-def test_record_day1_dingtalk_evidence_ignores_noise_without_adding_evidence() -> None:
+def test_record_day1_dingtalk_evidence_keeps_noise_as_non_sample_trace() -> None:
     service = _day1_service()
     db = _db_session()
     try:
@@ -232,8 +239,11 @@ def test_record_day1_dingtalk_evidence_ignores_noise_without_adding_evidence() -
             recognized_text='收到，谢谢',
         )
 
-        assert evidence is None
-        assert db.query(MultimodalEvidence).count() == 0
+        assert evidence is not None
+        assert evidence.payload['evidence_kind'] == 'noise'
+        assert evidence.payload['include_in_daily_sample'] is False
+        assert evidence.payload['metric_write_allowed'] is False
+        assert db.query(MultimodalEvidence).count() == 1
     finally:
         db.close()
 

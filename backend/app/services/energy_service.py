@@ -643,11 +643,13 @@ def _load_mobile_shift_energy_rows(
 
 
 def _primary_energy_rows(*, mobile_rows: list[dict], system_rows: list[dict], owner_rows: list[dict]) -> list[dict]:
+    if system_rows:
+        return system_rows
     if mobile_rows:
         return mobile_rows
     if owner_rows:
         return owner_rows
-    return system_rows
+    return []
 
 
 def _with_mes_packaging_output_basis(
@@ -839,12 +841,12 @@ def summarize_energy_for_date(
     mobile_total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in mobile_rows)
     mobile_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in mobile_rows)
     primary_source = (
-        'mobile_shift_report'
+        'energy_import'
+        if system_rows
+        else 'mobile_shift_report'
         if mobile_rows
         else 'owner_only'
         if owner_rows
-        else 'system'
-        if system_rows
         else 'none'
     )
     return {
@@ -898,12 +900,12 @@ def workshop_energy_summary(
         'water_value': sum(_to_float(item.get('water_value')) or 0.0 for item in primary_rows),
         'total_energy': sum(_to_float(item.get('total_energy')) or 0.0 for item in primary_rows),
         'primary_source': (
-            'mobile_shift_report'
+            'energy_import'
+            if system_rows
+            else 'mobile_shift_report'
             if mobile_rows
             else 'owner_only'
             if owner_rows
-            else 'system'
-            if system_rows
             else 'none'
         ),
     }

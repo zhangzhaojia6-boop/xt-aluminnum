@@ -319,7 +319,7 @@ def test_summarize_energy_for_date_owner_only_rows_do_not_double_count_output(tm
         session.close()
 
 
-def test_summarize_energy_for_date_uses_owner_before_import_rows(tmp_path) -> None:
+def test_summarize_energy_for_date_uses_import_rows_before_owner_rows(tmp_path) -> None:
     db = build_session(tmp_path)
     try:
         _seed_inventory_owner_rows(db)
@@ -338,9 +338,9 @@ def test_summarize_energy_for_date_uses_owner_before_import_rows(tmp_path) -> No
 
         payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
 
-        assert payload['primary_source'] == 'owner_only'
-        assert payload['electricity_value'] == 1000.0
-        assert payload['total_energy'] == 1250.0
+        assert payload['primary_source'] == 'energy_import'
+        assert payload['electricity_value'] == 500.0
+        assert payload['total_energy'] == 500.0
         assert payload['owner_totals']['electricity_value'] == 1000.0
         assert payload['owner_totals']['total_energy'] == 1250.0
         assert payload['system_totals']['total_energy'] == 500.0
@@ -542,7 +542,7 @@ def test_summarize_energy_for_date_uses_machine_energy_records_when_report_total
         db.close()
 
 
-def test_summarize_energy_for_date_uses_mobile_before_import_rows(tmp_path) -> None:
+def test_summarize_energy_for_date_uses_import_rows_before_mobile_rows(tmp_path) -> None:
     db = build_session(tmp_path)
     try:
         _seed_inventory_owner_rows(db)
@@ -588,8 +588,8 @@ def test_summarize_energy_for_date_uses_mobile_before_import_rows(tmp_path) -> N
 
         payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
 
-        assert payload['primary_source'] == 'mobile_shift_report'
-        assert payload['total_energy'] == 377.0
+        assert payload['primary_source'] == 'energy_import'
+        assert payload['total_energy'] == 500.0
         assert payload['mobile_totals']['total_energy'] == 377.0
         assert payload['system_totals']['total_energy'] == 500.0
     finally:

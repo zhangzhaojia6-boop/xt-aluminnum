@@ -220,6 +220,64 @@ def test_dingtalk_agent_inbound_records_private_message_as_private_channel(monke
         _restore_db_override(previous_overrides, db)
 
 
+def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=12,
+            username='energy-file-manager',
+            password_hash='x',
+            name='能耗负责人',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-energy-file-001',
+            dingtalk_union_id='union-energy-file-001',
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-energy-files',
+                'conversationType': 'group',
+                'senderStaffId': 'dt-energy-file-001',
+                'senderUnionId': 'union-energy-file-001',
+                'msgtype': 'file',
+                'fileName': '7月5日抄表.xlsx',
+                'mediaId': 'media-energy-20260705',
+                'traceId': 'trace-dingtalk-file-only-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['action'] == 'dingtalk-evidence-recorded'
+        assert payload['should_reply'] is False
+        assert payload['chat_inbox_id'] is None
+        assert payload['agent_run_id'] is None
+        assert db.query(ChatInboxMessage).count() == 0
+        assert db.query(AgentRun).count() == 0
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert payload['evidence_id'] == evidence.id
+        assert evidence.evidence_type == 'attachment'
+        assert evidence.file_uri == 'dingtalk://media/media-energy-20260705'
+        assert evidence.payload['channel'] == 'dingtalk_group'
+        assert evidence.payload['group_id'] == 'cid-energy-files'
+        assert evidence.payload['file_name'] == '7月5日抄表.xlsx'
+        assert evidence.payload['evidence_kind'] == 'fact'
+        assert evidence.payload['metric_write_allowed'] is False
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
 def test_dingtalk_agent_inbound_keeps_private_channel_when_conversation_id_exists_without_group_type(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add(
@@ -1246,7 +1304,10 @@ def test_dingtalk_agent_inbound_authorized_noise_message_skips_evidence_and_call
         assert payload['status'] == 'answered'
         assert payload['answer'] == 'legacy noise handled'
         assert seen['text'] == '收到，谢谢'
-        assert db.query(MultimodalEvidence).count() == 0
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['evidence_kind'] == 'noise'
+        assert evidence.payload['include_in_daily_sample'] is False
+        assert evidence.payload['metric_write_allowed'] is False
     finally:
         _restore_db_override(previous_overrides, db)
 
