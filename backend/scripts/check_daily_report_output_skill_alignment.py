@@ -22,8 +22,12 @@ try:
 except ImportError:
     pass
 
-from app.core.business_time import last_completed_production_business_date
+from sqlalchemy import and_, func, inspect, or_
+
+from app.core.business_time import last_completed_production_business_date, production_business_window
 from app.database import get_sessionmaker
+from app.models.agent_communication import MultimodalEvidence
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot
 from app.services.report.daily_fact_bundle import build_daily_fact_bundle
 
 
@@ -133,6 +137,7 @@ def run_alignment_checks(
                         "missing_fields_count": len(bundle.get("missing_fields") or bundle.get("missing") or []),
                         "gap_plan": bundle.get("gap_plan") or {},
                         "source_summary": _source_summary(bundle),
+                        "source_diagnostics": _source_diagnostics(db, business_date),
                         "key_fact_sources": _key_fact_sources(bundle, fact_closure),
                     }
                 )
@@ -157,6 +162,7 @@ def run_alignment_checks(
                         "missing_fields_count": None,
                         "gap_plan": {},
                         "source_summary": {},
+                        "source_diagnostics": _source_diagnostics(db, business_date),
                         "key_fact_sources": {},
                         "action_required": _action_required_for_error(exc),
                         "error": str(exc),
@@ -200,6 +206,10 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
                     "",
                 ]
             )
+        source_diagnostics = row.get("source_diagnostics") if isinstance(row.get("source_diagnostics"), dict) else {}
+        if source_diagnostics:
+            lines.extend(_render_source_diagnostics(source_diagnostics))
+            lines.append("")
         if row.get("error"):
             lines.extend(
                 [
@@ -453,6 +463,205 @@ def _source_summary(bundle: dict[str, Any]) -> dict[str, Any]:
         "datahub_final_daily_report_field_count": len(datahub_fields),
         "datahub_final_daily_report_fields": sorted(datahub_fields)[:50],
     }
+
+
+def _source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    if not hasattr(db, "query"):
+        return {"status": "unavailable", "reason": "db_session_missing"}
+    return {
+        "status": "ready",
+        "wip": _wip_source_diagnostics(db, business_date),
+        "dingtalk": _dingtalk_source_diagnostics(db, business_date),
+    }
+
+
+def _wip_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    return {
+        "mes_daily_wip_snapshots": _daily_wip_snapshot_diagnostics(db, business_date),
+        "mes_coil_snapshots": _coil_snapshot_diagnostics(db, business_date),
+        "mes_wip_total_snapshots": _wip_total_snapshot_diagnostics(db, business_date),
+    }
+
+
+def _daily_wip_snapshot_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    if not _table_exists(db, MesDailyWipSnapshot.__tablename__):
+        return {"status": "missing_table"}
+    try:
+        usable_filter = or_(
+            MesDailyWipSnapshot.source.is_(None),
+            MesDailyWipSnapshot.source != "output_skill_daily_report",
+        )
+        total_rows = _count_query(
+            db.query(MesDailyWipSnapshot.id).filter(MesDailyWipSnapshot.business_date == business_date)
+        )
+        usable_rows = _count_query(
+            db.query(MesDailyWipSnapshot.id).filter(
+                MesDailyWipSnapshot.business_date == business_date,
+                usable_filter,
+            )
+        )
+        output_skill_rows = _count_query(
+            db.query(MesDailyWipSnapshot.id).filter(
+                MesDailyWipSnapshot.business_date == business_date,
+                MesDailyWipSnapshot.source == "output_skill_daily_report",
+            )
+        )
+        usable_weight = db.query(func.coalesce(func.sum(MesDailyWipSnapshot.material_weight_tons), 0)).filter(
+            MesDailyWipSnapshot.business_date == business_date,
+            usable_filter,
+        ).scalar()
+    except Exception as exc:
+        return {"status": "error", "error": type(exc).__name__}
+    return {
+        "status": "ready",
+        "total_rows": total_rows,
+        "usable_rows": usable_rows,
+        "output_skill_rows_excluded": output_skill_rows,
+        "usable_weight_tons": round(_safe_float(usable_weight), 3),
+    }
+
+
+def _coil_snapshot_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    if not _table_exists(db, MesCoilSnapshot.__tablename__):
+        return {"status": "missing_table"}
+    try:
+        def present(column):
+            return and_(column.isnot(None), column != "")
+
+        base_filter = MesCoilSnapshot.business_date == business_date
+        not_finished_stock = and_(
+            MesCoilSnapshot.in_stock_date.is_(None),
+            or_(MesCoilSnapshot.status_name.is_(None), MesCoilSnapshot.status_name != "已入库"),
+        )
+        has_process = or_(present(MesCoilSnapshot.current_process), present(MesCoilSnapshot.next_process))
+        eligible_filters = (
+            base_filter,
+            MesCoilSnapshot.delivery_date.is_(None),
+            MesCoilSnapshot.allocation_date.is_(None),
+            not_finished_stock,
+            has_process,
+        )
+        total_rows = _count_query(db.query(MesCoilSnapshot.id).filter(base_filter))
+        with_weight_rows = _count_query(
+            db.query(MesCoilSnapshot.id).filter(base_filter, MesCoilSnapshot.material_weight > 0)
+        )
+        with_process_rows = _count_query(db.query(MesCoilSnapshot.id).filter(base_filter, has_process))
+        excluded_finished_rows = _count_query(
+            db.query(MesCoilSnapshot.id).filter(
+                base_filter,
+                or_(MesCoilSnapshot.in_stock_date.isnot(None), MesCoilSnapshot.status_name == "已入库"),
+            )
+        )
+        excluded_delivery_or_allocation_rows = _count_query(
+            db.query(MesCoilSnapshot.id).filter(
+                base_filter,
+                or_(MesCoilSnapshot.delivery_date.isnot(None), MesCoilSnapshot.allocation_date.isnot(None)),
+            )
+        )
+        eligible_rows = _count_query(db.query(MesCoilSnapshot.id).filter(*eligible_filters))
+        eligible_weight_kg = db.query(func.coalesce(func.sum(MesCoilSnapshot.material_weight), 0)).filter(
+            *eligible_filters
+        ).scalar()
+    except Exception as exc:
+        return {"status": "error", "error": type(exc).__name__}
+    return {
+        "status": "ready",
+        "total_rows": total_rows,
+        "with_weight_rows": with_weight_rows,
+        "with_process_rows": with_process_rows,
+        "excluded_finished_rows": excluded_finished_rows,
+        "excluded_delivery_or_allocation_rows": excluded_delivery_or_allocation_rows,
+        "eligible_rows": eligible_rows,
+        "eligible_weight_tons": round(_safe_float(eligible_weight_kg) / 1000, 3),
+    }
+
+
+def _wip_total_snapshot_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    if not _table_exists(db, MesWipTotalSnapshot.__tablename__):
+        return {"status": "missing_table"}
+    try:
+        start_at, end_at = production_business_window(business_date)
+        rows = _count_query(
+            db.query(MesWipTotalSnapshot.id).filter(
+                MesWipTotalSnapshot.snapshot_at >= start_at,
+                MesWipTotalSnapshot.snapshot_at < end_at,
+            )
+        )
+        weight = db.query(func.coalesce(func.sum(MesWipTotalSnapshot.doing_weight_tons), 0)).filter(
+            MesWipTotalSnapshot.snapshot_at >= start_at,
+            MesWipTotalSnapshot.snapshot_at < end_at,
+        ).scalar()
+    except Exception as exc:
+        return {"status": "error", "error": type(exc).__name__}
+    return {"status": "ready", "rows": rows, "weight_tons": round(_safe_float(weight), 3)}
+
+
+def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    if not _table_exists(db, MultimodalEvidence.__tablename__):
+        return {"status": "missing_table"}
+    try:
+        confirmed_statuses = ("confirmed", "human_confirmed")
+        start_at, end_at = production_business_window(business_date)
+        confirmed_payload_rows = _count_query(
+            db.query(MultimodalEvidence.id).filter(
+                MultimodalEvidence.payload.isnot(None),
+                MultimodalEvidence.confirmation_status.in_(confirmed_statuses),
+            )
+        )
+        confirmed_rows_in_business_window = _count_query(
+            db.query(MultimodalEvidence.id).filter(
+                MultimodalEvidence.payload.isnot(None),
+                MultimodalEvidence.confirmation_status.in_(confirmed_statuses),
+                MultimodalEvidence.created_at >= start_at,
+                MultimodalEvidence.created_at < end_at,
+            )
+        )
+    except Exception as exc:
+        return {"status": "error", "error": type(exc).__name__}
+    return {
+        "status": "ready",
+        "confirmed_payload_rows": confirmed_payload_rows,
+        "confirmed_payload_rows_in_business_window": confirmed_rows_in_business_window,
+    }
+
+
+def _render_source_diagnostics(source_diagnostics: dict[str, Any]) -> list[str]:
+    if source_diagnostics.get("status") != "ready":
+        return [f"- Source diagnostics: {source_diagnostics.get('status')}"]
+    lines = ["- Source diagnostics:"]
+    wip = source_diagnostics.get("wip") if isinstance(source_diagnostics.get("wip"), dict) else {}
+    for name, item in wip.items():
+        if not isinstance(item, dict):
+            continue
+        lines.append(f"  - {name}: {_source_diagnostic_item_text(item)}")
+    dingtalk = source_diagnostics.get("dingtalk") if isinstance(source_diagnostics.get("dingtalk"), dict) else {}
+    if dingtalk:
+        lines.append(f"  - dingtalk: {_source_diagnostic_item_text(dingtalk)}")
+    return lines
+
+
+def _source_diagnostic_item_text(item: dict[str, Any]) -> str:
+    return ", ".join(f"{key}={value}" for key, value in item.items())
+
+
+def _table_exists(db: Any, table_name: str) -> bool:
+    try:
+        return inspect(db.get_bind()).has_table(table_name)
+    except Exception:
+        return False
+
+
+def _count_query(query: Any) -> int:
+    return int(query.count())
+
+
+def _safe_float(value: Any) -> float:
+    try:
+        if value in (None, ""):
+            return 0.0
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _key_fact_sources(bundle: dict[str, Any], fact_closure: dict[str, Any]) -> dict[str, Any]:

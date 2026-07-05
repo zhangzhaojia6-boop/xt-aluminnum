@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 import json
 import os
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.database import Base
 from scripts import check_daily_report_output_skill_alignment as script
 
 
@@ -346,3 +350,77 @@ def test_run_alignment_checks_blocks_when_fact_closure_is_blocked(tmp_path) -> N
     assert rows[0]["status"] == "blocked"
     assert rows[0]["fact_closure"]["status"] == "blocked"
     assert script.checks_passed(rows) is False
+
+
+def test_source_diagnostics_reports_real_wip_candidates(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'alignment-diagnostics.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            script.MesCoilSnapshot.__table__,
+            script.MesDailyWipSnapshot.__table__,
+            script.MesWipTotalSnapshot.__table__,
+        ],
+    )
+    Session = sessionmaker(bind=engine, future=True)
+    db = Session()
+    business_date = date(2026, 6, 29)
+    try:
+        db.add_all(
+            [
+                script.MesDailyWipSnapshot(
+                    business_date=business_date,
+                    workshop_name="精整",
+                    process_name="精整",
+                    material_weight_tons=10,
+                    source="mes_coil_snapshot",
+                ),
+                script.MesDailyWipSnapshot(
+                    business_date=business_date,
+                    workshop_name="精整",
+                    process_name="精整-答案",
+                    material_weight_tons=999,
+                    source="output_skill_daily_report",
+                ),
+                script.MesCoilSnapshot(
+                    coil_id="coil-eligible",
+                    tracking_card_no="card-eligible",
+                    business_date=business_date,
+                    material_weight=2000,
+                    current_workshop="精整",
+                    current_process="精整",
+                ),
+                script.MesCoilSnapshot(
+                    coil_id="coil-finished",
+                    tracking_card_no="card-finished",
+                    business_date=business_date,
+                    material_weight=3000,
+                    current_workshop="精整",
+                    current_process="精整",
+                    status_name="已入库",
+                ),
+                script.MesWipTotalSnapshot(
+                    source_id="wip-total-1",
+                    workshop_name="精整",
+                    process_name="精整",
+                    doing_weight_tons=4,
+                    snapshot_at=datetime(2026, 6, 29, 12, 0),
+                ),
+            ]
+        )
+        db.commit()
+
+        diagnostics = script._source_diagnostics(db, business_date)
+    finally:
+        db.close()
+
+    assert diagnostics["status"] == "ready"
+    wip = diagnostics["wip"]
+    assert wip["mes_daily_wip_snapshots"]["usable_rows"] == 1
+    assert wip["mes_daily_wip_snapshots"]["output_skill_rows_excluded"] == 1
+    assert wip["mes_coil_snapshots"]["eligible_rows"] == 1
+    assert wip["mes_coil_snapshots"]["excluded_finished_rows"] == 1
+    assert wip["mes_coil_snapshots"]["eligible_weight_tons"] == 2
+    assert wip["mes_wip_total_snapshots"]["rows"] == 1
+    assert wip["mes_wip_total_snapshots"]["weight_tons"] == 4
+    assert diagnostics["dingtalk"]["status"] == "missing_table"
