@@ -29,6 +29,7 @@ from app.database import get_sessionmaker
 from app.models.agent_communication import MultimodalEvidence
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot
 from app.models.reports import DailyReport, DailyReportHistoryRecord
+from app.services import energy_service
 from app.services.report.daily_fact_bundle import build_daily_fact_bundle
 from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 
@@ -483,6 +484,7 @@ def _source_diagnostics(db: Any, business_date: date, *, wip_date: date | None =
         "business_date": business_date.isoformat(),
         "wip_date": effective_wip_date.isoformat(),
         "wip": _wip_source_diagnostics(db, effective_wip_date),
+        "energy": _energy_source_diagnostics(db, business_date),
         "dingtalk": _dingtalk_source_diagnostics(db, business_date),
         "datahub_final_report": _datahub_final_report_diagnostics(db, business_date),
     }
@@ -636,6 +638,73 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
         "confirmed_payload_rows": confirmed_payload_rows,
         "confirmed_payload_rows_in_business_window": confirmed_rows_in_business_window,
     }
+
+
+def _energy_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    try:
+        summary = energy_service.summarize_energy_for_date(db, business_date=business_date)
+    except Exception as exc:
+        return {"status": "error", "error": type(exc).__name__}
+    rows = summary.get("rows") if isinstance(summary.get("rows"), list) else []
+    by_source: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        source = str(row.get("source") or "system")
+        bucket = by_source.setdefault(
+            source,
+            {
+                "source": source,
+                "row_count": 0,
+                "electricity_value": 0.0,
+                "gas_value": 0.0,
+                "water_value": 0.0,
+                "total_energy": 0.0,
+                "output_weight": 0.0,
+            },
+        )
+        bucket["row_count"] += 1
+        bucket["electricity_value"] += _safe_float(row.get("electricity_value"))
+        bucket["gas_value"] += _safe_float(row.get("gas_value"))
+        bucket["water_value"] += _safe_float(row.get("water_value"))
+        bucket["total_energy"] += _safe_float(row.get("total_energy"))
+        bucket["output_weight"] += _safe_float(row.get("output_weight"))
+    return {
+        "status": "ready",
+        "primary_source": summary.get("primary_source"),
+        "output_basis": summary.get("output_basis"),
+        "electricity_value": round(_safe_float(summary.get("electricity_value")), 3),
+        "gas_value": round(_safe_float(summary.get("gas_value")), 3),
+        "total_energy": round(_safe_float(summary.get("total_energy")), 3),
+        "total_output_weight": round(_safe_float(summary.get("total_output_weight")), 3),
+        "system_totals": _energy_totals(summary.get("system_totals")),
+        "owner_totals": _energy_totals(summary.get("owner_totals")),
+        "mobile_totals": _energy_totals(summary.get("mobile_totals")),
+        "rows_by_source": [
+            {key: round(value, 3) if isinstance(value, float) else value for key, value in item.items()}
+            for item in sorted(by_source.values(), key=lambda entry: entry["source"])
+        ],
+    }
+
+
+def _energy_totals(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, Any] = {}
+    for key in (
+        "row_count",
+        "electricity_value",
+        "gas_value",
+        "water_value",
+        "total_energy",
+        "total_output_weight",
+        "energy_per_ton",
+    ):
+        if key not in value:
+            continue
+        item = value.get(key)
+        result[key] = round(_safe_float(item), 3) if key != "row_count" else int(item or 0)
+    return result
 
 
 def _datahub_final_report_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
@@ -811,6 +880,9 @@ def _render_source_diagnostics(source_diagnostics: dict[str, Any]) -> list[str]:
         if not isinstance(item, dict):
             continue
         lines.append(f"  - {name}: {_source_diagnostic_item_text(item)}")
+    energy = source_diagnostics.get("energy") if isinstance(source_diagnostics.get("energy"), dict) else {}
+    if energy:
+        lines.append(f"  - energy: {_source_diagnostic_item_text(energy)}")
     dingtalk = source_diagnostics.get("dingtalk") if isinstance(source_diagnostics.get("dingtalk"), dict) else {}
     if dingtalk:
         lines.append(f"  - dingtalk: {_source_diagnostic_item_text(dingtalk)}")

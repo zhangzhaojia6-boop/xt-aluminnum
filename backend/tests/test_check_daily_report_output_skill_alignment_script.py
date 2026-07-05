@@ -492,3 +492,53 @@ def test_source_diagnostics_reports_datahub_final_report_parseability(tmp_path) 
     assert datahub["daily_report"]["latest_template_text_parseable_fields"] >= 3
     assert datahub["history"]["daily_rows"] == 1
     assert datahub["history"]["latest_report_text_parseable_fields"] >= 3
+
+
+def test_energy_source_diagnostics_groups_rows_by_source(monkeypatch) -> None:
+    def fake_summary(_db, *, business_date):
+        assert business_date == date(2026, 6, 29)
+        return {
+            "primary_source": "mobile_shift_report",
+            "output_basis": "mes_packaging_output",
+            "electricity_value": 1200,
+            "gas_value": 300,
+            "total_energy": 1500,
+            "total_output_weight": 100,
+            "system_totals": {"row_count": 1, "total_energy": 800, "total_output_weight": 100},
+            "owner_totals": {"row_count": 0, "total_energy": 0},
+            "mobile_totals": {"row_count": 2, "total_energy": 1500, "total_output_weight": 100},
+            "rows": [
+                {"source": "mobile_shift_report", "electricity_value": 500, "gas_value": 100, "total_energy": 600},
+                {"source": "mobile_shift_report", "electricity_value": 700, "gas_value": 200, "total_energy": 900},
+                {"source": "energy_import", "electricity_value": 800, "gas_value": 0, "total_energy": 800},
+            ],
+        }
+
+    monkeypatch.setattr(script.energy_service, "summarize_energy_for_date", fake_summary)
+
+    diagnostics = script._energy_source_diagnostics(object(), date(2026, 6, 29))
+
+    assert diagnostics["status"] == "ready"
+    assert diagnostics["primary_source"] == "mobile_shift_report"
+    assert diagnostics["electricity_value"] == 1200
+    assert diagnostics["mobile_totals"]["row_count"] == 2
+    assert diagnostics["rows_by_source"] == [
+        {
+            "source": "energy_import",
+            "row_count": 1,
+            "electricity_value": 800.0,
+            "gas_value": 0.0,
+            "water_value": 0.0,
+            "total_energy": 800.0,
+            "output_weight": 0.0,
+        },
+        {
+            "source": "mobile_shift_report",
+            "row_count": 2,
+            "electricity_value": 1200.0,
+            "gas_value": 300.0,
+            "water_value": 0.0,
+            "total_energy": 1500.0,
+            "output_weight": 0.0,
+        },
+    ]

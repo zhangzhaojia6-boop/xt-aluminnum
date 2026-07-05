@@ -951,6 +951,10 @@ def _official_template_total_output(
         previous_inbound = _finished_inbound_output_for_date(db, target_date - timedelta(days=1))
         if previous_inbound is not None:
             yesterday = previous_inbound
+    if _to_float(yesterday) <= 0:
+        previous_output = _previous_official_template_total_output(db, target_date, source_type)
+        if previous_output is not None:
+            yesterday = previous_output
     delta = None
     if daily not in (None, "") and yesterday not in (None, ""):
         delta = _to_float(daily) - _to_float(yesterday)
@@ -978,6 +982,28 @@ def _should_use_finished_inbound_as_template_total_output(plant_output: dict[str
 def _finished_inbound_output_for_date(db: Session, business_date: date) -> float | None:
     try:
         totals = daily_overview_builder._query_finished_inbound_totals_by_date(db, business_date, business_date)
+    except Exception:
+        return None
+    value = totals.get(business_date)
+    if value in (None, ""):
+        return None
+    parsed = _to_float(value)
+    return parsed if parsed > 0 else None
+
+
+def _previous_official_template_total_output(db: Session, target_date: date, source_type: str) -> float | None:
+    previous_date = target_date - timedelta(days=1)
+    if source_type in {"mes_stock_header_records", "finished_inbound_output"}:
+        return _finished_inbound_output_for_date(db, previous_date)
+    packaging = _packaging_output_for_date(db, previous_date)
+    if packaging is not None:
+        return packaging
+    return _finished_inbound_output_for_date(db, previous_date)
+
+
+def _packaging_output_for_date(db: Session, business_date: date) -> float | None:
+    try:
+        totals = daily_overview_builder._query_mes_packaging_output_by_date(db, business_date, business_date)
     except Exception:
         return None
     value = totals.get(business_date)

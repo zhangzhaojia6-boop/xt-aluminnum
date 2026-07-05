@@ -376,6 +376,47 @@ def test_finished_inbound_becomes_template_total_output_when_packaging_diverges(
     assert facts.sources["cost_basis_weight"]["source_type"] == "computed"
 
 
+def test_total_output_delta_falls_back_to_previous_packaging_when_overview_yesterday_missing(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+    previous_date = REPORT_DATE - timedelta(days=1)
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {
+                "daily_output": 174.4,
+                "monthly_output": 174.4,
+                "yesterday_output": 0.0,
+                "finished_inbound_output": 177.6,
+                "finished_inbound_monthly_output": 177.6,
+                "finished_inbound_source": "mes_stock_header_records",
+            },
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "_query_mes_packaging_output_by_date",
+        lambda *_args, **_kwargs: {previous_date: 347.4},
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["total_output_daily"] == 174.4
+    assert facts.values["total_output_delta"] == -173.0
+    assert facts.sources["total_output_delta"]["source_type"] == "mes_packaging_output"
+
+
 def test_owner_daily_keeps_priority_over_datahub_final_daily_report(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
 
