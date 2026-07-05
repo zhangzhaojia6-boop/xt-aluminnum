@@ -4,13 +4,13 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from sqlalchemy import func, inspect
+from sqlalchemy import func, inspect, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.business_time import production_business_window
 from app.models.master import Workshop
-from app.models.mes import MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
+from app.models.mes import MesDailyWipSnapshot, MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport, DailyReportHistoryRecord
@@ -46,6 +46,7 @@ SOURCE_PRIORITY = {
     "mes_packaging_output": 45,
     "mes_delivery_records": 45,
     "mes_wip_distribution": 40,
+    "mes_daily_wip_snapshot": 40,
     "mes_wip_total_snapshot": 40,
     "mes_material_records": 35,
     "mes_workshop_process_records": 35,
@@ -284,6 +285,53 @@ def _wip_breakdown_from_total_snapshots(db: Session, business_date: date) -> dic
         + values["wip_hot_plate_shearing"]
         + values["wip_coating"]
     )
+    return {key: round(value, 3) for key, value in values.items()}
+
+
+def _wip_breakdown_from_daily_snapshots(db: Session, business_date: date) -> dict[str, float]:
+    values = {key: 0.0 for key in WIP_BREAKDOWN_FIELDS}
+    if not hasattr(db, "query"):
+        return {}
+    if not _has_table(db, MesDailyWipSnapshot.__tablename__):
+        return {}
+    try:
+        rows = (
+            db.query(
+                MesDailyWipSnapshot.workshop_name,
+                MesDailyWipSnapshot.process_name,
+                func.sum(MesDailyWipSnapshot.material_weight_tons),
+            )
+            .filter(MesDailyWipSnapshot.business_date == business_date)
+            .filter(
+                or_(
+                    MesDailyWipSnapshot.source.is_(None),
+                    MesDailyWipSnapshot.source != "output_skill_daily_report",
+                )
+            )
+            .group_by(MesDailyWipSnapshot.workshop_name, MesDailyWipSnapshot.process_name)
+            .all()
+        )
+    except (OperationalError, ProgrammingError):
+        return {}
+    if not rows:
+        return {}
+    for workshop, process, weight in rows:
+        bucket = _wip_bucket(workshop, process)
+        if bucket is not None:
+            values[bucket] += _wip_snapshot_weight_tons(weight)
+    values["wip_anneal_total"] = values["wip_new_north"] + values["wip_new_south"] + values["wip_park_anneal"]
+    values["wip_finishing_total"] = values["wip_straightening"] + values["wip_finishing"] + values["wip_park_finishing"]
+    values["wip_total"] = (
+        values["wip_1650_2050_cold"]
+        + values["wip_1850_cold"]
+        + values["wip_milling"]
+        + values["wip_anneal_total"]
+        + values["wip_finishing_total"]
+        + values["wip_hot_plate_shearing"]
+        + values["wip_coating"]
+    )
+    if values["wip_total"] <= 0:
+        return {}
     return {key: round(value, 3) for key, value in values.items()}
 
 
@@ -740,13 +788,17 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
             "mes_wip_distribution",
             business_date=overview.get("wip_business_date") or effective_wip_date.isoformat(),
         )
-    wip_breakdown = _wip_breakdown_from_total_snapshots(db, effective_wip_date)
+    wip_breakdown = _wip_breakdown_from_daily_snapshots(db, effective_wip_date)
+    wip_breakdown_source = "mes_daily_wip_snapshot"
+    if not wip_breakdown:
+        wip_breakdown = _wip_breakdown_from_total_snapshots(db, effective_wip_date)
+        wip_breakdown_source = "mes_wip_total_snapshot"
     for key, value in wip_breakdown.items():
         _set_value(
             facts,
             key,
             value,
-            "mes_wip_total_snapshot",
+            wip_breakdown_source,
             business_date=overview.get("wip_business_date") or effective_wip_date.isoformat(),
         )
 

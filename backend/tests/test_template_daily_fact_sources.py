@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.master import Workshop
-from app.models.mes import MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
+from app.models.mes import MesDailyWipSnapshot, MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport, DailyReportHistoryRecord
@@ -480,6 +480,124 @@ def test_opening_facts_fill_wip_breakdown_from_current_wip_total_snapshot(tmp_pa
     assert facts.values["wip_coating"] == 3.652
     assert facts.values["wip_total"] == 823.665
     assert facts.sources["wip_total"]["business_date"] == "2026-06-17"
+
+
+def test_opening_facts_prefer_daily_wip_snapshot_for_historical_breakdown(tmp_path, monkeypatch) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'template-daily-wip-daily-first.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    SessionLocal = sessionmaker(bind=engine, future=True, expire_on_commit=False)
+    with SessionLocal() as db:
+        db.add_all(
+            [
+                MesDailyWipSnapshot(
+                    business_date=date(2026, 6, 17),
+                    workshop_name="1650车间",
+                    process_name="冷轧",
+                    coil_count=10,
+                    material_weight_tons=279.5,
+                    source="mes_coil_snapshot",
+                ),
+                MesDailyWipSnapshot(
+                    business_date=date(2026, 6, 17),
+                    workshop_name="1850车间",
+                    process_name="冷轧",
+                    coil_count=4,
+                    material_weight_tons=87.5,
+                    source="mes_coil_snapshot",
+                ),
+                MesDailyWipSnapshot(
+                    business_date=date(2026, 6, 17),
+                    workshop_name="新厂在线车间",
+                    process_name="北线退火",
+                    coil_count=5,
+                    material_weight_tons=201.0,
+                    source="mes_coil_snapshot",
+                ),
+                MesWipTotalSnapshot(
+                    source_id="partial-total",
+                    workshop_name="拉矫车间",
+                    process_name="包装",
+                    doing_count=1,
+                    doing_weight_tons=9.5,
+                    snapshot_at=datetime(2026, 6, 17, 8, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {},
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_business_date": "2026-06-17",
+            "wip_distribution": [],
+        },
+    )
+
+    with SessionLocal() as db:
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        template_daily_fact_sources.collect_opening_facts(db, facts, wip_date=date(2026, 6, 17))
+
+    assert facts.values["wip_1650_2050_cold"] == 279.5
+    assert facts.values["wip_1850_cold"] == 87.5
+    assert facts.values["wip_new_north"] == 201.0
+    assert facts.values["wip_total"] == 568.0
+    assert facts.sources["wip_total"]["source_type"] == "mes_daily_wip_snapshot"
+
+
+def test_opening_facts_do_not_use_output_skill_wip_snapshot_source(tmp_path, monkeypatch) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'template-daily-wip-no-output-skill.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    SessionLocal = sessionmaker(bind=engine, future=True, expire_on_commit=False)
+    with SessionLocal() as db:
+        db.add(
+            MesDailyWipSnapshot(
+                business_date=date(2026, 6, 17),
+                workshop_name="1650车间",
+                process_name="冷轧",
+                coil_count=10,
+                material_weight_tons=999.0,
+                source="output_skill_daily_report",
+            )
+        )
+        db.add(
+            MesWipTotalSnapshot(
+                source_id="real-total",
+                workshop_name="1650车间",
+                process_name="冷轧",
+                doing_count=1,
+                doing_weight_tons=12.5,
+                snapshot_at=datetime(2026, 6, 17, 8, 0, tzinfo=UTC),
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {},
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_business_date": "2026-06-17",
+            "wip_distribution": [],
+        },
+    )
+
+    with SessionLocal() as db:
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        template_daily_fact_sources.collect_opening_facts(db, facts, wip_date=date(2026, 6, 17))
+
+    assert facts.values["wip_1650_2050_cold"] == 12.5
+    assert facts.values["wip_total"] == 12.5
+    assert facts.sources["wip_total"]["source_type"] == "mes_wip_total_snapshot"
 
 
 def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> None:
