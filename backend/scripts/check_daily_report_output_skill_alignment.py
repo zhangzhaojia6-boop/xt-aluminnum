@@ -694,7 +694,11 @@ def _daily_report_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
         "latest_production_report_id": getattr(latest, "id", None),
         "latest_final_text_parseable_fields": _parseable_field_count(getattr(latest, "final_text_summary", None)),
         "latest_text_parseable_fields": _parseable_field_count(getattr(latest, "text_summary", None)),
+        "latest_report_data_keys": _report_data_keys(latest),
         "latest_template_report_status": _template_report_payload_value(latest, "status"),
+        "latest_template_payload_keys": _template_report_payload_keys(latest),
+        "latest_template_values_count": _template_report_values_count(latest),
+        "latest_template_missing_count": _template_report_missing_count(latest),
         "latest_template_text_parseable_fields": _parseable_field_count(
             _template_report_payload_value(latest, "text")
         ),
@@ -751,6 +755,47 @@ def _template_report_payload_value(report: Any, key: str) -> Any:
     if not isinstance(payload, dict):
         return None
     return payload.get(key)
+
+
+def _report_data_keys(report: Any) -> list[str]:
+    report_data = getattr(report, "report_data", None)
+    if not isinstance(report_data, dict):
+        return []
+    return sorted(str(key) for key in report_data.keys())
+
+
+def _template_report_payload_keys(report: Any) -> list[str]:
+    report_data = getattr(report, "report_data", None)
+    if not isinstance(report_data, dict):
+        return []
+    payload = report_data.get(DATAHUB_TEMPLATE_REPORT_KEY)
+    if not isinstance(payload, dict):
+        return []
+    return sorted(str(key) for key in payload.keys())
+
+
+def _template_report_values_count(report: Any) -> int:
+    values = _template_report_payload_value(report, "values")
+    if isinstance(values, dict):
+        return len([key for key, value in values.items() if value not in (None, "")])
+    facts = _template_report_payload_value(report, "facts")
+    if isinstance(facts, dict):
+        fact_values = facts.get("values")
+        if isinstance(fact_values, dict):
+            return len([key for key, value in fact_values.items() if value not in (None, "")])
+    return 0
+
+
+def _template_report_missing_count(report: Any) -> int:
+    missing = _template_report_payload_value(report, "missing_fields")
+    if isinstance(missing, list):
+        return len(missing)
+    facts = _template_report_payload_value(report, "facts")
+    if isinstance(facts, dict):
+        fact_missing = facts.get("missing_fields")
+        if isinstance(fact_missing, list):
+            return len(fact_missing)
+    return 0
 
 
 def _render_source_diagnostics(source_diagnostics: dict[str, Any]) -> list[str]:

@@ -874,6 +874,7 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
         )
 
     _set_value(facts, "daily_contract_weight", contracts.get("daily_new"), "contract_projection")
+    _set_value(facts, "cold_roll_input_daily", contracts.get("daily_input"), "contract_projection")
     _set_value(facts, "remaining_contract_weight", contracts.get("remaining"), "contract_projection")
     _set_value(facts, "remaining_contract_delta", contracts.get("remaining_delta"), "contract_projection")
     _set_value(

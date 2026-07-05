@@ -304,6 +304,33 @@ def test_datahub_template_daily_report_text_is_ignored_when_blocked(tmp_path, mo
     assert facts.sources["total_output_daily"]["source_type"] != "datahub_final_daily_report"
 
 
+def test_contract_projection_daily_input_fills_cold_roll_input(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {},
+            "contracts": {"daily_input": 237.0},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["cold_roll_input_daily"] == 237.0
+    assert facts.sources["cold_roll_input_daily"]["source_type"] == "contract_projection"
+
+
 def test_owner_daily_keeps_priority_over_datahub_final_daily_report(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
 

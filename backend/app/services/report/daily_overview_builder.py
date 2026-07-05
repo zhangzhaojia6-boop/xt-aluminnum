@@ -760,15 +760,23 @@ def _build_contracts(db: Session, target_date: date) -> dict:
             previous_remaining = _round2(_to_float(previous_projection.get('remaining_contract_weight')))
             if previous_remaining is not None:
                 remaining_delta = _delta(remaining, previous_remaining)
+    quality_status = projection.get('quality_status')
+    has_contract_projection = quality_status != 'missing'
 
     return {
         'daily_new': daily_new,
         'monthly_total': monthly_total,
+        'daily_input': (
+            _round2(_to_float(projection.get('daily_input_weight'))) if has_contract_projection else None
+        ),
+        'monthly_input': (
+            _round2(_to_float(projection.get('month_to_date_input_weight'))) if has_contract_projection else None
+        ),
         'remaining': remaining,
         'remaining_delta': remaining_delta,
         'unit': '吨',
         'basis': 'owner_daily_contract_weight' if projection.get('owner_entry_count') else 'contract_projection',
-        'quality_status': projection.get('quality_status'),
+        'quality_status': quality_status,
     }
 
 
