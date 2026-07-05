@@ -1521,7 +1521,7 @@ def test_daily_fact_bundle_includes_gap_plan_for_output_skill_differences(
         **template_facts,
         "values": {
             **template_facts["values"],
-            "total_output_daily": 371,
+            "total_output_daily": 360,
         },
     }
     expected = daily_fact_bundle.template_daily_report.render_template_daily_report(expected_facts)

@@ -122,12 +122,15 @@ def build_output_skill_alignment(
         'field_match_rate': field_match_rate,
         'matched_fields': reconciled.get('matched_fields'),
         'expected_fields': reconciled.get('expected_fields'),
+        'numeric_tolerance': reconciled.get('numeric_tolerance'),
+        'tolerance_matched_fields': reconciled.get('tolerance_matched_fields'),
         'difference_count': len(reconciled.get('differences') or []),
         'differences': [
             {
                 'field': str(item.get('field')),
                 'actual': item.get('actual'),
                 'expected': item.get('expected'),
+                'delta': item.get('delta'),
             }
             for item in reconciled.get('differences') or []
         ],
