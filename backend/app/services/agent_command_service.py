@@ -86,16 +86,19 @@ def handle_agent_command(
     db.add(inbox)
     db.flush()
 
-    rag_payload = query_knowledge(
-        db,
-        query=interpreted_text,
-        limit=5,
-        user=current_user,
-        workshop=clean_workshop,
-        machine_code=clean_machine_code,
-    )
-    citations = rag_payload.get('citations') or []
     intent = _detect_intent(interpreted_text)
+    if intent == 'clarify_business_question':
+        rag_payload = {'answer': None, 'citations': [], 'items': []}
+    else:
+        rag_payload = query_knowledge(
+            db,
+            query=interpreted_text,
+            limit=5,
+            user=current_user,
+            workshop=clean_workshop,
+            machine_code=clean_machine_code,
+        )
+    citations = rag_payload.get('citations') or []
     facts = _load_business_facts(db, intent=intent, text=interpreted_text, current_user=current_user)
     status_color = _resolve_status_color(facts=facts, citations=citations)
     answer = _build_answer_for_intent(
@@ -219,18 +222,58 @@ def _status_label(status_color: str) -> str:
 
 def _detect_intent(text: str) -> str:
     value = _clean(text)
+    if _looks_like_agent_invocation_without_business_goal(value):
+        return 'clarify_business_question'
     checks = (
         ('quality_anomaly', ('质量', '缺陷', '门禁')),
         ('machine_stop', ('停机', '为什么停', '维修', '换辊')),
         ('energy_cost', ('能耗', '电耗', '吨耗', '电气', '成本')),
         ('consumable_usage', ('辅材', '耗材', '超耗', '消耗')),
-        ('production_today', ('今日产量', '今天产量', '日产量', '产量')),
+        (
+            'production_today',
+            (
+                '今日产量',
+                '今天产量',
+                '日产量',
+                '产量',
+                '今日入库',
+                '今天入库',
+                '入库多少',
+                '月累计入库',
+                '入库和月累计',
+                '包装入库',
+            ),
+        ),
         ('anomaly_summary', ('异常', '哪个车间')),
     )
     for intent, keywords in checks:
         if any(keyword in value for keyword in keywords):
             return intent
     return 'general_knowledge'
+
+
+def _looks_like_agent_invocation_without_business_goal(text: str) -> bool:
+    value = _clean(text)
+    lowered = value.lower()
+    if not any(token in lowered for token in ('hermes', '赫尔墨斯', '智能大脑')):
+        return False
+    business_terms = (
+        '产量',
+        '入库',
+        '库存',
+        '在制',
+        '能耗',
+        '电耗',
+        '用气',
+        '异常',
+        '日报',
+        '合同',
+        '成本',
+        '质量',
+        '成品率',
+        '月累计',
+    )
+    return not any(term in value for term in business_terms)
 
 
 def _load_business_facts(db: Session, *, intent: str, text: str, current_user: User | None) -> dict[str, Any]:
@@ -280,7 +323,14 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
         'business_day_start': factory_total.get('business_day_start') or production_business_day_start_label(),
         'daily_output_tons': _number_or_zero(factory_total.get('daily_output')),
         'packaging_output_tons': _number_or_zero(factory_total.get('packaging_output')),
+        'packaging_monthly_output_tons': _number_or_zero(
+            factory_total.get('packaging_monthly_output') or factory_total.get('month_to_date_output')
+        ),
         'finished_inbound_output_tons': _number_or_zero(factory_total.get('finished_inbound_output')),
+        'finished_inbound_monthly_output_tons': _number_or_zero(
+            factory_total.get('finished_inbound_monthly_output')
+            or factory_total.get('factory_finished_inbound_month_to_date_output')
+        ),
         'daily_output_source': factory_total.get('daily_output_source') or 'unknown',
         'finished_inbound_source': factory_total.get('finished_inbound_source') or 'unknown',
         'mes_sync_status': (payload.get('mes_sync_status') or {}).get('status'),
@@ -694,7 +744,9 @@ def _build_answer_for_intent(
             conclusion='已读取今日生产聚合',
             key_numbers=(
                 f"包装产量 {_format_tons(facts.get('daily_output_tons'))} 吨；"
+                f"包装月累计 {_format_tons(facts.get('packaging_monthly_output_tons'))} 吨；"
                 f"全厂入库产量 {_format_tons(facts.get('finished_inbound_output_tons'))} 吨；"
+                f"入库月累计 {_format_tons(facts.get('finished_inbound_monthly_output_tons'))} 吨；"
                 f"业务日 {facts.get('business_date')}"
             ),
             reason=(
@@ -703,6 +755,17 @@ def _build_answer_for_intent(
             ),
             action='如数字异常，请查看生产大屏、昨日日报和来源标签。',
             sources=_format_fact_sources(facts, citations),
+        )
+
+    if intent == 'clarify_business_question':
+        return _format_answer(
+            scope_label='全厂',
+            status_color=status_color,
+            conclusion='鑫泰铝业智能大脑已在线，请直接说要查哪个业务数字',
+            key_numbers='暂无新增生产数字',
+            reason='只收到调用 Hermes 的话，没有收到明确的指标、日期或车间。',
+            action='可以直接问：今日产量、今日入库和月累计入库、能耗、异常明细。',
+            sources='未查询业务事实',
         )
 
     if intent == 'anomaly_summary' and facts.get('status') == 'connected':
@@ -951,12 +1014,15 @@ def _outbox_title_for_intent(agent_code: str, intent: str) -> str:
         'machine_stop': '停机查询回复',
         'quality_anomaly': '质量异常回复',
         'energy_cost': '能耗成本回复',
+        'clarify_business_question': '任务澄清回复',
         'general_knowledge': '知识库回复',
     }
     return f"【{agent_code}】{labels.get(intent, '现场问答回复')}"
 
 
 def _outbox_source_summary_for_intent(intent: str) -> str:
+    if intent == 'clarify_business_question':
+        return 'agent_command_clarification'
     if intent == 'general_knowledge':
         return 'agent_command_rag'
     return f'agent_command_{intent}'

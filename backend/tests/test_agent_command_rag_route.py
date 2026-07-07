@@ -467,6 +467,94 @@ def test_agent_command_uses_live_production_fact_for_today_output(monkeypatch) -
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_uses_live_inbound_fact_for_today_and_monthly_inbound(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+
+    def fake_live_aggregation(*_args, **_kwargs):
+        return {
+            'business_date': '2026-06-09',
+            'factory_total': {
+                'daily_output': 42.5,
+                'packaging_output': 42.5,
+                'packaging_monthly_output': 52.5,
+                'finished_inbound_output': 39.25,
+                'finished_inbound_monthly_output': 49.25,
+                'daily_output_source': 'mes_stock_records',
+                'finished_inbound_source': 'storage_owner_daily_entry',
+                'business_day_start': '07:50',
+            },
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'ding-user-005',
+                'text': '今日入库和月累计入库',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-inbound-fact-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'production_today'
+        assert payload['status_color'] == 'green'
+        assert '全厂入库产量 39.25 吨' in payload['answer']
+        assert '入库月累计 49.25 吨' in payload['answer']
+        assert payload['facts']['finished_inbound_output_tons'] == 39.25
+        assert payload['facts']['finished_inbound_monthly_output_tons'] == 49.25
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_clarifies_bare_hermes_invocation_without_rag(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+
+    def fail_query_knowledge(*_args, **_kwargs):
+        raise AssertionError('bare Hermes invocation should not query RAG')
+
+    monkeypatch.setattr('app.services.agent_command_service.query_knowledge', fail_query_knowledge)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'ding-user-005',
+                'text': '走hermes',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-hermes-clarify-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'clarify_business_question'
+        assert payload['status_color'] == 'yellow'
+        assert '鑫泰铝业智能大脑已在线' in payload['answer']
+        assert '今日入库和月累计入库' in payload['answer']
+        assert '知识库资料' not in payload['answer']
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_treats_leading_slash_as_chat_text(monkeypatch) -> None:
     db, previous_overrides = _install_overrides()
 

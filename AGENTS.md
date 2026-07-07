@@ -16,6 +16,25 @@
 
 旧长期规范入口已废弃；按上方 9 个文件读取当前封档基线。
 
+## 更新任务前必读清单
+
+当用户说“继续”“下一步”“更新任务”“优化”“修复”“合并”“同步生产”“跑验收”这类推进性指令时，执行命令前先做这一轮快速理解：
+
+1. 读本文件和上面的 9 个封档入口。
+2. 查当前 git 状态、当前分支、当前 HEAD、最近提交和本机未提交改动。
+3. 查与任务有关的历史计划、评审、记忆和 `docs/superpowers/` 施工记录；不要把旧记录当当前事实。
+4. 用 CodeGraph / understand 图谱 / 代码索引理解相关链路，再读具体文件；旧 `.understand-anything` 图谱如果落后当前 HEAD，只能当历史地图。
+5. 生产相关任务必须先查生产机当前仓库、服务状态、健康检查、关键日志和数据库只读样本。
+6. 涉及 Hermes / 钉钉 / 日报 / MES / 数据中枢时，先查真实 trace、`chat_inbox`、`agent_runs`、`agent_outbox_messages`、`external_message_logs` 或相关事实表，再下结论。
+7. 涉及日报对齐时，`D:\输出skill` 只能当答案钥匙做比对，不能当事实源填数。
+
+小白版：
+
+```text
+不要听到一句“继续”就直接乱改。
+先看现在系统在哪、之前改了什么、生产机是不是同步、真实数据有没有证据。
+```
+
 方向封档基线：
 
 - 数据中枢做减法：减少入口、页面、重复服务和过期文档噪音。
@@ -38,6 +57,14 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+
+Owner intent rule:
+
+- 你要明白用户是编程小白，很多指令会用业务语言、省略话、情绪话或不完整的话表达。
+- 你要自己理解并完善用户意图，把“用户真正要的业务结果”翻译成可验证的技术步骤。
+- 你要明白用户的指令有可能是错的；先核验事实和前提，再执行。
+- 如果用户的字面命令会破坏系统、绕过事实源、误伤生产链路或制造幻觉，必须先指出问题，并给出更安全的执行路径。
+- 对小白解释时，用通俗话说明“我在查什么、为什么查、查到什么、下一步怎么验证”，不要只扔术语。
 
 ## 2. Simplicity First
 
