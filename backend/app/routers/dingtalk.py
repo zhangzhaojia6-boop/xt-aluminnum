@@ -286,7 +286,25 @@ def _get_factory_brain_route_intent(text: str) -> FactoryBrainIntent | None:
     intent = classify_factory_brain_intent(clean_text, today=datetime.now().date())
     if not intent.should_use_factory_brain:
         return None
+    if _should_keep_simple_fact_query_on_factory_dispatch(clean_text, intent):
+        return None
     return intent
+
+
+def _should_keep_simple_fact_query_on_factory_dispatch(text: str, intent: FactoryBrainIntent) -> bool:
+    if intent.task_type not in {'inventory_query', 'monthly_operation'}:
+        return False
+    return any(
+        token in text
+        for token in (
+            '今日入库',
+            '今天入库',
+            '入库多少',
+            '月累计入库',
+            '入库和月累计',
+            '包装入库',
+        )
+    )
 
 
 def _require_root_owner_for_factory_brain_intent(

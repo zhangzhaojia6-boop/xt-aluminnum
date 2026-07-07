@@ -175,6 +175,72 @@ def test_dingtalk_inbound_falls_back_for_non_business_natural_language(monkeypat
         _restore(previous, db)
 
 
+def test_dingtalk_inbound_keeps_simple_inbound_fact_query_on_factory_dispatch(monkeypatch) -> None:
+    db, previous = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='root-owner',
+            password_hash='x',
+            name='张兆嘉',
+            role='admin',
+            is_active=True,
+            dingtalk_user_id='dt-root',
+            dingtalk_union_id='union-root',
+        )
+    )
+    db.commit()
+    factory_brain_called = {'value': False}
+
+    def fail_factory_brain_turn(*_args, **_kwargs):
+        factory_brain_called['value'] = True
+        raise AssertionError('simple inbound facts should stay on factory_dispatch')
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_FACTORY_BRAIN_ENABLED', True, raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_DINGTALK_INBOUND_TOKEN', 'hermes-token', raising=False)
+    monkeypatch.setattr(
+        'app.services.hermes_factory_brain_orchestrator.run_factory_brain_turn',
+        fail_factory_brain_turn,
+    )
+    monkeypatch.setattr(
+        'app.routers.dingtalk.handle_agent_command',
+        lambda *_args, **_kwargs: SimpleNamespace(
+            trace_id='trace-dingtalk-inbound-factory-dispatch-001',
+            status_color='green',
+            intent='production_today',
+            answer='全厂入库产量 39.25 吨；入库月累计 49.25 吨',
+            chat_inbox_id=1,
+            agent_run_id=1,
+            outbox_message_id=None,
+        ),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'hermes-token'},
+            json={
+                'conversationId': 'cid-root',
+                'conversationType': 'group',
+                'senderStaffId': 'dt-root',
+                'senderUnionId': 'union-root',
+                'text': {'content': '今日入库和月累计入库'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-inbound-factory-dispatch-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload.get('agent_code') != 'factory_brain'
+        assert payload['intent'] == 'production_today'
+        assert '入库月累计 49.25 吨' in payload['answer']
+        assert factory_brain_called['value'] is False
+    finally:
+        _restore(previous, db)
+
+
 def test_dingtalk_inbound_rejects_root_owner_only_factory_brain_request_for_non_root_owner(monkeypatch) -> None:
     db, previous = _install_db_override()
     db.add(
