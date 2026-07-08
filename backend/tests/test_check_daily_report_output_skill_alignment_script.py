@@ -524,6 +524,25 @@ def test_source_diagnostics_reports_parseable_dingtalk_file_payloads(tmp_path) -
                 },
             )
         )
+        db.add(
+            script.MultimodalEvidence(
+                evidence_type="attachment",
+                file_uri="dingtalk://media/machine-only-daily-20260629",
+                recognized_text="机器采样文件",
+                confirmation_status="machine_only",
+                created_at=datetime(2026, 6, 29, 10, 5),
+                payload={
+                    "source": "dingtalk",
+                    "file_name": "6月29日机器采样日报.txt",
+                    "file_text": (
+                        "6月29日生产日报\n"
+                        "车间总产量日合计100吨。\n"
+                        "入库成品日合计98吨。\n"
+                        "日成品率83.2%。"
+                    ),
+                },
+            )
+        )
         db.commit()
 
         diagnostics = script._source_diagnostics(db, business_date, wip_date=business_date)
@@ -532,6 +551,9 @@ def test_source_diagnostics_reports_parseable_dingtalk_file_payloads(tmp_path) -
 
     dingtalk = diagnostics["dingtalk"]
     assert dingtalk["status"] == "ready"
+    assert dingtalk["all_file_payload_rows"] == 2
+    assert dingtalk["machine_only_file_payload_rows"] == 1
+    assert dingtalk["machine_only_parseable_file_payload_rows"] == 1
     assert dingtalk["confirmed_file_payload_rows"] == 1
     assert dingtalk["confirmed_file_payload_rows_in_business_window"] == 1
     assert dingtalk["parseable_file_payload_rows"] == 1

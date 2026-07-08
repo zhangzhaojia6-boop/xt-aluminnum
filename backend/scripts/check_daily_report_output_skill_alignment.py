@@ -643,6 +643,11 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
     try:
         confirmed_statuses = ("confirmed", "human_confirmed", "specialist_sampled")
         start_at, end_at = production_business_window(business_date)
+        all_payload_rows = (
+            db.query(MultimodalEvidence)
+            .filter(MultimodalEvidence.payload.isnot(None))
+            .all()
+        )
         confirmed_rows = (
             db.query(MultimodalEvidence)
             .filter(
@@ -672,10 +677,20 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
         )
     except Exception as exc:
         return {"status": "error", "error": type(exc).__name__}
+    all_file_rows = [row for row in all_payload_rows if _is_dingtalk_file_evidence(row)]
+    machine_file_rows = [
+        row
+        for row in all_file_rows
+        if str(row.confirmation_status or "").strip().lower() == "machine_only"
+    ]
     file_rows = [row for row in confirmed_rows if _is_dingtalk_file_evidence(row)]
     file_rows_in_business_window = [row for row in business_window_rows if _is_dingtalk_file_evidence(row)]
     return {
         "status": "ready",
+        "all_payload_rows": len(all_payload_rows),
+        "all_file_payload_rows": len(all_file_rows),
+        "machine_only_file_payload_rows": len(machine_file_rows),
+        "machine_only_parseable_file_payload_rows": _parseable_dingtalk_file_count(machine_file_rows),
         "confirmed_payload_rows": confirmed_payload_rows,
         "confirmed_payload_rows_in_business_window": confirmed_rows_in_business_window,
         "confirmed_file_payload_rows": len(file_rows),

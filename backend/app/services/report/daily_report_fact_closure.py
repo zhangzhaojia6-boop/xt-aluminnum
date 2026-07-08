@@ -37,6 +37,7 @@ FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
         "official_daily_report",
         "daily_fact_bundle",
         "mes_packaging_output",
+        "mes_stock_header_records",
     },
     "finished_inbound_daily": {
         "dingtalk_supplement",
@@ -45,6 +46,7 @@ FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
         "official_daily_report",
         "daily_fact_bundle",
         "finished_inbound_output",
+        "mes_stock_header_records",
         "wms_direct",
     },
     "wip_total": {

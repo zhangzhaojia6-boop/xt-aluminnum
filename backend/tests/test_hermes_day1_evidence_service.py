@@ -186,6 +186,63 @@ def test_record_day1_dingtalk_file_name_without_media_id_still_records_trace() -
         db.close()
 
 
+def test_record_day1_dingtalk_attachment_keeps_full_file_text_for_fact_parser() -> None:
+    service = _day1_service()
+    db = _db_session()
+    long_report_text = (
+        '2026年7月7日鑫泰铝业日报\n'
+        '全厂总产量 416.47 吨\n'
+        '成品入库 416.47 吨\n'
+        '在制 1647.5 吨\n'
+        '高压总用电 8440 度\n'
+        '成品率 85.44%\n'
+        + '补充说明' * 30
+    )
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={'fileName': '2026年7月7日生产日报.txt', 'mediaId': 'media-full-text-001'},
+            actor=None,
+            business_date=date(2026, 7, 7),
+            channel='dingtalk_group',
+            group_id='group-001',
+            trace_id='trace-file-full-text',
+            recognized_text=long_report_text,
+        )
+
+        assert evidence is not None
+        assert evidence.evidence_type == 'attachment'
+        assert evidence.recognized_text.endswith('...')
+        assert evidence.payload['recognized_text_truncated'] is True
+        assert evidence.payload['file_text'] == long_report_text
+        assert 'message_text' not in evidence.payload
+    finally:
+        db.close()
+
+
+def test_record_day1_dingtalk_text_keeps_full_message_text_for_flexible_parser() -> None:
+    service = _day1_service()
+    db = _db_session()
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={'msgtype': 'text'},
+            actor=SimpleNamespace(id=23),
+            business_date=date(2026, 7, 7),
+            channel='dingtalk_group',
+            group_id='group-001',
+            trace_id='trace-message-full-text',
+            recognized_text='老板口径：7月7日总产量 416.47 吨，成品入库 416.47 吨',
+        )
+
+        assert evidence is not None
+        assert evidence.evidence_type == 'text'
+        assert evidence.payload['message_text'] == '老板口径：7月7日总产量 416.47 吨，成品入库 416.47 吨'
+        assert 'file_text' not in evidence.payload
+    finally:
+        db.close()
+
+
 def test_record_day1_dingtalk_evidence_stores_audit_metadata_and_filters_sensitive_keys() -> None:
     service = _day1_service()
     db = _db_session()

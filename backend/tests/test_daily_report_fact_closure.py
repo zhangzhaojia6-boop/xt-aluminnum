@@ -151,6 +151,18 @@ def test_real_bundle_source_types_confirm_where_intended() -> None:
     assert closure["counts"]["confirmed"] == len(CRITICAL_DAILY_FACT_FIELDS)
 
 
+def test_mes_stock_header_records_is_confirmed_for_total_and_finished_inbound() -> None:
+    bundle = _confirmed_bundle()
+    _set_source(bundle, "total_output_daily", "mes_stock_header_records")
+    _set_source(bundle, "finished_inbound_daily", "mes_stock_header_records")
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "pass"
+    assert _field_status(closure, "total_output_daily") == "confirmed"
+    assert _field_status(closure, "finished_inbound_daily") == "confirmed"
+
+
 def test_daily_yield_rate_computed_source_is_confirmed() -> None:
     bundle = _confirmed_bundle()
     _set_source(bundle, "daily_yield_rate", "computed")

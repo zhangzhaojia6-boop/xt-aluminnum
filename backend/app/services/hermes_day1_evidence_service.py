@@ -22,6 +22,7 @@ FACT_KEYWORDS = ('日报', '产量', '每日产量', '库存', '发货', '入库
 EXPLANATION_KEYWORDS = ('异常', '停机', '原因', '影响', '维修', '换辊', '故障')
 INSTRUCTION_KEYWORDS = ('补录', '重发', '以这个为准', '改成', '修正', '替换')
 SAFE_RECOGNIZED_TEXT_LIMIT = 120
+FULL_TEXT_PAYLOAD_LIMIT = 50000
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +84,16 @@ def _build_safe_recognized_text(recognized_text: str) -> tuple[str | None, dict[
     }
 
 
+def _build_fact_text_payload(recognized_text: str, *, is_attachment: bool) -> dict[str, Any]:
+    clean_text = str(recognized_text or '').strip()
+    if not clean_text:
+        return {}
+    redacted_text = redact_secret_text(clean_text)
+    if len(redacted_text) > FULL_TEXT_PAYLOAD_LIMIT:
+        redacted_text = redacted_text[:FULL_TEXT_PAYLOAD_LIMIT].rstrip()
+    return {'file_text' if is_attachment else 'message_text': redacted_text}
+
+
 def record_day1_dingtalk_evidence(
     db: Session,
     *,
@@ -101,6 +112,7 @@ def record_day1_dingtalk_evidence(
 
     file_hash = hashlib.sha1(raw_file_id.encode('utf-8')).hexdigest() if raw_file_id else None
     evidence_type = 'attachment' if file_name or raw_file_id else 'text'
+    is_attachment = evidence_type == 'attachment'
     parse_status = 'text_captured' if str(recognized_text or '').strip() else 'text_unavailable'
     safe_recognized_text, recognized_text_metadata = _build_safe_recognized_text(recognized_text)
     evidence_payload = filter_sensitive_mapping(
@@ -119,6 +131,7 @@ def record_day1_dingtalk_evidence(
             'include_in_daily_sample': classification.include_in_daily_sample,
             'matched_keywords': classification.matched_keywords,
             **recognized_text_metadata,
+            **_build_fact_text_payload(recognized_text, is_attachment=is_attachment),
             'dingtalk_sender_id': _clean_payload_text(
                 payload,
                 'senderStaffId',
