@@ -159,6 +159,12 @@ class Settings(BaseSettings):
     DINGTALK_APP_SECRET: str | None = None
     DINGTALK_AGENT_ID: str | None = None
     DINGTALK_ENABLED: bool = False
+    DINGTALK_STREAM_ENABLED: bool = False
+    DINGTALK_AUTHORIZED_GROUP_IDS: str = ''
+    DINGTALK_STREAM_EVENT_TYPES: str = 'chatbot_message'
+    DINGTALK_ROBOT_CODE: str = ''
+    DINGTALK_FILE_TEXT_MAX_BYTES: int = 2_000_000
+    DINGTALK_BACKFILL_DAYS: int = 3
     DINGTALK_NOTIFY_DRY_RUN: bool = False
     DINGTALK_INBOUND_TOKEN: str | None = None
     HERMES_DINGTALK_CLIENT_ID: str | None = None
@@ -297,6 +303,14 @@ class Settings(BaseSettings):
         return set(_parse_csv_values(self.HERMES_ALLOWED_GROUP_IDS))
 
     @property
+    def dingtalk_authorized_group_ids(self) -> set[str]:
+        return {item.strip() for item in self.DINGTALK_AUTHORIZED_GROUP_IDS.split(',') if item.strip()}
+
+    @property
+    def dingtalk_robot_code(self) -> str:
+        return self.DINGTALK_ROBOT_CODE or self.DINGTALK_APP_KEY
+
+    @property
     def hermes_day1_enabled(self) -> bool:
         return bool(self.HERMES_DAY1_ENABLED)
 
@@ -328,6 +342,27 @@ class Settings(BaseSettings):
 
         if self.WECOM_BOT_ENABLED and not self.WORKFLOW_ENABLED:
             issues.append('WECOM_BOT_ENABLED requires WORKFLOW_ENABLED=true')
+
+        if self.DINGTALK_FILE_TEXT_MAX_BYTES < 1024:
+            issues.append('DINGTALK_FILE_TEXT_MAX_BYTES must be greater than or equal to 1024')
+
+        if not 1 <= self.DINGTALK_BACKFILL_DAYS <= 7:
+            issues.append('DINGTALK_BACKFILL_DAYS must be between 1 and 7')
+
+        if self.DINGTALK_STREAM_ENABLED:
+            missing_stream_fields = [
+                field_name
+                for field_name, field_value in (
+                    ('DINGTALK_APP_KEY', self.DINGTALK_APP_KEY),
+                    ('DINGTALK_APP_SECRET', self.DINGTALK_APP_SECRET),
+                )
+                if _is_blank(field_value)
+            ]
+            if missing_stream_fields:
+                issues.append('DINGTALK_STREAM_ENABLED requires DINGTALK_APP_KEY and DINGTALK_APP_SECRET')
+
+            if not self.dingtalk_authorized_group_ids:
+                issues.append('DINGTALK_STREAM_ENABLED requires at least one DINGTALK_AUTHORIZED_GROUP_IDS entry')
 
         try:
             workshop_webhooks = self.wecom_bot_workshop_webhook_map
