@@ -11,6 +11,7 @@ backend/.env.backup-*
 backend/.env.bak-*
 backend/*.bak-*
 backend/scripts/*.bak-*
+backend/.venv/
 to boss/
 参考/
 *.pyc
