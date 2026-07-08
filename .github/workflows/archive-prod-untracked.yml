@@ -1,0 +1,184 @@
+name: Archive Production Untracked
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'archive-untracked' to confirm production cleanup
+        required: true
+      mode:
+        description: Dry-run first, then archive after reviewing the manifest
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - archive
+
+jobs:
+  archive-prod-untracked:
+    if: github.event.inputs.confirm == 'archive-untracked'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Archive production untracked files
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          CLEANUP_MODE: ${{ github.event.inputs.mode }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          case "$CLEANUP_MODE" in
+            dry-run|archive) ;;
+            *) echo "unsupported mode"; exit 2 ;;
+          esac
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "CLEANUP_MODE='$CLEANUP_MODE' RUN_ID='$RUN_ID' bash -s" <<'REMOTE'
+          set -euo pipefail
+          repo="/srv/aluminum-bypass"
+          archive_root="/srv/aluminum-bypass-archive/untracked"
+          test -d "$repo/.git"
+          cd "$repo"
+
+          tracked_dirty="$(git status --porcelain --untracked-files=no)"
+          if [ -n "$tracked_dirty" ]; then
+            echo "TRACKED_WORKTREE_NOT_CLEAN"
+            printf '%s\n' "$tracked_dirty"
+            exit 3
+          fi
+
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          timestamp="$(date +%Y%m%d-%H%M%S)"
+          archive_dir="$archive_root/${timestamp}-run-${RUN_ID}"
+          manifest="/tmp/aluminum-bypass-untracked-${RUN_ID}.tsv"
+
+          python3 - "$repo" "$archive_dir" "$manifest" "$CLEANUP_MODE" <<'PY'
+          from __future__ import annotations
+
+          import glob
+          import os
+          import shutil
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          repo = Path(sys.argv[1]).resolve()
+          archive_dir = Path(sys.argv[2]).resolve()
+          manifest = Path(sys.argv[3])
+          mode = sys.argv[4]
+
+          def git(*args: str) -> bytes:
+              return subprocess.check_output(["git", *args], cwd=repo)
+
+          def is_tracked(path: Path) -> bool:
+              rel = path.relative_to(repo).as_posix()
+              return subprocess.run(
+                  ["git", "ls-files", "--error-unmatch", "--", rel],
+                  cwd=repo,
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL,
+                  check=False,
+              ).returncode == 0
+
+          def inside(base: Path, path: Path) -> bool:
+              try:
+                  path.resolve().relative_to(base.resolve())
+                  return True
+              except ValueError:
+                  return False
+
+          def path_size(path: Path) -> int:
+              if path.is_symlink():
+                  return 0
+              if path.is_file():
+                  return path.stat().st_size
+              total = 0
+              for root, dirs, files in os.walk(path):
+                  dirs[:] = [item for item in dirs if item != ".git"]
+                  for file_name in files:
+                      item = Path(root) / file_name
+                      if not item.is_symlink():
+                          total += item.stat().st_size
+              return total
+
+          candidates: set[Path] = set()
+
+          for pattern in (
+              ".backups",
+              "backend/.env.backup-*",
+              "backend/.env.bak-*",
+              "backend/*.bak-*",
+              "backend/scripts/*.bak-*",
+              "docs/system-understanding-consolidated-*.rag-safe.md",
+              "docs/superpowers/reports/daily-report-fact-closure-production-*",
+              "docs/superpowers/reports/*-hermes-20-question-real-acceptance-production.md",
+              "reference",
+          ):
+              for match in glob.glob(str(repo / pattern)):
+                  candidates.add(Path(match))
+
+          raw_untracked = git("ls-files", "--others", "--exclude-standard", "-z")
+          for raw in raw_untracked.split(b"\0"):
+              if raw:
+                  candidates.add(repo / raw.decode())
+
+          safe: list[Path] = []
+          for path in sorted(candidates, key=lambda item: item.relative_to(repo).as_posix()):
+              if not path.exists() and not path.is_symlink():
+                  continue
+              if path.name == ".git" or ".git" in path.parts:
+                  continue
+              if not inside(repo, path):
+                  raise SystemExit(f"refusing outside path: {path}")
+              if is_tracked(path):
+                  continue
+              safe.append(path)
+
+          with manifest.open("w", encoding="utf-8") as handle:
+              handle.write("mode\tpath\ttype\tsize_bytes\n")
+              for path in safe:
+                  rel = path.relative_to(repo).as_posix()
+                  kind = "dir" if path.is_dir() else "file"
+                  handle.write(f"{mode}\t{rel}\t{kind}\t{path_size(path)}\n")
+
+          print(f"CLEANUP_MODE={mode}")
+          print(f"REPO={repo}")
+          print(f"ARCHIVE_DIR={archive_dir}")
+          print(f"CANDIDATE_COUNT={len(safe)}")
+          print(manifest.read_text(encoding="utf-8"))
+
+          if mode != "archive" or not safe:
+              raise SystemExit(0)
+
+          archive_dir.mkdir(parents=True, exist_ok=True)
+          shutil.copy2(manifest, archive_dir / "manifest.tsv")
+          for path in safe:
+              rel = path.relative_to(repo)
+              destination = archive_dir / rel
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              shutil.move(str(path), str(destination))
+          PY
+
+          if [ "$CLEANUP_MODE" = "archive" ]; then
+            echo "POST_CLEAN_STATUS"
+            git status --short --branch
+            echo "TRACKED_STATUS"
+            git status --short --untracked-files=no
+            curl -fsS http://127.0.0.1:8000/readyz
+          fi
+          REMOTE

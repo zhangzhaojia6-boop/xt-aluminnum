@@ -7,6 +7,10 @@ backend/.env
 backend/.env.local
 backend/.env.*.local
 backend/.env.*.backup
+backend/.env.backup-*
+backend/.env.bak-*
+backend/*.bak-*
+backend/scripts/*.bak-*
 to boss/
 参考/
 *.pyc
@@ -30,7 +34,12 @@ node_modules/
 dist/
 uploads/
 backups/
+.backups/
 docs/*qr_codes.pdf
+docs/system-understanding-consolidated-*.rag-safe.md
+docs/superpowers/reports/daily-report-fact-closure-production-*/
+docs/superpowers/reports/*-hermes-20-question-real-acceptance-production.md
+reference/
 *.log
 .DS_Store
 .omx/
