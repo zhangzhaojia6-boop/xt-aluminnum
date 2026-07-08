@@ -308,7 +308,7 @@ class Settings(BaseSettings):
 
     @property
     def dingtalk_robot_code(self) -> str:
-        return self.DINGTALK_ROBOT_CODE or self.DINGTALK_APP_KEY
+        return self.DINGTALK_ROBOT_CODE or self.DINGTALK_APP_KEY or ''
 
     @property
     def hermes_day1_enabled(self) -> bool:

@@ -4,30 +4,40 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import TextIO
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.config import settings
+from app.config import Settings, settings
 
 
-def _health_payload() -> dict[str, object]:
-    if not settings.DINGTALK_STREAM_ENABLED:
+def build_health_payload(runtime_settings: Settings = settings) -> dict[str, object]:
+    if not runtime_settings.DINGTALK_STREAM_ENABLED:
         return {'status': 'disabled', 'stream_enabled': False}
     return {'status': 'not_implemented', 'stream_enabled': True}
 
 
-def main() -> int:
+def main(
+    argv: list[str] | None = None,
+    runtime_settings: Settings = settings,
+    stdout: TextIO | None = None,
+    stderr: TextIO | None = None,
+) -> int:
+    output = stdout or sys.stdout
+    error_output = stderr or sys.stderr
     parser = argparse.ArgumentParser()
     parser.add_argument('--health', action='store_true')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.health:
-        print(json.dumps(_health_payload(), ensure_ascii=False))
-        return 0 if not settings.DINGTALK_STREAM_ENABLED else 1
+        payload = build_health_payload(runtime_settings=runtime_settings)
+        print(json.dumps(payload, ensure_ascii=False), file=output)
+        return 0 if payload['status'] == 'disabled' else 1
 
-    parser.error('Stream runtime is not implemented yet')
+    parser.print_usage(error_output)
+    print(f'{parser.prog}: error: Stream runtime is not implemented yet', file=error_output)
     return 2
 
 
