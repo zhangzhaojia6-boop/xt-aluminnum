@@ -106,6 +106,27 @@ def test_missing_group_id_is_rejected_by_gateway_helper() -> None:
         validate_authorized_group(event, {'cid-authorized-001'})
 
 
+@pytest.mark.parametrize('conversation_type', ['group', '2'])
+def test_group_conversation_without_group_id_falls_back_to_private(
+    conversation_type: str,
+) -> None:
+    event = normalize_dingtalk_stream_event(
+        {
+            'conversationType': conversation_type,
+            'senderStaffId': 'staff-dirty-group-001',
+            'msgtype': 'text',
+            'text': {'content': '脏 payload 不能直接算群聊'},
+            'messageId': f'msg-dirty-group-{conversation_type}',
+        }
+    )
+
+    assert event.group_id is None
+    assert event.channel == 'dingtalk_private'
+
+    with pytest.raises(ValueError, match='missing_group_id'):
+        validate_authorized_group(event, {'cid-authorized-001'})
+
+
 def test_unauthorized_group_id_is_rejected_before_persistence() -> None:
     event = normalize_dingtalk_stream_event(
         {

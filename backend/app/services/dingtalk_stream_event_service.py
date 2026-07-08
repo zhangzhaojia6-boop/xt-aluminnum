@@ -26,10 +26,11 @@ class NormalizedDingTalkEvent:
 
 def normalize_dingtalk_stream_event(payload: Mapping[str, Any]) -> NormalizedDingTalkEvent:
     event_payload = _unwrap_event_payload(payload)
+    group_id = _extract_group_id(event_payload)
     normalized = NormalizedDingTalkEvent(
         source='dingtalk_stream',
-        channel=_resolve_channel(event_payload),
-        group_id=_extract_group_id(event_payload),
+        channel=_resolve_channel(event_payload, group_id=group_id),
+        group_id=group_id,
         trace_id='',
         message_id=_first_text(
             event_payload.get('messageId'),
@@ -168,7 +169,9 @@ def _extract_file_id(payload: Mapping[str, Any]) -> str | None:
     )
 
 
-def _resolve_channel(payload: Mapping[str, Any]) -> str:
+def _resolve_channel(payload: Mapping[str, Any], *, group_id: str | None = None) -> str:
+    if not _clean_text(group_id):
+        return 'dingtalk_private'
     conversation_type = _clean_text(
         _first_text(
             payload.get('conversationType'),
