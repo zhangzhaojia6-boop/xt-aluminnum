@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 import hashlib
+import json
 from typing import Any, Mapping
 
 
@@ -168,27 +169,48 @@ def _extract_file_id(payload: Mapping[str, Any]) -> str | None:
 
 
 def _resolve_channel(payload: Mapping[str, Any]) -> str:
-    if _extract_group_id(payload):
-        return 'dingtalk_group'
-
     conversation_type = _clean_text(
         _first_text(
             payload.get('conversationType'),
             payload.get('conversation_type'),
+            payload.get('chatType'),
+            payload.get('chat_type'),
         )
     ).lower()
-    if conversation_type in {'1', 'single', 'singlechat', 'private'}:
+    if conversation_type in {'single', 'private', '1v1', 'private_chat', '1', 'one_to_one'}:
         return 'dingtalk_private'
-    return 'dingtalk_group'
+    if conversation_type in {'group', 'chat', '2', 'group_chat', 'groupchat', 'chat_group'}:
+        return 'dingtalk_group'
+    return 'dingtalk_private'
 
 
 def _path_value(payload: Mapping[str, Any], *path: str) -> Any:
     current: Any = payload
     for key in path:
-        if not isinstance(current, Mapping):
+        current = _coerce_mapping(current)
+        if current is None:
             return None
         current = current.get(key)
     return current
+
+
+def _coerce_mapping(value: Any) -> Mapping[str, Any] | None:
+    if isinstance(value, Mapping):
+        return value
+    if not isinstance(value, str):
+        return None
+
+    text = value.strip()
+    if not (text.startswith('{') and text.endswith('}')):
+        return None
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, Mapping):
+        return parsed
+    return None
 
 
 def _first_text(*values: Any) -> str | None:
