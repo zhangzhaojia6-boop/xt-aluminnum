@@ -25,6 +25,32 @@ FIELD_SPECS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("daily_yield_rate", "%", ("成品率",)),
 )
 FIELD_DEFAULT_UNITS = {field: unit for field, unit, _phrases in FIELD_SPECS}
+STRUCTURED_FACT_KEYS = ("fact_updates", "daily_facts", "facts", "extracted_facts", "fields")
+TEXT_KEYS = (
+    "recognized_text",
+    "recognized",
+    "text",
+    "content",
+    "file_text",
+    "parsed_text",
+    "ocr_text",
+    "extracted_text",
+    "attachment_text",
+    "message_text",
+    "plain_text",
+    "summary",
+)
+TEXT_CONTAINER_KEYS = (
+    "file",
+    "files",
+    "attachment",
+    "attachments",
+    "document",
+    "documents",
+    "workbook",
+    "sheet",
+    "sheets",
+)
 NUMBER_WITH_UNIT_RE = re.compile(r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>吨|t|T|度|kwh|KWH|%)")
 
 
@@ -39,9 +65,12 @@ def extract_daily_fact_update_candidates(evidence: Mapping[str, Any]) -> list[di
     raw_text = _raw_text(evidence, payload_map)
     trace_id = _trace_id(evidence, payload_map)
 
-    if "fact_updates" in payload_map:
+    fact_updates = _structured_fact_updates(payload_map)
+    if "fact_updates" in payload_map and fact_updates is None:
+        return []
+    if fact_updates is not None:
         return _structured_candidates(
-            payload_map.get("fact_updates"),
+            fact_updates,
             raw_text=raw_text,
             trace_id=trace_id,
         )
@@ -49,6 +78,16 @@ def extract_daily_fact_update_candidates(evidence: Mapping[str, Any]) -> list[di
     if not raw_text:
         return []
     return _plain_text_candidates(raw_text, trace_id=trace_id)
+
+
+def _structured_fact_updates(payload: Mapping[str, Any]) -> Any | None:
+    for key in STRUCTURED_FACT_KEYS:
+        if key not in payload:
+            continue
+        value = payload.get(key)
+        if _iter_fact_updates(value):
+            return value
+    return None
 
 
 def _structured_candidates(
@@ -179,15 +218,34 @@ def _raw_text(evidence: Mapping[str, Any], payload: Mapping[str, Any]) -> str:
     parts: list[str] = []
     seen: set[str] = set()
     for source in (evidence, payload):
-        for key in ("recognized_text", "recognized", "text", "content"):
-            value = source.get(key)
-            if not isinstance(value, str):
-                continue
-            text = value.strip()
-            if text and text not in seen:
-                parts.append(text)
-                seen.add(text)
+        _collect_text_parts(source, parts=parts, seen=seen)
     return "\n".join(parts)
+
+
+def _collect_text_parts(value: Any, *, parts: list[str], seen: set[str], depth: int = 0) -> None:
+    if depth > 4:
+        return
+    if isinstance(value, Mapping):
+        for raw_key, item in value.items():
+            key = str(raw_key or "").strip().lower()
+            if key in TEXT_KEYS or key.endswith("_text"):
+                _append_text_part(item, parts=parts, seen=seen)
+        for key in TEXT_CONTAINER_KEYS:
+            if key in value:
+                _collect_text_parts(value.get(key), parts=parts, seen=seen, depth=depth + 1)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _collect_text_parts(item, parts=parts, seen=seen, depth=depth + 1)
+
+
+def _append_text_part(value: Any, *, parts: list[str], seen: set[str]) -> None:
+    if not isinstance(value, str):
+        return
+    text = value.strip()
+    if text and text not in seen:
+        parts.append(text)
+        seen.add(text)
 
 
 def _trace_id(evidence: Mapping[str, Any], payload: Mapping[str, Any]) -> str:

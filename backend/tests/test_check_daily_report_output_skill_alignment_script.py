@@ -494,6 +494,50 @@ def test_source_diagnostics_reports_datahub_final_report_parseability(tmp_path) 
     assert datahub["history"]["latest_report_text_parseable_fields"] >= 3
 
 
+def test_source_diagnostics_reports_parseable_dingtalk_file_payloads(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'alignment-dingtalk-diagnostics.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[script.MultimodalEvidence.__table__])
+    Session = sessionmaker(bind=engine, future=True)
+    db = Session()
+    business_date = date(2026, 6, 29)
+    try:
+        db.add(
+            script.MultimodalEvidence(
+                evidence_type="attachment",
+                file_uri="dingtalk://media/daily-20260629",
+                recognized_text="日报文件已上传",
+                confirmation_status="human_confirmed",
+                created_at=datetime(2026, 6, 29, 10, 0),
+                payload={
+                    "source": "dingtalk",
+                    "file_name": "6月29日生产日报.xlsx",
+                    "attachments": [
+                        {
+                            "parsed_text": (
+                                "6月29日生产日报\n"
+                                "车间总产量日合计100吨。\n"
+                                "入库成品日合计98吨。\n"
+                                "日成品率83.2%。"
+                            )
+                        }
+                    ],
+                },
+            )
+        )
+        db.commit()
+
+        diagnostics = script._source_diagnostics(db, business_date, wip_date=business_date)
+    finally:
+        db.close()
+
+    dingtalk = diagnostics["dingtalk"]
+    assert dingtalk["status"] == "ready"
+    assert dingtalk["confirmed_file_payload_rows"] == 1
+    assert dingtalk["confirmed_file_payload_rows_in_business_window"] == 1
+    assert dingtalk["parseable_file_payload_rows"] == 1
+    assert dingtalk["parseable_file_payload_rows_in_business_window"] == 1
+
+
 def test_energy_source_diagnostics_groups_rows_by_source(monkeypatch) -> None:
     def fake_summary(_db, *, business_date):
         assert business_date == date(2026, 6, 29)

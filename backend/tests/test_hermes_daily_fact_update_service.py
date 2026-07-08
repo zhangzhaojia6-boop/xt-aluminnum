@@ -85,6 +85,33 @@ def test_plain_text_accepts_daily_output_inside_mixed_messages(text: str) -> Non
     assert candidates[0]["unit"] == "吨"
 
 
+def test_payload_attachment_text_produces_candidates_without_top_level_text() -> None:
+    candidates = extract_daily_fact_update_candidates(
+        {
+            "id": "evidence-file-1",
+            "payload": {
+                "file_name": "6月19日日报.xlsx",
+                "attachments": [
+                    {
+                        "parsed_text": (
+                            "6月19日生产日报\n"
+                            "车间总产量日合计371吨。\n"
+                            "全厂高压总用电量18420度。"
+                        )
+                    }
+                ],
+            },
+        }
+    )
+
+    assert [(item["field"], item["value"], item["unit"]) for item in candidates] == [
+        ("total_output_daily", 371, "吨"),
+        ("total_electricity_kwh", 18420, "度"),
+    ]
+    assert candidates[0]["trace_id"] == "evidence-file-1"
+    assert "6月19日生产日报" in candidates[0]["raw_text"]
+
+
 def test_unknown_text_returns_empty_candidates() -> None:
     assert extract_daily_fact_update_candidates({"recognized_text": "辛苦了，收到"}) == []
 

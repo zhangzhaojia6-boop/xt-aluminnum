@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -24,7 +24,7 @@ except ImportError:
 
 from sqlalchemy import and_, func, inspect, or_
 
-from app.core.business_time import last_completed_production_business_date, production_business_window
+from app.core.business_time import last_completed_production_business_date, local_now, production_business_window
 from app.database import get_sessionmaker
 from app.models.agent_communication import MultimodalEvidence
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot
@@ -46,6 +46,32 @@ KEY_FACT_SOURCE_FIELDS = (
     "daily_yield_rate",
 )
 DATAHUB_TEMPLATE_REPORT_KEY = "template_daily_report"
+DINGTALK_FILE_EVIDENCE_TYPES = {"file", "attachment", "dingtalk_file"}
+DINGTALK_TEXT_KEYS = (
+    "recognized_text",
+    "recognized",
+    "text",
+    "content",
+    "file_text",
+    "parsed_text",
+    "ocr_text",
+    "extracted_text",
+    "attachment_text",
+    "message_text",
+    "plain_text",
+    "summary",
+)
+DINGTALK_TEXT_CONTAINER_KEYS = (
+    "file",
+    "files",
+    "attachment",
+    "attachments",
+    "document",
+    "documents",
+    "workbook",
+    "sheet",
+    "sheets",
+)
 
 
 def parse_business_date(value: str) -> date:
@@ -615,8 +641,21 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
     if not _table_exists(db, MultimodalEvidence.__tablename__):
         return {"status": "missing_table"}
     try:
-        confirmed_statuses = ("confirmed", "human_confirmed")
+        confirmed_statuses = ("confirmed", "human_confirmed", "specialist_sampled")
         start_at, end_at = production_business_window(business_date)
+        confirmed_rows = (
+            db.query(MultimodalEvidence)
+            .filter(
+                MultimodalEvidence.payload.isnot(None),
+                MultimodalEvidence.confirmation_status.in_(confirmed_statuses),
+            )
+            .all()
+        )
+        business_window_rows = [
+            row
+            for row in confirmed_rows
+            if _created_at_in_window(row.created_at, start_at=start_at, end_at=end_at)
+        ]
         confirmed_payload_rows = _count_query(
             db.query(MultimodalEvidence.id).filter(
                 MultimodalEvidence.payload.isnot(None),
@@ -633,11 +672,80 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
         )
     except Exception as exc:
         return {"status": "error", "error": type(exc).__name__}
+    file_rows = [row for row in confirmed_rows if _is_dingtalk_file_evidence(row)]
+    file_rows_in_business_window = [row for row in business_window_rows if _is_dingtalk_file_evidence(row)]
     return {
         "status": "ready",
         "confirmed_payload_rows": confirmed_payload_rows,
         "confirmed_payload_rows_in_business_window": confirmed_rows_in_business_window,
+        "confirmed_file_payload_rows": len(file_rows),
+        "confirmed_file_payload_rows_in_business_window": len(file_rows_in_business_window),
+        "parseable_file_payload_rows": _parseable_dingtalk_file_count(file_rows),
+        "parseable_file_payload_rows_in_business_window": _parseable_dingtalk_file_count(file_rows_in_business_window),
     }
+
+
+def _created_at_in_window(value: Any, *, start_at: datetime, end_at: datetime) -> bool:
+    if not isinstance(value, datetime):
+        return False
+    normalized = local_now(value)
+    return normalized >= start_at and normalized < end_at
+
+
+def _is_dingtalk_file_evidence(row: MultimodalEvidence) -> bool:
+    evidence_type = str(row.evidence_type or "").strip().lower()
+    if evidence_type in DINGTALK_FILE_EVIDENCE_TYPES:
+        return True
+    if row.file_uri:
+        return True
+    payload = row.payload if isinstance(row.payload, dict) else {}
+    return bool(payload.get("file_name") or payload.get("dingtalk_media_id"))
+
+
+def _parseable_dingtalk_file_count(rows: Sequence[MultimodalEvidence]) -> int:
+    count = 0
+    for row in rows:
+        if _parseable_field_count(_dingtalk_evidence_text(row)) >= MIN_DINGTALK_PARSEABLE_FIELDS:
+            count += 1
+    return count
+
+
+MIN_DINGTALK_PARSEABLE_FIELDS = 3
+
+
+def _dingtalk_evidence_text(row: MultimodalEvidence) -> str:
+    parts: list[str] = []
+    seen: set[str] = set()
+    _append_dingtalk_text_part(row.recognized_text, parts=parts, seen=seen)
+    payload = row.payload if isinstance(row.payload, dict) else {}
+    _collect_dingtalk_payload_text(payload, parts=parts, seen=seen)
+    return "\n".join(parts)
+
+
+def _collect_dingtalk_payload_text(value: Any, *, parts: list[str], seen: set[str], depth: int = 0) -> None:
+    if depth > 4:
+        return
+    if isinstance(value, dict):
+        for raw_key, item in value.items():
+            key = str(raw_key or "").strip().lower()
+            if key in DINGTALK_TEXT_KEYS or key.endswith("_text"):
+                _append_dingtalk_text_part(item, parts=parts, seen=seen)
+        for key in DINGTALK_TEXT_CONTAINER_KEYS:
+            if key in value:
+                _collect_dingtalk_payload_text(value.get(key), parts=parts, seen=seen, depth=depth + 1)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _collect_dingtalk_payload_text(item, parts=parts, seen=seen, depth=depth + 1)
+
+
+def _append_dingtalk_text_part(value: Any, *, parts: list[str], seen: set[str]) -> None:
+    if not isinstance(value, str):
+        return
+    text = value.strip()
+    if text and text not in seen:
+        parts.append(text)
+        seen.add(text)
 
 
 def _energy_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:

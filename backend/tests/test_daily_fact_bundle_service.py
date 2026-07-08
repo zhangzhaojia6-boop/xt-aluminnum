@@ -606,6 +606,63 @@ def test_human_confirmed_dingtalk_daily_report_text_applies_parsed_fields(
     assert bundle["missing_fields"] == []
 
 
+def test_dingtalk_file_payload_text_applies_parsed_fields(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {},
+            "sources": {},
+            "missing_fields": ["total_output_daily", "total_electricity_kwh"],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="attachment",
+            source_user_id=None,
+            file_uri="dingtalk://media/daily-report-20260619",
+            recognized_text="日报文件已上传",
+            confirmation_status="human_confirmed",
+            payload={
+                "source": "dingtalk",
+                "business_date": "2026-06-19",
+                "file_name": "6月19日生产日报.xlsx",
+                "attachments": [
+                    {
+                        "parsed_text": (
+                            "6月19日生产日报\n"
+                            "车间总产量日合计371吨。\n"
+                            "当天在制料1136吨。\n"
+                            "全厂高压总用电量18420度。\n"
+                            "入库成品日合计365.2吨。\n"
+                            "日成品率83.4%。"
+                        )
+                    }
+                ],
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["facts"]["total_output_daily"]["value"] == 371
+    assert bundle["facts"]["total_electricity_kwh"]["value"] == 18420
+    assert bundle["facts"]["total_output_daily"]["source_ref"]["source_key"] == "dingtalk_group_file"
+    assert bundle["facts"]["total_output_daily"]["source_ref"]["file_uri"] == "dingtalk://media/daily-report-20260619"
+    assert "6月19日生产日报" in bundle["facts"]["total_output_daily"]["source_ref"]["recognized_text"]
+    assert bundle["missing_fields"] == []
+
+
 def test_machine_only_dingtalk_daily_report_text_is_not_applied(
     monkeypatch,
     db_session: Session,
@@ -873,6 +930,66 @@ def test_unstructured_dingtalk_month_day_without_payload_date_applies_to_matchin
     assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "confirmed"
 
 
+def test_same_priority_dingtalk_candidate_does_not_override_existing_dingtalk_fact(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {},
+            "sources": {},
+            "missing_fields": ["total_output_daily"],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add_all(
+        [
+            MultimodalEvidence(
+                evidence_type="dingtalk_text",
+                recognized_text="6月19日总产量371吨",
+                confirmation_status="confirmed",
+                payload={
+                    "business_date": "2026-06-19",
+                    "include_in_daily_sample": True,
+                    "evidence_kind": "fact",
+                    "trace_id": "trace-first-output",
+                },
+            ),
+            MultimodalEvidence(
+                evidence_type="dingtalk_text",
+                recognized_text="6月19日总产量390吨",
+                confirmation_status="confirmed",
+                payload={
+                    "business_date": "2026-06-19",
+                    "include_in_daily_sample": True,
+                    "evidence_kind": "fact",
+                    "trace_id": "trace-second-output",
+                },
+            ),
+        ]
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["facts"]["total_output_daily"]["value"] == 371
+    assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_output_daily"]}]
+    assert any(
+        item["type"] == "dingtalk_candidate_not_applied"
+        and item["field"] == "total_output_daily"
+        and item["candidate_value"] == 390
+        and item["reason"] == "same_priority_fact_exists"
+        for item in bundle["conflicts"]
+    )
+
+
 def test_unstructured_dingtalk_today_from_other_business_day_records_candidate_trace(
     monkeypatch,
     db_session: Session,
@@ -1045,6 +1162,7 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
         "source_user_id": 12,
         "file_uri": "dingtalk://gas/2026-06-19.xlsx",
         "evidence_type": "dingtalk_file",
+        "source_key": "dingtalk_group_file",
         "recognized_text": "6月19日天然气共计50578m³",
         "business_date": "2026-06-19",
     }
@@ -1054,6 +1172,7 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
         "source_user_id": 12,
         "file_uri": "dingtalk://gas/2026-06-19.xlsx",
         "evidence_type": "dingtalk_file",
+        "source_key": "dingtalk_group_file",
         "recognized_text": "6月19日天然气共计50578m³",
         "business_date": "2026-06-19",
     }

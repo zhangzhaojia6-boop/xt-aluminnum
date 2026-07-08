@@ -50,8 +50,34 @@ SOURCE_PRIORITY = {
     "rag": 30,
     "output_skill": 20,
 }
-DINGTALK_CONFIRMED_STATUSES = ("confirmed", "human_confirmed")
+DINGTALK_CONFIRMED_STATUSES = ("confirmed", "human_confirmed", "specialist_sampled")
 MIN_DINGTALK_DAILY_REPORT_FIELDS = 3
+DINGTALK_STRUCTURED_FACT_KEYS = ("fact_updates", "daily_facts", "facts", "extracted_facts", "fields")
+DINGTALK_TEXT_KEYS = (
+    "recognized_text",
+    "recognized",
+    "text",
+    "content",
+    "file_text",
+    "parsed_text",
+    "ocr_text",
+    "extracted_text",
+    "attachment_text",
+    "message_text",
+    "plain_text",
+    "summary",
+)
+DINGTALK_TEXT_CONTAINER_KEYS = (
+    "file",
+    "files",
+    "attachment",
+    "attachments",
+    "document",
+    "documents",
+    "workbook",
+    "sheet",
+    "sheets",
+)
 
 FIELD_UNITS = {
     "total_output_daily": "吨",
@@ -495,12 +521,15 @@ def _apply_dingtalk_supplements(
         base_payload = row.payload if isinstance(row.payload, Mapping) else {}
         for payload in _iter_dingtalk_fact_payloads(base_payload):
             payload_is_daily_fact = _is_dingtalk_daily_fact_payload(payload)
-            has_structured_updates = "fact_updates" in payload
-            if not payload_is_daily_fact and not _has_parseable_dingtalk_daily_report(row):
+            structured_updates = _dingtalk_structured_fact_updates(payload)
+            if "fact_updates" in payload and structured_updates is None:
+                continue
+            has_structured_updates = structured_updates is not None
+            if not payload_is_daily_fact and not _has_parseable_dingtalk_daily_report(row, payload):
                 continue
 
             if has_structured_updates:
-                update_items = _iter_fact_updates(payload.get("fact_updates"))
+                update_items = _iter_fact_updates(structured_updates)
                 if not _payload_business_date_matches(payload, business_date_text):
                     for field_name, item in update_items:
                         if _has_fact_value(item.get("value")):
@@ -547,22 +576,43 @@ def _apply_dingtalk_supplements(
                 old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
                 old_source = None
                 old_unit = FIELD_UNITS.get(field_name)
+                old_priority = 0
                 if isinstance(old_fact, Mapping):
                     old_source = old_fact.get("source_type") or old_fact.get("source")
                     old_unit = old_fact.get("unit") or old_unit
+                    old_priority = int(old_fact.get("priority") or 0)
 
                 new_value = item.get("value")
                 if not _has_fact_value(new_value):
                     continue
                 new_unit = item.get("unit") or old_unit
                 reason = str(item.get("reason") or "钉钉补充事实")
+                new_priority = SOURCE_PRIORITY["dingtalk_supplement"]
+                if old_priority > new_priority:
+                    _append_unapplied_dingtalk_candidate(
+                        conflicts,
+                        row=row,
+                        candidate={**dict(item), "field": field_name},
+                        reason="higher_priority_fact_exists",
+                    )
+                    continue
+                if old_priority == new_priority:
+                    if _json_safe(old_value) != _json_safe(new_value):
+                        _append_unapplied_dingtalk_candidate(
+                            conflicts,
+                            row=row,
+                            candidate={**dict(item), "field": field_name},
+                            reason="same_priority_fact_exists",
+                        )
+                    continue
                 source_detail = {
                     "source": "dingtalk_supplement",
                     "evidence_id": row.id,
                     "source_user_id": row.source_user_id,
                     "file_uri": row.file_uri,
                     "evidence_type": row.evidence_type,
-                    "recognized_text": row.recognized_text,
+                    "source_key": _dingtalk_source_key(row, payload),
+                    "recognized_text": _dingtalk_evidence_text(row, payload) or row.recognized_text,
                     "business_date": business_date_text,
                 }
                 if not has_structured_updates:
@@ -579,7 +629,7 @@ def _apply_dingtalk_supplements(
                     unit=new_unit,
                     source="dingtalk_supplement",
                     source_type="dingtalk_supplement",
-                    priority=90,
+                    priority=new_priority,
                     freshness="supplemented",
                     confidence=0.95 if has_structured_updates else _candidate_confidence(item),
                     adoption_reason=reason,
@@ -623,20 +673,31 @@ def _iter_dingtalk_fact_payloads(payload: Mapping[str, Any]) -> list[Mapping[str
 
 
 def _is_dingtalk_daily_fact_payload(payload: Mapping[str, Any]) -> bool:
-    if "fact_updates" in payload:
+    if _dingtalk_structured_fact_updates(payload) is not None:
         return True
     return payload.get("include_in_daily_sample") is True and str(payload.get("evidence_kind") or "") == "fact"
 
 
-def _has_parseable_dingtalk_daily_report(row: MultimodalEvidence) -> bool:
-    return bool(_dingtalk_daily_report_candidates(row, {}))
+def _dingtalk_structured_fact_updates(payload: Mapping[str, Any]) -> Any | None:
+    for key in DINGTALK_STRUCTURED_FACT_KEYS:
+        if key not in payload:
+            continue
+        value = payload.get(key)
+        if _iter_fact_updates(value):
+            return value
+    return None
+
+
+def _has_parseable_dingtalk_daily_report(row: MultimodalEvidence, payload: Mapping[str, Any]) -> bool:
+    return bool(_dingtalk_daily_report_candidates(row, payload))
 
 
 def _dingtalk_daily_report_candidates(
     row: MultimodalEvidence,
     payload: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    parsed_values = parse_output_skill_daily_report(str(row.recognized_text or ""))
+    raw_text = _dingtalk_evidence_text(row, payload)
+    parsed_values = parse_output_skill_daily_report(raw_text)
     candidates = [
         {
             "field": str(field_name),
@@ -645,7 +706,7 @@ def _dingtalk_daily_report_candidates(
             "confidence": 0.95,
             "source": "dingtalk_supplement",
             "trace_id": _payload_trace_id(payload, row),
-            "raw_text": row.recognized_text,
+            "raw_text": raw_text,
             "reason": "钉钉日报正文解析",
         }
         for field_name, value in parsed_values.items()
@@ -654,6 +715,55 @@ def _dingtalk_daily_report_candidates(
     if len(candidates) < MIN_DINGTALK_DAILY_REPORT_FIELDS:
         return []
     return candidates
+
+
+def _dingtalk_evidence_text(row: MultimodalEvidence, payload: Mapping[str, Any]) -> str:
+    parts: list[str] = []
+    seen: set[str] = set()
+    _append_dingtalk_text_part(row.recognized_text, parts=parts, seen=seen)
+    _collect_dingtalk_payload_text(payload, parts=parts, seen=seen)
+    return "\n".join(parts)
+
+
+def _collect_dingtalk_payload_text(
+    value: Any,
+    *,
+    parts: list[str],
+    seen: set[str],
+    depth: int = 0,
+) -> None:
+    if depth > 4:
+        return
+    if isinstance(value, Mapping):
+        for raw_key, item in value.items():
+            key = str(raw_key or "").strip().lower()
+            if key in DINGTALK_TEXT_KEYS or key.endswith("_text"):
+                _append_dingtalk_text_part(item, parts=parts, seen=seen)
+        for key in DINGTALK_TEXT_CONTAINER_KEYS:
+            if key in value:
+                _collect_dingtalk_payload_text(value.get(key), parts=parts, seen=seen, depth=depth + 1)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _collect_dingtalk_payload_text(item, parts=parts, seen=seen, depth=depth + 1)
+
+
+def _append_dingtalk_text_part(value: Any, *, parts: list[str], seen: set[str]) -> None:
+    if not isinstance(value, str):
+        return
+    text = value.strip()
+    if text and text not in seen:
+        parts.append(text)
+        seen.add(text)
+
+
+def _dingtalk_source_key(row: MultimodalEvidence, payload: Mapping[str, Any]) -> str:
+    evidence_type = str(row.evidence_type or "").strip().lower()
+    if evidence_type in {"file", "attachment", "dingtalk_file"} or row.file_uri:
+        return "dingtalk_group_file"
+    if payload.get("file_name") or payload.get("dingtalk_media_id"):
+        return "dingtalk_group_file"
+    return "dingtalk_group_content"
 
 
 def _payload_business_date_matches(payload: Mapping[str, Any], business_date_text: str) -> bool:
@@ -723,6 +833,7 @@ def _append_unapplied_dingtalk_candidate(
     *,
     row: MultimodalEvidence,
     candidate: Mapping[str, Any],
+    reason: str = "payload_business_date_missing_or_mismatch",
 ) -> None:
     field_name = str(candidate.get("field") or "").strip()
     if not field_name:
@@ -732,7 +843,7 @@ def _append_unapplied_dingtalk_candidate(
             "field": field_name,
             "type": "dingtalk_candidate_not_applied",
             "candidate_value": candidate.get("value"),
-            "reason": "payload_business_date_missing_or_mismatch",
+            "reason": reason,
             "trace_id": candidate.get("trace_id") or "",
             "evidence_id": row.id,
         }
