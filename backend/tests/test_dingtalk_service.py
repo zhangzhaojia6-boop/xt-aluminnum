@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import logging
+
+import pytest
+
 from app.services import dingtalk_service
 from app.services.dingtalk_templates import build_anomaly_alert, build_approval_notice, build_fill_reminder
 
@@ -68,6 +72,138 @@ def test_fetch_access_token_refreshes_after_expiry(monkeypatch) -> None:
     assert service.fetch_access_token() == 'access_token_1'
     now['value'] = 61.0
     assert service.fetch_access_token() == 'access_token_2'
+
+
+def test_download_robot_message_file_reuses_access_token_and_sends_download_request(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+    monkeypatch.setattr(dingtalk_service.settings, 'DINGTALK_ROBOT_CODE', 'robot-default', raising=False)
+    token_calls = []
+    download_calls = []
+
+    def fake_request_json(*, method, url, payload=None):
+        token_calls.append((method, url, payload))
+        return {'errcode': 0, 'access_token': 'access_token_1', 'expires_in': 7200}
+
+    def fake_request_json_with_headers(*, method, url, payload=None, headers=None, timeout=20):
+        download_calls.append((method, url, payload, headers, timeout))
+        return {'downloadUrl': 'https://static.dingtalk.com/file-1.xlsx?signature=secret'}
+
+    monkeypatch.setattr(service, '_request_json', fake_request_json)
+    monkeypatch.setattr(service, '_request_json_with_headers', fake_request_json_with_headers)
+    monkeypatch.setattr(
+        service,
+        '_request_bytes',
+        lambda **_kwargs: (b'first-file', 'application/vnd.ms-excel'),
+    )
+
+    first = service.download_robot_message_file(download_code='code-1')
+    second = service.download_robot_message_file(download_code='code-2')
+
+    assert len(token_calls) == 1
+    assert download_calls == [
+        (
+            'POST',
+            'https://api.dingtalk.com/v1.0/robot/messageFiles/download',
+            {'downloadCode': 'code-1', 'robotCode': 'robot-default'},
+            {'x-acs-dingtalk-access-token': 'access_token_1'},
+            20,
+        ),
+        (
+            'POST',
+            'https://api.dingtalk.com/v1.0/robot/messageFiles/download',
+            {'downloadCode': 'code-2', 'robotCode': 'robot-default'},
+            {'x-acs-dingtalk-access-token': 'access_token_1'},
+            20,
+        ),
+    ]
+    assert first.download_url_host == 'static.dingtalk.com'
+    assert second.content == b'first-file'
+
+
+def test_download_robot_message_file_fetches_bytes_from_returned_url(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+    monkeypatch.setattr(dingtalk_service.settings, 'DINGTALK_ROBOT_CODE', 'robot-default', raising=False)
+    calls = []
+
+    monkeypatch.setattr(
+        service,
+        '_request_json',
+        lambda **_kwargs: {'errcode': 0, 'access_token': 'access_token_1', 'expires_in': 7200},
+    )
+    monkeypatch.setattr(
+        service,
+        '_request_json_with_headers',
+        lambda **_kwargs: {'downloadUrl': 'https://files.dingtalk.com/archive/report.csv?signature=secret'},
+    )
+
+    def fake_request_bytes(*, url, headers=None, timeout=20):
+        calls.append((url, headers, timeout))
+        return b'col1,col2\n1,2\n', 'text/csv'
+
+    monkeypatch.setattr(service, '_request_bytes', fake_request_bytes)
+
+    result = service.download_robot_message_file(download_code='code-1', robot_code='robot-1')
+
+    assert calls == [('https://files.dingtalk.com/archive/report.csv?signature=secret', None, 20)]
+    assert result == dingtalk_service.DingTalkDownloadedFile(
+        download_url_host='files.dingtalk.com',
+        content=b'col1,col2\n1,2\n',
+        content_type='text/csv',
+        size=14,
+    )
+
+
+def test_download_robot_message_file_redacts_signed_url_in_error_and_logs_host_only(monkeypatch, caplog) -> None:
+    service = _configured_service(monkeypatch)
+    monkeypatch.setattr(dingtalk_service.settings, 'DINGTALK_ROBOT_CODE', 'robot-default', raising=False)
+    signed_url = 'https://files.dingtalk.com/archive/report.csv?signature=secret&token=signed'
+
+    monkeypatch.setattr(
+        service,
+        '_request_json',
+        lambda **_kwargs: {'errcode': 0, 'access_token': 'access_token_1', 'expires_in': 7200},
+    )
+    monkeypatch.setattr(
+        service,
+        '_request_json_with_headers',
+        lambda **_kwargs: {'downloadUrl': signed_url},
+    )
+
+    def fake_request_bytes(*, url, headers=None, timeout=20):
+        raise RuntimeError(f'failed to fetch {url}')
+
+    monkeypatch.setattr(service, '_request_bytes', fake_request_bytes)
+
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(dingtalk_service.DingTalkFileDownloadError) as excinfo:
+            service.download_robot_message_file(download_code='code-1')
+
+    assert str(excinfo.value) == 'dingtalk_file_download_fetch_failed host=files.dingtalk.com'
+    assert signed_url not in str(excinfo.value)
+    assert 'host=files.dingtalk.com' in caplog.text
+    assert signed_url not in caplog.text
+
+
+def test_download_robot_message_file_missing_download_url_raises(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+    monkeypatch.setattr(dingtalk_service.settings, 'DINGTALK_ROBOT_CODE', 'robot-default', raising=False)
+    monkeypatch.setattr(
+        service,
+        '_request_json',
+        lambda **_kwargs: {'errcode': 0, 'access_token': 'access_token_1', 'expires_in': 7200},
+    )
+    monkeypatch.setattr(service, '_request_json_with_headers', lambda **_kwargs: {'requestId': 'req-1'})
+    monkeypatch.setattr(
+        service,
+        '_request_bytes',
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError('missing downloadUrl should stop before fetch')),
+    )
+
+    with pytest.raises(
+        dingtalk_service.DingTalkFileDownloadError,
+        match='dingtalk_file_download_missing_url',
+    ):
+        service.download_robot_message_file(download_code='code-1')
 
 
 def test_send_work_notification_calls_dingtalk_asyncsend(monkeypatch) -> None:

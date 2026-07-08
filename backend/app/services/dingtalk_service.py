@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 _MESSAGE_RATE_LIMIT = 20
 _MESSAGE_RATE_WINDOW_SECONDS = 1.0
+_DINGTALK_FILE_DOWNLOAD_TIMEOUT_SECONDS = 20
 
 
 @dataclass(slots=True)
@@ -58,6 +59,18 @@ class DingTalkUserAmbiguous(RuntimeError):
         self.dingtalk_user_id = dingtalk_user_id
         self.dingtalk_union_id = dingtalk_union_id
         super().__init__('dingtalk_user_ambiguous')
+
+
+@dataclass(frozen=True)
+class DingTalkDownloadedFile:
+    download_url_host: str
+    content: bytes
+    content_type: str | None
+    size: int
+
+
+class DingTalkFileDownloadError(RuntimeError):
+    pass
 
 
 def _active_users_by_dingtalk_field(db, column, value: str) -> list[User]:
@@ -229,20 +242,47 @@ class DingTalkService:
         return []
 
     def _request_json(self, *, method: str, url: str, payload: dict | None = None) -> dict:
+        return self._request_json_with_headers(method=method, url=url, payload=payload)
+
+    def _request_json_with_headers(
+        self,
+        *,
+        method: str,
+        url: str,
+        payload: dict | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: int = _DINGTALK_FILE_DOWNLOAD_TIMEOUT_SECONDS,
+    ) -> dict:
         body = json.dumps(payload).encode('utf-8') if payload is not None else None
+        request_headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+        if headers:
+            request_headers.update(headers)
         req = request.Request(
             url,
             data=body,
-            headers={
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
+            headers=request_headers,
             method=method.upper(),
         )
-        with request.urlopen(req, timeout=20) as response:  # noqa: S310
+        with request.urlopen(req, timeout=timeout) as response:  # noqa: S310
             charset = response.headers.get_content_charset('utf-8')
             raw = response.read().decode(charset)
         return json.loads(raw or '{}')
+
+    def _request_bytes(
+        self,
+        *,
+        url: str,
+        headers: dict[str, str] | None = None,
+        timeout: int = _DINGTALK_FILE_DOWNLOAD_TIMEOUT_SECONDS,
+    ) -> tuple[bytes, str | None]:
+        req = request.Request(url, headers=headers or {}, method='GET')
+        with request.urlopen(req, timeout=timeout) as response:  # noqa: S310
+            content = response.read()
+            content_type = response.headers.get_content_type()
+        return content, content_type
 
     @staticmethod
     def _ensure_success(payload: dict) -> None:
@@ -280,6 +320,74 @@ class DingTalkService:
         self._access_token = str(access_token)
         self._access_token_expires_at = now + max(expires_in - 300, 60)
         return self._access_token
+
+    def download_robot_message_file(
+        self,
+        *,
+        download_code: str,
+        robot_code: str | None = None,
+    ) -> DingTalkDownloadedFile:
+        raw_download_code = str(download_code or '').strip()
+        if not raw_download_code:
+            raise DingTalkFileDownloadError('dingtalk_file_download_code_missing')
+
+        resolved_robot_code = str(robot_code or settings.dingtalk_robot_code or '').strip()
+        if not resolved_robot_code:
+            raise DingTalkFileDownloadError('dingtalk_robot_code_missing')
+
+        try:
+            response = self._request_json_with_headers(
+                method='POST',
+                url='https://api.dingtalk.com/v1.0/robot/messageFiles/download',
+                headers={'x-acs-dingtalk-access-token': self.fetch_access_token()},
+                payload={
+                    'downloadCode': raw_download_code,
+                    'robotCode': resolved_robot_code,
+                },
+            )
+            self._ensure_success(response)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                'DingTalk robot message file download prepare failed: %s',
+                exc.__class__.__name__,
+            )
+            raise DingTalkFileDownloadError('dingtalk_file_download_prepare_failed') from exc
+
+        download_url = str(response.get('downloadUrl') or '').strip()
+        if not download_url:
+            raise DingTalkFileDownloadError('dingtalk_file_download_missing_url')
+
+        download_url_host = parse.urlparse(download_url).netloc
+        if not download_url_host:
+            raise DingTalkFileDownloadError('dingtalk_file_download_invalid_url')
+
+        try:
+            content, content_type = self._request_bytes(
+                url=download_url,
+                timeout=_DINGTALK_FILE_DOWNLOAD_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                'DingTalk robot message file download failed host=%s error=%s',
+                download_url_host,
+                exc.__class__.__name__,
+            )
+            raise DingTalkFileDownloadError(
+                f'dingtalk_file_download_fetch_failed host={download_url_host}'
+            ) from exc
+
+        logger.info(
+            'DingTalk robot message file downloaded host=%s size=%s content_type=%s',
+            download_url_host,
+            len(content),
+            content_type,
+        )
+        return DingTalkDownloadedFile(
+            download_url_host=download_url_host,
+            content=content,
+            content_type=content_type,
+            size=len(content),
+        )
 
     def exchange_code(self, code: str) -> dict[str, str]:
         if not self.is_h5_configured():
