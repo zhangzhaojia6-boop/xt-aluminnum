@@ -202,12 +202,15 @@ jobs:
           if not isinstance(payload, dict):
               print(json.dumps({"status": payload}, ensure_ascii=False))
               raise SystemExit(0)
+          checks = payload.get("checks")
+          if not isinstance(checks, dict):
+              checks = {}
           print(json.dumps({
               "status": payload.get("status"),
               "environment": payload.get("environment"),
-              "database": payload.get("checks", {}).get("database", {}).get("status"),
-              "mes_sync": payload.get("checks", {}).get("mes_sync", {}).get("status"),
-              "iot_energy_sync": payload.get("checks", {}).get("iot_energy_sync", {}).get("status"),
+              "database": checks.get("database", {}).get("status") if isinstance(checks.get("database"), dict) else None,
+              "mes_sync": checks.get("mes_sync", {}).get("status") if isinstance(checks.get("mes_sync"), dict) else None,
+              "iot_energy_sync": checks.get("iot_energy_sync", {}).get("status") if isinstance(checks.get("iot_energy_sync"), dict) else None,
           }, ensure_ascii=False))
           PY
           REMOTE
