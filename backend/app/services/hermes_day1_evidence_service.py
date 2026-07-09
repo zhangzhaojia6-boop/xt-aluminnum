@@ -110,10 +110,13 @@ def record_day1_dingtalk_evidence(
 
     classification = classify_dingtalk_evidence(recognized_text, file_name=file_name)
 
-    file_hash = hashlib.sha1(raw_file_id.encode('utf-8')).hexdigest() if raw_file_id else None
+    payload_file_hash = _clean_payload_text(payload, 'file_hash', 'content_hash')
+    file_hash = payload_file_hash or (hashlib.sha1(raw_file_id.encode('utf-8')).hexdigest() if raw_file_id else None)
     evidence_type = 'attachment' if file_name or raw_file_id else 'text'
     is_attachment = evidence_type == 'attachment'
-    parse_status = 'text_captured' if str(recognized_text or '').strip() else 'text_unavailable'
+    parse_status = _clean_payload_text(payload, 'parse_status') or (
+        'text_captured' if str(recognized_text or '').strip() else 'text_unavailable'
+    )
     safe_recognized_text, recognized_text_metadata = _build_safe_recognized_text(recognized_text)
     evidence_payload = filter_sensitive_mapping(
         {
@@ -126,6 +129,12 @@ def record_day1_dingtalk_evidence(
             'file_name': file_name,
             'file_hash': file_hash,
             'parse_status': parse_status,
+            'text_extract_detail': _clean_payload_text(payload, 'text_extract_detail'),
+            'download_status': _clean_payload_text(payload, 'download_status'),
+            'downloadCode_present': bool(payload.get('downloadCode_present')),
+            'download_url_host': _clean_payload_text(payload, 'download_url_host'),
+            'dingtalk_content_type': _clean_payload_text(payload, 'content_type'),
+            'dingtalk_file_size': payload.get('file_size'),
             'evidence_kind': classification.evidence_kind,
             'evidence_grade': classification.evidence_grade,
             'include_in_daily_sample': classification.include_in_daily_sample,
