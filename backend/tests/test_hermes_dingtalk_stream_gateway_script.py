@@ -8,6 +8,10 @@ import subprocess
 import sys
 
 from app.config import Settings
+from app.models import Base
+from app.models.agent_communication import MultimodalEvidence
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from tests.path_helpers import BACKEND_ROOT
 
 
@@ -38,12 +42,32 @@ def build_settings(**overrides) -> Settings:
     return Settings(**values)
 
 
+def _db_sessionmaker():
+    engine = create_engine('sqlite:///:memory:', future=True)
+    Base.metadata.create_all(bind=engine)
+    return sessionmaker(bind=engine, future=True)
+
+
+def _sample_text_payload() -> dict:
+    return {
+        'data': {
+            'conversationId': 'group-001',
+            'conversationType': 'group',
+            'messageId': 'msg-once-001',
+            'senderStaffId': 'staff-001',
+            'msgtype': 'text',
+            'text': {'content': '今日日报：产量 32 吨'},
+            'businessDate': '2026-07-07',
+        }
+    }
+
+
 def test_build_health_payload_reports_disabled_when_stream_disabled() -> None:
     module = _load_script_module()
 
     payload = module.build_health_payload(runtime_settings=build_settings())
 
-    assert payload == {'status': 'disabled', 'stream_enabled': False}
+    assert payload == {'ok': True, 'enabled': False, 'mode': 'disabled'}
 
 
 def test_main_health_exits_cleanly_when_stream_disabled_without_subprocess() -> None:
@@ -57,21 +81,21 @@ def test_main_health_exits_cleanly_when_stream_disabled_without_subprocess() -> 
     )
 
     assert exit_code == 0
-    assert json.loads(captured.getvalue()) == {'status': 'disabled', 'stream_enabled': False}
+    assert json.loads(captured.getvalue()) == {'ok': True, 'enabled': False, 'mode': 'disabled'}
 
 
-def test_main_without_health_returns_exit_code_2_and_writes_stderr() -> None:
+def test_main_without_health_returns_disabled_health_when_stream_disabled() -> None:
     module = _load_script_module()
-    captured_stderr = StringIO()
+    captured_stdout = StringIO()
 
     exit_code = module.main(
         [],
         runtime_settings=build_settings(),
-        stderr=captured_stderr,
+        stdout=captured_stdout,
     )
 
-    assert exit_code == 2
-    assert 'Stream runtime is not implemented yet' in captured_stderr.getvalue()
+    assert exit_code == 0
+    assert json.loads(captured_stdout.getvalue()) == {'ok': True, 'enabled': False, 'mode': 'disabled'}
 
 
 def test_stream_gateway_health_exits_cleanly_when_stream_disabled() -> None:
@@ -96,7 +120,79 @@ def test_stream_gateway_health_exits_cleanly_when_stream_disabled() -> None:
     )
 
     assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout) == {'status': 'disabled', 'stream_enabled': False}
+    assert json.loads(result.stdout) == {'ok': True, 'enabled': False, 'mode': 'disabled'}
+
+
+def test_once_json_ingests_sample_text_callback(monkeypatch, tmp_path) -> None:
+    module = _load_script_module()
+    Session = _db_sessionmaker()
+    payload_path = tmp_path / 'payload.json'
+    payload_path.write_text(json.dumps(_sample_text_payload(), ensure_ascii=False), encoding='utf-8')
+    captured = StringIO()
+    monkeypatch.setattr(module, 'get_sessionmaker', lambda: Session)
+    monkeypatch.setattr(module.settings, 'DINGTALK_AUTHORIZED_GROUP_IDS', 'group-001', raising=False)
+
+    exit_code = module.main(['--once-json', str(payload_path)], stdout=captured)
+
+    assert exit_code == 0
+    result = json.loads(captured.getvalue())
+    assert result['accepted'] is True
+    assert result['message_text'] is True
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['message_text'] == '今日日报：产量 32 吨'
+    finally:
+        db.close()
+
+
+def test_once_json_dry_run_does_not_write_evidence(tmp_path) -> None:
+    module = _load_script_module()
+    Session = _db_sessionmaker()
+    payload_path = tmp_path / 'payload.json'
+    payload_path.write_text(json.dumps(_sample_text_payload(), ensure_ascii=False), encoding='utf-8')
+    captured = StringIO()
+
+    exit_code = module.main(
+        ['--once-json', str(payload_path), '--dry-run'],
+        runtime_settings=build_settings(DINGTALK_AUTHORIZED_GROUP_IDS='group-001'),
+        stdout=captured,
+    )
+
+    assert exit_code == 0
+    result = json.loads(captured.getvalue())
+    assert result['accepted'] is True
+    assert result['dry_run'] is True
+    assert result['would_write'] is True
+    db = Session()
+    try:
+        assert db.query(MultimodalEvidence).count() == 0
+    finally:
+        db.close()
+
+
+def test_missing_stream_dependency_exits_with_chinese_operator_message(monkeypatch) -> None:
+    module = _load_script_module()
+    captured_stderr = StringIO()
+
+    def missing_sdk():
+        raise ModuleNotFoundError('dingtalk_stream')
+
+    monkeypatch.setattr(module, '_load_dingtalk_stream_sdk', missing_sdk)
+    exit_code = module.main(
+        [],
+        runtime_settings=build_settings(
+            DINGTALK_STREAM_ENABLED=True,
+            DINGTALK_APP_KEY='ding-app-key',
+            DINGTALK_APP_SECRET='super-secret-value',
+            DINGTALK_AUTHORIZED_GROUP_IDS='group-001',
+        ),
+        stderr=captured_stderr,
+    )
+
+    assert exit_code == 2
+    assert '缺少 dingtalk-stream 依赖' in captured_stderr.getvalue()
+    assert 'super-secret-value' not in captured_stderr.getvalue()
 
 
 def test_stream_config_requires_app_credentials_when_enabled() -> None:
