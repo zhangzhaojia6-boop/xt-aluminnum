@@ -307,6 +307,10 @@ class Settings(BaseSettings):
         return {item.strip() for item in self.DINGTALK_AUTHORIZED_GROUP_IDS.split(',') if item.strip()}
 
     @property
+    def dingtalk_all_groups_authorized(self) -> bool:
+        return '*' in self.dingtalk_authorized_group_ids
+
+    @property
     def dingtalk_robot_code(self) -> str:
         return self.DINGTALK_ROBOT_CODE or self.DINGTALK_APP_KEY or ''
 

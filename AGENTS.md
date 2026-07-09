@@ -41,6 +41,7 @@
 - 软件界面收口成大仪表盘：管理端优先围绕 `/manage` 做一个可查来源、可看异常、可追 trace 的大仪表盘，不再随意新开门户。
 - 智能体做加法：在 NousResearch Hermes 基础上增强 Hermes 智能体层，重点增强理解、查证、冲突判断、trace、任务闭环。
 - MES 是外部生产系统和数据库来源，不是本产品名字。涉及 MES 数据时，优先保证 MES 数据库只读读取链路通畅，并验证读取、投影、来源追踪都能跑通。
+- 钉钉 Stream 不再设置硬群边界。生产接入以企业内部应用自身授权范围为边界，`DINGTALK_AUTHORIZED_GROUP_IDS=*` 表示全量接收应用可收到的群/会话事件；仍必须保留来源 trace、conversation/group id、发送人和时间，方便审计。
 
 # AGENTS.md
 

@@ -15,7 +15,7 @@ on:
           - status
           - apply
       authorized_group_ids:
-        description: Optional comma-separated DingTalk openConversationId/conversationId allowlist. Existing production value is reused if blank.
+        description: Optional comma-separated DingTalk openConversationId/conversationId allowlist. Use '*' for all groups in app scope. Existing production value is reused if blank.
         required: false
 
 jobs:
@@ -96,8 +96,13 @@ jobs:
             groups="$(read_env DINGTALK_AUTHORIZED_GROUP_IDS)"
             IFS=',' read -r -a group_parts <<< "$groups"
             group_count=0
+            group_scope="allowlist"
             for item in "${group_parts[@]}"; do
-              if [ -n "$(printf '%s' "$item" | xargs)" ]; then
+              clean_item="$(printf '%s' "$item" | xargs)"
+              if [ "$clean_item" = "*" ]; then
+                group_scope="all"
+              fi
+              if [ -n "$clean_item" ]; then
                 group_count=$((group_count + 1))
               fi
             done
@@ -109,6 +114,7 @@ jobs:
             echo "DINGTALK_APP_SECRET_PRESENT=$([ -n "$app_secret" ] && echo true || echo false)"
             echo "DINGTALK_ROBOT_CODE_PRESENT=$([ -n "$robot_code" ] && echo true || echo false)"
             echo "DINGTALK_AUTHORIZED_GROUP_COUNT=$group_count"
+            echo "DINGTALK_GROUP_SCOPE=$group_scope"
           }
 
           if [ ! -f "$env_file" ]; then

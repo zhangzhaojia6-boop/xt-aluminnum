@@ -141,6 +141,22 @@ def test_unauthorized_group_id_is_rejected_before_persistence() -> None:
         validate_authorized_group(event, {'cid-authorized-001'})
 
 
+def test_wildcard_authorizes_any_group_with_traceable_group_id() -> None:
+    event = normalize_dingtalk_stream_event(
+        {
+            'chatId': 'cid-any-group-001',
+            'senderStaffId': 'staff-any-group-001',
+            'msgtype': 'text',
+            'text': '全量接入时这条消息可以进证据链',
+        }
+    )
+
+    validated = validate_authorized_group(event, {'*'})
+
+    assert validated.group_id == 'cid-any-group-001'
+    assert is_authorized_group('cid-any-group-002', {'*'}) is True
+
+
 def test_stable_trace_id_is_identical_for_the_same_event() -> None:
     event = normalize_dingtalk_stream_event(
         {

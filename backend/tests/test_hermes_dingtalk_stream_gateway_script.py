@@ -123,6 +123,27 @@ def test_stream_gateway_health_exits_cleanly_when_stream_disabled() -> None:
     assert json.loads(result.stdout) == {'ok': True, 'enabled': False, 'mode': 'disabled'}
 
 
+def test_build_health_payload_reports_all_group_scope_for_wildcard() -> None:
+    module = _load_script_module()
+
+    payload = module.build_health_payload(
+        runtime_settings=build_settings(
+            DINGTALK_STREAM_ENABLED=True,
+            DINGTALK_APP_KEY='ding-app-key',
+            DINGTALK_APP_SECRET='ding-app-secret',
+            DINGTALK_AUTHORIZED_GROUP_IDS='*',
+        )
+    )
+
+    assert payload == {
+        'ok': True,
+        'enabled': True,
+        'mode': 'stream',
+        'authorized_group_count': 1,
+        'authorized_group_scope': 'all',
+    }
+
+
 def test_once_json_ingests_sample_text_callback(monkeypatch, tmp_path) -> None:
     module = _load_script_module()
     Session = _db_sessionmaker()

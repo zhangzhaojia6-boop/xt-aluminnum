@@ -32,6 +32,7 @@ def build_health_payload(runtime_settings: Settings = settings) -> dict[str, obj
         'enabled': True,
         'mode': 'stream',
         'authorized_group_count': len(runtime_settings.dingtalk_authorized_group_ids),
+        'authorized_group_scope': 'all' if runtime_settings.dingtalk_all_groups_authorized else 'allowlist',
     }
 
 

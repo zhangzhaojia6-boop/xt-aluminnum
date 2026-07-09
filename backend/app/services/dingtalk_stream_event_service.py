@@ -6,6 +6,9 @@ import json
 from typing import Any, Mapping
 
 
+ALL_GROUPS_MARKER = '*'
+
+
 @dataclass(frozen=True, slots=True)
 class NormalizedDingTalkEvent:
     source: str
@@ -77,7 +80,10 @@ def is_authorized_group(group_id: str, allowed_group_ids: set[str]) -> bool:
     clean_group_id = _clean_text(group_id)
     if not clean_group_id:
         return False
-    return clean_group_id in {_clean_text(item) for item in allowed_group_ids if _clean_text(item)}
+    clean_allowed = {_clean_text(item) for item in allowed_group_ids if _clean_text(item)}
+    if ALL_GROUPS_MARKER in clean_allowed:
+        return True
+    return clean_group_id in clean_allowed
 
 
 def validate_authorized_group(

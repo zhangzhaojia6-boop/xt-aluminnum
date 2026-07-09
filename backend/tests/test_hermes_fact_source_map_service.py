@@ -58,7 +58,7 @@ def test_fact_source_map_loads_core_daily_report_metrics() -> None:
     assert keys == EXPECTED_METRIC_KEYS
 
 
-def test_fact_source_map_requires_dingtalk_evidence_conditions_for_group_content_priority_sources() -> None:
+def test_fact_source_map_uses_enterprise_app_scope_for_group_content_priority_sources() -> None:
     source_map = load_fact_source_map()
 
     dingtalk_group_items = [item for item in source_map if "dingtalk_group_content" in item["priority_sources"]]
@@ -73,7 +73,7 @@ def test_fact_source_map_requires_dingtalk_evidence_conditions_for_group_content
     for item in dingtalk_group_items:
         conditions = item["dingtalk_evidence_conditions"]
         assert set(conditions) == DINGTALK_EVIDENCE_CONDITION_KEYS
-        assert conditions["authorized_group"] == "required"
+        assert conditions["authorized_group"] == "not_required_enterprise_app_scope"
         assert conditions["content_type"] == ["text", "file", "image"]
         assert conditions["time_range"] == "business_day_window"
 

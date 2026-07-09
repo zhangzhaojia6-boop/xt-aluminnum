@@ -5,7 +5,7 @@
     "domain": "production",
     "priority_sources": ["dingtalk_group_content", "MES/WMS readonly", "data_hub_projection", "DailyFactBundle"],
     "dingtalk_evidence_conditions": {
-      "authorized_group": "required",
+      "authorized_group": "not_required_enterprise_app_scope",
       "content_type": ["text", "file", "image"],
       "time_range": "business_day_window"
     },
@@ -38,7 +38,7 @@
     "domain": "inventory",
     "priority_sources": ["dingtalk_group_content", "WMS final document", "data_hub_projection", "DailyFactBundle"],
     "dingtalk_evidence_conditions": {
-      "authorized_group": "required",
+      "authorized_group": "not_required_enterprise_app_scope",
       "content_type": ["text", "file", "image"],
       "time_range": "business_day_window"
     },
@@ -71,7 +71,7 @@
     "domain": "energy",
     "priority_sources": ["dingtalk_group_content", "DailyFactBundle", "data_hub_manual", "iot_energy_future"],
     "dingtalk_evidence_conditions": {
-      "authorized_group": "required",
+      "authorized_group": "not_required_enterprise_app_scope",
       "content_type": ["text", "file", "image"],
       "time_range": "business_day_window"
     },
@@ -90,7 +90,7 @@
     "domain": "energy",
     "priority_sources": ["dingtalk_group_content", "DailyFactBundle", "data_hub_manual"],
     "dingtalk_evidence_conditions": {
-      "authorized_group": "required",
+      "authorized_group": "not_required_enterprise_app_scope",
       "content_type": ["text", "file", "image"],
       "time_range": "business_day_window"
     },
@@ -212,7 +212,7 @@
     "domain": "evidence",
     "priority_sources": ["dingtalk_group_content", "data_quality_issues", "daily_reports", "multimodal_evidence"],
     "dingtalk_evidence_conditions": {
-      "authorized_group": "required",
+      "authorized_group": "not_required_enterprise_app_scope",
       "content_type": ["text", "file", "image"],
       "time_range": "business_day_window"
     },
@@ -227,21 +227,21 @@
     "frontend_pages": ["/manage/alerts", "/manage/today"],
     "hermes_tools": ["dingtalk_evidence", "source_map", "rag_route"],
     "delete_protection": "protect",
-    "known_risks": ["授权群、内容类型、时间范围不全时不能直接当正式事实"],
+    "known_risks": ["内容类型、时间范围、来源 trace 不全时不能直接当正式事实"],
     "verification_status": "已证实"
   },
   {
     "metric_key": "dingtalk_specialist_evidence",
     "display_name": "钉钉专项责任人证据",
     "domain": "evidence",
-    "priority_sources": ["authorized_group", "specialist_sender", "content_type", "time_range"],
+    "priority_sources": ["dingtalk_enterprise_app_scope", "specialist_sender", "content_type", "time_range"],
     "source_tables": ["multimodal_evidence", "chat_inbox", "external_message_logs"],
     "source_services": ["hermes_dingtalk_sampling_service", "agent_multimodal_evidence_service"],
     "api_routes": ["/api/v1/dingtalk/agent-inbound"],
     "frontend_pages": [],
     "hermes_tools": ["dingtalk_evidence", "source_map"],
     "delete_protection": "protect",
-    "known_risks": ["四条件不全时不能当高优先级事实"],
+    "known_risks": ["内容类型、时间范围、责任人线索不全时不能当高优先级事实"],
     "verification_status": "已证实"
   }
 ]

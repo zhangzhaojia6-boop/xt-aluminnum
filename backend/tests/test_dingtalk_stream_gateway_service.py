@@ -146,6 +146,23 @@ def test_unauthorized_event_writes_nothing(monkeypatch) -> None:
         db.close()
 
 
+def test_wildcard_group_scope_writes_message_from_any_group(monkeypatch) -> None:
+    _allow_group(monkeypatch, group_id='*')
+    db = _db_session()
+    try:
+        result = gateway.ingest_dingtalk_stream_event(
+            db,
+            _text_payload(conversationId='group-any-001', text={'content': '全量钉钉事实：入库 10 吨'}),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert result['accepted'] is True
+        assert evidence.payload['group_id'] == 'group-any-001'
+        assert evidence.payload['message_text'] == '全量钉钉事实：入库 10 吨'
+    finally:
+        db.close()
+
+
 def test_duplicate_event_writes_once_and_does_not_redownload(monkeypatch) -> None:
     _allow_group(monkeypatch)
     content = b'field,value\noutput,32\n'
