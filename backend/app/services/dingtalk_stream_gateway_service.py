@@ -66,6 +66,7 @@ def _ingest_text_event(db: Session, event: NormalizedDingTalkEvent) -> dict[str,
         group_id=event.group_id,
         trace_id=event.trace_id,
         recognized_text=text,
+        confirmation_status='specialist_sampled',
     )
     _commit_evidence(db, evidence)
     return _result(
@@ -134,6 +135,7 @@ def _ingest_file_event(
         group_id=event.group_id,
         trace_id=event.trace_id,
         recognized_text=recognized_text,
+        confirmation_status='specialist_sampled',
     )
     _commit_evidence(db, evidence)
 

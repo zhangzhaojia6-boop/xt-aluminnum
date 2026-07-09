@@ -105,6 +105,15 @@ jobs:
                 echo "REPAIRED_MOBILE_DATA_ENTRY_MODE_FOR_MES_DISPLAY"
               fi
             fi
+            echo "INSTALL_BACKEND_REQUIREMENTS"
+            if [ -x backend/.venv/bin/python ]; then
+              backend/.venv/bin/python -m pip install -r backend/requirements.txt
+            else
+              echo "BACKEND_VENV_MISSING"
+              exit 33
+            fi
+            echo "HERMES_GATEWAY_HEALTH"
+            (cd backend && . .venv/bin/activate && python scripts/hermes_dingtalk_stream_gateway.py --health)
             echo "BUILD_FRONTEND"
             if command -v npm >/dev/null 2>&1; then
               (cd frontend && npm ci --no-audit --no-fund && npm run build)

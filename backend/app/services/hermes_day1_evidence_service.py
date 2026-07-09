@@ -104,6 +104,7 @@ def record_day1_dingtalk_evidence(
     group_id: str | None,
     trace_id: str,
     recognized_text: str,
+    confirmation_status: str = 'machine_only',
 ) -> MultimodalEvidence | None:
     file_name = _clean_payload_text(payload, 'fileName', 'file_name')
     raw_file_id = _clean_payload_text(payload, 'mediaId', 'fileId', 'file_id')
@@ -165,7 +166,7 @@ def record_day1_dingtalk_evidence(
         file_uri=f'dingtalk://media/{raw_file_id}' if raw_file_id else None,
         source_user_id=getattr(actor, 'id', None) if actor is not None else None,
         recognized_text=safe_recognized_text,
-        confirmation_status='machine_only',
+        confirmation_status=confirmation_status,
         payload=evidence_payload,
         commit=False,
     )

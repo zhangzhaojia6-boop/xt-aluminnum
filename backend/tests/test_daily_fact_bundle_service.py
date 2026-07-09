@@ -700,6 +700,51 @@ def test_machine_only_dingtalk_daily_report_text_is_not_applied(
     assert bundle["dingtalk_refs"] == []
 
 
+def test_specialist_sampled_dingtalk_daily_report_text_is_applied(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {},
+            "sources": {},
+            "missing_fields": ["total_output_daily"],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            source_user_id=None,
+            recognized_text="6月19日车间总产量日合计371吨，当天在制料1136吨，全厂高压总用电量18420度。",
+            confirmation_status="specialist_sampled",
+            payload={
+                "source": "dingtalk",
+                "channel": "dingtalk_stream",
+                "business_date": "2026-06-19",
+                "trace_id": "stream-msg-001",
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["facts"]["total_output_daily"]["value"] == 371
+    assert bundle["facts"]["total_output_daily"]["source"] == "dingtalk_supplement"
+    assert bundle["facts"]["total_output_daily"]["source_ref"]["source_key"] == "dingtalk_group_content"
+    assert bundle["facts"]["total_output_daily"]["source_ref"]["trace_id"] == "stream-msg-001"
+    assert bundle["missing_fields"] == []
+    assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_output_daily", "wip_total", "total_electricity_kwh"]}]
+
+
 def test_dingtalk_structured_date_mismatch_records_candidate_trace(
     monkeypatch,
     db_session: Session,

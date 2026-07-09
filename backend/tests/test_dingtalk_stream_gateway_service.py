@@ -87,6 +87,7 @@ def test_authorized_text_event_writes_message_text(monkeypatch) -> None:
         assert result['message_text'] is True
         assert result['parse_status'] == 'text_captured'
         assert evidence.evidence_type == 'text'
+        assert evidence.confirmation_status == 'specialist_sampled'
         assert evidence.payload['message_text'] == '今日日报：产量 32 吨'
         assert evidence.payload['business_date'] == '2026-06-28'
         assert evidence.payload['group_id'] == 'group-001'
@@ -120,6 +121,7 @@ def test_authorized_file_event_writes_file_text(monkeypatch) -> None:
         assert result['parse_status'] == 'text_captured'
         assert fake_dingtalk.calls == ['download-code-001']
         assert evidence.evidence_type == 'attachment'
+        assert evidence.confirmation_status == 'specialist_sampled'
         assert evidence.payload['file_text'] == '日期\t产量\n2026-07-07\t32'
         assert evidence.payload['file_hash'] == sha256(content).hexdigest()
         assert evidence.payload['downloadCode_present'] is True
