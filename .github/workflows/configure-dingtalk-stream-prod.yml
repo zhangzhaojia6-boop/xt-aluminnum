@@ -199,6 +199,9 @@ jobs:
           from pathlib import Path
 
           payload = json.loads(Path("/tmp/readyz.json").read_text())
+          if not isinstance(payload, dict):
+              print(json.dumps({"status": payload}, ensure_ascii=False))
+              raise SystemExit(0)
           print(json.dumps({
               "status": payload.get("status"),
               "environment": payload.get("environment"),
