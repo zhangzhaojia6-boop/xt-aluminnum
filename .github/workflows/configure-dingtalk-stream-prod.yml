@@ -1,0 +1,210 @@
+name: Configure DingTalk Stream Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'prod-dingtalk-stream' to confirm production DingTalk Stream configuration
+        required: true
+      mode:
+        description: Check current production config, or apply Stream credentials
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - apply
+      authorized_group_ids:
+        description: Optional comma-separated DingTalk openConversationId/conversationId allowlist. Existing production value is reused if blank.
+        required: false
+
+jobs:
+  configure-dingtalk-stream-production:
+    if: github.event.inputs.confirm == 'prod-dingtalk-stream'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Configure production DingTalk Stream
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          MODE: ${{ github.event.inputs.mode }}
+          AUTHORIZED_GROUP_IDS: ${{ github.event.inputs.authorized_group_ids }}
+          STREAM_APP_KEY: ${{ secrets.PROD_DINGTALK_STREAM_APP_KEY }}
+          STREAM_APP_SECRET: ${{ secrets.PROD_DINGTALK_STREAM_APP_SECRET }}
+          STREAM_ROBOT_CODE: ${{ secrets.PROD_DINGTALK_STREAM_ROBOT_CODE }}
+          STREAM_AGENT_ID: ${{ secrets.PROD_DINGTALK_STREAM_AGENT_ID }}
+          STREAM_APP_ID: ${{ secrets.PROD_DINGTALK_STREAM_APP_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          case "$MODE" in
+            status|apply) ;;
+            *) echo "unsupported mode"; exit 2 ;;
+          esac
+
+          if [ "$MODE" = "apply" ]; then
+            test -n "$STREAM_APP_KEY"
+            test -n "$STREAM_APP_SECRET"
+            test -n "$STREAM_ROBOT_CODE"
+          fi
+
+          b64() {
+            printf '%s' "$1" | base64 -w0
+          }
+
+          AUTHORIZED_GROUP_IDS_B64="$(b64 "$AUTHORIZED_GROUP_IDS")"
+          STREAM_APP_KEY_B64="$(b64 "$STREAM_APP_KEY")"
+          STREAM_APP_SECRET_B64="$(b64 "$STREAM_APP_SECRET")"
+          STREAM_ROBOT_CODE_B64="$(b64 "$STREAM_ROBOT_CODE")"
+          STREAM_AGENT_ID_B64="$(b64 "$STREAM_AGENT_ID")"
+          STREAM_APP_ID_B64="$(b64 "$STREAM_APP_ID")"
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "MODE='$MODE' AUTHORIZED_GROUP_IDS_B64='$AUTHORIZED_GROUP_IDS_B64' STREAM_APP_KEY_B64='$STREAM_APP_KEY_B64' STREAM_APP_SECRET_B64='$STREAM_APP_SECRET_B64' STREAM_ROBOT_CODE_B64='$STREAM_ROBOT_CODE_B64' STREAM_AGENT_ID_B64='$STREAM_AGENT_ID_B64' STREAM_APP_ID_B64='$STREAM_APP_ID_B64' bash -s" <<'REMOTE'
+          set -euo pipefail
+          repo="/srv/aluminum-bypass"
+          env_file="$repo/backend/.env"
+          cd "$repo"
+
+          decode_b64() {
+            printf '%s' "$1" | base64 -d
+          }
+
+          read_env() {
+            if [ ! -f "$env_file" ]; then
+              return 0
+            fi
+            { grep -E "^$1=" "$env_file" || true; } | tail -n 1 | cut -d= -f2- | tr -d '\r'
+          }
+
+          show_state() {
+            stream_enabled="$(read_env DINGTALK_STREAM_ENABLED | tr '[:upper:]' '[:lower:]')"
+            mode_value="$(read_env HERMES_DINGTALK_MODE | tr '[:upper:]' '[:lower:]')"
+            app_key="$(read_env DINGTALK_APP_KEY)"
+            app_secret="$(read_env DINGTALK_APP_SECRET)"
+            robot_code="$(read_env DINGTALK_ROBOT_CODE)"
+            groups="$(read_env DINGTALK_AUTHORIZED_GROUP_IDS)"
+            IFS=',' read -r -a group_parts <<< "$groups"
+            group_count=0
+            for item in "${group_parts[@]}"; do
+              if [ -n "$(printf '%s' "$item" | xargs)" ]; then
+                group_count=$((group_count + 1))
+              fi
+            done
+
+            echo "PROD_HEAD=$(git rev-parse HEAD)"
+            echo "DINGTALK_STREAM_ENABLED=${stream_enabled:-false}"
+            echo "HERMES_DINGTALK_MODE=${mode_value:-unset}"
+            echo "DINGTALK_APP_KEY_PRESENT=$([ -n "$app_key" ] && echo true || echo false)"
+            echo "DINGTALK_APP_SECRET_PRESENT=$([ -n "$app_secret" ] && echo true || echo false)"
+            echo "DINGTALK_ROBOT_CODE_PRESENT=$([ -n "$robot_code" ] && echo true || echo false)"
+            echo "DINGTALK_AUTHORIZED_GROUP_COUNT=$group_count"
+          }
+
+          if [ ! -f "$env_file" ]; then
+            echo "PRODUCTION_ENV_FILE_MISSING=$env_file"
+            exit 40
+          fi
+
+          show_state
+
+          if [ "$MODE" = "apply" ]; then
+            incoming_groups="$(decode_b64 "$AUTHORIZED_GROUP_IDS_B64")"
+            existing_groups="$(read_env DINGTALK_AUTHORIZED_GROUP_IDS)"
+            final_groups="${incoming_groups:-$existing_groups}"
+            if [ -z "$(printf '%s' "$final_groups" | xargs)" ]; then
+              echo "DINGTALK_AUTHORIZED_GROUP_IDS_REQUIRED"
+              exit 41
+            fi
+
+            cp -p "$env_file" "$env_file.backup-dingtalk-stream-$(date +%Y%m%d%H%M%S)"
+
+            export ENV_FILE="$env_file"
+            export DINGTALK_STREAM_ENABLED_VALUE="true"
+            export HERMES_DINGTALK_MODE_VALUE="stream"
+            export DINGTALK_APP_KEY_VALUE="$(decode_b64 "$STREAM_APP_KEY_B64")"
+            export DINGTALK_APP_SECRET_VALUE="$(decode_b64 "$STREAM_APP_SECRET_B64")"
+            export DINGTALK_ROBOT_CODE_VALUE="$(decode_b64 "$STREAM_ROBOT_CODE_B64")"
+            export DINGTALK_AUTHORIZED_GROUP_IDS_VALUE="$final_groups"
+            export DINGTALK_AGENT_ID_VALUE="$(decode_b64 "$STREAM_AGENT_ID_B64")"
+            export DINGTALK_APP_ID_VALUE="$(decode_b64 "$STREAM_APP_ID_B64")"
+
+            python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          path = Path(os.environ["ENV_FILE"])
+          updates = {
+              "DINGTALK_STREAM_ENABLED": os.environ["DINGTALK_STREAM_ENABLED_VALUE"],
+              "HERMES_DINGTALK_MODE": os.environ["HERMES_DINGTALK_MODE_VALUE"],
+              "DINGTALK_APP_KEY": os.environ["DINGTALK_APP_KEY_VALUE"],
+              "DINGTALK_APP_SECRET": os.environ["DINGTALK_APP_SECRET_VALUE"],
+              "DINGTALK_ROBOT_CODE": os.environ["DINGTALK_ROBOT_CODE_VALUE"],
+              "DINGTALK_AUTHORIZED_GROUP_IDS": os.environ["DINGTALK_AUTHORIZED_GROUP_IDS_VALUE"],
+          }
+          optional_updates = {
+              "DINGTALK_AGENT_ID": os.environ.get("DINGTALK_AGENT_ID_VALUE", ""),
+              "DINGTALK_APP_ID": os.environ.get("DINGTALK_APP_ID_VALUE", ""),
+          }
+          for key, value in optional_updates.items():
+              if value:
+                  updates[key] = value
+
+          lines = path.read_text(encoding="utf-8").splitlines()
+          seen: set[str] = set()
+          output: list[str] = []
+          for line in lines:
+              if "=" not in line or line.lstrip().startswith("#"):
+                  output.append(line)
+                  continue
+              key = line.split("=", 1)[0]
+              if key in updates:
+                  output.append(f"{key}={updates[key]}")
+                  seen.add(key)
+              else:
+                  output.append(line)
+          for key, value in updates.items():
+              if key not in seen:
+                  output.append(f"{key}={value}")
+          path.write_text("\n".join(output) + "\n", encoding="utf-8")
+          PY
+
+            echo "UPDATED_PRODUCTION_DINGTALK_STREAM_ENV"
+            show_state
+            echo "HERMES_GATEWAY_HEALTH_BEFORE_RESTART"
+            (cd backend && . .venv/bin/activate && python scripts/hermes_dingtalk_stream_gateway.py --health)
+            echo "RESTART_HERMES_GATEWAY"
+            systemctl restart hermes-gateway
+            sleep 8
+          fi
+
+          echo "HERMES_GATEWAY_SERVICE_STATUS"
+          systemctl is-active hermes-gateway
+          echo "HERMES_GATEWAY_HEALTH"
+          (cd backend && . .venv/bin/activate && python scripts/hermes_dingtalk_stream_gateway.py --health)
+          echo "READYZ"
+          curl -fsS http://127.0.0.1:8000/readyz >/tmp/readyz.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("/tmp/readyz.json").read_text())
+          print(json.dumps({
+              "status": payload.get("status"),
+              "environment": payload.get("environment"),
+              "database": payload.get("checks", {}).get("database", {}).get("status"),
+              "mes_sync": payload.get("checks", {}).get("mes_sync", {}).get("status"),
+              "iot_energy_sync": payload.get("checks", {}).get("iot_energy_sync", {}).get("status"),
+          }, ensure_ascii=False))
+          PY
+          REMOTE
