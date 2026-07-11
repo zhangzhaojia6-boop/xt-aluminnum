@@ -140,7 +140,19 @@ def run_alignment_checks(
                 alignment = bundle.get("output_skill_alignment") or {}
                 fact_closure = bundle.get("fact_closure") or {}
                 alignment_status = str(alignment.get("status") or "missing")
+                reference_only = reference_mode == REFERENCE_MODE_ADOPT or bool(bundle.get("reference_only"))
+                if reference_only:
+                    fact_closure = {
+                        **fact_closure,
+                        "status": "blocked",
+                        "reference_only": True,
+                    }
                 fact_closure_status = str(fact_closure.get("status") or "missing")
+                row_status = _row_status(
+                    alignment_status=alignment_status,
+                    fact_closure_status=fact_closure_status,
+                    reference_only=reference_only,
+                )
                 differences = list(alignment.get("differences") or [])
                 if not full_differences:
                     differences = differences[:20]
@@ -148,10 +160,9 @@ def run_alignment_checks(
                     {
                         "business_date": business_date.isoformat(),
                         "reference_mode": reference_mode,
-                        "status": _row_status(
-                            alignment_status=alignment_status,
-                            fact_closure_status=fact_closure_status,
-                        ),
+                        "reference_only": reference_only,
+                        "real_source_gate_passed": row_status == "passed" and not reference_only,
+                        "status": row_status,
                         "alignment_status": alignment_status,
                         "fact_closure": fact_closure,
                         "bundle_status": bundle.get("status"),
@@ -160,6 +171,7 @@ def run_alignment_checks(
                         "matched_fields": alignment.get("matched_fields"),
                         "expected_fields": alignment.get("expected_fields"),
                         "numeric_tolerance": alignment.get("numeric_tolerance"),
+                        "field_tolerances": alignment.get("field_tolerances") or {},
                         "tolerance_matched_fields": alignment.get("tolerance_matched_fields"),
                         "difference_count": alignment.get("difference_count"),
                         "differences": differences,
@@ -178,6 +190,8 @@ def run_alignment_checks(
                     {
                         "business_date": business_date.isoformat(),
                         "reference_mode": reference_mode,
+                        "reference_only": reference_mode == REFERENCE_MODE_ADOPT,
+                        "real_source_gate_passed": False,
                         "status": "error",
                         "alignment_status": "error",
                         "fact_closure": {},
@@ -187,6 +201,7 @@ def run_alignment_checks(
                         "matched_fields": None,
                         "expected_fields": None,
                         "numeric_tolerance": None,
+                        "field_tolerances": {},
                         "tolerance_matched_fields": None,
                         "difference_count": None,
                         "differences": [],
@@ -221,10 +236,12 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
                 f"- Status: {row.get('status')}",
                 f"- Alignment status: {row.get('alignment_status')}",
                 f"- Reference mode: {row.get('reference_mode')}",
+                f"- Reference only: {bool(row.get('reference_only'))}",
+                f"- Real-source gate passed: {bool(row.get('real_source_gate_passed'))}",
                 f"- Fact closure status: {_fact_closure_status(row)}",
                 f"- Bundle status: {row.get('bundle_status')}",
                 f"- Field match rate: {row.get('field_match_rate')}",
-                f"- Numeric tolerance: {row.get('numeric_tolerance')}",
+                f"- Field tolerances: {row.get('field_tolerances') or {}}",
                 f"- Tolerance matched fields: {row.get('tolerance_matched_fields')}",
                 f"- Exact match: {row.get('exact_match')}",
                 f"- Difference count: {difference_count}",
@@ -460,7 +477,14 @@ def _markdown_cell(value: Any) -> str:
     return str(value).replace("\n", " ").replace("|", "\\|")
 
 
-def _row_status(*, alignment_status: str, fact_closure_status: str) -> str:
+def _row_status(
+    *,
+    alignment_status: str,
+    fact_closure_status: str,
+    reference_only: bool = False,
+) -> str:
+    if reference_only:
+        return "reference_only"
     if alignment_status == "passed" and fact_closure_status == "pass":
         return "passed"
     if alignment_status == "passed":
@@ -469,6 +493,8 @@ def _row_status(*, alignment_status: str, fact_closure_status: str) -> str:
 
 
 def _row_passed(row: dict[str, Any]) -> bool:
+    if row.get("reference_only") or row.get("real_source_gate_passed") is False:
+        return False
     return row.get("status") == "passed" and _fact_closure_status(row) == "pass"
 
 

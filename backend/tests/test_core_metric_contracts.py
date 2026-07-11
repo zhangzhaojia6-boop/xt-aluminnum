@@ -1,4 +1,9 @@
+from dataclasses import FrozenInstanceError
+
+import pytest
+
 from app.core.business_time import OWNER_DAILY_BUSINESS_DAY_START, PRODUCTION_BUSINESS_DAY_START
+from app.domain import metric_contracts
 from app.domain.metric_contracts import CORE_METRIC_CONTRACTS
 from app.services.report import daily_overview_builder
 from app.services.yield_rate_deprecation_map_service import build_yield_rate_deprecation_map
@@ -42,11 +47,11 @@ def test_energy_contract_keeps_machine_detail_as_authoritative_source() -> None:
 def test_factory_output_contract_matches_mes_packaging_basis() -> None:
     contract = CORE_METRIC_CONTRACTS['factory_total_output_tons']
 
-    assert contract['primary_source'] == 'mes_stock_records.net_weight_tons'
-    assert 'mes_workshop_process_records.output_weight_tons' in contract['fallback_source']
-    assert 'packaging_inbound_output_tons' not in contract['fallback_source']
+    assert contract['primary_source'] == 'mes_workshop_process_records.output_weight_tons'
+    assert 'stock' not in contract['primary_source']
+    assert 'stock' not in contract['fallback_source']
     assert contract['business_date_basis'] == 'production_business_date'
-    assert contract['aggregation_rule'] == 'sum_mes_stock_in_to_finished_goods_first'
+    assert contract['aggregation_rule'] == 'sum_mes_packaging_process_output'
     assert set(contract['final_workshop_codes']) == daily_overview_builder.FINAL_PACKAGING_WORKSHOP_CODES
     assert set(contract['final_mes_workshop_names']) == daily_overview_builder.FINAL_PACKAGING_MES_WORKSHOP_NAMES
 
@@ -56,7 +61,98 @@ def test_yield_contract_matches_formal_yield_map() -> None:
     deprecation_map = build_yield_rate_deprecation_map()
 
     assert contract['primary_source'] == deprecation_map['formal_truth']
-    assert contract['aggregation_rule'] == 'formal_matrix_first_runtime_detail_compat'
+    assert contract['fallback_source'] == ''
+    assert 'runtime' not in contract['aggregation_rule']
+
+
+def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> None:
+    daily_report_contract_for = metric_contracts.daily_report_contract_for
+    daily_report_tolerance_for = metric_contracts.daily_report_tolerance_for
+    expected = {
+        'total_output_daily': ('吨', 20.0),
+        'finished_inbound_daily': ('吨', 20.0),
+        'wip_total': ('吨', 20.0),
+        'total_electricity_kwh': ('kWh', 20.0),
+        'daily_yield_rate': ('%', 0.2),
+    }
+    expected_sources = {
+        'total_output_daily': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'mes_packaging_output',
+            'mes_verified',
+        },
+        'finished_inbound_daily': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'finished_inbound_output',
+            'wms_direct',
+            'mes_stock_header_records',
+        },
+        'wip_total': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'mes_wip_distribution',
+            'mes_wip_total_snapshot',
+        },
+        'total_electricity_kwh': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'iot_energy',
+            'owner_daily',
+            'owner_or_energy_summary',
+            'data_hub_manual',
+        },
+        'daily_yield_rate': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'owner_daily',
+            'quality_yield_daily',
+            'computed_same_basis',
+        },
+    }
+
+    assert set(metric_contracts.DAILY_REPORT_METRIC_CONTRACTS) == set(expected)
+    for field, (unit, tolerance) in expected.items():
+        contract = daily_report_contract_for(field)
+        assert contract.unit == unit
+        assert contract.tolerance == tolerance
+        assert isinstance(contract.allowed_source_types, frozenset)
+        assert contract.allowed_source_types == frozenset(expected_sources[field])
+        assert daily_report_tolerance_for(field) == tolerance
+
+    assert all(
+        'dingtalk_confirmed' not in contract.allowed_source_types
+        for contract in metric_contracts.DAILY_REPORT_METRIC_CONTRACTS.values()
+    )
+
+
+def test_daily_report_metric_contracts_prohibit_cross_metric_and_derived_sources() -> None:
+    daily_report_contract_for = metric_contracts.daily_report_contract_for
+    assert 'finished_inbound_output' not in daily_report_contract_for('total_output_daily').allowed_source_types
+    assert 'mes_stock_header_records' not in daily_report_contract_for('total_output_daily').allowed_source_types
+    assert 'mes_stock_header_records' in daily_report_contract_for('finished_inbound_daily').allowed_source_types
+
+    yield_contract = daily_report_contract_for('daily_yield_rate')
+    assert yield_contract.requires_same_business_window is True
+    assert 'computed_same_basis' in yield_contract.allowed_source_types
+    assert {'computed', 'yield_projection', 'mes_feeding_to_finished_inbound'}.isdisjoint(
+        yield_contract.allowed_source_types
+    )
+
+
+def test_daily_report_metric_contract_is_immutable() -> None:
+    contract = metric_contracts.daily_report_contract_for('daily_yield_rate')
+
+    with pytest.raises(FrozenInstanceError):
+        contract.tolerance = 20.0
+
+
+def test_daily_report_metric_contract_unknown_field_behavior() -> None:
+    with pytest.raises(KeyError):
+        metric_contracts.daily_report_contract_for('unknown_metric')
+
+    assert metric_contracts.daily_report_tolerance_for('unknown_metric') == 0.0
 
 
 def test_mes_wip_contract_uses_business_date_and_active_coil_filters() -> None:

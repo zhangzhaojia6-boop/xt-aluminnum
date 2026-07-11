@@ -137,13 +137,13 @@ def test_pseudo_mes_or_wms_source_strings_need_evidence() -> None:
         assert _field_status(closure, "total_output_daily") == "needs_evidence"
 
 
-def test_real_bundle_source_types_confirm_where_intended() -> None:
+def test_real_bundle_source_types_with_per_field_traces_confirm_where_intended() -> None:
     bundle = _confirmed_bundle()
     _set_source(bundle, "total_output_daily", "mes_packaging_output")
     _set_source(bundle, "finished_inbound_daily", "finished_inbound_output")
     _set_source(bundle, "wip_total", "mes_wip_distribution")
     _set_source(bundle, "total_electricity_kwh", "owner_or_energy_summary")
-    _set_source(bundle, "daily_yield_rate", "computed")
+    _set_source(bundle, "daily_yield_rate", "computed_same_basis")
 
     closure = build_daily_report_fact_closure(bundle)
 
@@ -151,21 +151,31 @@ def test_real_bundle_source_types_confirm_where_intended() -> None:
     assert closure["counts"]["confirmed"] == len(CRITICAL_DAILY_FACT_FIELDS)
 
 
-def test_mes_stock_header_records_is_confirmed_for_total_and_finished_inbound() -> None:
+def test_mes_stock_header_records_only_confirms_finished_inbound() -> None:
     bundle = _confirmed_bundle()
     _set_source(bundle, "total_output_daily", "mes_stock_header_records")
     _set_source(bundle, "finished_inbound_daily", "mes_stock_header_records")
 
     closure = build_daily_report_fact_closure(bundle)
 
-    assert closure["status"] == "pass"
-    assert _field_status(closure, "total_output_daily") == "confirmed"
+    assert closure["status"] == "blocked"
+    assert _field_status(closure, "total_output_daily") == "needs_evidence"
     assert _field_status(closure, "finished_inbound_daily") == "confirmed"
 
 
-def test_daily_yield_rate_computed_source_is_confirmed() -> None:
+def test_daily_yield_rate_plain_computed_source_needs_evidence() -> None:
     bundle = _confirmed_bundle()
     _set_source(bundle, "daily_yield_rate", "computed")
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "blocked"
+    assert _field_status(closure, "daily_yield_rate") == "needs_evidence"
+
+
+def test_daily_yield_rate_computed_same_basis_with_field_trace_is_confirmed() -> None:
+    bundle = _confirmed_bundle()
+    _set_source(bundle, "daily_yield_rate", "computed_same_basis")
 
     closure = build_daily_report_fact_closure(bundle)
 
@@ -173,15 +183,56 @@ def test_daily_yield_rate_computed_source_is_confirmed() -> None:
     assert _field_status(closure, "daily_yield_rate") == "confirmed"
 
 
-def test_daily_fact_bundle_source_passes_for_all_critical_fields() -> None:
+def test_derived_and_reference_sources_block_even_with_allowed_source_present() -> None:
+    for source in ("official_daily_report", "datahub_final_daily_report", "daily_fact_bundle"):
+        bundle = _confirmed_bundle()
+        bundle["sources"]["total_output_daily"] = {
+            "source_type": "mes_packaging_output",
+            "source": source,
+            "trace_id": "trace-total-output",
+        }
+
+        closure = build_daily_report_fact_closure(bundle)
+
+        assert closure["status"] == "blocked"
+        assert _field_status(closure, "total_output_daily") == "needs_evidence"
+
+
+def test_derived_source_hidden_in_source_detail_still_blocks() -> None:
     bundle = _confirmed_bundle()
-    for field in CRITICAL_DAILY_FACT_FIELDS:
-        _set_source(bundle, field, "DailyFactBundle")
+    bundle["facts"]["total_output_daily"]["source_detail"] = {
+        "source_type": "official_daily_report"
+    }
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "blocked"
+    assert _field_status(closure, "total_output_daily") == "needs_evidence"
+
+
+def test_field_source_detail_trace_is_accepted() -> None:
+    bundle = _confirmed_bundle()
+    bundle["facts"]["wip_total"].pop("trace_id")
+    bundle["facts"]["wip_total"]["source_detail"] = {"trace_id": "trace-wip-detail"}
 
     closure = build_daily_report_fact_closure(bundle)
 
     assert closure["status"] == "pass"
-    assert closure["counts"]["confirmed"] == len(CRITICAL_DAILY_FACT_FIELDS)
+    wip = next(item for item in closure["critical_fields"] if item["field"] == "wip_total")
+    assert wip["trace_id"] == "trace-wip-detail"
+
+
+def test_bundle_level_trace_does_not_replace_missing_field_trace() -> None:
+    bundle = _confirmed_bundle()
+    bundle["facts"]["wip_total"].pop("trace_id")
+    bundle["sources"]["wip_total"].pop("trace_id", None)
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "blocked"
+    assert _field_status(closure, "wip_total") == "needs_evidence"
+    wip = next(item for item in closure["critical_fields"] if item["field"] == "wip_total")
+    assert wip["trace_id"] is None
 
 
 def test_historical_report_for_daily_yield_rate_needs_evidence() -> None:

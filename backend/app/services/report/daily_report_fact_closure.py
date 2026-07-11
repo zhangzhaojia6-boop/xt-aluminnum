@@ -4,6 +4,7 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Any
 
+from app.domain.metric_contracts import daily_report_contract_for
 from app.services.report.daily_report_gap_analysis import (
     build_daily_report_gap_plan,
     classify_daily_report_field_gap,
@@ -19,68 +20,24 @@ CRITICAL_DAILY_FACT_FIELDS = (
 )
 
 BLOCKING_STATUSES = {"missing", "mismatch", "needs_evidence"}
-WEAK_SOURCE_TYPES = {
+DERIVED_REFERENCE_SOURCE_TYPES = {
+    "official_daily_report",
+    "datahub_final_daily_report",
+    "daily_fact_bundle",
+    "historical_report",
+    "output_skill",
+    "rag",
     "data_hub_projection",
     "yield_projection",
     "contract_projection",
-    "rag",
-    "historical_report",
-    "output_skill",
+    "computed",
     "unknown",
     "missing",
 }
-FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
-    "total_output_daily": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "mes_packaging_output",
-        "mes_stock_header_records",
-    },
-    "finished_inbound_daily": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "finished_inbound_output",
-        "mes_stock_header_records",
-        "wms_direct",
-    },
-    "wip_total": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "mes_wip_distribution",
-        "mes_wip_total_snapshot",
-    },
-    "total_electricity_kwh": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "data_hub_manual",
-        "owner_daily",
-        "owner_or_energy_summary",
-        "manual_mobile_coil",
-        "energy_cost",
-    },
-    "daily_yield_rate": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "computed",
-        "quality_yield_daily",
-    },
-}
+
+
 def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    reference_only = bool(bundle.get("reference_only"))
     facts = _mapping(bundle.get("facts"))
     sources = _mapping(bundle.get("sources"))
     alignment = _mapping(bundle.get("output_skill_alignment"))
@@ -99,21 +56,23 @@ def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]
         source_types = _source_types(fact, sources.get(field))
         source = source_types[0] if source_types else None
         value = _value_for_field(bundle, fact, field)
-        status = _field_status(field, value, source_types, missing_fields, mismatch_fields)
+        trace_id = _trace_id_for_field(fact, sources.get(field))
+        status = _field_status(field, value, source_types, trace_id, missing_fields, mismatch_fields)
         counts[status] += 1
         critical_fields.append(
             {
                 "field": field,
                 "status": status,
                 "source": source,
-                "trace_id": _trace_id_for_field(bundle, fact, sources.get(field)),
+                "trace_id": trace_id,
                 "value": value,
                 "action": action_by_field[field],
             }
         )
 
     return {
-        "status": "blocked" if any(item["status"] in BLOCKING_STATUSES for item in critical_fields) else "pass",
+        "status": "blocked" if reference_only or any(item["status"] in BLOCKING_STATUSES for item in critical_fields) else "pass",
+        "reference_only": reference_only,
         "critical_fields": critical_fields,
         "counts": {status: counts.get(status, 0) for status in ("confirmed", "mismatch", "missing", "needs_evidence")},
     }
@@ -123,6 +82,7 @@ def _field_status(
     field: str,
     value: Any,
     source_types: list[str],
+    trace_id: Any,
     missing_fields: set[str],
     mismatch_fields: set[str],
 ) -> str:
@@ -133,6 +93,8 @@ def _field_status(
     if not _has_value(value) or not source_types:
         return "missing"
     if not _is_allowed_source(field, source_types):
+        return "needs_evidence"
+    if not _has_value(trace_id):
         return "needs_evidence"
     return "confirmed"
 
@@ -206,11 +168,17 @@ def _value_for_field(bundle: Mapping[str, Any], fact: Mapping[str, Any], field: 
 
 def _source_types(fact: Mapping[str, Any], source_detail: Any) -> list[str]:
     source = _mapping(source_detail)
+    fact_detail = _mapping(fact.get("source_detail"))
+    nested_source = _mapping(source.get("source_detail"))
     values = (
         fact.get("source_type"),
         fact.get("source"),
+        fact_detail.get("source_type"),
+        fact_detail.get("source"),
         source.get("source_type"),
         source.get("source"),
+        nested_source.get("source_type"),
+        nested_source.get("source"),
     )
     normalized: list[str] = []
     seen: set[str] = set()
@@ -223,12 +191,12 @@ def _source_types(fact: Mapping[str, Any], source_detail: Any) -> list[str]:
 
 
 def _trace_id_for_field(
-    bundle: Mapping[str, Any],
     fact: Mapping[str, Any],
     source_detail: Any,
 ) -> Any:
     source = _mapping(source_detail)
-    return fact.get("trace_id") or source.get("trace_id") or bundle.get("trace_id")
+    nested_source = _mapping(fact.get("source_detail"))
+    return fact.get("trace_id") or nested_source.get("trace_id") or source.get("trace_id")
 
 
 def _has_value(value: Any) -> bool:
@@ -250,7 +218,7 @@ def _normalize_source_type(value: Any) -> str | None:
 
 
 def _is_allowed_source(field: str, source_types: list[str]) -> bool:
-    if any(source_type in WEAK_SOURCE_TYPES for source_type in source_types):
+    if any(source_type in DERIVED_REFERENCE_SOURCE_TYPES for source_type in source_types):
         return False
-    allowed = FIELD_ALLOWED_SOURCE_TYPES[field]
-    return any(source_type in allowed for source_type in source_types)
+    allowed = daily_report_contract_for(field).allowed_source_types
+    return bool(source_types) and all(source_type in allowed for source_type in source_types)

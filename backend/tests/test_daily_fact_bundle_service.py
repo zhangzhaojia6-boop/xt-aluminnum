@@ -149,7 +149,7 @@ def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Se
     } == EXPECTED_CRITICAL_DAILY_FACT_FIELDS
 
 
-def test_daily_fact_bundle_fact_closure_passes_with_all_critical_fields(
+def test_daily_fact_bundle_fact_closure_blocks_critical_fields_without_per_field_traces(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -169,7 +169,7 @@ def test_daily_fact_bundle_fact_closure_passes_with_all_critical_fields(
                 "finished_inbound_daily": "finished_inbound_output",
                 "wip_total": "mes_wip_distribution",
                 "total_electricity_kwh": "owner_or_energy_summary",
-                "daily_yield_rate": "computed",
+                "daily_yield_rate": "computed_same_basis",
             },
             "missing_fields": [],
             "conflicts": [],
@@ -184,8 +184,8 @@ def test_daily_fact_bundle_fact_closure_passes_with_all_critical_fields(
     bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
 
     closure = bundle["fact_closure"]
-    assert closure["status"] == "pass"
-    assert closure["counts"]["confirmed"] == len(EXPECTED_CRITICAL_DAILY_FACT_FIELDS)
+    assert closure["status"] == "blocked"
+    assert closure["counts"]["needs_evidence"] == len(EXPECTED_CRITICAL_DAILY_FACT_FIELDS)
     assert {
         item["field"]
         for item in closure["critical_fields"]
@@ -317,7 +317,7 @@ def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: 
     assert closure_field["trace_id"] == "trace-root-owner-correction"
 
 
-def test_dingtalk_supplement_can_confirm_critical_field_in_fact_closure(
+def test_dingtalk_supplement_needs_its_own_trace_for_fact_closure(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -376,9 +376,9 @@ def test_dingtalk_supplement_can_confirm_critical_field_in_fact_closure(
     )
 
     closure_field = _fact_closure_field(bundle, "total_electricity_kwh")
-    assert closure_field["status"] == "confirmed"
+    assert closure_field["status"] == "needs_evidence"
     assert closure_field["source"] == "dingtalk_supplement"
-    assert closure_field["trace_id"] == "trace-dingtalk-energy"
+    assert closure_field["trace_id"] is None
 
 
 def test_dingtalk_structured_none_value_does_not_clear_missing_field(
@@ -1608,7 +1608,7 @@ def test_daily_fact_bundle_includes_output_skill_alignment(
     assert bundle["gap_plan"]["status"] == "ready"
 
 
-def test_daily_fact_bundle_adopts_output_skill_reference_in_alignment_mode(
+def test_daily_fact_bundle_output_skill_adoption_stays_blocked_as_reference_only(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -1634,8 +1634,12 @@ def test_daily_fact_bundle_adopts_output_skill_reference_in_alignment_mode(
 
     assert bundle["output_skill_alignment"]["status"] == "passed"
     assert bundle["output_skill_alignment"]["field_match_rate"] == 100.0
+    assert bundle["reference_only"] is True
+    assert bundle["real_source_gate_passed"] is False
     assert bundle["missing_fields"] == []
-    assert bundle["fact_closure"]["status"] == "pass"
+    assert bundle["fact_closure"]["status"] == "blocked"
+    assert bundle["fact_closure"]["reference_only"] is True
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
     assert bundle["facts"]["total_output_daily"]["value"] == 328
     assert bundle["facts"]["total_output_daily"]["source_type"] == "official_daily_report"
     assert bundle["facts"]["total_output_daily"]["source_detail"] == {

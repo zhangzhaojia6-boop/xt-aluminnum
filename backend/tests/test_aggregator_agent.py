@@ -214,8 +214,11 @@ def test_aggregator_converts_confirmed_mobile_coil_aggregate_to_tons(tmp_path, m
         assert len(decisions) == 1
         assert report.report_data["total_output_weight"] == 250.0
         assert report.report_data["total_input_weight"] == 260.0
-        assert report.report_data["yield_rate"] == 96.15
+        assert report.report_data["yield_rate"] is None
+        assert report.report_data["yield_rate_source"] is None
         assert report.report_data["workshops"][0]["output_weight"] == 250.0
+        assert report.report_data["workshops"]
+        assert all(item["yield_rate"] is None for item in report.report_data["workshops"])
         assert "今日产量 250.00 吨" in report.text_summary
     finally:
         db.close()
@@ -284,7 +287,7 @@ def test_aggregator_always_uses_auto_confirmed_scope(monkeypatch) -> None:
     assert db.added[0].generated_scope == "auto_confirmed"
 
 
-def test_aggregator_does_not_promote_unverified_yield_matrix(monkeypatch) -> None:
+def test_aggregator_keeps_formal_yield_unavailable_when_matrix_is_unverified(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.aggregator.settings.AUTO_PUBLISH_ENABLED", False)
     monkeypatch.setattr(
         "app.agents.aggregator.report_service._generate_production_report",
@@ -311,5 +314,7 @@ def test_aggregator_does_not_promote_unverified_yield_matrix(monkeypatch) -> Non
     agent.execute(db=db, target_date=date(2026, 4, 4))
 
     report = db.added[0]
-    assert report.report_data["yield_rate"] == 92.31
-    assert report.report_data["yield_rate_source"] == "runtime_work_order"
+    assert report.report_data["yield_rate"] is None
+    assert report.report_data["yield_rate_source"] is None
+    assert "成材率 暂无正式数据" in report.text_summary
+    assert "92.31" not in report.text_summary

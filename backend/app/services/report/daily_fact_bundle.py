@@ -110,9 +110,11 @@ def build_daily_fact_bundle(
         template_facts=template_facts,
         trace_id=trace_id,
     )
+    reference_only = _should_adopt_output_skill_reference()
+    bundle["reference_only"] = reference_only
     bundle = _apply_dingtalk_supplements(db, bundle=bundle, business_date=business_date)
     output_skill_root = _output_skill_root()
-    if _should_adopt_output_skill_reference():
+    if reference_only:
         bundle = _apply_output_skill_reference(
             bundle,
             output_skill_root=output_skill_root,
@@ -131,6 +133,9 @@ def build_daily_fact_bundle(
         sources=bundle.get("sources") or {},
     )
     bundle["fact_closure"] = build_daily_report_fact_closure(bundle)
+    bundle["real_source_gate_passed"] = (
+        not reference_only and bundle["fact_closure"].get("status") == "pass"
+    )
     if persist_run or snapshot_reason:
         _persist_bundle(
             db,

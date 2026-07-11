@@ -51,6 +51,7 @@ def test_run_alignment_checks_uses_compare_mode_by_default(tmp_path) -> None:
                 "field_match_rate": 100.0,
                 "matched_fields": 130,
                 "expected_fields": 130,
+                "field_tolerances": {"total_output_daily": 20.0, "daily_yield_rate": 0.2},
                 "difference_count": 0,
                 "differences": [],
                 "char_match_rate": 100.0,
@@ -69,10 +70,13 @@ def test_run_alignment_checks_uses_compare_mode_by_default(tmp_path) -> None:
     assert [row["status"] for row in rows] == ["passed", "passed"]
     assert [row["reference_mode"] for row in rows] == ["compare", "compare"]
     assert [row["alignment_status"] for row in rows] == ["passed", "passed"]
+    assert [row["reference_only"] for row in rows] == [False, False]
+    assert [row["real_source_gate_passed"] for row in rows] == [True, True]
     assert rows[0]["fact_closure"]["status"] == "pass"
     assert rows[0]["source_summary"]["source_counts"] == {"mes_packaging_output": 1}
     assert rows[0]["key_fact_sources"]["total_output_daily"]["source_type"] == "mes_packaging_output"
     assert rows[0]["gap_plan"]["status"] == "ready"
+    assert rows[0]["field_tolerances"] == {"total_output_daily": 20.0, "daily_yield_rate": 0.2}
     assert calls == [date(2026, 6, 28), date(2026, 6, 29)]
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
     assert os.environ.get("OUTPUT_SKILL_REFERENCE_MODE") == "adopt"
@@ -112,8 +116,13 @@ def test_run_alignment_checks_can_enable_adopt_mode_explicitly(tmp_path) -> None
         reference_mode="adopt",
     )
 
-    assert rows[0]["status"] == "passed"
+    assert rows[0]["status"] == "reference_only"
     assert rows[0]["reference_mode"] == "adopt"
+    assert rows[0]["reference_only"] is True
+    assert rows[0]["real_source_gate_passed"] is False
+    assert rows[0]["fact_closure"]["status"] == "blocked"
+    assert rows[0]["fact_closure"]["reference_only"] is True
+    assert script.checks_passed(rows) is False
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
     assert os.environ.get("OUTPUT_SKILL_REFERENCE_MODE") == previous_mode
 
@@ -141,6 +150,7 @@ def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> 
             "status": "review_needed",
             "bundle_status": "ready",
             "field_match_rate": 98.5,
+            "field_tolerances": {"total_output_daily": 20.0, "daily_yield_rate": 0.2},
             "exact_match": False,
             "difference_count": 1,
             "missing_fields_count": 1,
@@ -186,6 +196,8 @@ def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> 
     assert "False" in markdown
     assert "Fact closure status: blocked" in markdown
     assert "Reference mode" in markdown
+    assert "Field tolerances" in markdown
+    assert "daily_yield_rate" in markdown
     assert "trace-output" in markdown
     assert "1" in markdown
     assert "total_output_daily" in markdown
@@ -305,6 +317,16 @@ def test_checks_passed_requires_all_rows_passed() -> None:
     ) is False
     assert script.checks_passed([{"status": "passed"}]) is False
     assert script.checks_passed([]) is False
+    assert script.checks_passed(
+        [
+            {
+                "status": "passed",
+                "reference_only": True,
+                "real_source_gate_passed": False,
+                "fact_closure": {"status": "pass"},
+            }
+        ]
+    ) is False
 
 
 def test_run_alignment_checks_blocks_when_fact_closure_is_blocked(tmp_path) -> None:

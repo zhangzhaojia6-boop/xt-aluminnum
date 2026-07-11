@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from app.core.business_time import OWNER_DAILY_BUSINESS_DAY_START, PRODUCTION_BUSINESS_DAY_START
@@ -10,10 +11,10 @@ CORE_METRIC_CONTRACTS: dict[str, dict[str, Any]] = {
         'id': 'factory_total_output_tons',
         'label': '全厂总产量',
         'unit': 't',
-        'primary_source': 'mes_stock_records.net_weight_tons',
-        'fallback_source': 'mes_workshop_process_records.output_weight_tons when stock projection is absent; manual owner daily values are comparison only',
+        'primary_source': 'mes_workshop_process_records.output_weight_tons',
+        'fallback_source': 'manual owner daily values are comparison only',
         'business_date_basis': 'production_business_date',
-        'aggregation_rule': 'sum_mes_stock_in_to_finished_goods_first',
+        'aggregation_rule': 'sum_mes_packaging_process_output',
         'final_workshop_codes': ['JQ', 'JZ', 'LJ'],
         'final_mes_workshop_names': ['精整', '精整车间', '拉矫', '拉矫车间', '园区精整', '园区剪切', '园区剪切车间', '剪切车间'],
         'test_anchor': 'backend/tests/test_core_metric_contracts.py',
@@ -33,9 +34,9 @@ CORE_METRIC_CONTRACTS: dict[str, dict[str, Any]] = {
         'label': '正式成品率',
         'unit': 'ratio',
         'primary_source': 'yield_matrix_lane',
-        'fallback_source': 'runtime output/input only for detail compatibility',
+        'fallback_source': '',
         'business_date_basis': 'production_business_date',
-        'aggregation_rule': 'formal_matrix_first_runtime_detail_compat',
+        'aggregation_rule': 'formal_independent_source_only',
         'test_anchor': 'backend/tests/test_core_metric_contracts.py',
     },
     'production_business_date': {
@@ -78,3 +79,79 @@ CORE_METRIC_CONTRACTS: dict[str, dict[str, Any]] = {
         'test_anchor': 'backend/tests/test_core_metric_contracts.py',
     },
 }
+
+
+@dataclass(frozen=True)
+class DailyReportMetricContract:
+    unit: str
+    tolerance: float
+    allowed_source_types: frozenset[str]
+    requires_same_business_window: bool = False
+
+
+DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
+    'total_output_daily': DailyReportMetricContract(
+        unit='吨',
+        tolerance=20.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'mes_packaging_output',
+            'mes_verified',
+        }),
+    ),
+    'finished_inbound_daily': DailyReportMetricContract(
+        unit='吨',
+        tolerance=20.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'finished_inbound_output',
+            'wms_direct',
+            'mes_stock_header_records',
+        }),
+    ),
+    'wip_total': DailyReportMetricContract(
+        unit='吨',
+        tolerance=20.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'mes_wip_distribution',
+            'mes_wip_total_snapshot',
+        }),
+    ),
+    'total_electricity_kwh': DailyReportMetricContract(
+        unit='kWh',
+        tolerance=20.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'iot_energy',
+            'owner_daily',
+            'owner_or_energy_summary',
+            'data_hub_manual',
+        }),
+    ),
+    'daily_yield_rate': DailyReportMetricContract(
+        unit='%',
+        tolerance=0.2,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+            'owner_daily',
+            'quality_yield_daily',
+            'computed_same_basis',
+        }),
+        requires_same_business_window=True,
+    ),
+}
+
+
+def daily_report_contract_for(field: str) -> DailyReportMetricContract:
+    return DAILY_REPORT_METRIC_CONTRACTS[field]
+
+
+def daily_report_tolerance_for(field: str) -> float:
+    contract = DAILY_REPORT_METRIC_CONTRACTS.get(field)
+    return contract.tolerance if contract is not None else 0.0
