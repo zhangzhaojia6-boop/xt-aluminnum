@@ -40,7 +40,6 @@ BUSINESS_DAY_POLICY = {
     '铸三': '10:00-10:00',
     '热轧': '10:00-10:00',
 }
-YIELD_RATE_SOURCE = 'mes_feeding_to_finished_inbound'
 MES_HOME_REFERENCE_SOURCE_UNAVAILABLE = 'unavailable'
 MES_READ_MODE = 'projection_cache_with_read_only_sqlserver_reconciliation'
 
@@ -311,12 +310,6 @@ def query_finished_inbound_output_by_date(db: Session, start: date, end: date) -
     return {business_date: _round2(total) for business_date, total in totals.items()}
 
 
-def calculate_yield_rate(finished_inbound: float, feeding_input: float) -> float | None:
-    if feeding_input <= 0:
-        return None
-    return round(finished_inbound / feeding_input * 100, 2)
-
-
 def build_factory_feeding_fact(db: Session, *, target_date: date) -> dict[str, Any]:
     month_start = target_date.replace(day=1)
     try:
@@ -409,9 +402,9 @@ def build_factory_production_fact(db: Session, *, target_date: date) -> dict[str
         'factory_packaging_month_to_date_output': _to_float(packaging.get('factory_packaging_month_to_date_output')),
         'factory_finished_inbound_daily_output': daily_inbound,
         'factory_finished_inbound_month_to_date_output': month_inbound,
-        'daily_yield_rate': calculate_yield_rate(daily_inbound, daily_feeding),
-        'month_yield_rate': calculate_yield_rate(month_inbound, month_feeding),
-        'yield_rate_source': YIELD_RATE_SOURCE,
+        'daily_yield_rate': None,
+        'month_yield_rate': None,
+        'yield_rate_source': 'unavailable_requires_same_basis',
         'feeding_daily_delta': None,
         'feeding_month_to_date_delta': None,
         'source_table': FEEDING_SOURCE_TABLE,

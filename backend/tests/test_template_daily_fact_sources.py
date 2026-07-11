@@ -331,24 +331,24 @@ def test_contract_projection_daily_input_fills_cold_roll_input(tmp_path, monkeyp
     assert facts.sources["cold_roll_input_daily"]["source_type"] == "contract_projection"
 
 
-def test_finished_inbound_becomes_template_total_output_when_packaging_diverges(tmp_path, monkeypatch) -> None:
+def test_total_output_stays_packaging_when_finished_inbound_diverges(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
     monkeypatch.setattr(
         template_daily_fact_sources.daily_overview_builder,
         "build_daily_production_overview",
         lambda *_args, **_kwargs: {
             "plant_output": {
-                "daily_output": 197.0,
+                "daily_output": 6.5,
                 "monthly_output": 372.0,
-                "yesterday_output": 175.0,
-                "finished_inbound_output": 222.4,
+                "yesterday_output": 5.0,
+                "finished_inbound_output": 53.24,
                 "finished_inbound_monthly_output": 405.0,
                 "finished_inbound_source": "mes_stock_header_records",
             },
             "contracts": {},
             "yield_rates": {},
             "energy": {},
-            "cost": {"total": 4.0, "cost_per_ton": 203.0, "basis_weight": 197.0},
+            "cost": {"total": 4.0, "cost_per_ton": 203.0, "basis_weight": 6.5},
             "wip_distribution": [],
         },
     )
@@ -366,14 +366,14 @@ def test_finished_inbound_becomes_template_total_output_when_packaging_diverges(
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["total_output_daily"] == 222.4
-    assert facts.values["total_output_month"] == 405.0
-    assert facts.values["total_output_delta"] == 44.8
-    assert facts.sources["total_output_daily"]["source_type"] == "mes_stock_header_records"
-    assert facts.sources["total_output_daily"]["basis"] == "finished_inbound_as_template_total_output"
-    assert facts.values["cost_basis_weight"] == 222.4
-    assert facts.values["cost_per_ton"] == 180.0
-    assert facts.sources["cost_basis_weight"]["source_type"] == "computed"
+    assert facts.values["total_output_daily"] == 6.5
+    assert facts.values["total_output_month"] == 372.0
+    assert facts.values["total_output_delta"] == 1.5
+    assert facts.sources["total_output_daily"]["source_type"] == "mes_packaging_output"
+    assert facts.values["finished_inbound_daily"] == 53.24
+    assert facts.sources["finished_inbound_daily"]["source_type"] == "mes_stock_header_records"
+    assert facts.values["cost_basis_weight"] == 6.5
+    assert facts.values["cost_per_ton"] == 203.0
 
 
 def test_total_output_delta_falls_back_to_previous_packaging_when_overview_yesterday_missing(tmp_path, monkeypatch) -> None:
@@ -417,7 +417,7 @@ def test_total_output_delta_falls_back_to_previous_packaging_when_overview_yeste
     assert facts.sources["total_output_delta"]["source_type"] == "mes_packaging_output"
 
 
-def test_total_output_delta_prefers_previous_inbound_when_current_day_has_inbound(tmp_path, monkeypatch) -> None:
+def test_total_output_delta_prefers_previous_packaging_when_current_day_has_inbound(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
     previous_date = REPORT_DATE - timedelta(days=1)
     monkeypatch.setattr(
@@ -458,7 +458,7 @@ def test_total_output_delta_prefers_previous_inbound_when_current_day_has_inboun
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["total_output_delta"] == -173.0
+    assert facts.values["total_output_delta"] == -111.2
 
 
 def test_owner_daily_keeps_priority_over_datahub_final_daily_report(tmp_path, monkeypatch) -> None:
@@ -1090,6 +1090,28 @@ def test_owner_daily_payload_aliases_fill_template_fields(tmp_path) -> None:
     assert facts.values["daily_yield_rate"] == 84.86
     assert facts.values["hot_roll_furnace_gas_m3"] == 8194
     assert facts.values["cold_roll_input_daily"] == 197
+
+
+def test_template_daily_facts_keep_daily_yield_missing_without_independent_source(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {},
+            "contracts": {},
+            "yield_rates": {"daily": None, "owner_daily": None},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=["daily_yield_rate"])
+
+    assert "daily_yield_rate" not in facts.values
+    assert "daily_yield_rate" in facts.missing_fields
 
 
 def test_owner_recovery_weight_fills_daily_and_month_sum(tmp_path) -> None:

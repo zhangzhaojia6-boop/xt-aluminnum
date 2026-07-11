@@ -849,7 +849,7 @@ def test_workshop_output_maps_park_finishing_to_park_shearing_not_finishing(tmp_
     assert by_name['园区剪切车间']['daily_output'] == 149.98
 
 
-def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> None:
+def test_yield_rates_prefer_explicit_mes_yield_over_mobile_entry_yield(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-mes-yield.db'}", future=True)
     Base.metadata.create_all(
         engine,
@@ -880,6 +880,7 @@ def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> N
                 source_path='sqlserver',
                 feeding_weight_tons=50,
                 in_stock_net_weight_tons=40,
+                yield_rate=80,
                 business_date=date(2026, 5, 28),
             ),
             MesYieldRecord(
@@ -887,7 +888,7 @@ def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> N
                 source_path='sqlserver',
                 feeding_weight_tons=100,
                 in_stock_net_weight_tons=85,
-                yield_rate=10,
+                yield_rate=85,
                 business_date=date(2026, 5, 29),
             ),
         ]
@@ -898,11 +899,40 @@ def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> N
 
     assert payload['daily'] == 85.0
     assert payload['daily_delta'] == 5.0
-    assert payload['monthly'] == 83.33
+    assert payload['monthly'] == 82.5
     assert payload['basis'] == 'mes_yield_records'
 
 
-def test_yield_rates_prefer_mes_algorithm_over_owner_daily_report_when_present(tmp_path) -> None:
+def test_yield_rates_do_not_derive_daily_yield_from_inbound_over_feeding(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-no-inbound-feeding-yield.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            MesYieldRecord.__table__,
+        ],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add(
+        MesYieldRecord(
+            source_id='divergent-inbound-feeding',
+            source_path='sqlserver',
+            feeding_weight_tons=6.5,
+            in_stock_net_weight_tons=53.24,
+            business_date=date(2026, 6, 16),
+        )
+    )
+    db.commit()
+
+    payload = daily_overview_builder._build_yield_rates(db, date(2026, 6, 16))
+
+    assert payload['daily'] is None
+    assert payload['monthly'] is None
+
+
+def test_yield_rates_keep_owner_daily_when_mes_has_only_inbound_and_feeding(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-owner-yield.db'}", future=True)
     Base.metadata.create_all(
         engine,
@@ -948,10 +978,10 @@ def test_yield_rates_prefer_mes_algorithm_over_owner_daily_report_when_present(t
 
     payload = daily_overview_builder._build_yield_rates(db, date(2026, 6, 16))
 
-    assert payload['daily'] == 96.53
-    assert payload['daily_delta'] == 10.29
-    assert payload['monthly'] == 96.53
-    assert payload['basis'] == 'mes_yield_records'
+    assert payload['daily'] == 84.86
+    assert payload['daily_delta'] == -1.38
+    assert payload['monthly'] == 86.0
+    assert payload['basis'] == 'owner_daily_report'
 
 
 def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeypatch) -> None:

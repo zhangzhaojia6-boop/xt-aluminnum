@@ -141,7 +141,7 @@ def test_factory_feeding_rows_use_indexed_date_candidates_before_python_business
     assert any('business_date' in statement or 'event_time' in statement for statement in statements)
 
 
-def test_factory_production_fact_uses_finished_inbound_over_feeding_for_yield(tmp_path) -> None:
+def test_factory_production_fact_does_not_report_yield_from_inbound_over_feeding(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
@@ -172,8 +172,9 @@ def test_factory_production_fact_uses_finished_inbound_over_feeding_for_yield(tm
     assert fact['factory_feeding_daily_input'] == 100.0
     assert fact['factory_packaging_daily_output'] == 66.0
     assert fact['factory_finished_inbound_daily_output'] == 85.0
-    assert fact['daily_yield_rate'] == 85.0
-    assert fact['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
+    assert fact['daily_yield_rate'] is None
+    assert fact['month_yield_rate'] is None
+    assert fact['yield_rate_source'] == 'unavailable_requires_same_basis'
     assert fact['feeding_daily_delta'] is None
     assert fact['feeding_month_to_date_delta'] is None
     assert fact['feeding_source_pages'] == [

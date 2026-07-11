@@ -622,23 +622,13 @@ def _build_yield_rates(db: Session, target_date: date) -> dict:
             )
         except (OperationalError, ProgrammingError):
             return None
-        total_feeding = 0.0
-        total_in_stock = 0.0
-        fallback_rates = []
+        rates = []
         for row in rows:
-            feeding = _to_float(row.feeding_weight_tons)
-            in_stock = _to_float(row.in_stock_net_weight_tons)
-            if feeding > 0 and in_stock >= 0:
-                total_feeding += feeding
-                total_in_stock += in_stock
-                continue
             normalized = normalize_yield(row.yield_rate)
             if normalized is not None:
-                fallback_rates.append(normalized)
-        if total_feeding > 0:
-            return round(total_in_stock / total_feeding * 100, 2)
-        if fallback_rates:
-            return round(sum(fallback_rates) / len(fallback_rates), 2)
+                rates.append(normalized)
+        if rates:
+            return round(sum(rates) / len(rates), 2)
         return None
 
     today_data = _query_input_output_by_workshop(db, target_date, target_date)
