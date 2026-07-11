@@ -2,6 +2,7 @@
 
 import base64
 from datetime import date
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -29,6 +30,7 @@ from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.reports import DailyReport
 from app.models.system import User
 from app.routers import dingtalk as dingtalk_router
+from app.services import dingtalk_service
 from app.services.agent_command_service import AgentCommandError
 from app.services.rag_service import create_document_from_bytes
 
@@ -370,6 +372,151 @@ def test_dingtalk_agent_inbound_promotes_inline_energy_workbook(monkeypatch, tmp
         _restore_db_override(previous_overrides, db)
 
 
+def test_dingtalk_agent_inbound_downloads_top_level_file_secret_without_persisting_it(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=113,
+            username='energy-downloader-top-level',
+            password_hash='x',
+            name='能耗负责人',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-energy-download-top-001',
+            dingtalk_union_id='union-energy-download-top-001',
+        )
+    )
+    db.commit()
+    calls: list[str] = []
+
+    def _fake_download_robot_message_file(*, download_code: str):
+        calls.append(download_code)
+        return dingtalk_service.DingTalkDownloadedFile(
+            download_url_host='files.dingtalk.com',
+            content='日期,产量\n2026-07-07,32\n'.encode('utf-8'),
+            content_type='text/csv',
+            size=24,
+        )
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(
+        'app.routers.dingtalk.dingtalk_service.service.download_robot_message_file',
+        _fake_download_robot_message_file,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-energy-download-top',
+                'conversationType': 'group',
+                'senderStaffId': 'dt-energy-download-top-001',
+                'senderUnionId': 'union-energy-download-top-001',
+                'msgtype': 'file',
+                'fileName': '7月7日产量.csv',
+                'fileId': 'file-top-001',
+                'downloadCode': 'download-top-secret-001',
+                'messageTime': '2026-07-07T08:31:02+08:00',
+                'receivedAt': '2026-07-07T08:31:05+08:00',
+                'traceId': 'trace-dingtalk-file-download-top-001',
+            },
+        )
+
+        assert response.status_code == 200
+        assert calls == ['download-top-secret-001']
+        evidence = db.query(MultimodalEvidence).one()
+        flattened = str(evidence.payload)
+        assert evidence.payload['file_text'] == '日期\t产量\n2026-07-07\t32'
+        assert evidence.payload['dingtalk_message_time'] == '2026-07-07T08:31:02+08:00'
+        assert evidence.payload['dingtalk_received_at'] == '2026-07-07T08:31:05+08:00'
+        assert evidence.payload['download_status'] == 'downloaded'
+        assert evidence.payload['downloadCode_present'] is True
+        assert 'download-top-secret-001' not in flattened
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_uses_nested_download_secret_but_keeps_storage_clean(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=114,
+            username='energy-downloader-nested',
+            password_hash='x',
+            name='能耗负责人',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-energy-download-nested-001',
+            dingtalk_union_id='union-energy-download-nested-001',
+        )
+    )
+    db.commit()
+    calls: list[str] = []
+    signed_url = (
+        'https://files.dingtalk.com/download/report.xlsx'
+        '?access_token=token-raw-001&signature=signature-raw-001'
+        '&downloadCode=download-nested-secret-001&expires=1720681200'
+    )
+
+    def _fake_download_robot_message_file(*, download_code: str):
+        calls.append(download_code)
+        return dingtalk_service.DingTalkDownloadedFile(
+            download_url_host='files.dingtalk.com',
+            content='日期,产量\n2026-07-08,18\n'.encode('utf-8'),
+            content_type='text/csv',
+            size=24,
+        )
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(
+        'app.routers.dingtalk.dingtalk_service.service.download_robot_message_file',
+        _fake_download_robot_message_file,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-energy-download-nested',
+                'conversationType': 'group',
+                'senderStaffId': 'dt-energy-download-nested-001',
+                'senderUnionId': 'union-energy-download-nested-001',
+                'msgtype': 'file',
+                'fileName': '7月8日产量.csv',
+                'fileId': 'file-nested-001',
+                'content': json.dumps(
+                    {
+                        'downloadCode': 'download-nested-secret-001',
+                        'signedUrl': signed_url,
+                    },
+                    ensure_ascii=False,
+                ),
+                'traceId': 'trace-dingtalk-file-download-nested-001',
+            },
+        )
+
+        assert response.status_code == 200
+        assert calls == ['download-nested-secret-001']
+        evidence = db.query(MultimodalEvidence).one()
+        flattened = str(evidence.payload)
+        assert evidence.payload['download_status'] == 'downloaded'
+        for secret in (
+            'download-nested-secret-001',
+            'token-raw-001',
+            'signature-raw-001',
+            signed_url,
+        ):
+            assert secret not in flattened
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
 def test_dingtalk_agent_inbound_keeps_private_channel_when_conversation_id_exists_without_group_type(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add(
@@ -637,6 +784,74 @@ def test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop(monkeypatc
         assert response.json()['detail'] == 'dingtalk_channel_scope_denied'
         assert db.query(ChatInboxMessage).count() == 0
         assert db.query(AgentRun).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop_before_file_download(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add_all([
+        User(
+            id=201,
+            username='cold_director_file_denied',
+            password_hash='x',
+            name='冷轧主任',
+            role='workshop_director',
+            is_manager=True,
+            is_reviewer=True,
+            workshop_id=20,
+            is_active=True,
+            dingtalk_user_id='dt-cold-director-file-denied-001',
+            dingtalk_union_id='union-cold-director-file-denied-001',
+        ),
+        Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+        Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        CommunicationChannel(
+            channel_type='dingtalk_group',
+            channel_key='cid-hot-roll-file',
+            name='热轧附件群',
+            target_type='workshop',
+            target_key='热轧',
+            workshop_id=10,
+            dry_run=True,
+            is_active=True,
+        ),
+    ])
+    db.commit()
+    download_calls: list[str] = []
+
+    def _fake_download_robot_message_file(*, download_code: str):
+        download_calls.append(download_code)
+        raise AssertionError('scope rejection should happen before attachment download')
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(
+        'app.routers.dingtalk.dingtalk_service.service.download_robot_message_file',
+        _fake_download_robot_message_file,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-hot-roll-file',
+                'conversationType': 'group',
+                'senderStaffId': 'dt-cold-director-file-denied-001',
+                'senderUnionId': 'union-cold-director-file-denied-001',
+                'msgtype': 'file',
+                'fileName': '7月9日产量.csv',
+                'fileId': 'file-scope-denied-001',
+                'downloadCode': 'download-scope-denied-001',
+                'traceId': 'trace-dingtalk-file-scope-denied-001',
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'dingtalk_channel_scope_denied'
+        assert download_calls == []
+        assert db.query(MultimodalEvidence).count() == 0
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -1570,6 +1785,153 @@ def test_dingtalk_agent_inbound_duplicate_chat_message_does_not_duplicate_eviden
         assert second.status_code == 200
         assert second.json()['action'] == 'dingtalk-duplicate'
         assert db.query(MultimodalEvidence).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_duplicate_file_callback_downloads_once(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=202,
+            username='manager-dedupe-file-download',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-dedupe-file-download-001',
+            dingtalk_union_id='union-manager-dedupe-file-download-001',
+        )
+    )
+    db.commit()
+    download_calls: list[str] = []
+
+    def _fake_download_robot_message_file(*, download_code: str):
+        download_calls.append(download_code)
+        return dingtalk_service.DingTalkDownloadedFile(
+            download_url_host='files.dingtalk.com',
+            content='日期,产量\n2026-07-09,32\n'.encode('utf-8'),
+            content_type='text/csv',
+            size=24,
+        )
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(
+        'app.routers.dingtalk.dingtalk_service.service.download_robot_message_file',
+        _fake_download_robot_message_file,
+    )
+
+    payload = {
+        'conversationId': 'cid-dedupe-file-download-test',
+        'conversationType': 'group',
+        'senderStaffId': 'dt-manager-dedupe-file-download-001',
+        'senderUnionId': 'union-manager-dedupe-file-download-001',
+        'msgtype': 'file',
+        'fileName': '7月9日产量.csv',
+        'fileId': 'file-dedupe-download-001',
+        'downloadCode': 'download-dedupe-secret-001',
+        'traceId': 'trace-dingtalk-file-download-dedupe-001',
+    }
+
+    try:
+        client = TestClient(app)
+        first = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+        second = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.json()['action'] == 'dingtalk-evidence-recorded'
+        assert second.json()['action'] == 'dingtalk-evidence-duplicate'
+        assert download_calls == ['download-dedupe-secret-001']
+        assert db.query(MultimodalEvidence).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_sanitizes_chat_inbox_source_payload_download_secrets(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=194,
+            username='root-owner-secret-sanitize',
+            password_hash='x',
+            name='root_owner',
+            role='admin',
+            is_active=True,
+            dingtalk_user_id='dt-root-secret-sanitize-001',
+            dingtalk_union_id='union-root-secret-sanitize-001',
+        )
+    )
+    db.commit()
+    signed_url = (
+        'https://files.dingtalk.com/download/report.xlsx'
+        '?access_token=token-chat-001&signature=signature-chat-001'
+        '&downloadCode=download-chat-001&expires=1720681200'
+    )
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DAY1_ENABLED', True, raising=False)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-root-secret-sanitize-001')
+    monkeypatch.setattr(
+        'app.routers.dingtalk.run_day1_super_brain',
+        lambda *_args, **_kwargs: type(
+            'FakeDay1Result',
+            (),
+            {
+                'trace_id': 'trace-dingtalk-chat-secret-001',
+                'status': 'generated',
+                'answer': '日报已生成',
+                'reply_messages': ['日报已生成'],
+                'agent_run_id': 1,
+                'report_id': 1,
+            },
+        )(),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-chat-secret-sanitize',
+                'conversationType': '1',
+                'senderStaffId': 'dt-root-secret-sanitize-001',
+                'senderUnionId': 'union-root-secret-sanitize-001',
+                'text': {'content': '生成 6月19日正式日报'},
+                'msgParam': json.dumps(
+                    {
+                        'downloadCode': 'download-chat-001',
+                        'nested': {'signedUrl': signed_url},
+                    },
+                    ensure_ascii=False,
+                ),
+                'signedUrl': signed_url,
+                'traceId': 'trace-dingtalk-chat-secret-001',
+                'queueOutbox': 'false',
+            },
+        )
+
+        assert response.status_code == 200
+        inbox = db.get(ChatInboxMessage, response.json()['chat_inbox_id'])
+        assert inbox is not None
+        flattened = str(inbox.source_payload)
+        for secret in (
+            'download-chat-001',
+            'token-chat-001',
+            'signature-chat-001',
+            signed_url,
+        ):
+            assert secret not in flattened
     finally:
         _restore_db_override(previous_overrides, db)
 

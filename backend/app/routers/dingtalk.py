@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+import base64
 from typing import Any
 
 import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib import request as urllib_request
 from uuid import uuid4
 
@@ -37,9 +39,14 @@ from app.services.audit_service import log_action
 from app.services import dingtalk_service
 from app.services.agent_command_service import AgentCommandError, handle_agent_command
 from app.services.dingtalk_energy_ingest_service import (
+    EXCEL_SUFFIXES,
+    INLINE_FILE_KEYS,
     ingest_dingtalk_energy_file,
     resolve_dingtalk_energy_business_date,
 )
+from app.services.dingtalk_file_text_extractor import extract_dingtalk_file_text
+from app.services.dingtalk_secret_sanitizer import sanitize_dingtalk_payload_for_storage
+from app.services.dingtalk_stream_event_service import normalize_dingtalk_stream_event
 from app.services.hermes_day1_evidence_service import Day1EvidenceError, record_day1_dingtalk_evidence
 from app.services.hermes_day1_intent_service import (
     Day1CommandParseError,
@@ -342,6 +349,12 @@ def _extract_agent_text(payload: dict[str, Any]) -> str:
         content = _clean_text(text_value.get('content'))
         if content:
             return content
+    parsed_text_value = _coerce_payload_mapping(text_value)
+    if parsed_text_value is not None:
+        content = _clean_text(parsed_text_value.get('content') or parsed_text_value.get('text'))
+        if content:
+            return content
+        return ''
     if isinstance(text_value, str):
         content = _clean_text(text_value)
         if content:
@@ -352,7 +365,28 @@ def _extract_agent_text(payload: dict[str, Any]) -> str:
         content = _clean_text(content_value.get('content') or content_value.get('text'))
         if content:
             return content
+    parsed_content_value = _coerce_payload_mapping(content_value)
+    if parsed_content_value is not None:
+        content = _clean_text(parsed_content_value.get('content') or parsed_content_value.get('text'))
+        if content:
+            return content
+        return ''
     return _clean_text(content_value)
+
+
+def _coerce_payload_mapping(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not (text.startswith('{') and text.endswith('}')):
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def _has_inbound_evidence_payload(payload: dict[str, Any]) -> bool:
@@ -366,18 +400,65 @@ def _has_inbound_evidence_payload(payload: dict[str, Any]) -> bool:
 
 
 def _sanitize_inbound_payload(value: Any) -> Any:
-    if isinstance(value, dict):
-        cleaned: dict[str, Any] = {}
-        for key, item in value.items():
-            key_text = str(key)
-            lowered = key_text.lower()
-            if any(marker in lowered for marker in ('token', 'secret', 'webhook', 'authorization', 'sign')):
-                continue
-            cleaned[key_text] = _sanitize_inbound_payload(item)
-        return cleaned
-    if isinstance(value, list):
-        return [_sanitize_inbound_payload(item) for item in value]
-    return value
+    return sanitize_dingtalk_payload_for_storage(value)
+
+
+def _resolve_inbound_trace_id(payload: dict[str, Any]) -> str:
+    trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId'))
+    if trace_id:
+        return trace_id
+    if _has_inbound_evidence_payload(payload):
+        return normalize_dingtalk_stream_event(payload).trace_id
+    return uuid4().hex
+
+
+def _prepare_attachment_processing_payload(payload: dict[str, Any]) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    normalized = normalize_dingtalk_stream_event(payload)
+    processing_payload = dict(payload)
+    non_secret_updates: dict[str, Any] = {'downloadCode_present': bool(normalized.download_code)}
+
+    if not _is_attachment_candidate_payload(normalized.file_name, normalized.file_id, normalized.download_code):
+        return '', non_secret_updates, processing_payload
+    if _has_inline_file_content(payload):
+        return '', non_secret_updates, processing_payload
+    if not normalized.download_code:
+        non_secret_updates.update({'parse_status': 'download_failed', 'download_status': 'missing_download_code'})
+        return '', non_secret_updates, processing_payload
+
+    try:
+        downloaded = dingtalk_service.service.download_robot_message_file(download_code=normalized.download_code)
+    except Exception:  # noqa: BLE001
+        non_secret_updates.update({'parse_status': 'download_failed', 'download_status': 'download_failed'})
+        return '', non_secret_updates, processing_payload
+
+    file_name = normalized.file_name or _clean_text(_first_payload_value(payload, 'fileName', 'file_name', 'name'))
+    file_text = extract_dingtalk_file_text(
+        file_name or '',
+        downloaded.content,
+        settings.DINGTALK_FILE_TEXT_MAX_BYTES,
+    )
+    non_secret_updates.update(
+        {
+            'file_hash': file_text.content_hash,
+            'parse_status': file_text.status,
+            'text_extract_detail': file_text.detail,
+            'download_status': 'downloaded',
+            'download_url_host': downloaded.download_url_host,
+            'content_type': downloaded.content_type,
+            'file_size': downloaded.size,
+        }
+    )
+    if file_name and Path(file_name).suffix.lower() in EXCEL_SUFFIXES:
+        processing_payload['fileContentBase64'] = base64.b64encode(downloaded.content).decode('ascii')
+    return (file_text.text if file_text.status == 'text_captured' else ''), non_secret_updates, processing_payload
+
+
+def _has_inline_file_content(payload: dict[str, Any]) -> bool:
+    return any(payload.get(key) not in (None, '') for key in INLINE_FILE_KEYS)
+
+
+def _is_attachment_candidate_payload(file_name: str | None, file_id: str | None, download_code: str | None) -> bool:
+    return bool(_clean_text(file_name) or _clean_text(file_id) or _clean_text(download_code))
 
 
 def _parse_inbound_bool(value: Any) -> bool:
@@ -588,7 +669,8 @@ def dingtalk_agent_inbound(
     sender_external_id = _clean_text(
         _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
     )
-    trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId')) or uuid4().hex
+    has_inbound_evidence = _has_inbound_evidence_payload(payload)
+    trace_id = _resolve_inbound_trace_id(payload)
     duplicate = _find_duplicate_inbound_message(db, channel=channel, group_id=group_id, trace_id=trace_id)
     if duplicate is not None:
         return {
@@ -637,6 +719,15 @@ def dingtalk_agent_inbound(
                 'agent_run_id': None,
                 'report_id': None,
             }
+        attachment_text = ''
+        attachment_payload_updates: dict[str, Any] = {}
+        attachment_processing_payload = dict(payload)
+        if has_inbound_evidence:
+            attachment_text, attachment_payload_updates, attachment_processing_payload = _prepare_attachment_processing_payload(
+                payload
+            )
+            if attachment_payload_updates:
+                source_payload = {**source_payload, **attachment_payload_updates}
         try:
             evidence_business_date = resolve_dingtalk_energy_business_date(
                 source_payload,
@@ -650,7 +741,7 @@ def dingtalk_agent_inbound(
                 channel=channel,
                 group_id=group_id or None,
                 trace_id=trace_id,
-                recognized_text='',
+                recognized_text=attachment_text,
             )
             db.commit()
         except Day1EvidenceError as exc:
@@ -658,7 +749,7 @@ def dingtalk_agent_inbound(
             raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
 
         energy_ingest = (
-            ingest_dingtalk_energy_file(db, payload=source_payload, evidence=evidence, trace_id=trace_id)
+            ingest_dingtalk_energy_file(db, payload=attachment_processing_payload, evidence=evidence, trace_id=trace_id)
             if evidence is not None
             else None
         )
@@ -694,6 +785,10 @@ def dingtalk_agent_inbound(
         trace_id=trace_id,
     )
     if evidence_duplicate is None:
+        if has_inbound_evidence:
+            _, attachment_payload_updates, _ = _prepare_attachment_processing_payload(payload)
+            if attachment_payload_updates:
+                source_payload = {**source_payload, **attachment_payload_updates}
         try:
             record_day1_dingtalk_evidence(
                 db,
@@ -859,7 +954,7 @@ def dingtalk_agent_inbound(
                 sender_external_id=sender_external_id or None,
                 current_user=user,
                 trace_id=trace_id or None,
-                source_payload=_sanitize_inbound_payload(payload),
+                source_payload=source_payload,
             )
             db.commit()
         except Exception:
