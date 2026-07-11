@@ -23,8 +23,8 @@
 
 ### aluminum-bypass
 
-- Create: `backend/app/services/report/metric_contracts.py`：五个关键指标的单位、合法来源、容差和必要元数据。
-- Create: `backend/tests/test_metric_contracts.py`：指标合同测试。
+- Modify: `backend/app/domain/metric_contracts.py`：唯一的指标合同来源，包含核心合同和日报合同。
+- Modify: `backend/tests/test_core_metric_contracts.py`：合同规则和不可变行为测试。
 - Modify: `backend/app/services/report/mes_factory_production_fact.py`：移除跨窗口非法成品率。
 - Modify: `backend/app/services/report/template_daily_fact_sources.py`：禁止成品入库替代总产量。
 - Modify: `backend/app/services/report/output_skill_reconciliation.py`：逐字段容差。
@@ -128,9 +128,9 @@ git commit -m "docs: record Hermes runtime baseline"
 
 ## Task 2: 先阻止非法日报数字
 
+> 计划修订：指标合同原先写在 Task 2，执行时发现会与已有 `backend/app/domain/metric_contracts.py` 形成重复真源，已移动到 Task 3。Task 2 只负责阻止非法成品率和入库替代总产量。
+
 **Files:**
-- Create: `backend/app/services/report/metric_contracts.py`
-- Create: `backend/tests/test_metric_contracts.py`
 - Modify: `backend/app/services/report/mes_factory_production_fact.py`
 - Modify: `backend/app/services/report/template_daily_fact_sources.py`
 - Test: `backend/tests/test_mes_factory_production_fact.py`
@@ -275,11 +275,20 @@ Expected: selected tests PASS; production no longer has a code path that derives
 
 ## Task 3: 收紧 compare-only 和逐字段容差
 
+执行注记：`requires_same_business_window` 先作为合同元数据保留；当前实际门禁由 `computed_same_basis` 和字段 trace 共同约束，后续证据统一任务接入具体业务窗口字段后再单独执法。`DERIVED_REFERENCE_SOURCE_TYPES` 负责全局一票否决，日报合同负责字段白名单，两者职责不同。
+
 **Files:**
+- Modify: `backend/app/domain/metric_contracts.py`
+- Modify: `backend/tests/test_core_metric_contracts.py`
 - Modify: `backend/app/services/report/output_skill_reconciliation.py`
 - Modify: `backend/app/services/report/daily_report_fact_closure.py`
+- Modify: `backend/app/services/report/daily_fact_bundle.py`
+- Modify: `backend/app/agents/aggregator.py`
+- Modify: `backend/scripts/check_daily_report_output_skill_alignment.py`
 - Test: `backend/tests/test_output_skill_reconciliation.py`
 - Test: `backend/tests/test_daily_report_fact_closure.py`
+- Test: `backend/tests/test_daily_fact_bundle_service.py`
+- Test: `backend/tests/test_aggregator_agent.py`
 
 - [ ] **Step 1: 写逐字段容差失败测试**
 
@@ -304,13 +313,13 @@ def test_unknown_numeric_field_is_strict_by_default():
 ```python
 from collections.abc import Mapping
 
-from app.services.report.metric_contracts import tolerance_for
+from app.domain.metric_contracts import daily_report_tolerance_for
 
 
 def _field_tolerance(field: str, overrides: Mapping[str, float] | None) -> float:
     if overrides and field in overrides:
         return max(0.0, float(overrides[field]))
-    return tolerance_for(field)
+    return daily_report_tolerance_for(field)
 
 
 def reconcile_field_values(
