@@ -1331,6 +1331,7 @@ def test_dingtalk_agent_inbound_authorized_fact_message_records_evidence_then_ca
         assert seen['text'] == '今日产量 32 吨'
         assert db.query(MultimodalEvidence).count() == 1
         evidence = db.query(MultimodalEvidence).one()
+        assert evidence.confirmation_status == 'machine_only'
         assert evidence.payload['evidence_kind'] == 'fact'
     finally:
         _restore_db_override(previous_overrides, db)
@@ -1397,6 +1398,7 @@ def test_dingtalk_agent_inbound_authorized_noise_message_skips_evidence_and_call
         assert payload['answer'] == 'legacy noise handled'
         assert seen['text'] == '收到，谢谢'
         evidence = db.query(MultimodalEvidence).one()
+        assert evidence.confirmation_status == 'machine_only'
         assert evidence.payload['evidence_kind'] == 'noise'
         assert evidence.payload['include_in_daily_sample'] is False
         assert evidence.payload['metric_write_allowed'] is False

@@ -241,6 +241,21 @@ def test_stream_config_requires_authorized_group_ids_when_enabled() -> None:
     assert 'ding-app-secret' not in issues_text
 
 
+def test_stream_config_accepts_wildcard_group_scope_when_enabled() -> None:
+    settings = build_settings(
+        DINGTALK_STREAM_ENABLED=True,
+        DINGTALK_APP_KEY='ding-app-key',
+        DINGTALK_APP_SECRET='ding-app-secret',
+        DINGTALK_AUTHORIZED_GROUP_IDS='*',
+    )
+
+    issues = settings.validate_runtime()
+
+    assert 'DINGTALK_STREAM_ENABLED requires at least one DINGTALK_AUTHORIZED_GROUP_IDS entry' not in issues
+    assert settings.dingtalk_authorized_group_ids == {'*'}
+    assert settings.dingtalk_all_groups_authorized is True
+
+
 def test_stream_config_rejects_too_small_file_text_limit() -> None:
     settings = build_settings(DINGTALK_FILE_TEXT_MAX_BYTES=1023)
 

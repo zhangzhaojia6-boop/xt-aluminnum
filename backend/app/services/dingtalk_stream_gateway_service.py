@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import base64
+import json
 import logging
 from pathlib import Path
+import re
 from typing import Any, Mapping
+from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.models.agent_communication import MultimodalEvidence
 from app.services.dingtalk_energy_ingest_service import (
     DATE_KEYS,
@@ -23,6 +27,16 @@ from app.services.hermes_day1_evidence_service import record_day1_dingtalk_evide
 
 LOGGER = logging.getLogger(__name__)
 EXCEL_SUFFIXES = {'.xls', '.xlsx', '.xlsm'}
+SENSITIVE_RAW_METADATA_KEYS = {'downloadcode', 'download_code'}
+SENSITIVE_RAW_METADATA_QUERY_KEYS = {'downloadcode', 'download_code', 'access_token', 'signature', 'sign', 'sig'}
+RAW_METADATA_MAX_STRING_LENGTH = 512
+RAW_METADATA_MAX_ITEMS = 25
+RAW_METADATA_MAX_DEPTH = 6
+RAW_METADATA_TRUNCATION_MARKER = '...[truncated]'
+SECRET_PAIR_PATTERN = re.compile(
+    r'(?i)\b(downloadcode|download_code|access_token|signature|sign|sig)\s*[:=]\s*["\']?[^"\'\s,&}]+'
+)
+URL_PATTERN = re.compile(r'https?://[^\s"\'<>]+')
 
 
 def ingest_dingtalk_stream_event(
@@ -54,28 +68,29 @@ def ingest_dingtalk_stream_event(
 
 def _ingest_text_event(db: Session, event: NormalizedDingTalkEvent) -> dict[str, Any]:
     text = str(event.message_text or '').strip()
-    if not text:
-        return _result(event, accepted=False, reason='empty_message_text', parse_status='text_unavailable')
+    parse_status = 'text_captured' if text else 'text_unavailable'
+    evidence_payload = _base_evidence_payload(event, parse_status=parse_status)
 
     evidence = record_day1_dingtalk_evidence(
         db,
-        payload=_base_evidence_payload(event, parse_status='text_captured'),
+        payload=evidence_payload,
         actor=None,
         business_date=_resolve_business_date(event),
         channel=event.channel,
         group_id=event.group_id,
         trace_id=event.trace_id,
         recognized_text=text,
-        confirmation_status='specialist_sampled',
+        confirmation_status='machine_only',
     )
+    _merge_stream_payload(evidence, evidence_payload)
     _commit_evidence(db, evidence)
     return _result(
         event,
         accepted=True,
         duplicate=False,
         evidence_id=getattr(evidence, 'id', None),
-        message_text=True,
-        parse_status='text_captured',
+        message_text=bool(text),
+        parse_status=parse_status,
     )
 
 
@@ -135,8 +150,9 @@ def _ingest_file_event(
         group_id=event.group_id,
         trace_id=event.trace_id,
         recognized_text=recognized_text,
-        confirmation_status='specialist_sampled',
+        confirmation_status='machine_only',
     )
+    _merge_stream_payload(evidence, file_payload)
     _commit_evidence(db, evidence)
 
     energy_result = _maybe_ingest_energy_file(db, file_payload, evidence, event, downloaded)
@@ -179,6 +195,8 @@ def _maybe_ingest_energy_file(
 
 def _base_evidence_payload(event: NormalizedDingTalkEvent, *, parse_status: str) -> dict[str, Any]:
     payload: dict[str, Any] = {
+        'messageId': event.message_id,
+        'message_id': event.message_id,
         'msgtype': event.message_type,
         'messageType': event.message_type,
         'fileName': event.file_name,
@@ -190,8 +208,11 @@ def _base_evidence_payload(event: NormalizedDingTalkEvent, *, parse_status: str)
         'parse_status': parse_status,
         'senderStaffId': event.sender_staff_id,
         'senderUnionId': event.sender_union_id,
+        'eventTime': event.event_time,
+        'event_time': event.event_time,
         'messageTime': event.event_time,
         'msgCreateTime': event.event_time,
+        'raw_metadata': _redacted_raw_metadata(event.raw_payload),
     }
     for key in DATE_KEYS:
         value = event.raw_payload.get(key)
@@ -237,10 +258,102 @@ def _is_file_event(event: NormalizedDingTalkEvent) -> bool:
     return bool(event.file_name or event.file_id or event.download_code)
 
 
+def _redacted_raw_metadata(value: Any, *, depth: int = 0) -> Any:
+    if depth >= RAW_METADATA_MAX_DEPTH:
+        return RAW_METADATA_TRUNCATION_MARKER
+    if isinstance(value, Mapping):
+        filtered = filter_sensitive_mapping(value)
+        sanitized: dict[str, Any] = {}
+        kept = 0
+        for raw_key, item in filtered.items():
+            normalized_key = str(raw_key).strip().lower().replace('-', '_')
+            if normalized_key in SENSITIVE_RAW_METADATA_KEYS:
+                continue
+            if kept >= RAW_METADATA_MAX_ITEMS:
+                sanitized['__truncated__'] = RAW_METADATA_TRUNCATION_MARKER
+                break
+            sanitized[str(raw_key)] = _redacted_raw_metadata(item, depth=depth + 1)
+            kept += 1
+        return sanitized
+    if isinstance(value, (list, tuple, set)):
+        sanitized_items = [_redacted_raw_metadata(item, depth=depth + 1) for item in list(value)[:RAW_METADATA_MAX_ITEMS]]
+        if len(value) > RAW_METADATA_MAX_ITEMS:
+            sanitized_items.append(RAW_METADATA_TRUNCATION_MARKER)
+        return sanitized_items
+    if isinstance(value, str):
+        return _sanitize_raw_metadata_text(value, depth=depth)
+    return value
+
+
+def _sanitize_raw_metadata_text(value: str, *, depth: int) -> Any:
+    parsed = _parse_json_like_text(value)
+    if parsed is not None:
+        return _redacted_raw_metadata(parsed, depth=depth + 1)
+    sanitized = redact_secret_text(value)
+    sanitized = SECRET_PAIR_PATTERN.sub(lambda match: f'{match.group(1)}=<redacted>', sanitized)
+    sanitized = URL_PATTERN.sub(lambda match: _sanitize_signed_url(match.group(0)), sanitized)
+    return _truncate_raw_metadata_string(sanitized)
+
+
+def _parse_json_like_text(value: str) -> Mapping[str, Any] | list[Any] | None:
+    text = str(value or '').strip()
+    if not text:
+        return None
+    if not ((text.startswith('{') and text.endswith('}')) or (text.startswith('[') and text.endswith(']'))):
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, (Mapping, list)):
+        return parsed
+    return None
+
+
+def _sanitize_signed_url(value: str) -> str:
+    try:
+        parts = urlsplit(value)
+    except ValueError:
+        return value
+    if not parts.scheme or not parts.netloc or not parts.query:
+        return value
+    query_pairs = parse_qsl(parts.query, keep_blank_values=True)
+    if not query_pairs:
+        return value
+
+    sanitized_pairs: list[str] = []
+    for key, item in query_pairs:
+        normalized_key = str(key).strip().lower().replace('-', '_')
+        safe_key = quote(str(key), safe='')
+        if normalized_key in SENSITIVE_RAW_METADATA_QUERY_KEYS:
+            sanitized_pairs.append(f'{safe_key}=<redacted>')
+            continue
+        sanitized_pairs.append(f'{safe_key}={quote(str(item), safe="")}')
+
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, '&'.join(sanitized_pairs), parts.fragment))
+
+
+def _truncate_raw_metadata_string(value: str) -> str:
+    if len(value) <= RAW_METADATA_MAX_STRING_LENGTH:
+        return value
+    keep = max(0, RAW_METADATA_MAX_STRING_LENGTH - len(RAW_METADATA_TRUNCATION_MARKER))
+    return f'{value[:keep]}{RAW_METADATA_TRUNCATION_MARKER}'
+
+
 def _commit_evidence(db: Session, evidence: MultimodalEvidence | None) -> None:
     db.commit()
     if evidence is not None:
         db.refresh(evidence)
+
+
+def _merge_stream_payload(evidence: MultimodalEvidence | None, stream_payload: Mapping[str, Any]) -> None:
+    if evidence is None:
+        return
+    payload = dict(evidence.payload) if isinstance(evidence.payload, dict) else {}
+    for key, value in stream_payload.items():
+        if key == 'raw_metadata' or value not in (None, ''):
+            payload[key] = value
+    evidence.payload = payload
 
 
 def _parse_status(evidence: MultimodalEvidence) -> str:

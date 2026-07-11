@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from hashlib import sha256
 from io import BytesIO
+import json
 
 import openpyxl
 from sqlalchemy import create_engine
@@ -87,7 +88,7 @@ def test_authorized_text_event_writes_message_text(monkeypatch) -> None:
         assert result['message_text'] is True
         assert result['parse_status'] == 'text_captured'
         assert evidence.evidence_type == 'text'
-        assert evidence.confirmation_status == 'specialist_sampled'
+        assert evidence.confirmation_status == 'machine_only'
         assert evidence.payload['message_text'] == '今日日报：产量 32 吨'
         assert evidence.payload['business_date'] == '2026-06-28'
         assert evidence.payload['group_id'] == 'group-001'
@@ -121,7 +122,7 @@ def test_authorized_file_event_writes_file_text(monkeypatch) -> None:
         assert result['parse_status'] == 'text_captured'
         assert fake_dingtalk.calls == ['download-code-001']
         assert evidence.evidence_type == 'attachment'
-        assert evidence.confirmation_status == 'specialist_sampled'
+        assert evidence.confirmation_status == 'machine_only'
         assert evidence.payload['file_text'] == '日期\t产量\n2026-07-07\t32'
         assert evidence.payload['file_hash'] == sha256(content).hexdigest()
         assert evidence.payload['downloadCode_present'] is True
@@ -159,6 +160,28 @@ def test_wildcard_group_scope_writes_message_from_any_group(monkeypatch) -> None
         assert result['accepted'] is True
         assert evidence.payload['group_id'] == 'group-any-001'
         assert evidence.payload['message_text'] == '全量钉钉事实：入库 10 吨'
+    finally:
+        db.close()
+
+
+def test_wildcard_scope_keeps_private_conversation_identifier(monkeypatch) -> None:
+    _allow_group(monkeypatch, group_id='*')
+    db = _db_session()
+    try:
+        result = gateway.ingest_dingtalk_stream_event(
+            db,
+            _text_payload(
+                conversationId='cid-private-001',
+                conversationType='private',
+                text={'content': '这是私聊原话，也要留痕'},
+            ),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert result['accepted'] is True
+        assert evidence.payload['channel'] == 'dingtalk_private'
+        assert evidence.payload['group_id'] == 'cid-private-001'
+        assert evidence.payload['message_text'] == '这是私聊原话，也要留痕'
     finally:
         db.close()
 
@@ -235,6 +258,182 @@ def test_unsupported_file_type_writes_parse_status_without_fake_text(monkeypatch
         assert result['parse_status'] == 'unsupported_file_type'
         assert evidence.payload['parse_status'] == 'unsupported_file_type'
         assert 'file_text' not in evidence.payload
+    finally:
+        db.close()
+
+
+def test_unknown_event_type_is_retained_as_metadata_only_evidence(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    db = _db_session()
+    try:
+        result = gateway.ingest_dingtalk_stream_event(
+            db,
+            _text_payload(
+                messageId='msg-unknown-001',
+                msgtype='unknown_event',
+                text=None,
+                content={'status': 'opaque'},
+                rawNote='token=abc123',
+            ),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert result['accepted'] is True
+        assert result['message_text'] is False
+        assert result['file_text'] is False
+        assert result['parse_status'] == 'text_unavailable'
+        assert evidence.confirmation_status == 'machine_only'
+        assert evidence.recognized_text is None
+        assert evidence.payload['parse_status'] == 'text_unavailable'
+        assert evidence.payload['messageType'] == 'unknown_event'
+        assert evidence.payload['raw_metadata']['rawNote'] == 'token=<redacted>'
+        assert evidence.payload['raw_metadata']['content']['status'] == 'opaque'
+        assert 'message_text' not in evidence.payload
+        assert 'file_text' not in evidence.payload
+    finally:
+        db.close()
+
+
+def test_stringified_msg_param_metadata_redacts_embedded_download_secrets(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    signed_url = (
+        'https://files.dingtalk.com/download/report.xlsx'
+        '?access_token=token-raw-001&signature=signature-raw-001'
+        '&downloadCode=download-raw-001&expires=1720681200'
+    )
+    db = _db_session()
+    try:
+        result = gateway.ingest_dingtalk_stream_event(
+            db,
+            _text_payload(
+                messageId='msg-stringified-secret-001',
+                text=None,
+                msgParam=json.dumps(
+                    {
+                        'content': '字符串 JSON 里的原话要留，secret 不能留',
+                        'downloadCode': 'download-secret-001',
+                        'nested': {
+                            'download_code': 'download-secret-002',
+                            'signedUrl': signed_url,
+                        },
+                    },
+                    ensure_ascii=False,
+                ),
+            ),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        raw_metadata = evidence.payload['raw_metadata']
+        flattened = str(raw_metadata)
+        assert result['accepted'] is True
+        assert result['message_text'] is True
+        assert raw_metadata['msgParam']['content'] == '字符串 JSON 里的原话要留，secret 不能留'
+        assert raw_metadata['msgParam']['nested']['signedUrl'].startswith(
+            'https://files.dingtalk.com/download/report.xlsx?'
+        )
+        assert 'expires=1720681200' in raw_metadata['msgParam']['nested']['signedUrl']
+        assert 'access_token=<redacted>' in raw_metadata['msgParam']['nested']['signedUrl']
+        assert 'signature=<redacted>' in raw_metadata['msgParam']['nested']['signedUrl']
+        assert 'downloadCode=<redacted>' in raw_metadata['msgParam']['nested']['signedUrl']
+        for secret in (
+            'download-secret-001',
+            'download-secret-002',
+            'token-raw-001',
+            'signature-raw-001',
+            'download-raw-001',
+            signed_url,
+        ):
+            assert secret not in flattened
+    finally:
+        db.close()
+
+
+def test_raw_metadata_redacts_signed_download_urls_inside_plain_strings(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    signed_url = (
+        'https://files.dingtalk.com/download/report.xlsx'
+        '?access_token=token-plain-001&signature=signature-plain-001'
+        '&downloadCode=download-plain-001&expires=1720681200'
+    )
+    db = _db_session()
+    try:
+        gateway.ingest_dingtalk_stream_event(
+            db,
+            _text_payload(
+                messageId='msg-plain-signed-url-001',
+                text={'content': '明文 URL 也不能把签名带进库'},
+                signedUrl=signed_url,
+                rawLinks=[
+                    signed_url,
+                    {'previewUrl': signed_url, 'name': '日报附件'},
+                ],
+            ),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        raw_metadata = evidence.payload['raw_metadata']
+        flattened = str(raw_metadata)
+        assert raw_metadata['signedUrl'].startswith('https://files.dingtalk.com/download/report.xlsx?')
+        assert 'expires=1720681200' in raw_metadata['signedUrl']
+        assert 'access_token=<redacted>' in raw_metadata['signedUrl']
+        assert 'signature=<redacted>' in raw_metadata['signedUrl']
+        assert 'downloadCode=<redacted>' in raw_metadata['signedUrl']
+        assert raw_metadata['rawLinks'][1]['previewUrl'].startswith(
+            'https://files.dingtalk.com/download/report.xlsx?'
+        )
+        for secret in (
+            'token-plain-001',
+            'signature-plain-001',
+            'download-plain-001',
+            signed_url,
+        ):
+            assert secret not in flattened
+    finally:
+        db.close()
+
+
+def test_raw_metadata_is_bounded_and_marks_truncation_for_oversized_payload(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    oversized_text = '原始元数据' * 300
+    nested = {'leaf': '最深层文本'}
+    for level in range(gateway.RAW_METADATA_MAX_DEPTH + 3):
+        nested = {f'level_{level}': nested}
+    db = _db_session()
+    try:
+        result = gateway.ingest_dingtalk_stream_event(
+            db,
+            _text_payload(
+                messageId='msg-raw-cap-001',
+                msgtype='unknown_event',
+                text=None,
+                rawBlob=oversized_text,
+                rawItems=[{'idx': index, 'note': oversized_text} for index in range(gateway.RAW_METADATA_MAX_ITEMS + 5)],
+                msgParam=json.dumps(
+                    {
+                        'content': oversized_text,
+                        'deep': nested,
+                    },
+                    ensure_ascii=False,
+                ),
+            ),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        raw_metadata = evidence.payload['raw_metadata']
+        assert result['accepted'] is True
+        assert evidence.payload['trace_id'] == 'msg-raw-cap-001'
+        assert evidence.payload['messageType'] == 'unknown_event'
+        assert evidence.payload['group_id'] == 'group-001'
+        assert evidence.payload['senderStaffId'] == 'staff-001'
+        assert evidence.payload['eventTime'] == '2026-06-28T08:30:00+08:00'
+        assert len(raw_metadata['rawBlob']) <= gateway.RAW_METADATA_MAX_STRING_LENGTH + len(
+            gateway.RAW_METADATA_TRUNCATION_MARKER
+        )
+        assert raw_metadata['rawBlob'].endswith(gateway.RAW_METADATA_TRUNCATION_MARKER)
+        assert raw_metadata['msgParam']['content'].endswith(gateway.RAW_METADATA_TRUNCATION_MARKER)
+        assert len(raw_metadata['rawItems']) == gateway.RAW_METADATA_MAX_ITEMS + 1
+        assert raw_metadata['rawItems'][-1] == gateway.RAW_METADATA_TRUNCATION_MARKER
+        assert gateway.RAW_METADATA_TRUNCATION_MARKER in str(raw_metadata['msgParam']['deep'])
     finally:
         db.close()
 
