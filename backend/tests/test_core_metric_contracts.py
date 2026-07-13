@@ -73,6 +73,7 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'finished_inbound_daily': ('吨', 20.0),
         'wip_total': ('吨', 20.0),
         'total_electricity_kwh': ('kWh', 20.0),
+        'electricity_per_ton': ('kWh/吨', 0.2),
         'daily_yield_rate': ('%', 0.2),
     }
     expected_sources = {
@@ -105,6 +106,9 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'owner_daily',
             'owner_or_energy_summary',
             'data_hub_manual',
+        },
+        'electricity_per_ton': {
+            'dingtalk_supplement',
         },
         'daily_yield_rate': {
             'dingtalk_supplement',
@@ -161,6 +165,149 @@ def test_daily_report_metric_contract_unknown_field_behavior() -> None:
         metric_contracts.daily_report_contract_for('unknown_metric')
 
     assert metric_contracts.daily_report_tolerance_for('unknown_metric') == 0.0
+
+
+def test_fact_source_contracts_reuse_projection_truth_and_control_identity_pairs() -> None:
+    contract_lookup = getattr(metric_contracts, 'fact_source_contract_for', None)
+    failure_reason = getattr(metric_contracts, 'fact_source_failure_reason', None)
+
+    assert callable(contract_lookup)
+    assert callable(failure_reason)
+
+    from app.services.report.daily_fact_evidence_contracts import (
+        PROJECTION_FACT_CONTRACTS,
+        PROJECTION_METRIC_CONTRACT_VERSION,
+        SOURCE_TABLE_BY_TYPE,
+    )
+
+    projection = PROJECTION_FACT_CONTRACTS['total_output_daily']
+    assert metric_contracts.DAILY_REPORT_METRIC_CONTRACT_VERSION == PROJECTION_METRIC_CONTRACT_VERSION
+    source_contract = contract_lookup('total_output_daily', 'mes_packaging_output')
+    assert source_contract is not None
+    assert source_contract.source_ref_identity == projection.source_ref
+    assert source_contract.source_keys == frozenset({'mes_readonly', 'data_hub_projection'})
+
+    valid_ref = {
+        'source_ref': projection.source_ref,
+        'source_table': SOURCE_TABLE_BY_TYPE['mes_packaging_output'],
+        'business_window': '2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00',
+        'unit': projection.expected_unit,
+        'metric_contract_version': projection.metric_contract_version,
+        'row_count': 2,
+        'latest_row_id': 41,
+        'trace_id': f'projection-read:{projection.source_ref}:41:2',
+    }
+    assert failure_reason(
+        'total_output_daily',
+        source_key='mes_readonly',
+        source_type='mes_packaging_output',
+        source_ref=valid_ref,
+        trace_id=valid_ref['trace_id'],
+    ) is None
+    assert 'source_key' in failure_reason(
+        'total_output_daily',
+        source_key='invented_anything',
+        source_type='mes_packaging_output',
+        source_ref=valid_ref,
+        trace_id=valid_ref['trace_id'],
+    )
+    assert 'source_ref' in failure_reason(
+        'total_output_daily',
+        source_key='mes_readonly',
+        source_type='mes_packaging_output',
+        source_ref={**valid_ref, 'source_ref': 'totally_fake_ref'},
+        trace_id=valid_ref['trace_id'],
+    )
+    assert 'source_ref' in failure_reason(
+        'total_output_daily',
+        source_key='mes_readonly',
+        source_type='mes_packaging_output',
+        source_ref={**valid_ref, 'source_table': 'totally_fake_table'},
+        trace_id=valid_ref['trace_id'],
+    )
+    assert 'trace_id' in failure_reason(
+        'total_output_daily',
+        source_key='mes_readonly',
+        source_type='mes_packaging_output',
+        source_ref={**valid_ref, 'latest_row_id': 42},
+        trace_id=valid_ref['trace_id'],
+    )
+
+
+def test_dingtalk_fact_source_contract_requires_persisted_evidence_anchor() -> None:
+    failure_reason = getattr(metric_contracts, 'fact_source_failure_reason', None)
+    assert callable(failure_reason)
+
+    valid_ref = {
+        'source_key': 'dingtalk_group_content',
+        'evidence_id': 17,
+        'trace_id': 'dingtalk-evidence-trace-17',
+        'business_date': '2026-06-27',
+    }
+    assert failure_reason(
+        'total_electricity_kwh',
+        source_key='dingtalk_group_content',
+        source_type='dingtalk_supplement',
+        source_ref=valid_ref,
+        trace_id='dingtalk-evidence-trace-17',
+    ) is None
+    assert 'source_ref' in failure_reason(
+        'total_electricity_kwh',
+        source_key='dingtalk_group_content',
+        source_type='dingtalk_supplement',
+        source_ref={'source_key': 'dingtalk_group_content', 'trace_id': 'trace-only'},
+        trace_id='trace-only',
+    )
+    assert 'source_key' in failure_reason(
+        'total_electricity_kwh',
+        source_key='dingtalk_group_file',
+        source_type='dingtalk_supplement',
+        source_ref=valid_ref,
+        trace_id='dingtalk-evidence-trace-17',
+    )
+
+
+def test_electricity_per_ton_contract_requires_persisted_numerator_and_denominator() -> None:
+    contract = metric_contracts.daily_report_contract_for('electricity_per_ton')
+    assert contract.unit == 'kWh/吨'
+    assert contract.requires_same_business_window is True
+
+    valid_ref = {
+        'source_key': 'dingtalk_group_content',
+        'evidence_id': 31,
+        'trace_id': 'dingtalk-evidence-trace-31',
+        'business_date': '2026-06-27',
+        'numerator_field': 'total_electricity_kwh',
+        'numerator_evidence_id': 31,
+        'denominator_field': 'total_output_daily',
+        'denominator_evidence_id': 32,
+    }
+    assert metric_contracts.fact_source_failure_reason(
+        'electricity_per_ton',
+        source_key='dingtalk_group_content',
+        source_type='dingtalk_supplement',
+        source_ref=valid_ref,
+        trace_id=valid_ref['trace_id'],
+    ) is None
+
+    for key in ('numerator_evidence_id', 'denominator_evidence_id'):
+        invalid_ref = {**valid_ref, key: None}
+        assert key in metric_contracts.fact_source_failure_reason(
+            'electricity_per_ton',
+            source_key='dingtalk_group_content',
+            source_type='dingtalk_supplement',
+            source_ref=invalid_ref,
+            trace_id=valid_ref['trace_id'],
+        )
+
+    invalid_basis = {**valid_ref, 'denominator_field': 'finished_inbound_daily'}
+    assert 'denominator_field' in metric_contracts.fact_source_failure_reason(
+        'electricity_per_ton',
+        source_key='dingtalk_group_content',
+        source_type='dingtalk_supplement',
+        source_ref=invalid_basis,
+        trace_id=valid_ref['trace_id'],
+    )
 
 
 def test_mes_wip_contract_uses_business_date_and_active_coil_filters() -> None:

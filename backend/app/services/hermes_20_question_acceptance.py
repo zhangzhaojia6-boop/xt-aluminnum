@@ -5,11 +5,9 @@ from dataclasses import asdict, dataclass, field as dataclass_field
 from datetime import date, datetime
 from typing import Any, Mapping, Sequence
 
-from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACTS
-from app.services.report.daily_fact_evidence_contracts import (
-    PROJECTION_FACT_CONTRACTS,
-    PROJECTION_METRIC_CONTRACT_VERSION,
-    WIP_PROJECTION_FACT_CONTRACTS,
+from app.domain.metric_contracts import (
+    DAILY_REPORT_METRIC_CONTRACTS,
+    fact_source_failure_reason,
 )
 
 
@@ -22,6 +20,12 @@ class HermesAcceptanceQuestion:
     requires_mes: bool
     requires_dingtalk: bool
     status_hint: str = "confirmed"
+    utterance: str | None = None
+    follow_up_utterances: tuple[str, ...] = ()
+
+    @property
+    def execution_utterances(self) -> tuple[str, ...]:
+        return (self.utterance or self.question, *self.follow_up_utterances)
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,7 +165,6 @@ _FIELD_UNIT_CONTRACTS = {
     "workshop_output_daily": "吨",
     "daily_input_weight": "吨",
     "total_gas_m3": "m³",
-    "electricity_per_ton": "kWh/吨",
     "cost_per_ton": "元/吨",
     "remaining_contract_weight": "吨",
     "monthly_total_output": "吨",
@@ -197,14 +200,14 @@ _NON_LANGUAGE_TOKENS = (
 
 def build_20_question_catalog() -> tuple[HermesAcceptanceQuestion, ...]:
     return (
-        HermesAcceptanceQuestion(1, "昨天一共出了多少？", ("total_output_daily",), "production", True, True),
+        HermesAcceptanceQuestion(1, "今天全厂总产量是多少？", ("total_output_daily",), "production", True, True, utterance="昨天一共出了多少？"),
         HermesAcceptanceQuestion(2, "今天各车间产量分别是多少？", ("workshop_output_daily",), "production", True, False),
-        HermesAcceptanceQuestion(3, "那入库呢？", ("finished_inbound_daily",), "inventory", True, True),
+        HermesAcceptanceQuestion(3, "今天成品入库多少？", ("finished_inbound_daily",), "inventory", True, True, utterance="那入库呢？"),
         HermesAcceptanceQuestion(4, "今天投料量是多少？", ("daily_input_weight",), "production", True, False),
-        HermesAcceptanceQuestion(5, "电用了多少度，和群文件对得上吗", ("total_electricity_kwh",), "energy", False, True),
+        HermesAcceptanceQuestion(5, "今天高压总用电量是多少？", ("total_electricity_kwh",), "energy", False, True, utterance="电用了多少度，和群文件对得上吗"),
         HermesAcceptanceQuestion(6, "今天全厂用气量是多少？", ("total_gas_m3",), "energy", False, True),
         HermesAcceptanceQuestion(7, "今天吨电耗是多少？分母是什么？", ("electricity_per_ton",), "energy", True, False),
-        HermesAcceptanceQuestion(8, "成品率咋这么高，帮我查下是不是口径错了", ("daily_yield_rate",), "quality", True, False, "candidate"),
+        HermesAcceptanceQuestion(8, "今天成品率是多少？分子分母是什么？", ("daily_yield_rate",), "quality", True, False, "candidate", utterance="成品率咋这么高，帮我查下是不是口径错了"),
         HermesAcceptanceQuestion(9, "今天成本折算元/吨是多少？", ("cost_per_ton",), "cost", False, False),
         HermesAcceptanceQuestion(10, "今天在制料是多少？", ("wip_total",), "production", True, False, "candidate"),
         HermesAcceptanceQuestion(11, "现在总余合同量是多少？", ("remaining_contract_weight",), "operations", True, False, "candidate"),
@@ -214,8 +217,8 @@ def build_20_question_catalog() -> tuple[HermesAcceptanceQuestion, ...]:
         HermesAcceptanceQuestion(15, "哪些数字来自专项责任人钉钉证据？", ("dingtalk_specialist_evidence",), "evidence", False, True),
         HermesAcceptanceQuestion(16, "今天哪个关键数字最不可信？", ("source_status",), "anomaly", False, True, "candidate"),
         HermesAcceptanceQuestion(17, "产量和入库为什么对不上？", ("total_output_daily", "finished_inbound_daily"), "anomaly", True, True, "conflict"),
-        HermesAcceptanceQuestion(18, "电耗升高可能由什么造成？", ("electricity_per_ton", "anomaly_explanation_daily"), "energy", True, True, "candidate"),
-        HermesAcceptanceQuestion(19, "接着上一个问题，把证据编号给我", ("electricity_per_ton", "anomaly_explanation_daily"), "energy", True, True),
+        HermesAcceptanceQuestion(18, "电耗升高可能由什么造成？", ("electricity_per_ton", "anomaly_explanation_daily"), "energy", True, True, "candidate", follow_up_utterances=("接着上一个问题，把证据编号给我",)),
+        HermesAcceptanceQuestion(19, "哪些指标缺少正式来源？", ("source_status",), "anomaly", False, True, "missing"),
         HermesAcceptanceQuestion(20, "今天日报能不能自动生成？还缺什么？", ("daily_report_readiness",), "factory_overview", True, True, "candidate"),
     )
 
@@ -355,39 +358,48 @@ def _confirmed_failure_reason(answer: Mapping[str, Any]) -> str | None:
     if not source_key or _contains_disallowed_source_marker(source_key):
         return "source_key_missing_or_disallowed"
     source_type = _normalized_source(answer.get("source_type"))
-    if (
-        source_type not in contract.allowed_source_types
-        or _contains_disallowed_source_marker(source_type)
-    ):
+    if _contains_disallowed_source_marker(source_type):
         return "source_type_missing_or_not_allowed"
     source_ref = answer.get("source_ref")
     if _value_is_empty(source_ref) or _contains_disallowed_source_marker(source_ref):
         return "source_ref_missing_or_disallowed"
-    if not _source_ref_matches_contract(field_name, source_type, source_ref):
-        return "source_ref_contract_mismatch"
-    if not str(answer.get("trace_id") or "").strip():
+    trace_id = str(answer.get("trace_id") or "").strip()
+    if not trace_id:
         return "trace_id_missing"
     business_date = str(answer.get("business_date") or "").strip()
+    business_window = str(answer.get("business_window") or "").strip()
+    unit = str(answer.get("unit") or "").strip()
+    metric_contract_version = str(answer.get("metric_contract_version") or "").strip()
+    source_failure = fact_source_failure_reason(
+        field_name,
+        source_key=source_key,
+        source_type=source_type,
+        source_ref=source_ref,
+        trace_id=trace_id,
+        business_date=business_date,
+        business_window=business_window,
+        unit=unit,
+        metric_contract_version=metric_contract_version,
+    )
+    if source_failure is not None:
+        return source_failure
     if not business_date:
         return "business_date_missing"
     try:
         date.fromisoformat(business_date)
     except ValueError:
         return "business_date_invalid"
-    business_window = str(answer.get("business_window") or "").strip()
     if not business_window:
         return "business_window_missing"
     if not _business_window_matches_date(business_date, business_window):
         return "business_window_contract_mismatch"
-    unit = str(answer.get("unit") or "").strip()
     if not unit:
         return "unit_missing"
     if not _unit_matches_field(field_name, unit):
         return "unit_field_contract_mismatch"
-    metric_contract_version = str(answer.get("metric_contract_version") or "").strip()
     if not metric_contract_version:
         return "metric_contract_version_missing"
-    if metric_contract_version != PROJECTION_METRIC_CONTRACT_VERSION:
+    if metric_contract_version != contract.metric_contract_version:
         return "metric_contract_version_mismatch"
     return None
 
@@ -405,23 +417,6 @@ def _value_is_empty(value: Any) -> bool:
 def _contains_disallowed_source_marker(value: Any) -> bool:
     normalized = str(value or "").strip().lower()
     return any(marker in normalized for marker in _DISALLOWED_SOURCE_MARKERS)
-
-
-def _source_ref_matches_contract(field_name: str, source_type: str, source_ref: Any) -> bool:
-    expected_refs: set[str] = set()
-    projection_contract = PROJECTION_FACT_CONTRACTS.get(field_name)
-    if projection_contract is not None and source_type in projection_contract.source_types:
-        expected_refs.add(projection_contract.source_ref)
-    for (contract_field, _), contract in WIP_PROJECTION_FACT_CONTRACTS.items():
-        if contract_field == field_name and source_type in contract.source_types:
-            expected_refs.add(contract.source_ref)
-    if not expected_refs:
-        return True
-    if isinstance(source_ref, Mapping):
-        actual_ref = str(source_ref.get("source_ref") or "").strip()
-    else:
-        actual_ref = str(source_ref or "").strip()
-    return actual_ref in expected_refs
 
 
 def _business_window_matches_date(business_date: str, business_window: str) -> bool:

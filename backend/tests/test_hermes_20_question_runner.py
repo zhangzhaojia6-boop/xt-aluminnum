@@ -158,6 +158,32 @@ def test_runner_exercises_source_trust_question(monkeypatch) -> None:
     assert trust_questions[0].question_id in {snapshot.question_id for snapshot in outcome.snapshots}
 
 
+def test_runner_executes_natural_utterances_without_adding_business_cases(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_user())
+    db.commit()
+    seen_questions: list[str] = []
+    _install_fake_turn(monkeypatch, db, seen_questions=seen_questions)
+
+    outcome = run_20_question_acceptance(
+        db,
+        current_user=db.get(User, 1),
+        sender_external_id="dt-root-001",
+        business_date=date(2026, 6, 27),
+    )
+
+    assert {
+        "昨天一共出了多少？",
+        "那入库呢？",
+        "电用了多少度，和群文件对得上吗",
+        "成品率咋这么高，帮我查下是不是口径错了",
+        "接着上一个问题，把证据编号给我",
+    }.issubset(seen_questions)
+    assert len(seen_questions) == 21
+    assert len(outcome.snapshots) == 20
+    assert outcome.summary.total == 20
+
+
 def test_runner_passes_mes_reader_to_each_production_turn(monkeypatch) -> None:
     db = _db_session()
     db.add(_user())
@@ -269,7 +295,14 @@ def test_snapshot_uses_persisted_primary_fact_instead_of_answer_text() -> None:
                                 "source_type": "mes_packaging_output",
                                 "source_ref": {
                                     "source_ref": "mes_workshop_process_records",
+                                    "source_table": "MES_ProductProcessRecord",
                                     "business_date": "2026-06-26",
+                                    "business_window": "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00",
+                                    "unit": "吨",
+                                    "metric_contract_version": "2026-07-11",
+                                    "row_count": 1,
+                                    "latest_row_id": 118,
+                                    "trace_id": "projection-read:mes_workshop_process_records:118:1",
                                 },
                                 "source_detail": {
                                     "source_ref": "mes_workshop_process_records",
@@ -321,7 +354,14 @@ def test_snapshot_uses_persisted_primary_fact_instead_of_answer_text() -> None:
             "source_type": "mes_packaging_output",
             "source_ref": {
                 "source_ref": "mes_workshop_process_records",
+                "source_table": "MES_ProductProcessRecord",
                 "business_date": "2026-06-26",
+                "business_window": "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00",
+                "unit": "吨",
+                "metric_contract_version": "2026-07-11",
+                "row_count": 1,
+                "latest_row_id": 118,
+                "trace_id": "projection-read:mes_workshop_process_records:118:1",
             },
             "business_date": "2026-06-26",
             "business_window": "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00",
@@ -353,7 +393,16 @@ def test_runner_uses_fact_validator_and_never_backfills_missing_primary_metadata
                         "value": 118.0,
                         "unit": "吨",
                         "source_type": "mes_packaging_output",
-                        "source_ref": {"source_ref": "mes_workshop_process_records"},
+                        "source_ref": {
+                            "source_ref": "mes_workshop_process_records",
+                            "source_table": "MES_ProductProcessRecord",
+                            "business_window": "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00",
+                            "unit": "吨",
+                            "metric_contract_version": "2026-07-11",
+                            "row_count": 1,
+                            "latest_row_id": 118,
+                            "trace_id": "projection-read:mes_workshop_process_records:118:1",
+                        },
                         "source_detail": {
                             "source_ref": "mes_workshop_process_records",
                             "unit": "吨",
@@ -368,8 +417,10 @@ def test_runner_uses_fact_validator_and_never_backfills_missing_primary_metadata
     )
 
     assert records[0]["business_date"] is None
-    assert records[0]["business_window"] is None
-    assert records[0]["metric_contract_version"] is None
+    assert records[0]["business_window"] == (
+        "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00"
+    )
+    assert records[0]["metric_contract_version"] == "2026-07-11"
     assert records[0]["status"] == "missing"
     assert "business_date" in records[0]["reason"]
 
@@ -506,11 +557,18 @@ def test_snapshot_builds_one_fact_record_per_recognized_field() -> None:
                                 "source_type": "mes_packaging_output",
                                 "source_ref": {
                                     "source_ref": "mes_workshop_process_records",
+                                    "source_table": "MES_ProductProcessRecord",
                                     "business_date": "2026-06-27",
+                                    "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+                                    "unit": "吨",
+                                    "metric_contract_version": "2026-07-11",
+                                    "row_count": 1,
+                                    "latest_row_id": 118,
+                                    "trace_id": "projection-read:mes_workshop_process_records:118:1",
                                 },
                                 "source_detail": {
                                     "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
-                                    "trace_id": "projection-read:output:118:1",
+                                    "trace_id": "projection-read:mes_workshop_process_records:118:1",
                                     "metric_contract_version": "2026-07-11",
                                 },
                             },
@@ -520,11 +578,18 @@ def test_snapshot_builds_one_fact_record_per_recognized_field() -> None:
                                 "source_type": "mes_stock_records",
                                 "source_ref": {
                                     "source_ref": "mes_stock_records",
+                                    "source_table": "WMS_InStockDetail",
                                     "business_date": "2026-06-27",
+                                    "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+                                    "unit": "吨",
+                                    "metric_contract_version": "2026-07-11",
+                                    "row_count": 1,
+                                    "latest_row_id": 110,
+                                    "trace_id": "projection-read:mes_stock_records:110:1",
                                 },
                                 "source_detail": {
                                     "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
-                                    "trace_id": "projection-read:inbound:110:1",
+                                    "trace_id": "projection-read:mes_stock_records:110:1",
                                     "metric_contract_version": "2026-07-11",
                                 },
                             },
@@ -559,8 +624,8 @@ def test_snapshot_builds_one_fact_record_per_recognized_field() -> None:
     assert [record["value"] for record in snapshot.fact_answer] == [118.0, 110.0]
     assert [record["status"] for record in snapshot.fact_answer] == ["confirmed", "confirmed"]
     assert [record["trace_id"] for record in snapshot.fact_answer] == [
-        "projection-read:output:118:1",
-        "projection-read:inbound:110:1",
+        "projection-read:mes_workshop_process_records:118:1",
+        "projection-read:mes_stock_records:110:1",
     ]
 
 

@@ -22,15 +22,44 @@ _CRITICAL_SOURCES = {
     "total_output_daily": "mes_readonly",
     "finished_inbound_daily": "mes_readonly",
     "wip_total": "mes_readonly",
-    "total_electricity_kwh": "dingtalk_group_chat",
-    "daily_yield_rate": "dingtalk_group_chat",
+    "total_electricity_kwh": "dingtalk_group_content",
+    "daily_yield_rate": "dingtalk_group_content",
 }
 _CRITICAL_FACT_METADATA = {
     "total_output_daily": ("mes_packaging_output", "mes_workshop_process_records", "吨"),
     "finished_inbound_daily": ("mes_stock_records", "mes_stock_records", "吨"),
     "wip_total": ("mes_wip_total_snapshot", "mes_wip_total_snapshots", "吨"),
-    "total_electricity_kwh": ("owner_or_energy_summary", "dingtalk-energy-message", "kWh"),
-    "daily_yield_rate": ("owner_daily", "owner-daily-report", "%"),
+    "total_electricity_kwh": ("dingtalk_supplement", None, "kWh"),
+    "daily_yield_rate": ("dingtalk_supplement", None, "%"),
+}
+_ORIGINAL_APPROVED_QUESTIONS = (
+    "今天全厂总产量是多少？",
+    "今天各车间产量分别是多少？",
+    "今天成品入库多少？",
+    "今天投料量是多少？",
+    "今天高压总用电量是多少？",
+    "今天全厂用气量是多少？",
+    "今天吨电耗是多少？分母是什么？",
+    "今天成品率是多少？分子分母是什么？",
+    "今天成本折算元/吨是多少？",
+    "今天在制料是多少？",
+    "现在总余合同量是多少？",
+    "本月累计产量是多少？",
+    "今年累计产量是多少？",
+    "今天有哪些异常说明？",
+    "哪些数字来自专项责任人钉钉证据？",
+    "今天哪个关键数字最不可信？",
+    "产量和入库为什么对不上？",
+    "电耗升高可能由什么造成？",
+    "哪些指标缺少正式来源？",
+    "今天日报能不能自动生成？还缺什么？",
+)
+_REQUIRED_NATURAL_UTTERANCES = {
+    "昨天一共出了多少？",
+    "那入库呢？",
+    "电用了多少度，和群文件对得上吗",
+    "成品率咋这么高，帮我查下是不是口径错了",
+    "接着上一个问题，把证据编号给我",
 }
 
 
@@ -40,6 +69,30 @@ def _fact_records(question_id: int) -> list[dict[str, object]]:
     for field in question.metric_keys:
         if field in _CRITICAL_SOURCES:
             source_type, source_ref, unit = _CRITICAL_FACT_METADATA[field]
+            trace_id = f"source-trace-q{question_id}-{field}"
+            if source_ref is not None:
+                trace_id = f"projection-read:{source_ref}:{question_id}:1"
+                source_reference = {
+                    "source_ref": source_ref,
+                    "business_date": "2026-06-27",
+                    "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+                    "unit": unit,
+                    "metric_contract_version": "2026-07-11",
+                    "row_count": 1,
+                    "latest_row_id": question_id,
+                    "trace_id": trace_id,
+                }
+                if field == "total_output_daily":
+                    source_reference["source_table"] = "MES_ProductProcessRecord"
+                elif field == "finished_inbound_daily":
+                    source_reference["source_table"] = "WMS_InStockDetail"
+            else:
+                source_reference = {
+                    "source_key": _CRITICAL_SOURCES[field],
+                    "business_date": "2026-06-27",
+                    "evidence_id": question_id,
+                    "trace_id": trace_id,
+                }
             records.append(
                 {
                     "question_id": question_id,
@@ -49,11 +102,8 @@ def _fact_records(question_id: int) -> list[dict[str, object]]:
                     "source": _CRITICAL_SOURCES[field],
                     "source_key": _CRITICAL_SOURCES[field],
                     "source_type": source_type,
-                    "source_ref": {
-                        "source_ref": source_ref,
-                        "business_date": "2026-06-27",
-                    },
-                    "trace_id": f"source-trace-q{question_id}-{field}",
+                    "source_ref": source_reference,
+                    "trace_id": trace_id,
                     "business_date": "2026-06-27",
                     "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
                     "unit": unit,
@@ -146,14 +196,13 @@ def test_catalog_has_exactly_20_approved_questions() -> None:
 
     assert len(catalog) == 20
     assert catalog[0].question_id == 1
-    natural_questions = {item.question for item in catalog}
-    assert {
-        "昨天一共出了多少？",
-        "那入库呢？",
-        "电用了多少度，和群文件对得上吗",
-        "成品率咋这么高，帮我查下是不是口径错了",
-        "接着上一个问题，把证据编号给我",
-    }.issubset(natural_questions)
+    assert tuple(item.question for item in catalog) == _ORIGINAL_APPROVED_QUESTIONS
+    execution_utterances = {
+        utterance
+        for item in catalog
+        for utterance in item.execution_utterances
+    }
+    assert _REQUIRED_NATURAL_UTTERANCES.issubset(execution_utterances)
     trust_questions = [item for item in catalog if item.question == "今天哪个关键数字最不可信？"]
     assert len(trust_questions) == 1
     assert trust_questions[0].metric_keys == ("source_status",)
@@ -168,11 +217,11 @@ def test_catalog_has_exactly_20_approved_questions() -> None:
     )
     assert electricity_anomaly_questions[0].domain == "energy"
     follow_up = next(
-        item for item in catalog if item.question == "接着上一个问题，把证据编号给我"
+        item
+        for item in catalog
+        if "接着上一个问题，把证据编号给我" in item.follow_up_utterances
     )
-    assert follow_up.question_id == electricity_anomaly_questions[0].question_id + 1
-    assert follow_up.metric_keys == electricity_anomaly_questions[0].metric_keys
-    assert follow_up.domain == electricity_anomaly_questions[0].domain
+    assert follow_up == electricity_anomaly_questions[0]
     assert follow_up.requires_dingtalk is True
     metric_coverage = {metric for item in catalog for metric in item.metric_keys}
     assert {
@@ -369,6 +418,50 @@ def test_daily_yield_rejects_computed_source_type_even_if_contract_lists_it() ->
     assert result["critical_coverage"]["daily_yield_rate"] is False
 
 
+@pytest.mark.parametrize(
+    ("key", "bad_value", "reason_part"),
+    (
+        ("source_key", "invented_anything", "source_key"),
+        ("source_ref", {"source_ref": "totally_fake_ref"}, "source_ref"),
+        ("source_key", "dingtalk_group_content", "source_key"),
+    ),
+)
+def test_total_output_rejects_fake_or_cross_paired_source_identity(
+    key: str,
+    bad_value: object,
+    reason_part: str,
+) -> None:
+    answers = _valid_answers()
+    _critical_record(answers, "total_output_daily")[key] = bad_value
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert any(
+        failure.get("field") == "total_output_daily"
+        and reason_part in str(failure.get("reason"))
+        for failure in result["failures"]
+    )
+
+
+def test_total_output_rejects_source_ref_metadata_that_disagrees_with_primary_fact() -> None:
+    answers = _valid_answers()
+    record = _critical_record(answers, "total_output_daily")
+    record["source_ref"] = {
+        **record["source_ref"],
+        "business_window": "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00",
+    }
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert any(
+        failure.get("field") == "total_output_daily"
+        and "business_window" in str(failure.get("reason"))
+        for failure in result["failures"]
+    )
+
+
 @pytest.mark.parametrize("value", (math.nan, math.inf, "NaN", "Infinity"))
 def test_any_confirmed_fact_rejects_non_finite_value(value: object) -> None:
     assert answer_is_confirmed(
@@ -430,7 +523,7 @@ def test_electricity_per_ton_rejects_plain_degree_unit() -> None:
     assert _unit_matches_field("electricity_per_ton", "度") is False
 
 
-def test_electricity_per_ton_cannot_be_confirmed_without_formal_metric_contract() -> None:
+def test_electricity_per_ton_rejects_invented_source_contract() -> None:
     assert answer_is_confirmed(
         {
             "field": "electricity_per_ton",
@@ -446,6 +539,35 @@ def test_electricity_per_ton_cannot_be_confirmed_without_formal_metric_contract(
             "trace_id": "energy-per-ton-source-trace",
         }
     ) is False
+
+
+@pytest.mark.parametrize("unit", ("kWh/吨", "度/吨"))
+def test_electricity_per_ton_accepts_anchored_basis_fact(unit: str) -> None:
+    trace_id = "dingtalk-energy-per-ton-31"
+    assert answer_is_confirmed(
+        {
+            "field": "electricity_per_ton",
+            "status": "confirmed",
+            "value": 328.5,
+            "source_key": "dingtalk_group_content",
+            "source_type": "dingtalk_supplement",
+            "source_ref": {
+                "source_key": "dingtalk_group_content",
+                "evidence_id": 31,
+                "trace_id": trace_id,
+                "business_date": "2026-06-27",
+                "numerator_field": "total_electricity_kwh",
+                "numerator_evidence_id": 31,
+                "denominator_field": "total_output_daily",
+                "denominator_evidence_id": 32,
+            },
+            "business_date": "2026-06-27",
+            "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+            "unit": unit,
+            "metric_contract_version": "2026-07-11",
+            "trace_id": trace_id,
+        }
+    ) is True
 
 
 @pytest.mark.parametrize("missing_key", ("reason", "action"))
@@ -549,11 +671,15 @@ def test_multi_field_conflict_question_checks_each_record_without_requiring_conf
 
 
 def test_follow_up_catalog_question_passes_real_recognition_payload_gate() -> None:
-    matches = [item for item in build_20_question_catalog() if item.question == "接着上一个问题，把证据编号给我"]
+    matches = [
+        item
+        for item in build_20_question_catalog()
+        if "接着上一个问题，把证据编号给我" in item.follow_up_utterances
+    ]
     assert matches
     question = matches[0]
     plan = understand_root_owner_message(
-        question.question,
+        question.follow_up_utterances[0],
         default_business_date=date(2026, 6, 27),
         previous_domain=question.domain,
         previous_metric_keys=question.metric_keys,

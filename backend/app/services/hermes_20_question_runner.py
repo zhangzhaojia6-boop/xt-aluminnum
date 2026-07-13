@@ -58,17 +58,29 @@ def run_20_question_acceptance(
     snapshots: list[AcceptanceTurnSnapshot] = []
     mes_reader = _build_mes_reader()
     for question in questions:
-        trace_id = f"hermes-20q-{business_date.isoformat()}-{question.question_id:02d}"
-        result = run_root_owner_production_turn(
-            db,
-            text=question.question,
-            current_user=current_user,
-            sender_external_id=sender_external_id,
-            trace_id=trace_id,
-            source_payload={"source": "hermes_20_question_acceptance", "question_id": question.question_id},
-            default_business_date=business_date,
-            mes_reader=mes_reader,
-        )
+        result = None
+        for utterance_index, utterance in enumerate(question.execution_utterances):
+            trace_suffix = "" if utterance_index == 0 else f"-follow-up-{utterance_index:02d}"
+            trace_id = (
+                f"hermes-20q-{business_date.isoformat()}-{question.question_id:02d}"
+                f"{trace_suffix}"
+            )
+            result = run_root_owner_production_turn(
+                db,
+                text=utterance,
+                current_user=current_user,
+                sender_external_id=sender_external_id,
+                trace_id=trace_id,
+                source_payload={
+                    "source": "hermes_20_question_acceptance",
+                    "question_id": question.question_id,
+                    "utterance_index": utterance_index,
+                },
+                default_business_date=business_date,
+                mes_reader=mes_reader,
+            )
+        if result is None:
+            continue
         target_results = _dispatch_approved_targets(
             db,
             answer=result.answer,

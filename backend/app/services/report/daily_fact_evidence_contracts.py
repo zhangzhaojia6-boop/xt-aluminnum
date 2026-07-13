@@ -9,6 +9,7 @@ from sqlalchemy import and_, inspect, or_
 from sqlalchemy.orm import Session
 
 from app.core.business_time import local_now, production_business_window
+from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACT_VERSION
 from app.models.mes import (
     MesCoilSnapshot,
     MesDailyWipSnapshot,
@@ -27,7 +28,7 @@ from app.services.report.mes_workshop_mapping import resolve_mes_process_worksho
 
 
 MATERIAL_INCLUDED_STATUSES = ("已使用", "未使用")
-PROJECTION_METRIC_CONTRACT_VERSION = "2026-07-11"
+PROJECTION_METRIC_CONTRACT_VERSION = DAILY_REPORT_METRIC_CONTRACT_VERSION
 PROJECTION_VALUE_TOLERANCE = Decimal("0.001")
 
 
