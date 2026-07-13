@@ -7,6 +7,7 @@ import pytest
 
 from app.services.hermes_20_question_acceptance import (
     AcceptanceTurnSnapshot,
+    _unit_matches_field,
     answer_is_confirmed,
     build_20_question_catalog,
     evaluate_acceptance_summary,
@@ -22,7 +23,14 @@ _CRITICAL_SOURCES = {
     "finished_inbound_daily": "mes_readonly",
     "wip_total": "mes_readonly",
     "total_electricity_kwh": "dingtalk_group_chat",
-    "daily_yield_rate": "mes_readonly",
+    "daily_yield_rate": "dingtalk_group_chat",
+}
+_CRITICAL_FACT_METADATA = {
+    "total_output_daily": ("mes_packaging_output", "mes_workshop_process_records", "吨"),
+    "finished_inbound_daily": ("mes_stock_records", "mes_stock_records", "吨"),
+    "wip_total": ("mes_wip_total_snapshot", "mes_wip_total_snapshots", "吨"),
+    "total_electricity_kwh": ("owner_or_energy_summary", "dingtalk-energy-message", "kWh"),
+    "daily_yield_rate": ("owner_daily", "owner-daily-report", "%"),
 }
 
 
@@ -31,6 +39,7 @@ def _fact_records(question_id: int) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
     for field in question.metric_keys:
         if field in _CRITICAL_SOURCES:
+            source_type, source_ref, unit = _CRITICAL_FACT_METADATA[field]
             records.append(
                 {
                     "question_id": question_id,
@@ -38,8 +47,17 @@ def _fact_records(question_id: int) -> list[dict[str, object]]:
                     "status": "confirmed",
                     "value": 1,
                     "source": _CRITICAL_SOURCES[field],
+                    "source_key": _CRITICAL_SOURCES[field],
+                    "source_type": source_type,
+                    "source_ref": {
+                        "source_ref": source_ref,
+                        "business_date": "2026-06-27",
+                    },
                     "trace_id": f"source-trace-q{question_id}-{field}",
                     "business_date": "2026-06-27",
+                    "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+                    "unit": unit,
+                    "metric_contract_version": "2026-07-11",
                 }
             )
         else:
@@ -140,6 +158,22 @@ def test_catalog_has_exactly_20_approved_questions() -> None:
     assert len(trust_questions) == 1
     assert trust_questions[0].metric_keys == ("source_status",)
     assert trust_questions[0].domain == "anomaly"
+    electricity_anomaly_questions = [
+        item for item in catalog if item.question == "电耗升高可能由什么造成？"
+    ]
+    assert len(electricity_anomaly_questions) == 1
+    assert electricity_anomaly_questions[0].metric_keys == (
+        "electricity_per_ton",
+        "anomaly_explanation_daily",
+    )
+    assert electricity_anomaly_questions[0].domain == "energy"
+    follow_up = next(
+        item for item in catalog if item.question == "接着上一个问题，把证据编号给我"
+    )
+    assert follow_up.question_id == electricity_anomaly_questions[0].question_id + 1
+    assert follow_up.metric_keys == electricity_anomaly_questions[0].metric_keys
+    assert follow_up.domain == electricity_anomaly_questions[0].domain
+    assert follow_up.requires_dingtalk is True
     metric_coverage = {metric for item in catalog for metric in item.metric_keys}
     assert {
         "total_output_daily",
@@ -193,13 +227,13 @@ def test_twenty_missing_answers_fail_fact_acceptance() -> None:
     ("key", "bad_value", "reason_part"),
     (
         ("value", None, "value"),
-        ("source", None, "source"),
+        ("source_key", None, "source"),
         ("trace_id", None, "trace"),
         ("business_date", None, "business"),
-        ("source", "rag", "source"),
-        ("source", "output_skill", "source"),
-        ("source", "historical_report", "source"),
-        ("source", "computed", "source"),
+        ("source_key", "rag", "source"),
+        ("source_key", "output_skill", "source"),
+        ("source_key", "historical_report", "source"),
+        ("source_key", "computed", "source"),
         ("value", math.nan, "finite"),
         ("value", math.inf, "finite"),
         ("value", "NaN", "finite"),
@@ -237,6 +271,102 @@ def test_zero_is_a_valid_confirmed_fact_value() -> None:
 
     assert result["passed"] is True
     assert result["critical_coverage"]["total_electricity_kwh"] is True
+
+
+@pytest.mark.parametrize(
+    ("key", "reason_part"),
+    (
+        ("status", "critical_field_not_confirmed"),
+        ("value", "value"),
+        ("source_key", "source_key"),
+        ("source_type", "source_type"),
+        ("source_ref", "source_ref"),
+        ("business_date", "business_date"),
+        ("business_window", "business_window"),
+        ("unit", "unit"),
+        ("metric_contract_version", "metric_contract_version"),
+        ("trace_id", "trace_id"),
+    ),
+)
+def test_total_output_confirmed_fact_requires_each_structured_property(
+    key: str,
+    reason_part: str,
+) -> None:
+    answers = _valid_answers()
+    record = _critical_record(answers, "total_output_daily")
+    record[key] = None
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert result["critical_coverage"]["total_output_daily"] is False
+    assert any(
+        failure.get("field") == "total_output_daily"
+        and reason_part in str(failure.get("reason"))
+        for failure in result["failures"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("key", "bad_value", "reason_part"),
+    (
+        ("source_type", "data_hub_projection", "source_type"),
+        ("source_ref", {"source_ref": "wrong_table"}, "source_ref"),
+        ("business_date", "not-a-date", "business_date"),
+        (
+            "business_window",
+            "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00",
+            "business_window",
+        ),
+        ("unit", "kWh", "unit"),
+        ("metric_contract_version", "2026-01-01", "metric_contract_version"),
+    ),
+)
+def test_total_output_confirmed_fact_rejects_wrong_contract_metadata(
+    key: str,
+    bad_value: object,
+    reason_part: str,
+) -> None:
+    answers = _valid_answers()
+    _critical_record(answers, "total_output_daily")[key] = bad_value
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert any(
+        failure.get("field") == "total_output_daily"
+        and reason_part in str(failure.get("reason"))
+        for failure in result["failures"]
+    )
+
+
+def test_daily_yield_rejects_data_hub_projection_as_confirmed_source() -> None:
+    answers = _valid_answers()
+    record = _critical_record(answers, "daily_yield_rate")
+    record["source_key"] = "data_hub_projection"
+    record["source"] = "data_hub_projection"
+    record["source_type"] = "data_hub_projection"
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert result["critical_coverage"]["daily_yield_rate"] is False
+    assert any(
+        failure.get("field") == "daily_yield_rate"
+        and "source_type" in str(failure.get("reason"))
+        for failure in result["failures"]
+    )
+
+
+def test_daily_yield_rejects_computed_source_type_even_if_contract_lists_it() -> None:
+    answers = _valid_answers()
+    record = _critical_record(answers, "daily_yield_rate")
+    record["source_type"] = "computed_same_basis"
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert result["critical_coverage"]["daily_yield_rate"] is False
 
 
 @pytest.mark.parametrize("value", (math.nan, math.inf, "NaN", "Infinity"))
@@ -287,6 +417,33 @@ def test_noncritical_confirmed_fact_also_rejects_wrong_known_unit() -> None:
             "trace_id": "source-trace-gas",
             "business_date": "2026-06-27",
             "unit": "吨",
+        }
+    ) is False
+
+
+@pytest.mark.parametrize("unit", ("kWh/吨", "kWh/t", "度/吨", "千瓦时/吨"))
+def test_electricity_per_ton_accepts_only_explicit_per_ton_units(unit: str) -> None:
+    assert _unit_matches_field("electricity_per_ton", unit) is True
+
+
+def test_electricity_per_ton_rejects_plain_degree_unit() -> None:
+    assert _unit_matches_field("electricity_per_ton", "度") is False
+
+
+def test_electricity_per_ton_cannot_be_confirmed_without_formal_metric_contract() -> None:
+    assert answer_is_confirmed(
+        {
+            "field": "electricity_per_ton",
+            "status": "confirmed",
+            "value": 328.5,
+            "source_key": "mes_readonly",
+            "source_type": "mes_energy_per_ton",
+            "source_ref": {"source_ref": "mes_energy_summary"},
+            "business_date": "2026-06-27",
+            "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+            "unit": "kWh/吨",
+            "metric_contract_version": "2026-07-11",
+            "trace_id": "energy-per-ton-source-trace",
         }
     ) is False
 
@@ -398,7 +555,7 @@ def test_follow_up_catalog_question_passes_real_recognition_payload_gate() -> No
     plan = understand_root_owner_message(
         question.question,
         default_business_date=date(2026, 6, 27),
-        previous_domain="evidence",
+        previous_domain=question.domain,
         previous_metric_keys=question.metric_keys,
         previous_business_date=date(2026, 6, 27),
     )

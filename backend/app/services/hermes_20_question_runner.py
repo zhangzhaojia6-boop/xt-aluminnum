@@ -18,6 +18,7 @@ from app.services.hermes_20_question_acceptance import (
     AcceptanceSummary,
     AcceptanceTurnSnapshot,
     build_20_question_catalog,
+    confirmed_fact_failure_reason,
     evaluate_acceptance_summary,
 )
 from app.services.hermes_mes_read_service import HermesMesReadService
@@ -157,85 +158,122 @@ def _build_fact_answer(
     metric_keys = _string_list(recognition.get("metric_keys"))
     primary_value = evidence.get("primary")
     primary = primary_value if isinstance(primary_value, Mapping) else {}
-    source = str(primary.get("source_key") or evidence.get("primary_source") or "").strip()
     primary_status = str(primary.get("status") or "").strip().lower()
     trace_value = evidence.get("trace")
     evidence_trace = trace_value if isinstance(trace_value, Mapping) else {}
-    source_trace_id, fact_trace_id = _fact_trace_ids(
-        primary=primary,
-        evidence_trace=evidence_trace,
-        source=source,
-        turn_trace_id=turn_trace_id,
-    )
     records: list[dict[str, Any]] = []
     for field_name in metric_keys:
-        value, unit, has_value = _primary_field_value(primary.get("value"), field_name)
+        field_fact, has_value = _primary_field_fact(primary.get("value"), field_name)
+        value = field_fact.get("value") if has_value else None
+        source_key = str(
+            _fact_metadata(field_fact, "source_key")
+            or primary.get("source_key")
+            or ""
+        ).strip()
+        source_type = str(
+            _fact_metadata(field_fact, "source_type")
+            or primary.get("source_type")
+            or ""
+        ).strip()
+        source_ref = field_fact.get("source_ref")
+        business_date = _fact_metadata(field_fact, "business_date")
+        business_window = _fact_metadata(field_fact, "business_window")
+        unit = _fact_metadata(field_fact, "unit")
+        metric_contract_version = _fact_metadata(field_fact, "metric_contract_version")
+        source_trace_id, fact_trace_id = _fact_trace_ids(primary=primary, field_fact=field_fact)
         conflict = _conflict_for_field(evidence.get("conflicts"), field_name)
         if not has_value:
             status = "missing"
         elif conflict is not None:
             status = "conflict"
-        elif primary_status in {"ok", "ready", "confirmed", "passed"}:
+        elif str(
+            field_fact.get("status")
+            or field_fact.get("evidence_status")
+            or primary_status
+        ).strip().lower() in {"ok", "ready", "confirmed", "passed"}:
             status = "confirmed"
         else:
-            status = primary_status or "missing"
+            status = str(
+                field_fact.get("status")
+                or field_fact.get("evidence_status")
+                or primary_status
+                or "missing"
+            ).strip().lower()
         reason = _fact_reason(
             status=status,
             conflict=conflict,
             missing_sources=evidence.get("missing_sources"),
         )
-        records.append(
-            {
-                "question_id": question_id,
-                "field": field_name,
-                "status": status,
-                "value": value if has_value else None,
-                "source": source if has_value else None,
-                "business_date": recognition.get("business_date") or recognition.get("business_window"),
-                "unit": unit,
-                "trace_id": fact_trace_id if has_value else None,
-                "source_trace_id": source_trace_id if has_value else None,
-                "reason": reason,
-                "action": _fact_action(recognition, evidence, evidence_trace, field_name),
-            }
-        )
+        record = {
+            "question_id": question_id,
+            "field": field_name,
+            "status": status,
+            "value": value,
+            "source": (source_key or None) if has_value else None,
+            "source_key": (source_key or None) if has_value else None,
+            "source_type": (source_type or None) if has_value else None,
+            "source_ref": source_ref if has_value else None,
+            "business_date": business_date if has_value else None,
+            "business_window": business_window if has_value else None,
+            "unit": unit if has_value else None,
+            "metric_contract_version": metric_contract_version if has_value else None,
+            "trace_id": fact_trace_id if has_value else None,
+            "source_trace_id": source_trace_id if has_value else None,
+            "reason": reason,
+            "action": _fact_action(recognition, evidence, evidence_trace, field_name),
+        }
+        if status == "confirmed":
+            validation_failure = confirmed_fact_failure_reason(record)
+            if validation_failure is not None:
+                record["status"] = "missing"
+                record["reason"] = validation_failure
+        records.append(record)
     return records
 
 
-def _primary_field_value(value: Any, field_name: str) -> tuple[Any, str | None, bool]:
+def _primary_field_fact(value: Any, field_name: str) -> tuple[dict[str, Any], bool]:
     if not isinstance(value, Mapping):
-        return None, None, False
+        return {}, False
     if field_name in value:
         field_value = value[field_name]
-        if isinstance(field_value, Mapping) and "value" in field_value:
-            raw_value = field_value.get("value")
-            return raw_value, str(field_value.get("unit") or "").strip() or None, raw_value is not None and raw_value != ""
-        return field_value, None, field_value is not None and field_value != ""
+        field_fact = dict(field_value) if isinstance(field_value, Mapping) else {"value": field_value}
+        raw_value = field_fact.get("value")
+        return field_fact, raw_value is not None and raw_value != ""
     if value.get("metric_key") == field_name and "value" in value:
-        raw_value = value.get("value")
-        return raw_value, str(value.get("unit") or "").strip() or None, raw_value is not None and raw_value != ""
-    return None, None, False
+        field_fact = dict(value)
+        raw_value = field_fact.get("value")
+        return field_fact, raw_value is not None and raw_value != ""
+    return {}, False
+
+
+def _fact_metadata(field_fact: Mapping[str, Any], key: str) -> Any:
+    direct = field_fact.get(key)
+    if direct not in (None, ""):
+        return direct
+    for container_key in ("source_detail", "source_ref"):
+        container = field_fact.get(container_key)
+        if isinstance(container, Mapping) and container.get(key) not in (None, ""):
+            return container.get(key)
+    return None
 
 
 def _fact_trace_ids(
     *,
     primary: Mapping[str, Any],
-    evidence_trace: Mapping[str, Any],
-    source: str,
-    turn_trace_id: str,
+    field_fact: Mapping[str, Any],
 ) -> tuple[str | None, str | None]:
+    field_source_trace_id = str(_fact_metadata(field_fact, "source_trace_id") or "").strip() or None
+    field_trace_id = str(_fact_metadata(field_fact, "trace_id") or "").strip() or None
     trace_ref_value = primary.get("trace_ref")
     trace_ref = trace_ref_value if isinstance(trace_ref_value, Mapping) else {}
-    source_trace_id = str(trace_ref.get("source_trace_id") or "").strip() or None
+    source_trace_id = field_source_trace_id or str(trace_ref.get("source_trace_id") or "").strip() or None
+    if field_trace_id:
+        return source_trace_id, field_trace_id
     if source_trace_id:
         return source_trace_id, source_trace_id
     primary_trace_id = str(trace_ref.get("trace_id") or "").strip() or None
     if primary_trace_id:
         return None, primary_trace_id
-    source_order = _string_list(evidence_trace.get("source_order"))
-    if source and source in source_order and primary:
-        fallback = str(evidence_trace.get("trace_id") or turn_trace_id or "").strip() or None
-        return None, fallback
     return None, None
 
 

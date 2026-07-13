@@ -262,7 +262,24 @@ def test_snapshot_uses_persisted_primary_fact_instead_of_answer_text() -> None:
                         "source_key": "mes_readonly",
                         "source_type": "external_readonly",
                         "status": "ok",
-                        "value": {"total_output_daily": {"value": 118.0, "unit": "吨"}},
+                        "value": {
+                            "total_output_daily": {
+                                "value": 118.0,
+                                "unit": "吨",
+                                "source_type": "mes_packaging_output",
+                                "source_ref": {
+                                    "source_ref": "mes_workshop_process_records",
+                                    "business_date": "2026-06-26",
+                                },
+                                "source_detail": {
+                                    "source_ref": "mes_workshop_process_records",
+                                    "business_window": "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00",
+                                    "unit": "吨",
+                                    "trace_id": "projection-read:mes_workshop_process_records:118:1",
+                                    "metric_contract_version": "2026-07-11",
+                                },
+                            }
+                        },
                         "trace_ref": {
                             "source_trace_id": "source-trace-118",
                             "trace_id": "secondary-source-trace",
@@ -300,14 +317,61 @@ def test_snapshot_uses_persisted_primary_fact_instead_of_answer_text() -> None:
             "status": "confirmed",
             "value": 118.0,
             "source": "mes_readonly",
+            "source_key": "mes_readonly",
+            "source_type": "mes_packaging_output",
+            "source_ref": {
+                "source_ref": "mes_workshop_process_records",
+                "business_date": "2026-06-26",
+            },
             "business_date": "2026-06-26",
+            "business_window": "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00",
             "unit": "吨",
-            "trace_id": "source-trace-118",
+            "metric_contract_version": "2026-07-11",
+            "trace_id": "projection-read:mes_workshop_process_records:118:1",
             "source_trace_id": "source-trace-118",
             "reason": None,
             "action": None,
         }
     ]
+
+
+def test_runner_uses_fact_validator_and_never_backfills_missing_primary_metadata() -> None:
+    records = runner._build_fact_answer(
+        question_id=1,
+        turn_trace_id="turn-trace-must-not-fill-fact",
+        recognition={
+            "metric_keys": ["total_output_daily"],
+            "business_date": "2026-06-26",
+        },
+        evidence={
+            "primary": {
+                "source_key": "mes_readonly",
+                "source_type": "external_readonly",
+                "status": "ok",
+                "value": {
+                    "total_output_daily": {
+                        "value": 118.0,
+                        "unit": "吨",
+                        "source_type": "mes_packaging_output",
+                        "source_ref": {"source_ref": "mes_workshop_process_records"},
+                        "source_detail": {
+                            "source_ref": "mes_workshop_process_records",
+                            "unit": "吨",
+                            "trace_id": "projection-read:mes_workshop_process_records:118:1",
+                        },
+                    }
+                },
+                "trace_ref": {},
+            },
+            "trace": {"trace_id": "turn-trace-must-not-fill-fact", "source_order": ["mes_readonly"]},
+        },
+    )
+
+    assert records[0]["business_date"] is None
+    assert records[0]["business_window"] is None
+    assert records[0]["metric_contract_version"] is None
+    assert records[0]["status"] == "missing"
+    assert "business_date" in records[0]["reason"]
 
 
 def test_snapshot_keeps_missing_details_empty_when_primary_does_not_contain_requested_field() -> None:
@@ -435,7 +499,36 @@ def test_snapshot_builds_one_fact_record_per_recognized_field() -> None:
                         "source_key": "mes_readonly",
                         "source_type": "external_readonly",
                         "status": "ok",
-                        "value": {"total_output_daily": 118.0, "finished_inbound_daily": 110.0},
+                        "value": {
+                            "total_output_daily": {
+                                "value": 118.0,
+                                "unit": "吨",
+                                "source_type": "mes_packaging_output",
+                                "source_ref": {
+                                    "source_ref": "mes_workshop_process_records",
+                                    "business_date": "2026-06-27",
+                                },
+                                "source_detail": {
+                                    "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+                                    "trace_id": "projection-read:output:118:1",
+                                    "metric_contract_version": "2026-07-11",
+                                },
+                            },
+                            "finished_inbound_daily": {
+                                "value": 110.0,
+                                "unit": "吨",
+                                "source_type": "mes_stock_records",
+                                "source_ref": {
+                                    "source_ref": "mes_stock_records",
+                                    "business_date": "2026-06-27",
+                                },
+                                "source_detail": {
+                                    "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+                                    "trace_id": "projection-read:inbound:110:1",
+                                    "metric_contract_version": "2026-07-11",
+                                },
+                            },
+                        },
                         "trace_ref": {},
                     },
                     "candidate_sources": ["mes_readonly"],
@@ -464,7 +557,11 @@ def test_snapshot_builds_one_fact_record_per_recognized_field() -> None:
         "finished_inbound_daily",
     ]
     assert [record["value"] for record in snapshot.fact_answer] == [118.0, 110.0]
-    assert all(record["trace_id"] == trace_id for record in snapshot.fact_answer)
+    assert [record["status"] for record in snapshot.fact_answer] == ["confirmed", "confirmed"]
+    assert [record["trace_id"] for record in snapshot.fact_answer] == [
+        "projection-read:output:118:1",
+        "projection-read:inbound:110:1",
+    ]
 
 
 def test_runner_rejects_unsupported_delivery_target_channel_type(monkeypatch) -> None:

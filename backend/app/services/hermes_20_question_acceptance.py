@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass, field as dataclass_field
+from datetime import date, datetime
 from typing import Any, Mapping, Sequence
 
 from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACTS
+from app.services.report.daily_fact_evidence_contracts import (
+    PROJECTION_FACT_CONTRACTS,
+    PROJECTION_METRIC_CONTRACT_VERSION,
+    WIP_PROJECTION_FACT_CONTRACTS,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,47 +143,6 @@ CRITICAL_FIELDS = frozenset(
     }
 )
 _DINGTALK_SOURCE_SET = frozenset(_DINGTALK_FACT_SOURCES)
-_MES_SOURCE_SET = frozenset(
-    {
-        "mes_readonly",
-        "mes_verified",
-        "mes_packaging_output",
-        "mes_stock_header_records",
-        "mes_stock_records",
-        "mes_wip_distribution",
-        "mes_coil_snapshot_business_date",
-        "mes_daily_wip_snapshot",
-        "mes_wip_total_snapshot",
-        "wms_direct",
-        "finished_inbound_output",
-    }
-)
-_HUB_SOURCE_SET = frozenset({"data_hub_projection", "data_hub_manual", "daily_fact_bundle"})
-_FIELD_ALLOWED_FACT_SOURCES = {
-    "total_output_daily": _DINGTALK_SOURCE_SET | _MES_SOURCE_SET | _HUB_SOURCE_SET,
-    "workshop_output_daily": _MES_SOURCE_SET | _HUB_SOURCE_SET,
-    "finished_inbound_daily": _DINGTALK_SOURCE_SET | _MES_SOURCE_SET | _HUB_SOURCE_SET,
-    "daily_input_weight": _MES_SOURCE_SET | _HUB_SOURCE_SET,
-    "total_electricity_kwh": _DINGTALK_SOURCE_SET
-    | _HUB_SOURCE_SET
-    | frozenset({"iot_energy", "owner_daily", "owner_or_energy_summary"}),
-    "total_gas_m3": _DINGTALK_SOURCE_SET | _HUB_SOURCE_SET | frozenset({"owner_daily"}),
-    "electricity_per_ton": _MES_SOURCE_SET | _HUB_SOURCE_SET,
-    "daily_yield_rate": _MES_SOURCE_SET
-    | _HUB_SOURCE_SET
-    | frozenset({"owner_daily", "quality_yield_daily"}),
-    "cost_per_ton": _DINGTALK_SOURCE_SET | _HUB_SOURCE_SET,
-    "wip_total": _DINGTALK_SOURCE_SET | _MES_SOURCE_SET | _HUB_SOURCE_SET,
-    "remaining_contract_weight": _MES_SOURCE_SET | _HUB_SOURCE_SET,
-    "monthly_total_output": _HUB_SOURCE_SET | frozenset({"operation_period_snapshot"}),
-    "annual_total_output": _HUB_SOURCE_SET | frozenset({"operation_period_snapshot"}),
-    "anomaly_explanation_daily": _DINGTALK_SOURCE_SET
-    | _HUB_SOURCE_SET
-    | frozenset({"data_quality_issues", "multimodal_evidence"}),
-    "dingtalk_specialist_evidence": _DINGTALK_SOURCE_SET,
-    "source_status": _DINGTALK_SOURCE_SET | _MES_SOURCE_SET | _HUB_SOURCE_SET,
-    "daily_report_readiness": _HUB_SOURCE_SET,
-}
 _DISALLOWED_SOURCE_MARKERS = (
     "rag",
     "output_skill",
@@ -245,18 +210,22 @@ def build_20_question_catalog() -> tuple[HermesAcceptanceQuestion, ...]:
         HermesAcceptanceQuestion(11, "现在总余合同量是多少？", ("remaining_contract_weight",), "operations", True, False, "candidate"),
         HermesAcceptanceQuestion(12, "本月累计产量是多少？", ("monthly_total_output",), "operation_period", False, False),
         HermesAcceptanceQuestion(13, "今年累计产量是多少？", ("annual_total_output",), "operation_period", False, False, "candidate"),
-        HermesAcceptanceQuestion(14, "哪些数字来自专项责任人钉钉证据？", ("dingtalk_specialist_evidence",), "evidence", False, True),
-        HermesAcceptanceQuestion(15, "接着上一个问题，把证据编号给我", ("dingtalk_specialist_evidence",), "evidence", False, True),
-        HermesAcceptanceQuestion(16, "今天有哪些异常说明？", ("anomaly_explanation_daily",), "anomaly", False, True),
+        HermesAcceptanceQuestion(14, "今天有哪些异常说明？", ("anomaly_explanation_daily",), "anomaly", False, True),
+        HermesAcceptanceQuestion(15, "哪些数字来自专项责任人钉钉证据？", ("dingtalk_specialist_evidence",), "evidence", False, True),
+        HermesAcceptanceQuestion(16, "今天哪个关键数字最不可信？", ("source_status",), "anomaly", False, True, "candidate"),
         HermesAcceptanceQuestion(17, "产量和入库为什么对不上？", ("total_output_daily", "finished_inbound_daily"), "anomaly", True, True, "conflict"),
-        HermesAcceptanceQuestion(18, "今天哪个关键数字最不可信？", ("source_status",), "anomaly", False, True, "candidate"),
-        HermesAcceptanceQuestion(19, "哪些指标缺少正式来源？", ("source_status",), "anomaly", False, True, "missing"),
+        HermesAcceptanceQuestion(18, "电耗升高可能由什么造成？", ("electricity_per_ton", "anomaly_explanation_daily"), "energy", True, True, "candidate"),
+        HermesAcceptanceQuestion(19, "接着上一个问题，把证据编号给我", ("electricity_per_ton", "anomaly_explanation_daily"), "energy", True, True),
         HermesAcceptanceQuestion(20, "今天日报能不能自动生成？还缺什么？", ("daily_report_readiness",), "factory_overview", True, True, "candidate"),
     )
 
 
 def answer_is_confirmed(answer: Mapping[str, Any]) -> bool:
     return _confirmed_failure_reason(answer) is None
+
+
+def confirmed_fact_failure_reason(answer: Mapping[str, Any]) -> str | None:
+    return _confirmed_failure_reason(answer)
 
 
 def evaluate_answers(answers: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -373,31 +342,53 @@ def _confirmed_failure_reason(answer: Mapping[str, Any]) -> str | None:
     if isinstance(value, bool):
         return "value_not_finite"
     field_name = str(answer.get("field") or "").strip()
-    if field_name in CRITICAL_FIELDS:
-        try:
-            numeric_value = float(value)
-        except (TypeError, ValueError):
-            return "value_not_finite"
-        if not math.isfinite(numeric_value):
-            return "value_not_finite"
-    elif isinstance(value, (int, float, str)):
-        try:
-            numeric_value = float(value)
-        except (TypeError, ValueError):
-            pass
-        else:
-            if not math.isfinite(numeric_value):
-                return "value_not_finite"
-    source = _normalized_source(answer.get("source"))
-    if not source or not _source_allowed_for_field(field_name, source):
-        return "source_missing_or_not_allowed"
+    contract = DAILY_REPORT_METRIC_CONTRACTS.get(field_name)
+    if contract is None:
+        return "metric_contract_missing"
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return "value_not_finite"
+    if not math.isfinite(numeric_value):
+        return "value_not_finite"
+    source_key = _normalized_source(answer.get("source_key"))
+    if not source_key or _contains_disallowed_source_marker(source_key):
+        return "source_key_missing_or_disallowed"
+    source_type = _normalized_source(answer.get("source_type"))
+    if (
+        source_type not in contract.allowed_source_types
+        or _contains_disallowed_source_marker(source_type)
+    ):
+        return "source_type_missing_or_not_allowed"
+    source_ref = answer.get("source_ref")
+    if _value_is_empty(source_ref) or _contains_disallowed_source_marker(source_ref):
+        return "source_ref_missing_or_disallowed"
+    if not _source_ref_matches_contract(field_name, source_type, source_ref):
+        return "source_ref_contract_mismatch"
     if not str(answer.get("trace_id") or "").strip():
         return "trace_id_missing"
-    if not str(answer.get("business_date") or answer.get("business_window") or "").strip():
-        return "business_date_or_window_missing"
+    business_date = str(answer.get("business_date") or "").strip()
+    if not business_date:
+        return "business_date_missing"
+    try:
+        date.fromisoformat(business_date)
+    except ValueError:
+        return "business_date_invalid"
+    business_window = str(answer.get("business_window") or "").strip()
+    if not business_window:
+        return "business_window_missing"
+    if not _business_window_matches_date(business_date, business_window):
+        return "business_window_contract_mismatch"
     unit = str(answer.get("unit") or "").strip()
-    if unit and not _unit_matches_field(field_name, unit):
+    if not unit:
+        return "unit_missing"
+    if not _unit_matches_field(field_name, unit):
         return "unit_field_contract_mismatch"
+    metric_contract_version = str(answer.get("metric_contract_version") or "").strip()
+    if not metric_contract_version:
+        return "metric_contract_version_missing"
+    if metric_contract_version != PROJECTION_METRIC_CONTRACT_VERSION:
+        return "metric_contract_version_mismatch"
     return None
 
 
@@ -411,10 +402,42 @@ def _value_is_empty(value: Any) -> bool:
     return False
 
 
-def _source_allowed_for_field(field_name: str, source: str) -> bool:
-    if any(marker in source for marker in _DISALLOWED_SOURCE_MARKERS):
+def _contains_disallowed_source_marker(value: Any) -> bool:
+    normalized = str(value or "").strip().lower()
+    return any(marker in normalized for marker in _DISALLOWED_SOURCE_MARKERS)
+
+
+def _source_ref_matches_contract(field_name: str, source_type: str, source_ref: Any) -> bool:
+    expected_refs: set[str] = set()
+    projection_contract = PROJECTION_FACT_CONTRACTS.get(field_name)
+    if projection_contract is not None and source_type in projection_contract.source_types:
+        expected_refs.add(projection_contract.source_ref)
+    for (contract_field, _), contract in WIP_PROJECTION_FACT_CONTRACTS.items():
+        if contract_field == field_name and source_type in contract.source_types:
+            expected_refs.add(contract.source_ref)
+    if not expected_refs:
+        return True
+    if isinstance(source_ref, Mapping):
+        actual_ref = str(source_ref.get("source_ref") or "").strip()
+    else:
+        actual_ref = str(source_ref or "").strip()
+    return actual_ref in expected_refs
+
+
+def _business_window_matches_date(business_date: str, business_window: str) -> bool:
+    try:
+        expected_date = date.fromisoformat(business_date)
+        start_text, end_text = business_window.split("/", 1)
+        start_at = datetime.fromisoformat(start_text)
+        end_at = datetime.fromisoformat(end_text)
+    except (TypeError, ValueError):
         return False
-    return source in _FIELD_ALLOWED_FACT_SOURCES.get(field_name, frozenset())
+    return bool(
+        start_at.tzinfo is not None
+        and end_at.tzinfo is not None
+        and end_at > start_at
+        and start_at.date() == expected_date
+    )
 
 
 def _normalized_source(value: Any) -> str:
@@ -434,7 +457,7 @@ def _unit_matches_field(field_name: str, unit: str) -> bool:
         "kwh": {"kwh", "度", "千瓦时"},
         "%": {"%", "percent", "percentage", "百分点"},
         "m³": {"m³", "m3", "立方米"},
-        "kwh/吨": {"kwh/吨", "kwh/t", "度/吨", "千瓦时/吨", "度"},
+        "kwh/吨": {"kwh/吨", "kwh/t", "度/吨", "千瓦时/吨"},
         "元/吨": {"元/吨", "元/t", "yuan/ton"},
     }
     expected = expected_unit.strip().lower()
