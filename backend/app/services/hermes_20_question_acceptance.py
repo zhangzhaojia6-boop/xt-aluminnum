@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from dataclasses import asdict, dataclass, field as dataclass_field
 from datetime import date, datetime
 from typing import Any, Mapping, Sequence
@@ -8,6 +7,8 @@ from typing import Any, Mapping, Sequence
 from app.domain.metric_contracts import (
     DAILY_REPORT_METRIC_CONTRACTS,
     fact_source_failure_reason,
+    metric_unit_failure_reason,
+    metric_value_failure_reason,
 )
 
 
@@ -159,17 +160,6 @@ _DISALLOWED_SOURCE_MARKERS = (
 _SOURCE_FAILURE_STATUSES = frozenset(
     {"", "failed", "error", "missing", "empty", "disabled", "unavailable", "unknown"}
 )
-_FIELD_UNIT_CONTRACTS = {
-    field_name: contract.unit for field_name, contract in DAILY_REPORT_METRIC_CONTRACTS.items()
-} | {
-    "workshop_output_daily": "吨",
-    "daily_input_weight": "吨",
-    "total_gas_m3": "m³",
-    "cost_per_ton": "元/吨",
-    "remaining_contract_weight": "吨",
-    "monthly_total_output": "吨",
-    "annual_total_output": "吨",
-}
 _NON_LANGUAGE_TOKENS = (
     "鑫泰铝业智能大脑",
     "来源",
@@ -311,20 +301,31 @@ def _evaluate_answers_for_questions(
                     }
                 )
                 continue
-            if status not in {"missing", "conflict"}:
+            contract = DAILY_REPORT_METRIC_CONTRACTS.get(field_name)
+            if contract is None:
                 failures.append(
-                    {"question_id": question_id, "field": field_name, "reason": "fact_status_invalid"}
+                    {"question_id": question_id, "field": field_name, "reason": "metric_policy_missing"}
                 )
                 continue
-            for key in ("reason", "action"):
-                if not _specific_detail(record.get(key)):
-                    failures.append(
-                        {
-                            "question_id": question_id,
-                            "field": field_name,
-                            "reason": f"{status}_{key}_missing_or_generic",
-                        }
-                    )
+            if status not in contract.allowed_non_confirmed_statuses:
+                failures.append(
+                    {
+                        "question_id": question_id,
+                        "field": field_name,
+                        "reason": f"fact_status_not_allowed_by_metric_policy:{status or 'missing'}",
+                    }
+                )
+                continue
+            if contract.requires_non_confirmed_reason_action:
+                for key in ("reason", "action"):
+                    if not _specific_detail(record.get(key)):
+                        failures.append(
+                            {
+                                "question_id": question_id,
+                                "field": field_name,
+                                "reason": f"{status}_{key}_missing_or_generic",
+                            }
+                        )
 
     return {
         "passed": coverage_passed and not failures and all(critical_coverage.values()),
@@ -339,21 +340,18 @@ def _evaluate_answers_for_questions(
 def _confirmed_failure_reason(answer: Mapping[str, Any]) -> str | None:
     if str(answer.get("status") or "").strip().lower() != "confirmed":
         return "status_not_confirmed"
-    value = answer.get("value")
-    if _value_is_empty(value):
-        return "value_missing"
-    if isinstance(value, bool):
-        return "value_not_finite"
     field_name = str(answer.get("field") or "").strip()
     contract = DAILY_REPORT_METRIC_CONTRACTS.get(field_name)
     if contract is None:
         return "metric_contract_missing"
-    try:
-        numeric_value = float(value)
-    except (TypeError, ValueError):
-        return "value_not_finite"
-    if not math.isfinite(numeric_value):
-        return "value_not_finite"
+    if not contract.confirmation_allowed:
+        return contract.confirmed_failure_reason or "confirmed_not_allowed_by_metric_policy"
+    value = answer.get("value")
+    if _value_is_empty(value):
+        return "value_missing"
+    value_failure = metric_value_failure_reason(field_name, value)
+    if value_failure is not None:
+        return value_failure
     source_key = _normalized_source(answer.get("source_key"))
     if not source_key or _contains_disallowed_source_marker(source_key):
         return "source_key_missing_or_disallowed"
@@ -393,10 +391,9 @@ def _confirmed_failure_reason(answer: Mapping[str, Any]) -> str | None:
         return "business_window_missing"
     if not _business_window_matches_date(business_date, business_window):
         return "business_window_contract_mismatch"
-    if not unit:
-        return "unit_missing"
-    if not _unit_matches_field(field_name, unit):
-        return "unit_field_contract_mismatch"
+    unit_failure = metric_unit_failure_reason(field_name, unit)
+    if unit_failure is not None:
+        return unit_failure
     if not metric_contract_version:
         return "metric_contract_version_missing"
     if metric_contract_version != contract.metric_contract_version:
@@ -443,20 +440,7 @@ def _normalized_source(value: Any) -> str:
 
 
 def _unit_matches_field(field_name: str, unit: str) -> bool:
-    expected_unit = _FIELD_UNIT_CONTRACTS.get(field_name)
-    if expected_unit is None:
-        return True
-    normalized = unit.strip().lower()
-    aliases = {
-        "吨": {"吨", "t", "ton", "tons"},
-        "kwh": {"kwh", "度", "千瓦时"},
-        "%": {"%", "percent", "percentage", "百分点"},
-        "m³": {"m³", "m3", "立方米"},
-        "kwh/吨": {"kwh/吨", "kwh/t", "度/吨", "千瓦时/吨"},
-        "元/吨": {"元/吨", "元/t", "yuan/ton"},
-    }
-    expected = expected_unit.strip().lower()
-    return normalized in aliases.get(expected, {expected})
+    return metric_unit_failure_reason(field_name, unit) is None
 
 
 def _question_id(value: Any) -> int | None:

@@ -70,11 +70,22 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
     daily_report_tolerance_for = metric_contracts.daily_report_tolerance_for
     expected = {
         'total_output_daily': ('吨', 20.0),
+        'workshop_output_daily': ('吨', 0.0),
         'finished_inbound_daily': ('吨', 20.0),
+        'daily_input_weight': ('吨', 0.0),
         'wip_total': ('吨', 20.0),
         'total_electricity_kwh': ('kWh', 20.0),
+        'total_gas_m3': ('m³', 0.0),
         'electricity_per_ton': ('kWh/吨', 0.2),
         'daily_yield_rate': ('%', 0.2),
+        'cost_per_ton': ('元/吨', 0.0),
+        'remaining_contract_weight': ('吨', 0.0),
+        'monthly_total_output': ('吨', 0.0),
+        'annual_total_output': ('吨', 0.0),
+        'anomaly_explanation_daily': (None, 0.0),
+        'dingtalk_specialist_evidence': (None, 0.0),
+        'source_status': (None, 0.0),
+        'daily_report_readiness': (None, 0.0),
     }
     expected_sources = {
         'total_output_daily': {
@@ -83,6 +94,10 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'mes_packaging_output',
             'mes_verified',
         },
+        'workshop_output_daily': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+        },
         'finished_inbound_daily': {
             'dingtalk_supplement',
             'root_owner_correction',
@@ -90,6 +105,10 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'wms_direct',
             'mes_stock_header_records',
             'mes_stock_records',
+        },
+        'daily_input_weight': {
+            'dingtalk_supplement',
+            'root_owner_correction',
         },
         'wip_total': {
             'dingtalk_supplement',
@@ -107,6 +126,10 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'owner_or_energy_summary',
             'data_hub_manual',
         },
+        'total_gas_m3': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+        },
         'electricity_per_ton': {
             'dingtalk_supplement',
         },
@@ -117,6 +140,31 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'quality_yield_daily',
             'computed_same_basis',
         },
+        'cost_per_ton': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+        },
+        'remaining_contract_weight': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+        },
+        'monthly_total_output': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+        },
+        'annual_total_output': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+        },
+        'anomaly_explanation_daily': {
+            'dingtalk_supplement',
+            'root_owner_correction',
+        },
+        'dingtalk_specialist_evidence': {
+            'dingtalk_supplement',
+        },
+        'source_status': set(),
+        'daily_report_readiness': set(),
     }
 
     assert set(metric_contracts.DAILY_REPORT_METRIC_CONTRACTS) == set(expected)
@@ -308,6 +356,63 @@ def test_electricity_per_ton_contract_requires_persisted_numerator_and_denominat
         source_ref=invalid_basis,
         trace_id=valid_ref['trace_id'],
     )
+
+
+def test_all_20_question_metric_keys_have_canonical_fact_or_diagnostic_policy() -> None:
+    from app.services.hermes_20_question_acceptance import build_20_question_catalog
+
+    expected_value_kinds = {
+        'total_output_daily': 'finite_number',
+        'workshop_output_daily': 'numeric_mapping',
+        'finished_inbound_daily': 'finite_number',
+        'daily_input_weight': 'finite_number',
+        'total_electricity_kwh': 'finite_number',
+        'total_gas_m3': 'finite_number',
+        'electricity_per_ton': 'finite_number',
+        'daily_yield_rate': 'finite_number',
+        'cost_per_ton': 'finite_number',
+        'wip_total': 'finite_number',
+        'remaining_contract_weight': 'finite_number',
+        'monthly_total_output': 'finite_number',
+        'annual_total_output': 'finite_number',
+        'anomaly_explanation_daily': 'nonempty_text',
+        'dingtalk_specialist_evidence': 'evidence_collection',
+        'source_status': 'diagnostic_status',
+        'daily_report_readiness': 'diagnostic_status',
+    }
+    catalog = build_20_question_catalog()
+    catalog_fields = {field for question in catalog for field in question.metric_keys}
+
+    assert len(catalog) == 20
+    assert catalog_fields == set(expected_value_kinds)
+    for field, value_kind in expected_value_kinds.items():
+        contract = metric_contracts.daily_report_contract_for(field)
+        assert contract.value_kind == value_kind
+        assert contract.confirmation_allowed or contract.confirmed_failure_reason
+
+    for question in catalog:
+        for field in question.metric_keys:
+            contract = metric_contracts.daily_report_contract_for(field)
+            if contract.confirmation_allowed:
+                assert contract.source_contracts or metric_contracts.fact_source_contract_for(
+                    field,
+                    next(iter(contract.allowed_source_types)),
+                ) is not None
+            else:
+                assert question.status_hint in contract.allowed_non_confirmed_statuses
+
+
+def test_diagnostic_metric_policies_are_explicit_and_non_confirmable() -> None:
+    for field in ('source_status', 'daily_report_readiness'):
+        contract = metric_contracts.daily_report_contract_for(field)
+        assert contract.confirmation_allowed is False
+        assert contract.unit is None
+        assert contract.allowed_source_types == frozenset()
+        assert contract.allowed_non_confirmed_statuses == frozenset(
+            {'candidate', 'missing', 'conflict'}
+        )
+        assert contract.requires_non_confirmed_reason_action is True
+        assert field in contract.confirmed_failure_reason
 
 
 def test_mes_wip_contract_uses_business_date_and_active_coil_filters() -> None:

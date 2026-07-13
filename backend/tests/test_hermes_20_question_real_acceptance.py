@@ -10,6 +10,7 @@ from app.services.hermes_20_question_acceptance import (
     _unit_matches_field,
     answer_is_confirmed,
     build_20_question_catalog,
+    confirmed_fact_failure_reason,
     evaluate_acceptance_summary,
     evaluate_answers,
     evaluate_question_snapshot,
@@ -61,6 +62,36 @@ _REQUIRED_NATURAL_UTTERANCES = {
     "成品率咋这么高，帮我查下是不是口径错了",
     "接着上一个问题，把证据编号给我",
 }
+
+
+def _canonical_dingtalk_fact(
+    field: str,
+    value: object,
+    *,
+    unit: str | None,
+    evidence_id: int = 71,
+) -> dict[str, object]:
+    trace_id = f"dingtalk-fact-{field}-{evidence_id}"
+    answer: dict[str, object] = {
+        "field": field,
+        "status": "confirmed",
+        "value": value,
+        "source_key": "dingtalk_group_content",
+        "source_type": "dingtalk_supplement",
+        "source_ref": {
+            "source_key": "dingtalk_group_content",
+            "evidence_id": evidence_id,
+            "trace_id": trace_id,
+            "business_date": "2026-06-27",
+        },
+        "business_date": "2026-06-27",
+        "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+        "metric_contract_version": "2026-07-11",
+        "trace_id": trace_id,
+    }
+    if unit is not None:
+        answer["unit"] = unit
+    return answer
 
 
 def _fact_records(question_id: int) -> list[dict[str, object]]:
@@ -568,6 +599,129 @@ def test_electricity_per_ton_accepts_anchored_basis_fact(unit: str) -> None:
             "trace_id": trace_id,
         }
     ) is True
+
+
+def test_total_gas_accepts_canonical_dingtalk_fact_anchor() -> None:
+    assert answer_is_confirmed(
+        _canonical_dingtalk_fact("total_gas_m3", 50578, unit="m³")
+    ) is True
+
+
+def test_workshop_output_accepts_finite_numeric_mapping() -> None:
+    assert answer_is_confirmed(
+        _canonical_dingtalk_fact(
+            "workshop_output_daily",
+            {"铸轧": 81.0, "热轧": 275.0, "精整": 86.0},
+            unit="吨",
+        )
+    ) is True
+
+
+def test_anomaly_and_specialist_evidence_accept_non_numeric_values_without_units() -> None:
+    assert answer_is_confirmed(
+        _canonical_dingtalk_fact(
+            "anomaly_explanation_daily",
+            "热轧停机 35 分钟，责任人已补充设备检修说明",
+            unit=None,
+        )
+    ) is True
+    assert answer_is_confirmed(
+        _canonical_dingtalk_fact(
+            "dingtalk_specialist_evidence",
+            [{"field": "total_gas_m3", "evidence_id": 71}],
+            unit=None,
+        )
+    ) is True
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "unit", "reason_part"),
+    (
+        ("total_gas_m3", {"factory": 50578}, "m³", "value_not_finite"),
+        ("workshop_output_daily", 442.0, "吨", "numeric_mapping"),
+        ("workshop_output_daily", {"热轧": math.nan}, "吨", "numeric_mapping"),
+        ("anomaly_explanation_daily", 35, None, "nonempty_text"),
+        ("dingtalk_specialist_evidence", "证据 71", None, "evidence_collection"),
+    ),
+)
+def test_confirmed_fact_rejects_wrong_value_kind(
+    field: str,
+    value: object,
+    unit: str | None,
+    reason_part: str,
+) -> None:
+    reason = confirmed_fact_failure_reason(
+        _canonical_dingtalk_fact(field, value, unit=unit)
+    )
+
+    assert reason is not None
+    assert reason_part in reason
+
+
+def test_non_numeric_fact_rejects_fake_unit_and_numeric_fact_rejects_wrong_source() -> None:
+    anomaly = _canonical_dingtalk_fact(
+        "anomaly_explanation_daily",
+        "设备检修造成停机",
+        unit=None,
+    )
+    anomaly["unit"] = "吨"
+    assert "unit" in str(confirmed_fact_failure_reason(anomaly))
+
+    gas = _canonical_dingtalk_fact("total_gas_m3", 50578, unit="吨")
+    assert "unit" in str(confirmed_fact_failure_reason(gas))
+    gas = _canonical_dingtalk_fact("total_gas_m3", 50578, unit="m³")
+    gas["source_type"] = "owner_daily"
+    assert "source_type" in str(confirmed_fact_failure_reason(gas))
+
+
+@pytest.mark.parametrize("field", ("source_status", "daily_report_readiness"))
+def test_diagnostic_field_rejects_confirmed_with_explicit_policy_reason(field: str) -> None:
+    reason = confirmed_fact_failure_reason(
+        {
+            "field": field,
+            "status": "confirmed",
+            "value": {"status": "partial"},
+        }
+    )
+
+    assert reason is not None
+    assert field in reason
+    assert "not_allowed" in reason
+
+
+def test_diagnostic_candidate_status_passes_only_with_reason_and_action() -> None:
+    answers = _valid_answers()
+    for record in answers:
+        if record.get("field") in {"source_status", "daily_report_readiness"}:
+            record["status"] = "candidate"
+            record["reason"] = "当前来源健康对象尚未形成可确认的持久化诊断事实"
+            record["action"] = "请按本次 trace 复核缺失来源并重新运行诊断"
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is True
+
+
+@pytest.mark.parametrize("missing_key", ("reason", "action"))
+def test_diagnostic_candidate_status_rejects_missing_resolution_detail(
+    missing_key: str,
+) -> None:
+    answers = _valid_answers()
+    for record in answers:
+        if record.get("field") in {"source_status", "daily_report_readiness"}:
+            record["status"] = "candidate"
+            record["reason"] = "当前来源健康对象尚未形成可确认的持久化诊断事实"
+            record["action"] = "请按本次 trace 复核缺失来源并重新运行诊断"
+            record[missing_key] = ""
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert any(
+        failure.get("field") in {"source_status", "daily_report_readiness"}
+        and missing_key in str(failure.get("reason"))
+        for failure in result["failures"]
+    )
 
 
 @pytest.mark.parametrize("missing_key", ("reason", "action"))

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -7,6 +9,15 @@ from app.core.business_time import OWNER_DAILY_BUSINESS_DAY_START, PRODUCTION_BU
 
 
 DAILY_REPORT_METRIC_CONTRACT_VERSION = '2026-07-11'
+
+_UNIT_ALIASES = {
+    '吨': frozenset({'吨', 't', 'ton', 'tons'}),
+    'kwh': frozenset({'kwh', '度', '千瓦时'}),
+    '%': frozenset({'%', 'percent', 'percentage', '百分点'}),
+    'm³': frozenset({'m³', 'm3', '立方米'}),
+    'kwh/吨': frozenset({'kwh/吨', 'kwh/t', '度/吨', '千瓦时/吨'}),
+    '元/吨': frozenset({'元/吨', '元/t', 'yuan/ton'}),
+}
 
 
 CORE_METRIC_CONTRACTS: dict[str, dict[str, Any]] = {
@@ -99,9 +110,14 @@ class FactSourceContract:
 
 @dataclass(frozen=True)
 class DailyReportMetricContract:
-    unit: str
+    unit: str | None
     tolerance: float
     allowed_source_types: frozenset[str]
+    value_kind: str = 'finite_number'
+    confirmation_allowed: bool = True
+    allowed_non_confirmed_statuses: frozenset[str] = frozenset({'missing', 'conflict'})
+    requires_non_confirmed_reason_action: bool = True
+    confirmed_failure_reason: str | None = None
     requires_same_business_window: bool = False
     source_contracts: tuple[FactSourceContract, ...] = ()
     metric_contract_version: str = DAILY_REPORT_METRIC_CONTRACT_VERSION
@@ -229,6 +245,16 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
         }),
         source_contracts=_confirmable_source_contracts(),
     ),
+    'workshop_output_daily': DailyReportMetricContract(
+        unit='吨',
+        tolerance=0.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+        }),
+        value_kind='numeric_mapping',
+        source_contracts=_confirmable_source_contracts(),
+    ),
     'finished_inbound_daily': DailyReportMetricContract(
         unit='吨',
         tolerance=20.0,
@@ -239,6 +265,15 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
             'wms_direct',
             'mes_stock_header_records',
             'mes_stock_records',
+        }),
+        source_contracts=_confirmable_source_contracts(),
+    ),
+    'daily_input_weight': DailyReportMetricContract(
+        unit='吨',
+        tolerance=0.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
         }),
         source_contracts=_confirmable_source_contracts(),
     ),
@@ -268,6 +303,15 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
         }),
         source_contracts=_confirmable_source_contracts(),
     ),
+    'total_gas_m3': DailyReportMetricContract(
+        unit='m³',
+        tolerance=0.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+        }),
+        source_contracts=_confirmable_source_contracts(),
+    ),
     'electricity_per_ton': DailyReportMetricContract(
         unit='kWh/吨',
         tolerance=0.2,
@@ -288,6 +332,81 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
         requires_same_business_window=True,
         source_contracts=_confirmable_source_contracts(),
     ),
+    'cost_per_ton': DailyReportMetricContract(
+        unit='元/吨',
+        tolerance=0.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+        }),
+        source_contracts=_confirmable_source_contracts(),
+    ),
+    'remaining_contract_weight': DailyReportMetricContract(
+        unit='吨',
+        tolerance=0.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+        }),
+        source_contracts=_confirmable_source_contracts(),
+    ),
+    'monthly_total_output': DailyReportMetricContract(
+        unit='吨',
+        tolerance=0.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+        }),
+        source_contracts=_confirmable_source_contracts(),
+    ),
+    'annual_total_output': DailyReportMetricContract(
+        unit='吨',
+        tolerance=0.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+        }),
+        source_contracts=_confirmable_source_contracts(),
+    ),
+    'anomaly_explanation_daily': DailyReportMetricContract(
+        unit=None,
+        tolerance=0.0,
+        allowed_source_types=frozenset({
+            'dingtalk_supplement',
+            'root_owner_correction',
+        }),
+        value_kind='nonempty_text',
+        source_contracts=_confirmable_source_contracts(),
+    ),
+    'dingtalk_specialist_evidence': DailyReportMetricContract(
+        unit=None,
+        tolerance=0.0,
+        allowed_source_types=frozenset({'dingtalk_supplement'}),
+        value_kind='evidence_collection',
+        source_contracts=(_dingtalk_source_contract(),),
+    ),
+    'source_status': DailyReportMetricContract(
+        unit=None,
+        tolerance=0.0,
+        allowed_source_types=frozenset(),
+        value_kind='diagnostic_status',
+        confirmation_allowed=False,
+        allowed_non_confirmed_statuses=frozenset({'candidate', 'missing', 'conflict'}),
+        confirmed_failure_reason=(
+            'source_status_confirmed_not_allowed_without_persisted_diagnostic_anchor'
+        ),
+    ),
+    'daily_report_readiness': DailyReportMetricContract(
+        unit=None,
+        tolerance=0.0,
+        allowed_source_types=frozenset(),
+        value_kind='diagnostic_status',
+        confirmation_allowed=False,
+        allowed_non_confirmed_statuses=frozenset({'candidate', 'missing', 'conflict'}),
+        confirmed_failure_reason=(
+            'daily_report_readiness_confirmed_not_allowed_without_persisted_diagnostic_anchor'
+        ),
+    ),
 }
 
 
@@ -300,12 +419,70 @@ def daily_report_tolerance_for(field: str) -> float:
     return contract.tolerance if contract is not None else 0.0
 
 
+def metric_value_failure_reason(field_name: str, value: Any) -> str | None:
+    contract = DAILY_REPORT_METRIC_CONTRACTS.get(field_name)
+    if contract is None:
+        return 'metric_contract_missing'
+    if not contract.confirmation_allowed:
+        return contract.confirmed_failure_reason or 'confirmed_not_allowed_by_metric_policy'
+    if contract.value_kind == 'finite_number':
+        return None if _is_finite_number(value) else 'value_not_finite'
+    if contract.value_kind == 'numeric_mapping':
+        if not isinstance(value, Mapping) or not value:
+            return 'value_not_numeric_mapping'
+        if any(
+            not str(key or '').strip() or not _is_finite_number(item)
+            for key, item in value.items()
+        ):
+            return 'value_not_numeric_mapping'
+        return None
+    if contract.value_kind == 'nonempty_text':
+        return None if isinstance(value, str) and value.strip() else 'value_not_nonempty_text'
+    if contract.value_kind == 'evidence_collection':
+        if isinstance(value, Mapping):
+            items = (value,)
+        elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            items = tuple(value)
+        else:
+            items = ()
+        if not items or any(not isinstance(item, Mapping) or not item for item in items):
+            return 'value_not_evidence_collection'
+        return None
+    return 'value_kind_not_supported'
+
+
+def metric_unit_failure_reason(field_name: str, unit: Any) -> str | None:
+    contract = DAILY_REPORT_METRIC_CONTRACTS.get(field_name)
+    if contract is None:
+        return 'metric_contract_missing'
+    normalized = str(unit or '').strip().lower()
+    if contract.unit is None:
+        return 'unit_not_applicable' if normalized else None
+    if not normalized:
+        return 'unit_missing'
+    expected = contract.unit.strip().lower()
+    return None if normalized in _UNIT_ALIASES.get(expected, frozenset({expected})) else 'unit_field_contract_mismatch'
+
+
+def _is_finite_number(value: Any) -> bool:
+    if isinstance(value, bool) or value is None:
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def fact_source_contract_for(
     field_name: str,
     source_type: str,
 ) -> FactSourceContract | None:
     metric_contract = DAILY_REPORT_METRIC_CONTRACTS.get(field_name)
-    if metric_contract is None:
+    if (
+        metric_contract is None
+        or not metric_contract.confirmation_allowed
+        or source_type not in metric_contract.allowed_source_types
+    ):
         return None
     source_contract = next(
         (

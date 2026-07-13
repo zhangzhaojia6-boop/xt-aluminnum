@@ -425,6 +425,71 @@ def test_runner_uses_fact_validator_and_never_backfills_missing_primary_metadata
     assert "business_date" in records[0]["reason"]
 
 
+def test_runner_keeps_confirmable_structured_value_kinds_from_primary_fact() -> None:
+    business_window = "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00"
+    trace_id = "dingtalk-evidence-208"
+
+    def field_fact(value, *, unit=None):
+        return {
+            "value": value,
+            "source_key": "dingtalk_group_content",
+            "source_type": "dingtalk_supplement",
+            "source_ref": {
+                "source_key": "dingtalk_group_content",
+                "evidence_id": 208,
+                "trace_id": trace_id,
+                "business_date": "2026-06-26",
+            },
+            "business_date": "2026-06-26",
+            "business_window": business_window,
+            "unit": unit,
+            "metric_contract_version": "2026-07-11",
+            "trace_id": trace_id,
+            "status": "ok",
+        }
+
+    records = runner._build_fact_answer(
+        question_id=4,
+        turn_trace_id="turn-trace-not-used",
+        recognition={
+            "metric_keys": [
+                "workshop_output_daily",
+                "anomaly_explanation_daily",
+                "dingtalk_specialist_evidence",
+            ]
+        },
+        evidence={
+            "primary": {
+                "source_key": "dingtalk_group_content",
+                "source_type": "dingtalk_supplement",
+                "status": "ok",
+                "value": {
+                    "workshop_output_daily": field_fact(
+                        {"熔铸": 61.0, "精整": 57.0},
+                        unit="吨",
+                    ),
+                    "anomaly_explanation_daily": field_fact("停机检修造成产量波动"),
+                    "dingtalk_specialist_evidence": field_fact(
+                        [{"evidence_id": 208, "summary": "设备群确认检修"}]
+                    ),
+                },
+                "trace_ref": {},
+            }
+        },
+    )
+
+    assert [record["status"] for record in records] == [
+        "confirmed",
+        "confirmed",
+        "confirmed",
+    ]
+    assert records[0]["value"] == {"熔铸": 61.0, "精整": 57.0}
+    assert records[1]["value"] == "停机检修造成产量波动"
+    assert records[2]["value"] == [
+        {"evidence_id": 208, "summary": "设备群确认检修"}
+    ]
+
+
 def test_snapshot_keeps_missing_details_empty_when_primary_does_not_contain_requested_field() -> None:
     db = _db_session()
     trace_id = "trace-primary-wrong-field"
