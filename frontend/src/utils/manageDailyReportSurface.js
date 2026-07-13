@@ -2,6 +2,49 @@ import { filterActiveWorkshopRows, isRetiredWorkshopName } from './activeWorksho
 
 export const MISSING_DAILY_VALUE = '暂无可信数据'
 
+const DERIVED_REFERENCE_SOURCES = new Set([
+  'official_daily_report',
+  'datahub_final_daily_report',
+  'daily_fact_bundle',
+  'formal',
+  'formal_daily_report',
+  'formal_report',
+  'historical',
+  'historical_report',
+  'output_skill',
+  'rag',
+  'reference_only',
+  'data_hub_projection',
+  'yield_projection',
+  'contract_projection',
+  'computed',
+  'unknown',
+  'missing',
+])
+
+function normalizeFactSource(value) {
+  if (typeof value !== 'string' || !value.trim()) return ''
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[ /-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
+export function safeFactSource(value) {
+  const normalized = normalizeFactSource(value)
+  if (!normalized || DERIVED_REFERENCE_SOURCES.has(normalized)) return null
+  return value.trim()
+}
+
+export function openFactTrace(router, traceId) {
+  const trace = typeof traceId === 'string' ? traceId.trim() : ''
+  if (!trace || typeof router?.push !== 'function') return false
+  router.push({ path: '/manage/alerts', query: { trace_id: trace } })
+  return true
+}
+
 function toNumber(value) {
   if (value === null || value === undefined || value === '') return null
   const numeric = Number(value)
@@ -251,7 +294,7 @@ export function buildFactClosureSurface(factClosure) {
       value: Object.prototype.hasOwnProperty.call(field, 'value') ? field.value : null,
       unit: typeof field.unit === 'string' ? field.unit : null,
       status: typeof field.status === 'string' && field.status ? field.status : 'missing',
-      source: typeof field.source === 'string' && field.source ? field.source : '暂无可信来源',
+      source: safeFactSource(field.source) || '暂无可信来源',
       businessWindow: typeof field.business_window === 'string' ? field.business_window : null,
       action: typeof field.action === 'string' && field.action ? field.action : '等待鑫泰铝业智能大脑追踪',
       traceId: typeof field.trace_id === 'string' ? field.trace_id : '',

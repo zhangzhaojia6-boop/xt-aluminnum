@@ -4,6 +4,7 @@ import {
   formatReconciliationTypeLabel,
   formatShiftLabel
 } from '../../utils/display.js'
+import { safeFactSource } from '../../utils/manageDailyReportSurface.js'
 
 const FD_ROUTE = '/manage/alerts?surface=anomaly'
 const Q_ROUTE = '/manage/alerts?surface=quality'
@@ -309,6 +310,10 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
     'hermes-failure': `${row.agent_code || row.agentCode || 'Hermes'} 运行失败`,
     'dingtalk-failure': `${row.agent_code || row.agentCode || '钉钉入站'} 运行失败`,
   }
+  const factSource = safeFactSource(row.source ?? row.source_type)
+  const sourceLabel = kind.startsWith('fact-')
+    ? (factSource || '暂无可信来源')
+    : factSource
   return {
     id: `${kind}:${rawId}`,
     domain: kind === 'fact-conflict'
@@ -317,7 +322,7 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
     occurredAt: dailyOccurredAt(row, eventDate, fallbackTime),
     targetDate: eventDate,
     summary: row.summary || labels[kind],
-    detail: joinNonEmpty([row.field || row.field_name, row.source, row.channel, row.status], ' · '),
+    detail: joinNonEmpty([row.field || row.field_name, sourceLabel, row.channel, row.status], ' · '),
     detailRoute: traceRoute(traceId, row.detail_route || row.detailRoute),
     traceId,
     factStatus: row.status || null,
@@ -333,11 +338,27 @@ export function normalizeDailyFactAlerts(payload, targetDate) {
     ['hermes-failure', safeArray(payload.hermes_failures), '23:59:57'],
     ['dingtalk-failure', safeArray(payload.dingtalk_inbound_failures), '23:59:56'],
   ]
-  return groups.flatMap(([kind, rows, fallbackTime]) => (
+  const events = groups.flatMap(([kind, rows, fallbackTime]) => (
     rows
       .filter((row) => row && typeof row === 'object' && !Array.isArray(row))
       .map((row, idx) => dailyFactEvent(kind, row, idx, targetDate, fallbackTime))
   ))
+  const capabilityStatus = payload.fact_closure_capability?.status
+  if (payload.fact_closure_available === false || capabilityStatus === 'missing') {
+    events.push({
+      id: 'fact-closure-capability:missing',
+      domain: 'reporting',
+      occurredAt: `${targetDate}T23:59:55`,
+      targetDate,
+      summary: '当日事实闭包不可用',
+      detail: '可信日结快照缺失',
+      detailRoute: '/manage/today?section=daily-report',
+      traceId: '',
+      status: null,
+      isFallback: true,
+    })
+  }
+  return events
 }
 
 export function mergeAndSort(eventsArrays) {

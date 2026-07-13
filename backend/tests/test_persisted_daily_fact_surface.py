@@ -12,7 +12,6 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.domain.metric_contracts import daily_report_contract_for
-from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
 from app.models.system import User
 from app.services.report import daily_overview_builder
@@ -51,8 +50,6 @@ def db_session() -> Iterator[Session]:
             cast(Table, User.__table__),
             cast(Table, DailyFactBundleRun.__table__),
             cast(Table, DailyFactBundleSnapshot.__table__),
-            cast(Table, ChatInboxMessage.__table__),
-            cast(Table, AgentRun.__table__),
         ],
     )
     session = sessionmaker(bind=engine, future=True)()
@@ -210,47 +207,14 @@ def test_daily_overview_preserves_latest_canonical_snapshot_fact_contract(db_ses
     }
     assert fact["action"]
     assert payload["fact_closure"]["status"] == "pass"
+    assert payload["fact_closure_available"] is True
+    assert payload["fact_closure_capability"] == {
+        "status": "available",
+        "agent_failure_audit": "unavailable",
+    }
 
 
 def test_daily_overview_without_snapshot_returns_all_critical_facts_missing(db_session: Session) -> None:
-    internal = ChatInboxMessage(
-        channel="internal",
-        text="无快照内部失败",
-        agent_code="factory_dispatch",
-        trace_id="trace-no-snapshot-hermes",
-        created_at=datetime(2026, 7, 7, 12, 0, tzinfo=SHANGHAI),
-    )
-    dingtalk = ChatInboxMessage(
-        channel="dingtalk_group",
-        text="无快照钉钉失败",
-        agent_code="factory_dispatch",
-        trace_id="trace-no-snapshot-dingtalk",
-        created_at=datetime(2026, 7, 7, 13, 0, tzinfo=SHANGHAI),
-    )
-    db_session.add_all([internal, dingtalk])
-    db_session.flush()
-    db_session.add_all([
-        AgentRun(
-            trace_id=internal.trace_id,
-            agent_code="factory_dispatch",
-            chat_inbox_id=internal.id,
-            status="failed",
-            status_color="red",
-            answer="失败",
-            created_at=datetime(2026, 7, 7, 12, 1, tzinfo=SHANGHAI),
-        ),
-        AgentRun(
-            trace_id=dingtalk.trace_id,
-            agent_code="factory_dispatch",
-            chat_inbox_id=dingtalk.id,
-            status="failed",
-            status_color="red",
-            answer="失败",
-            created_at=datetime(2026, 7, 7, 13, 1, tzinfo=SHANGHAI),
-        ),
-    ])
-    db_session.commit()
-
     payload = _overview(db_session)
 
     assert payload["fact_closure"]["status"] == "blocked"
@@ -268,6 +232,11 @@ def test_daily_overview_without_snapshot_returns_all_critical_facts_missing(db_s
     assert payload["fact_conflicts"] == []
     assert payload["hermes_failures"] == []
     assert payload["dingtalk_inbound_failures"] == []
+    assert payload["fact_closure_available"] is False
+    assert payload["fact_closure_capability"] == {
+        "status": "missing",
+        "agent_failure_audit": "unavailable",
+    }
 
 
 def test_newer_formal_snapshot_never_overrides_canonical_scheduled_snapshot(db_session: Session) -> None:
@@ -314,6 +283,8 @@ def test_formal_snapshot_is_ignored_when_canonical_snapshot_is_absent(db_session
     assert payload["fact_conflicts"] == []
     assert payload["hermes_failures"] == []
     assert payload["dingtalk_inbound_failures"] == []
+    assert payload["fact_closure_available"] is False
+    assert payload["fact_closure_capability"]["status"] == "missing"
 
 
 def test_scheduled_snapshot_without_canonical_key_is_ignored(db_session: Session) -> None:
@@ -381,78 +352,56 @@ def test_snapshot_missing_unit_window_or_trace_stays_missing_and_not_confirmed(d
         assert _field(payload, field_name)["status"] != "confirmed"
 
 
-def test_daily_overview_returns_bounded_deduplicated_real_agent_failures(db_session: Session) -> None:
+def test_daily_overview_does_not_claim_unavailable_agent_failure_audit(db_session: Session) -> None:
     _add_snapshot(db_session)
-    internal = ChatInboxMessage(
-        channel="internal",
-        text="内部任务",
-        agent_code="factory_dispatch",
-        trace_id="trace-hermes-failed",
-        created_at=datetime(2026, 7, 7, 12, 0, tzinfo=SHANGHAI),
-    )
-    dingtalk = ChatInboxMessage(
-        channel="dingtalk_group",
-        text="钉钉任务",
-        agent_code="factory_dispatch",
-        trace_id="trace-dingtalk-failed",
-        created_at=datetime(2026, 7, 7, 13, 0, tzinfo=SHANGHAI),
-    )
-    outside = ChatInboxMessage(
-        channel="dingtalk_group",
-        text="窗口外任务",
-        agent_code="factory_dispatch",
-        trace_id="trace-outside",
-        created_at=datetime(2026, 7, 8, 8, 0, tzinfo=SHANGHAI),
-    )
-    db_session.add_all([internal, dingtalk, outside])
-    db_session.flush()
-    db_session.add_all(
-        [
-            AgentRun(
-                trace_id="trace-hermes-failed",
-                agent_code="factory_dispatch",
-                chat_inbox_id=internal.id,
-                status="failed",
-                status_color="red",
-                answer="失败",
-                created_at=datetime(2026, 7, 7, 12, 1, tzinfo=SHANGHAI),
-            ),
-            AgentRun(
-                trace_id="trace-hermes-failed",
-                agent_code="factory_dispatch",
-                chat_inbox_id=internal.id,
-                status="failed",
-                status_color="red",
-                answer="重复失败",
-                created_at=datetime(2026, 7, 7, 12, 2, tzinfo=SHANGHAI),
-            ),
-            AgentRun(
-                trace_id="trace-dingtalk-failed",
-                agent_code="factory_dispatch",
-                chat_inbox_id=dingtalk.id,
-                status="failed",
-                status_color="red",
-                answer="失败",
-                created_at=datetime(2026, 7, 7, 13, 1, tzinfo=SHANGHAI),
-            ),
-            AgentRun(
-                trace_id="trace-outside",
-                agent_code="factory_dispatch",
-                chat_inbox_id=outside.id,
-                status="failed",
-                status_color="red",
-                answer="失败",
-                created_at=datetime(2026, 7, 8, 8, 1, tzinfo=SHANGHAI),
-            ),
-        ]
+    db_session.commit()
+
+    payload = _overview(db_session)
+
+    assert payload["hermes_failures"] == []
+    assert payload["dingtalk_inbound_failures"] == []
+    assert payload["fact_closure_capability"]["agent_failure_audit"] == "unavailable"
+
+
+def test_derived_reference_sources_never_reach_manage_fact_or_alert_surfaces(db_session: Session) -> None:
+    facts = _facts()
+    facts["total_output_daily"].update({
+        "source": "output_skill",
+        "source_type": "output_skill",
+        "evidence_status": "needs_evidence",
+    })
+    facts["wip_total"].update({
+        "source": "invented_unapproved_source",
+        "source_type": "invented_unapproved_source",
+        "evidence_status": "needs_evidence",
+    })
+    _add_snapshot(
+        db_session,
+        facts=facts,
+        conflicts=[{
+            "field": "finished_inbound_daily",
+            "status": "mismatch",
+            "source": "official_daily_report",
+            "trace_id": "trace-reference-source",
+        }],
+        value_suffix="derived-source-redaction",
     )
     db_session.commit()
 
     payload = _overview(db_session)
 
-    assert [item["trace_id"] for item in payload["hermes_failures"]] == ["trace-hermes-failed"]
-    assert [item["trace_id"] for item in payload["dingtalk_inbound_failures"]] == [
-        "trace-dingtalk-failed"
+    fact = _field(payload, "total_output_daily")
+    assert fact["value"] == 62.0
+    assert fact["status"] == "needs_evidence"
+    assert fact["business_window"] == BUSINESS_WINDOW
+    assert fact["source"] is None
+    assert [item["field"] for item in payload["fact_missing"]] == [
+        "total_output_daily",
+        "wip_total",
     ]
-    assert payload["hermes_failures"][0]["target_date"] == TARGET_DATE.isoformat()
-    assert payload["dingtalk_inbound_failures"][0]["target_date"] == TARGET_DATE.isoformat()
+    assert payload["fact_missing"][0]["source"] is None
+    assert _field(payload, "wip_total")["source"] is None
+    assert payload["fact_conflicts"][0]["source"] is None
+    assert "output_skill" not in str(payload["fact_closure"])
+    assert "official_daily_report" not in str(payload["fact_conflicts"])
+    assert "invented_unapproved_source" not in str(payload["fact_closure"])

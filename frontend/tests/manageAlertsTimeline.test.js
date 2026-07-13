@@ -208,6 +208,84 @@ test('daily closure does not create alerts when explicit alert arrays are absent
   assert.deepEqual(t.events.value, [])
 })
 
+test('missing canonical capability becomes a system fallback without business counts', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async () => ({
+      fact_closure_available: false,
+      fact_closure_capability: {
+        status: 'missing',
+        agent_failure_audit: 'unavailable',
+      },
+      fact_missing: [],
+      fact_conflicts: [],
+      hermes_failures: [],
+      dingtalk_inbound_failures: [],
+    }),
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.equal(t.events.value.length, 1)
+  assert.equal(t.events.value[0].isFallback, true)
+  assert.equal(t.events.value[0].status, null)
+  assert.equal(t.events.value[0].traceId, '')
+  assert.equal(t.events.value[0].detailRoute, '/manage/today?section=daily-report')
+  assert.deepEqual(t.domainCounts.value, {
+    production: 0,
+    reporting: 0,
+    quality: 0,
+    reconciliation: 0,
+    mes: 0,
+  })
+})
+
+test('available canonical capability does not create a system fallback', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async () => ({
+      fact_closure_available: true,
+      fact_closure_capability: {
+        status: 'available',
+        agent_failure_audit: 'unavailable',
+      },
+      fact_missing: [],
+      fact_conflicts: [],
+      hermes_failures: [],
+      dingtalk_inbound_failures: [],
+    }),
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.deepEqual(t.events.value, [])
+})
+
+test('daily fact alert detail never exposes a derived reference source', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async () => ({
+      fact_closure_available: true,
+      fact_missing: [{
+        id: 'missing-derived-source',
+        field: 'total_output_daily',
+        source: 'output_skill',
+        status: 'needs_evidence',
+        target_date: '2026-05-19',
+      }],
+    }),
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.equal(t.events.value.length, 1)
+  assert.doesNotMatch(t.events.value[0].detail, /output_skill/)
+  assert.match(t.events.value[0].detail, /暂无可信来源/)
+})
+
 test('initial trace query filters the timeline to matching real events', async () => {
   const t = createAlertsTimeline({
     ...makeEmptyFakes(),
@@ -226,7 +304,7 @@ test('initial trace query filters the timeline to matching real events', async (
   assert.deepEqual(t.filteredEvents.value.map((event) => event.traceId), ['trace-hermes'])
 })
 
-test('daily endpoint failure changes freshness without inventing fact events', async () => {
+test('daily endpoint failure adds a visible non-business fallback and lastError', async () => {
   const t = createAlertsTimeline({
     ...makeEmptyFakes(),
     fetchDailyProduction: async () => {
@@ -238,7 +316,13 @@ test('daily endpoint failure changes freshness without inventing fact events', a
   await t.load()
 
   assert.equal(t.freshnessStatus.value, 'yellow')
-  assert.equal(t.events.value.length, 0)
+  assert.equal(t.events.value.length, 1)
+  assert.equal(t.events.value[0].isFallback, true)
+  assert.equal(t.events.value[0].status, null)
+  assert.equal(t.events.value[0].traceId, '')
+  assert.equal(t.events.value[0].detailRoute, '/manage/today?section=daily-report')
+  assert.match(t.lastError.value, /事实|日报/)
+  assert.equal(t.domainCounts.value.reporting, 0)
 })
 
 test('domainCounts reflects full unfiltered totals', async () => {

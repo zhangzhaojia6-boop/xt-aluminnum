@@ -9,9 +9,7 @@ from urllib.parse import quote
 from sqlalchemy import literal
 from sqlalchemy.orm import Session
 
-from app.core.business_time import production_business_window
 from app.domain.metric_contracts import daily_report_contract_for
-from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
 from app.services.report.daily_report_gap_analysis import (
     build_daily_report_gap_plan,
@@ -32,9 +30,14 @@ DERIVED_REFERENCE_SOURCE_TYPES = {
     "official_daily_report",
     "datahub_final_daily_report",
     "daily_fact_bundle",
+    "formal",
+    "formal_daily_report",
+    "formal_report",
+    "historical",
     "historical_report",
     "output_skill",
     "rag",
+    "reference_only",
     "data_hub_projection",
     "yield_projection",
     "contract_projection",
@@ -62,7 +65,11 @@ def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]
     for field in CRITICAL_DAILY_FACT_FIELDS:
         fact = _mapping(facts.get(field))
         source_types = _source_types(fact, sources.get(field))
-        source = _source_for_field(fact, sources.get(field))
+        source = _safe_surface_source(
+            field,
+            _source_for_field(fact, sources.get(field)),
+            source_types,
+        )
         value = _value_for_field(bundle, fact, field)
         unit = fact.get("unit")
         business_window = _mapping(fact.get("source_detail")).get("business_window")
@@ -128,9 +135,15 @@ def build_persisted_daily_fact_surface(
             "conflicts": conflicts,
         }
     )
+    capability = {
+        "status": "available" if snapshot is not None else "missing",
+        "agent_failure_audit": "unavailable",
+    }
     if snapshot is None:
         return {
             "fact_closure": closure,
+            "fact_closure_available": False,
+            "fact_closure_capability": capability,
             "fact_conflicts": [],
             "fact_missing": [],
             "hermes_failures": [],
@@ -139,13 +152,14 @@ def build_persisted_daily_fact_surface(
 
     fact_conflicts = _fact_conflict_alerts(conflicts, target_date=target_date)
     fact_missing = _fact_missing_alerts(closure, target_date=target_date)
-    hermes_failures, dingtalk_failures = _failed_agent_alerts(db, target_date=target_date)
     return {
         "fact_closure": closure,
+        "fact_closure_available": True,
+        "fact_closure_capability": capability,
         "fact_conflicts": fact_conflicts,
         "fact_missing": fact_missing,
-        "hermes_failures": hermes_failures,
-        "dingtalk_inbound_failures": dingtalk_failures,
+        "hermes_failures": [],
+        "dingtalk_inbound_failures": [],
     }
 
 
@@ -178,7 +192,7 @@ def _fact_conflict_alerts(conflicts: Any, *, target_date: date) -> list[dict[str
     for index, raw in enumerate(conflicts):
         if not isinstance(raw, Mapping):
             continue
-        item = dict(raw)
+        item = _redact_derived_source_values(dict(raw))
         field = str(item.get("field") or item.get("field_name") or "unknown")
         trace_id = _present_text(item.get("trace_id"))
         item.setdefault("id", f"{field}:{index}")
@@ -209,53 +223,6 @@ def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> li
             }
         )
     return alerts
-
-
-def _failed_agent_alerts(
-    db: Session | None,
-    *,
-    target_date: date,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    if db is None:
-        return [], []
-    start_at, end_at = production_business_window(target_date)
-    rows = (
-        db.query(AgentRun, ChatInboxMessage)
-        .join(ChatInboxMessage, ChatInboxMessage.id == AgentRun.chat_inbox_id)
-        .filter(
-            AgentRun.created_at >= start_at,
-            AgentRun.created_at < end_at,
-            AgentRun.status == "failed",
-        )
-        .order_by(AgentRun.created_at.desc(), AgentRun.id.desc())
-        .limit(200)
-        .all()
-    )
-    hermes: list[dict[str, Any]] = []
-    dingtalk: list[dict[str, Any]] = []
-    seen_traces: set[str] = set()
-    for run, inbox in rows:
-        trace_id = _present_text(run.trace_id)
-        if trace_id is None or trace_id in seen_traces:
-            continue
-        seen_traces.add(trace_id)
-        channel = _present_text(getattr(inbox, "channel", None))
-        alert = {
-            "id": run.id,
-            "target_date": target_date.isoformat(),
-            "occurred_at": run.created_at.isoformat(),
-            "trace_id": trace_id,
-            "agent_code": run.agent_code,
-            "status": run.status,
-            "channel": channel,
-            "summary": f"{run.agent_code} 运行失败",
-            "detail_route": _alerts_route(trace_id),
-        }
-        if channel and channel.lower().startswith("dingtalk"):
-            dingtalk.append(alert)
-        else:
-            hermes.append(alert)
-    return hermes, dingtalk
 
 
 def _alerts_route(trace_id: str | None) -> str:
@@ -421,6 +388,31 @@ def _source_for_field(fact: Mapping[str, Any], source_detail: Any) -> Any:
         if _has_value(value):
             return value
     return None
+
+
+def _safe_surface_source(field: str, source: Any, source_types: list[str]) -> Any:
+    if not _is_allowed_source(field, source_types):
+        return None
+    return source
+
+
+def _redact_derived_source_values(value: Any, *, source_context: bool = False) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            key: _redact_derived_source_values(
+                item,
+                source_context=source_context or "source" in str(key).lower(),
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [
+            _redact_derived_source_values(item, source_context=source_context)
+            for item in value
+        ]
+    if source_context and _normalize_source_type(value) in DERIVED_REFERENCE_SOURCE_TYPES:
+        return None
+    return value
 
 
 def _trace_id_for_field(

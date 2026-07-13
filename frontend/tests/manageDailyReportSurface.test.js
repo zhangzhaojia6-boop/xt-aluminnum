@@ -7,7 +7,8 @@ import {
   buildFactClosureSurface,
   buildDailyWorkshopRows,
   buildDailyWipRows,
-  MISSING_DAILY_VALUE
+  MISSING_DAILY_VALUE,
+  openFactTrace,
 } from '../src/utils/manageDailyReportSurface.js'
 
 test('daily settlement cards keep MES packaging output separate from plant inbound output', () => {
@@ -421,6 +422,59 @@ test('fact closure surface keeps backend value unit source status window trace a
     traceId: 'trace-real-output',
     action: '已完成',
   })
+})
+
+test('fact closure surface redacts derived reference sources without changing fact metadata', () => {
+  const surface = buildFactClosureSurface({
+    status: 'blocked',
+    critical_fields: [{
+      field: 'total_output_daily',
+      value: 62,
+      unit: '吨',
+      source: 'output_skill',
+      status: 'needs_evidence',
+      business_window: '2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00',
+      trace_id: 'trace-reference-only',
+      action: '补充真实来源',
+    }],
+  })
+
+  assert.deepEqual(surface.criticalFields[0], {
+    key: 'total_output_daily',
+    value: 62,
+    unit: '吨',
+    status: 'needs_evidence',
+    source: '暂无可信来源',
+    businessWindow: '2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00',
+    traceId: 'trace-reference-only',
+    action: '补充真实来源',
+  })
+
+  const card = buildDailySettlementCards({ plant_output: { daily_output: 999 } }, {
+    critical_fields: [{
+      field: 'total_output_daily',
+      value: 62,
+      unit: '吨',
+      source: 'output_skill',
+      status: 'needs_evidence',
+    }],
+  }).find((item) => item.key === 'plant-output')
+  assert.equal(card.value, '--')
+  assert.equal(card.status, 'needs_evidence')
+  assert.equal(card.sourceLabel, '暂无可信来源')
+})
+
+test('openFactTrace pushes only non-empty traces through the existing alerts route', () => {
+  const pushes = []
+  const router = { push: (route) => pushes.push(route) }
+
+  assert.equal(openFactTrace(router, ' trace/output-1 '), true)
+  assert.equal(openFactTrace(router, ''), false)
+  assert.equal(openFactTrace(router, null), false)
+  assert.deepEqual(pushes, [{
+    path: '/manage/alerts',
+    query: { trace_id: 'trace/output-1' },
+  }])
 })
 
 test('fact closure surface falls back cleanly when fact closure payload is absent or malformed', () => {

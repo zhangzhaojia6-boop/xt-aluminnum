@@ -86,6 +86,20 @@ export function createAlertsTimeline(options = {}) {
     }
   }
 
+  function dailyFactFallbackCard() {
+    return {
+      id: 'reporting:daily-fact-fallback',
+      domain: 'reporting',
+      occurredAt: `${targetDate.value}T23:59:55`,
+      targetDate: targetDate.value,
+      summary: '日报事实加载失败',
+      detailRoute: '/manage/today?section=daily-report',
+      traceId: '',
+      status: null,
+      isFallback: true,
+    }
+  }
+
   function load() {
     loading.value = true
     const my = ++token
@@ -138,12 +152,15 @@ export function createAlertsTimeline(options = {}) {
             buckets.push(normalizeDailyFactAlerts(daily.value, date))
           } else {
             fail.daily = true
+            buckets.push([dailyFactFallbackCard()])
           }
         }
         endpointFailed.value = fail
         events.value = mergeAndSort(buckets)
         const fails = Object.values(fail).filter(Boolean).length
-        lastError.value = fails >= 2 ? '部分数据加载失败' : ''
+        lastError.value = fail.daily
+          ? '日报事实加载失败'
+          : (fails >= 2 ? '部分数据加载失败' : '')
       } finally {
         if (my === token) loading.value = false
       }

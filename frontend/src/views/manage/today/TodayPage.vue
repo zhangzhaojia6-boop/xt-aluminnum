@@ -287,7 +287,7 @@ import { fetchUsersPage } from '../../../api/users.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { isCompactClient } from '../../../router/guardRules.js'
 import { buildTodayStitchSurface } from '../../../utils/stitchManageSurface.js'
-import { buildFactClosureSurface } from '../../../utils/manageDailyReportSurface.js'
+import { buildFactClosureSurface, openFactTrace } from '../../../utils/manageDailyReportSurface.js'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -437,8 +437,7 @@ function factStatusText(status) {
 }
 
 function openTrace(traceId) {
-  if (!traceId) return
-  router.push({ path: '/manage/alerts', query: { trace_id: traceId } })
+  return openFactTrace(router, traceId)
 }
 
 const kpiItems = computed(() => {
