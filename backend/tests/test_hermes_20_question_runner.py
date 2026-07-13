@@ -37,8 +37,10 @@ def _user() -> User:
     )
 
 
-def _install_fake_turn(monkeypatch, db: Session) -> None:
+def _install_fake_turn(monkeypatch, db: Session, *, seen_questions: list[str] | None = None) -> None:
     def fake_turn(**kwargs):
+        if seen_questions is not None:
+            seen_questions.append(kwargs["text"])
         trace_id = kwargs["trace_id"]
         outbox = AgentOutboxMessage(
             dispatch_key=f"dispatch-{trace_id}",
@@ -131,6 +133,29 @@ def test_runner_builds_snapshots_from_existing_turn_outputs(monkeypatch) -> None
     assert outcome.snapshots[0].fact_answer[0]["source_trace_id"] is None
     assert outcome.summary.core_passed is False
     assert outcome.summary.delivery_passed is False
+
+
+def test_runner_exercises_source_trust_question(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_user())
+    db.commit()
+    seen_questions: list[str] = []
+    _install_fake_turn(monkeypatch, db, seen_questions=seen_questions)
+
+    outcome = run_20_question_acceptance(
+        db,
+        current_user=db.get(User, 1),
+        sender_external_id="dt-root-001",
+        business_date=date(2026, 6, 27),
+    )
+
+    trust_questions = [
+        question for question in runner.build_20_question_catalog()
+        if question.question == "今天哪个关键数字最不可信？"
+    ]
+    assert len(trust_questions) == 1
+    assert seen_questions.count("今天哪个关键数字最不可信？") == 1
+    assert trust_questions[0].question_id in {snapshot.question_id for snapshot in outcome.snapshots}
 
 
 def test_runner_passes_mes_reader_to_each_production_turn(monkeypatch) -> None:

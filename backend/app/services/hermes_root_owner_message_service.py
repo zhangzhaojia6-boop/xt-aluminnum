@@ -72,6 +72,8 @@ def understand_root_owner_message(
     *,
     default_business_date: date | None = None,
     previous_domain: str | None = None,
+    previous_metric_keys: tuple[str, ...] = (),
+    previous_business_date: date | None = None,
 ) -> RootOwnerMessagePlan:
     raw_text = str(text or "").strip()
     base_business_date = default_business_date or resolve_production_business_date()
@@ -172,16 +174,26 @@ def understand_root_owner_message(
             recognition_reason=_join_reasons("explicit_domain_anchor", explicit_domain, date_reason, typo_changed),
         )
 
-    can_use_previous_domain = previous_domain in _DOMAIN_INTENT and (
+    context_reference = _looks_like_context_reference(normalized)
+    previous_metrics = tuple(str(item).strip() for item in previous_metric_keys if str(item).strip())
+    has_previous_context = bool(previous_domain and previous_domain != "general")
+    can_use_previous_domain = has_previous_context and (
         _looks_like_date_only_follow_up(normalized)
         or (
             _looks_like_follow_up(normalized)
-            and (_has_business_anchor(normalized) or _looks_like_context_reference(normalized))
+            and (_has_business_anchor(normalized) or context_reference)
         )
-    )
+    ) and (not context_reference or bool(previous_metrics))
     if can_use_previous_domain:
-        intent = "conflict_explanation" if _looks_like_conflict_explanation(normalized) else "follow_up"
-        metric_keys = _DOMAIN_INTENT.get(previous_domain, _DOMAIN_INTENT["factory_overview"])[1]
+        if context_reference:
+            intent = "evidence_follow_up"
+        else:
+            intent = "conflict_explanation" if _looks_like_conflict_explanation(normalized) else "follow_up"
+        metric_keys = previous_metrics or _DOMAIN_INTENT.get(previous_domain, ("", ()))[1]
+        context_date_reason = date_reason
+        if previous_business_date is not None and not context_date_reason:
+            business_date = previous_business_date
+            context_date_reason = "context_business_date"
         return RootOwnerMessagePlan(
             raw_text=raw_text,
             normalized_text=normalized,
@@ -192,7 +204,12 @@ def understand_root_owner_message(
             confidence=0.68,
             needs_clarification=False,
             clarification_question=None,
-            recognition_reason=_join_reasons("context_follow_up", "soft_semantic_match", date_reason, typo_changed),
+            recognition_reason=_join_reasons(
+                "context_follow_up",
+                "soft_semantic_match",
+                context_date_reason,
+                typo_changed,
+            ),
         )
 
     if _has_any(normalized, _BUSINESS_MISSING_TERMS):

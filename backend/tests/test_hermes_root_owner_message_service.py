@@ -294,22 +294,48 @@ def test_date_only_follow_up_keeps_previous_domain_and_updates_date() -> None:
         assert expected_reason in plan.recognition_reason
 
 
-def test_evidence_reference_followups_use_previous_business_context() -> None:
-    for message in (
-        "接着上一个问题，把证据编号给我",
-        "继续刚才那条，把来源记录给我",
-    ):
+def test_evidence_reference_followups_inherit_previous_concrete_metric() -> None:
+    cases = (
+        (
+            "接着上一个问题，把证据编号给我",
+            "production",
+            ("total_output_daily",),
+            date(2026, 6, 26),
+        ),
+        (
+            "继续刚才那条，把来源记录给我",
+            "energy",
+            ("total_electricity_kwh",),
+            date(2026, 6, 25),
+        ),
+    )
+    for message, previous_domain, previous_metric_keys, previous_business_date in cases:
         plan = understand_root_owner_message(
             message,
             default_business_date=date(2026, 6, 27),
-            previous_domain="evidence",
+            previous_domain=previous_domain,
+            previous_metric_keys=previous_metric_keys,
+            previous_business_date=previous_business_date,
         )
 
-        assert plan.domain == "evidence", message
-        assert plan.metric_keys == ("dingtalk_specialist_evidence",), message
-        assert plan.intent == "follow_up", message
+        assert plan.domain == previous_domain, message
+        assert plan.metric_keys == previous_metric_keys, message
+        assert plan.business_date == previous_business_date, message
+        assert plan.intent == "evidence_follow_up", message
         assert plan.needs_clarification is False, message
         assert "context_follow_up" in plan.recognition_reason, message
+
+
+def test_evidence_reference_followup_does_not_expand_domain_without_previous_metrics() -> None:
+    plan = understand_root_owner_message(
+        "接着上一个问题，把证据编号给我",
+        default_business_date=date(2026, 6, 27),
+        previous_domain="production",
+    )
+
+    assert plan.domain == "general"
+    assert plan.metric_keys == ()
+    assert plan.needs_clarification is True
 
 
 def test_previous_domain_does_not_make_broad_followups_business_questions() -> None:

@@ -136,6 +136,10 @@ def test_catalog_has_exactly_20_approved_questions() -> None:
         "成品率咋这么高，帮我查下是不是口径错了",
         "接着上一个问题，把证据编号给我",
     }.issubset(natural_questions)
+    trust_questions = [item for item in catalog if item.question == "今天哪个关键数字最不可信？"]
+    assert len(trust_questions) == 1
+    assert trust_questions[0].metric_keys == ("source_status",)
+    assert trust_questions[0].domain == "anomaly"
     metric_coverage = {metric for item in catalog for metric in item.metric_keys}
     assert {
         "total_output_daily",
@@ -395,6 +399,8 @@ def test_follow_up_catalog_question_passes_real_recognition_payload_gate() -> No
         question.question,
         default_business_date=date(2026, 6, 27),
         previous_domain="evidence",
+        previous_metric_keys=question.metric_keys,
+        previous_business_date=date(2026, 6, 27),
     )
     snapshot = _passing_snapshot(question.question_id)
     snapshot.recognition = {
@@ -408,6 +414,7 @@ def test_follow_up_catalog_question_passes_real_recognition_payload_gate() -> No
     result = evaluate_question_snapshot(question, snapshot)
 
     assert plan.needs_clarification is False
+    assert plan.intent == "evidence_follow_up"
     assert "context_follow_up" in plan.recognition_reason
     assert "understanding" not in result.failed_gate_names
 
@@ -454,7 +461,15 @@ def test_answer_gate_rejects_answer_that_is_not_really_chinese() -> None:
 
 def test_answer_gate_rejects_public_identity_terms_regardless_of_case() -> None:
     question = build_20_question_catalog()[0]
-    for forbidden_term in ("Developer", "Engineer", "codex", "CODEX", "研发助手", "工程师"):
+    for forbidden_term in (
+        "Developer",
+        "Engineer",
+        "codex",
+        "CODEX",
+        "开发者",
+        "研发助手",
+        "工程师",
+    ):
         snapshot = _passing_snapshot(
             1,
             answer=(

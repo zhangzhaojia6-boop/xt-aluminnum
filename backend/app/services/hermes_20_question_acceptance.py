@@ -102,6 +102,7 @@ _FORBIDDEN_PUBLIC_TERMS = (
     "developer",
     "engineer",
     "Codex",
+    "开发者",
     "研发",
     "工程师",
 )
@@ -248,7 +249,7 @@ def build_20_question_catalog() -> tuple[HermesAcceptanceQuestion, ...]:
         HermesAcceptanceQuestion(15, "接着上一个问题，把证据编号给我", ("dingtalk_specialist_evidence",), "evidence", False, True),
         HermesAcceptanceQuestion(16, "今天有哪些异常说明？", ("anomaly_explanation_daily",), "anomaly", False, True),
         HermesAcceptanceQuestion(17, "产量和入库为什么对不上？", ("total_output_daily", "finished_inbound_daily"), "anomaly", True, True, "conflict"),
-        HermesAcceptanceQuestion(18, "电耗升高可能由什么造成？", ("electricity_per_ton", "anomaly_explanation_daily"), "energy", True, True, "candidate"),
+        HermesAcceptanceQuestion(18, "今天哪个关键数字最不可信？", ("source_status",), "anomaly", False, True, "candidate"),
         HermesAcceptanceQuestion(19, "哪些指标缺少正式来源？", ("source_status",), "anomaly", False, True, "missing"),
         HermesAcceptanceQuestion(20, "今天日报能不能自动生成？还缺什么？", ("daily_report_readiness",), "factory_overview", True, True, "candidate"),
     )
