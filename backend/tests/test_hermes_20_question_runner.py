@@ -12,7 +12,11 @@ from app.models.agent_communication import AgentRun, AgentOutboxMessage, Externa
 from app.models.system import User
 from app.services import dingtalk_service
 from app.services import hermes_20_question_runner as runner
-from app.services.hermes_20_question_runner import DingTalkDeliveryTarget, run_20_question_acceptance
+from app.services.hermes_20_question_runner import (
+    DingTalkDeliveryTarget,
+    build_snapshot_from_turn,
+    run_20_question_acceptance,
+)
 
 
 def _db_session() -> Session:
@@ -61,6 +65,13 @@ def _install_fake_turn(monkeypatch, db: Session) -> None:
                 },
                 "evidence": {
                     "primary_source": "dingtalk_group_chat",
+                    "primary": {
+                        "source_key": "dingtalk_group_chat",
+                        "source_type": "dingtalk_group_content",
+                        "status": "ok",
+                        "value": {"total_output_daily": 118.0},
+                        "trace_ref": {"trace_id": f"source-{trace_id}"},
+                    },
                     "candidate_sources": ["dingtalk_group_chat", "mes_readonly"],
                     "missing_sources": [],
                     "conflicts": [],
@@ -115,6 +126,11 @@ def test_runner_builds_snapshots_from_existing_turn_outputs(monkeypatch) -> None
     assert len(outcome.snapshots) == 1
     assert outcome.snapshots[0].question_id == 1
     assert outcome.snapshots[0].dispatch["log_status"] == "sent"
+    assert outcome.snapshots[0].fact_answer[0]["value"] == 118.0
+    assert outcome.snapshots[0].fact_answer[0]["trace_id"] == "source-hermes-20q-2026-06-27-01"
+    assert outcome.snapshots[0].fact_answer[0]["source_trace_id"] is None
+    assert outcome.summary.core_passed is False
+    assert outcome.summary.delivery_passed is False
 
 
 def test_runner_passes_mes_reader_to_each_production_turn(monkeypatch) -> None:
@@ -154,6 +170,13 @@ def test_runner_passes_mes_reader_to_each_production_turn(monkeypatch) -> None:
                 },
                 "evidence": {
                     "primary_source": "mes_readonly",
+                    "primary": {
+                        "source_key": "mes_readonly",
+                        "source_type": "external_readonly",
+                        "status": "ok",
+                        "value": {"total_output_daily": 100.0},
+                        "trace_ref": {"trace_id": f"source-{trace_id}"},
+                    },
                     "candidate_sources": ["mes_readonly"],
                     "missing_sources": [],
                     "conflicts": [],
@@ -189,6 +212,234 @@ def test_runner_passes_mes_reader_to_each_production_turn(monkeypatch) -> None:
 
     assert seen_mes_readers == [mes_reader]
     assert outcome.snapshots[0].evidence["primary_source"] == "mes_readonly"
+
+
+def test_snapshot_uses_persisted_primary_fact_instead_of_answer_text() -> None:
+    db = _db_session()
+    trace_id = "trace-structured-fact"
+    db.add(
+        AgentRun(
+            trace_id=trace_id,
+            agent_code="xintai-root-owner-production",
+            status="answered",
+            status_color="green",
+            answer="鑫泰铝业智能大脑回答：昨天一共出了 999999 吨。",
+            result_payload={
+                "recognition": {
+                    "domain": "production",
+                    "metric_keys": ["total_output_daily"],
+                    "business_date": "2026-06-26",
+                    "needs_clarification": False,
+                },
+                "evidence": {
+                    "primary_source": "mes_readonly",
+                    "primary": {
+                        "source_key": "mes_readonly",
+                        "source_type": "external_readonly",
+                        "status": "ok",
+                        "value": {"total_output_daily": {"value": 118.0, "unit": "吨"}},
+                        "trace_ref": {
+                            "source_trace_id": "source-trace-118",
+                            "trace_id": "secondary-source-trace",
+                        },
+                    },
+                    "candidate_sources": ["mes_readonly"],
+                    "missing_sources": [],
+                    "conflicts": [],
+                    "trace": {
+                        "trace_id": trace_id,
+                        "source_order": ["mes_readonly"],
+                        "source_status": {"mes_readonly": {"status": "ok"}},
+                    },
+                },
+            },
+        )
+    )
+    db.commit()
+
+    snapshot = build_snapshot_from_turn(
+        db,
+        question_id=1,
+        trace_id=trace_id,
+        status="answered",
+        answer="文字里是 999999，但不能从文字猜数",
+        outbox_message_id=None,
+        source_health={},
+        required_source_health=(),
+    )
+
+    assert snapshot.fact_answer == [
+        {
+            "question_id": 1,
+            "field": "total_output_daily",
+            "status": "confirmed",
+            "value": 118.0,
+            "source": "mes_readonly",
+            "business_date": "2026-06-26",
+            "unit": "吨",
+            "trace_id": "source-trace-118",
+            "source_trace_id": "source-trace-118",
+            "reason": None,
+            "action": None,
+        }
+    ]
+
+
+def test_snapshot_keeps_missing_details_empty_when_primary_does_not_contain_requested_field() -> None:
+    db = _db_session()
+    trace_id = "trace-primary-wrong-field"
+    db.add(
+        AgentRun(
+            trace_id=trace_id,
+            agent_code="xintai-root-owner-production",
+            status="answered",
+            status_color="green",
+            answer="回答文字声称总产量 777 吨",
+            result_payload={
+                "recognition": {
+                    "domain": "production",
+                    "metric_keys": ["total_output_daily"],
+                    "business_date": "2026-06-27",
+                    "needs_clarification": False,
+                },
+                "evidence": {
+                    "primary_source": "mes_readonly",
+                    "primary": {
+                        "source_key": "mes_readonly",
+                        "source_type": "external_readonly",
+                        "status": "ok",
+                        "value": {"finished_inbound_daily": 777.0},
+                        "trace_ref": {"trace_id": "source-trace-wrong-field"},
+                    },
+                    "candidate_sources": ["mes_readonly"],
+                    "missing_sources": [],
+                    "conflicts": [],
+                    "trace": {"trace_id": trace_id, "source_order": ["mes_readonly"]},
+                },
+            },
+        )
+    )
+    db.commit()
+
+    snapshot = build_snapshot_from_turn(
+        db,
+        question_id=1,
+        trace_id=trace_id,
+        status="answered",
+        answer="总产量 777 吨",
+        outbox_message_id=None,
+        source_health={},
+        required_source_health=(),
+    )
+
+    assert len(snapshot.fact_answer) == 1
+    assert snapshot.fact_answer[0]["field"] == "total_output_daily"
+    assert snapshot.fact_answer[0]["status"] == "missing"
+    assert snapshot.fact_answer[0]["value"] is None
+    assert snapshot.fact_answer[0]["source"] is None
+    assert snapshot.fact_answer[0]["reason"] is None
+    assert snapshot.fact_answer[0]["action"] is None
+
+
+def test_snapshot_uses_structured_recognition_clarification_as_missing_action() -> None:
+    db = _db_session()
+    trace_id = "trace-recognition-action"
+    db.add(
+        AgentRun(
+            trace_id=trace_id,
+            agent_code="xintai-root-owner-production",
+            status="clarification",
+            status_color="yellow",
+            answer="请明确要查询的业务日期。",
+            result_payload={
+                "recognition": {
+                    "domain": "production",
+                    "metric_keys": ["total_output_daily"],
+                    "business_date": "2026-06-27",
+                    "needs_clarification": True,
+                    "clarification_question": "请明确要查询的业务日期。",
+                },
+                "evidence": {
+                    "primary_source": None,
+                    "primary": None,
+                    "candidate_sources": [],
+                    "missing_sources": ["mes_readonly"],
+                    "conflicts": [],
+                    "trace": {"trace_id": trace_id, "source_order": []},
+                },
+            },
+        )
+    )
+    db.commit()
+
+    snapshot = build_snapshot_from_turn(
+        db,
+        question_id=1,
+        trace_id=trace_id,
+        status="clarification",
+        answer="回答文字里的动作不能代替 recognition payload。",
+        outbox_message_id=None,
+        source_health={},
+        required_source_health=(),
+    )
+
+    assert snapshot.fact_answer[0]["status"] == "missing"
+    assert snapshot.fact_answer[0]["action"] == "请明确要查询的业务日期。"
+
+
+def test_snapshot_builds_one_fact_record_per_recognized_field() -> None:
+    db = _db_session()
+    trace_id = "trace-two-fields"
+    db.add(
+        AgentRun(
+            trace_id=trace_id,
+            agent_code="xintai-root-owner-production",
+            status="answered",
+            status_color="green",
+            answer="产量和入库已核对",
+            result_payload={
+                "recognition": {
+                    "domain": "anomaly",
+                    "metric_keys": ["total_output_daily", "finished_inbound_daily"],
+                    "business_date": "2026-06-27",
+                    "needs_clarification": False,
+                },
+                "evidence": {
+                    "primary_source": "mes_readonly",
+                    "primary": {
+                        "source_key": "mes_readonly",
+                        "source_type": "external_readonly",
+                        "status": "ok",
+                        "value": {"total_output_daily": 118.0, "finished_inbound_daily": 110.0},
+                        "trace_ref": {},
+                    },
+                    "candidate_sources": ["mes_readonly"],
+                    "missing_sources": [],
+                    "conflicts": [],
+                    "trace": {"trace_id": trace_id, "source_order": ["mes_readonly"]},
+                },
+            },
+        )
+    )
+    db.commit()
+
+    snapshot = build_snapshot_from_turn(
+        db,
+        question_id=17,
+        trace_id=trace_id,
+        status="answered",
+        answer="产量和入库已核对",
+        outbox_message_id=None,
+        source_health={},
+        required_source_health=(),
+    )
+
+    assert [record["field"] for record in snapshot.fact_answer] == [
+        "total_output_daily",
+        "finished_inbound_daily",
+    ]
+    assert [record["value"] for record in snapshot.fact_answer] == [118.0, 110.0]
+    assert all(record["trace_id"] == trace_id for record in snapshot.fact_answer)
 
 
 def test_runner_rejects_unsupported_delivery_target_channel_type(monkeypatch) -> None:
@@ -477,6 +728,37 @@ def test_build_daily_report_gate_payload_redacts_sensitive_exception_and_artifac
     assert "<redacted-connection-uri>" in text
 
 
+def test_build_daily_report_gate_payload_records_compare_only_mode(monkeypatch, tmp_path) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    captured_kwargs = {}
+
+    def fake_build_daily_fact_bundle(*_args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return {
+            "output_skill_alignment": {"status": "passed"},
+            "fact_closure": {"status": "pass"},
+            "gap_plan": {"status": "ready"},
+            "reference_only": False,
+        }
+
+    monkeypatch.setattr(cli, "resolve_output_skill_root", lambda _value: tmp_path)
+    monkeypatch.setattr(cli, "build_daily_fact_bundle", fake_build_daily_fact_bundle)
+
+    payload = cli.build_daily_report_gate_payload(
+        object(),
+        business_date=date(2026, 6, 27),
+        output_skill_root=str(tmp_path),
+        alignment_artifact_dir=None,
+    )
+
+    assert payload["status"] == "passed"
+    assert payload["reference_mode"] == "compare"
+    assert payload["reference_only"] is False
+    assert payload["output_skill_alignment"]["reference_mode"] == "compare"
+    assert captured_kwargs["allow_output_skill_reference_adoption"] is False
+
+
 def test_acceptance_cli_main_requires_real_delivery_flag_before_db(monkeypatch, capsys) -> None:
     from scripts import hermes_20_question_acceptance as cli
 
@@ -608,7 +890,7 @@ def test_acceptance_cli_main_attaches_daily_report_gate_when_required(monkeypatc
             "source_key": "daily_report_gate",
             "status": "passed",
             "business_date": "2026-06-27",
-            "output_skill_alignment": {"status": "passed"},
+            "output_skill_alignment": {"status": "passed", "reference_mode": "compare"},
             "fact_closure": {"status": "pass"},
             "gap_plan": {"status": "ready"},
         },
@@ -648,7 +930,7 @@ def test_acceptance_cli_main_attaches_daily_report_gate_when_required(monkeypatc
             "source_key": "daily_report_gate",
             "status": "passed",
             "business_date": "2026-06-27",
-            "output_skill_alignment": {"status": "passed"},
+            "output_skill_alignment": {"status": "passed", "reference_mode": "compare"},
             "fact_closure": {"status": "pass"},
             "gap_plan": {"status": "ready"},
         },

@@ -53,9 +53,9 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
         domain="production",
         priority=10,
         status="ok",
-        value={"total_output_daily": 118.0},
+        value={"total_output_daily": 118.0, "token": "primary-secret-token"},
         summary="负责人群里确认 118 吨",
-        trace_ref={"trace_id": "trace-ding-001"},
+        trace_ref={"trace_id": "trace-ding-001", "password": "primary-secret-password"},
     )
     decision = EvidenceDecision(
         primary=primary,
@@ -127,6 +127,15 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
             assert payload["source"]["recognition_reason"]
             assert payload["source"]["source_payload"]["source"] == "test"
             assert payload["evidence"]["primary_source"] == "dingtalk_group_chat"
+            assert payload["evidence"]["primary"] == {
+                "source_key": "dingtalk_group_chat",
+                "source_type": "dingtalk_group_content",
+                "status": "ok",
+                "value": {"total_output_daily": 118.0},
+                "trace_ref": {"trace_id": "trace-ding-001"},
+            }
+            assert "primary-secret-token" not in repr(payload)
+            assert "primary-secret-password" not in repr(payload)
             assert payload["recognition"]["domain"] == "production"
             assert payload["dispatch"]["outbox_message_id"] == result.outbox_message_id
             assert payload["dispatch"]["status"] == "sent"

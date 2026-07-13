@@ -48,6 +48,7 @@ _DOMAIN_INTENT = {
     "inventory": ("inventory_summary", ("finished_inbound_daily", "wip_total", "remaining_contract_weight")),
     "energy": ("energy_summary", ("total_electricity_kwh", "total_gas_m3", "electricity_per_ton")),
     "anomaly": ("anomaly_summary", ("anomaly_explanation_daily",)),
+    "evidence": ("evidence_summary", ("dingtalk_specialist_evidence",)),
     "factory_overview": (
         "overview",
         ("total_output_daily", "finished_inbound_daily", "total_electricity_kwh", "anomaly_explanation_daily"),
@@ -107,6 +108,22 @@ def understand_root_owner_message(
 
     business_date, date_reason = _resolve_business_date(normalized, base_business_date)
 
+    semantic_quantity = _semantic_quantity_metric(normalized)
+    if semantic_quantity is not None:
+        domain, intent, metric_keys = semantic_quantity
+        return RootOwnerMessagePlan(
+            raw_text=raw_text,
+            normalized_text=normalized,
+            business_date=business_date,
+            domain=domain,
+            intent=intent,
+            metric_keys=metric_keys,
+            confidence=0.78,
+            needs_clarification=False,
+            clarification_question=None,
+            recognition_reason=_join_reasons("semantic_quantity_pattern", domain, date_reason, typo_changed),
+        )
+
     metric_phrase = _match_metric_phrase_rule(normalized)
     if metric_phrase is not None:
         domain, intent, metric_keys = metric_phrase
@@ -137,9 +154,30 @@ def understand_root_owner_message(
             recognition_reason=_join_reasons("metric_phrase_match", "anomaly", date_reason, typo_changed),
         )
 
-    can_use_previous_domain = previous_domain in {"production", "inventory", "energy", "anomaly"} and (
+    explicit_domain = _explicit_follow_up_domain(normalized)
+    if explicit_domain is not None:
+        intent, metric_keys = _DOMAIN_INTENT[explicit_domain]
+        if _looks_like_conflict_explanation(normalized):
+            intent = "conflict_explanation"
+        return RootOwnerMessagePlan(
+            raw_text=raw_text,
+            normalized_text=normalized,
+            business_date=business_date,
+            domain=explicit_domain,
+            intent=intent,
+            metric_keys=metric_keys,
+            confidence=0.72,
+            needs_clarification=False,
+            clarification_question=None,
+            recognition_reason=_join_reasons("explicit_domain_anchor", explicit_domain, date_reason, typo_changed),
+        )
+
+    can_use_previous_domain = previous_domain in _DOMAIN_INTENT and (
         _looks_like_date_only_follow_up(normalized)
-        or (_looks_like_follow_up(normalized) and _has_business_anchor(normalized))
+        or (
+            _looks_like_follow_up(normalized)
+            and (_has_business_anchor(normalized) or _looks_like_context_reference(normalized))
+        )
     )
     if can_use_previous_domain:
         intent = "conflict_explanation" if _looks_like_conflict_explanation(normalized) else "follow_up"
@@ -287,7 +325,10 @@ def _has_any(text: str, terms: tuple[str, ...]) -> bool:
 
 
 def _looks_like_follow_up(text: str) -> bool:
-    return _has_any(text, ("那", "这个", "那个", "刚才", *_WHY_TERMS, "对不上"))
+    return _has_any(
+        text,
+        ("那", "这个", "那个", "刚才", "接着", "继续", "上一个", "上一条", *_WHY_TERMS, "对不上"),
+    )
 
 
 def _looks_like_date_only_follow_up(text: str) -> bool:
@@ -315,6 +356,39 @@ def _looks_like_factory_overview_ask(text: str) -> bool:
 
 def _has_business_anchor(text: str) -> bool:
     return any(score > 0 for score in _score_domains(text).values())
+
+
+def _looks_like_context_reference(text: str) -> bool:
+    has_reference_object = _has_any(text, ("证据", "来源", "追踪"))
+    has_reference_request = _has_any(text, ("编号", "号码", "记录", "明细"))
+    return has_reference_object and has_reference_request
+
+
+def _semantic_quantity_metric(text: str) -> tuple[str, str, tuple[str, ...]] | None:
+    asks_quantity = _has_any(text, ("多少", "几"))
+    if not asks_quantity:
+        return None
+    electricity_usage = "电" in text and _has_any(text, ("用", "耗")) and _has_any(text, ("度", "千瓦时", "kwh"))
+    if electricity_usage:
+        return "energy", "energy_summary", ("total_electricity_kwh",)
+    output_action = re.search(r"(?:做)?出(?:了|来)?|产(?:了|出)", text) is not None
+    output_scope = _has_any(text, ("一共", "总共", "合计", "吨"))
+    if output_action and output_scope:
+        return "production", "production_summary", ("total_output_daily",)
+    return None
+
+
+def _explicit_follow_up_domain(text: str) -> str | None:
+    if not _looks_like_follow_up(text):
+        return None
+    exact_matches = {
+        domain
+        for domain, terms in _DOMAIN_TERMS.items()
+        if domain != "anomaly" and any(term in text for term in terms)
+    }
+    if len(exact_matches) != 1:
+        return None
+    return next(iter(exact_matches))
 
 
 def _match_metric_phrase_rule(text: str) -> tuple[str, str, tuple[str, ...]] | None:

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
-import hashlib
 from typing import Any, Sequence
 
 from sqlalchemy.orm import Session
@@ -124,18 +125,189 @@ def build_snapshot_from_turn(
         .first()
     )
     payload = run.result_payload if run is not None and isinstance(run.result_payload, dict) else {}
+    recognition = dict(payload.get("recognition") or {})
+    evidence = dict(payload.get("evidence") or {})
     dispatch = _dispatch_payload(db, outbox_message_id, target_results=target_results or [])
     return AcceptanceTurnSnapshot(
         question_id=question_id,
         trace_id=trace_id,
         status=status,
         answer=answer,
-        recognition=dict(payload.get("recognition") or {}),
-        evidence=dict(payload.get("evidence") or {}),
+        recognition=recognition,
+        evidence=evidence,
         dispatch=dispatch,
         source_health=source_health,
         required_source_health=tuple(required_source_health or ()),
+        fact_answer=_build_fact_answer(
+            question_id=question_id,
+            turn_trace_id=trace_id,
+            recognition=recognition,
+            evidence=evidence,
+        ),
     )
+
+
+def _build_fact_answer(
+    *,
+    question_id: int,
+    turn_trace_id: str,
+    recognition: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    metric_keys = _string_list(recognition.get("metric_keys"))
+    primary_value = evidence.get("primary")
+    primary = primary_value if isinstance(primary_value, Mapping) else {}
+    source = str(primary.get("source_key") or evidence.get("primary_source") or "").strip()
+    primary_status = str(primary.get("status") or "").strip().lower()
+    trace_value = evidence.get("trace")
+    evidence_trace = trace_value if isinstance(trace_value, Mapping) else {}
+    source_trace_id, fact_trace_id = _fact_trace_ids(
+        primary=primary,
+        evidence_trace=evidence_trace,
+        source=source,
+        turn_trace_id=turn_trace_id,
+    )
+    records: list[dict[str, Any]] = []
+    for field_name in metric_keys:
+        value, unit, has_value = _primary_field_value(primary.get("value"), field_name)
+        conflict = _conflict_for_field(evidence.get("conflicts"), field_name)
+        if not has_value:
+            status = "missing"
+        elif conflict is not None:
+            status = "conflict"
+        elif primary_status in {"ok", "ready", "confirmed", "passed"}:
+            status = "confirmed"
+        else:
+            status = primary_status or "missing"
+        reason = _fact_reason(
+            status=status,
+            conflict=conflict,
+            missing_sources=evidence.get("missing_sources"),
+        )
+        records.append(
+            {
+                "question_id": question_id,
+                "field": field_name,
+                "status": status,
+                "value": value if has_value else None,
+                "source": source if has_value else None,
+                "business_date": recognition.get("business_date") or recognition.get("business_window"),
+                "unit": unit,
+                "trace_id": fact_trace_id if has_value else None,
+                "source_trace_id": source_trace_id if has_value else None,
+                "reason": reason,
+                "action": _fact_action(recognition, evidence, evidence_trace, field_name),
+            }
+        )
+    return records
+
+
+def _primary_field_value(value: Any, field_name: str) -> tuple[Any, str | None, bool]:
+    if not isinstance(value, Mapping):
+        return None, None, False
+    if field_name in value:
+        field_value = value[field_name]
+        if isinstance(field_value, Mapping) and "value" in field_value:
+            raw_value = field_value.get("value")
+            return raw_value, str(field_value.get("unit") or "").strip() or None, raw_value is not None and raw_value != ""
+        return field_value, None, field_value is not None and field_value != ""
+    if value.get("metric_key") == field_name and "value" in value:
+        raw_value = value.get("value")
+        return raw_value, str(value.get("unit") or "").strip() or None, raw_value is not None and raw_value != ""
+    return None, None, False
+
+
+def _fact_trace_ids(
+    *,
+    primary: Mapping[str, Any],
+    evidence_trace: Mapping[str, Any],
+    source: str,
+    turn_trace_id: str,
+) -> tuple[str | None, str | None]:
+    trace_ref_value = primary.get("trace_ref")
+    trace_ref = trace_ref_value if isinstance(trace_ref_value, Mapping) else {}
+    source_trace_id = str(trace_ref.get("source_trace_id") or "").strip() or None
+    if source_trace_id:
+        return source_trace_id, source_trace_id
+    primary_trace_id = str(trace_ref.get("trace_id") or "").strip() or None
+    if primary_trace_id:
+        return None, primary_trace_id
+    source_order = _string_list(evidence_trace.get("source_order"))
+    if source and source in source_order and primary:
+        fallback = str(evidence_trace.get("trace_id") or turn_trace_id or "").strip() or None
+        return None, fallback
+    return None, None
+
+
+def _conflict_for_field(value: Any, field_name: str) -> Mapping[str, Any] | None:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return None
+    for conflict in value:
+        if not isinstance(conflict, Mapping):
+            continue
+        conflict_field = str(conflict.get("field") or conflict.get("metric_key") or "").strip()
+        if not conflict_field or conflict_field == field_name:
+            return conflict
+    return None
+
+
+def _fact_reason(
+    *,
+    status: str,
+    conflict: Mapping[str, Any] | None,
+    missing_sources: Any,
+) -> str | None:
+    if status == "conflict" and conflict is not None:
+        return str(conflict.get("reason") or "").strip() or None
+    if status != "missing":
+        return None
+    missing = _string_list(missing_sources)
+    return f"missing_sources:{','.join(missing)}" if missing else None
+
+
+def _fact_action(
+    recognition: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    evidence_trace: Mapping[str, Any],
+    field_name: str,
+) -> str | None:
+    containers: list[Any] = []
+    for payload in (evidence, evidence_trace):
+        for key in ("actions", "pending_actions", "follow_up_actions"):
+            containers.append(payload.get(key))
+        gap_plan = payload.get("gap_plan")
+        if isinstance(gap_plan, Mapping):
+            containers.append(gap_plan.get("items"))
+    fallback: str | None = None
+    for container in containers:
+        items = [container] if isinstance(container, Mapping) else container
+        if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
+            continue
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            action = str(item.get("next_step") or item.get("action") or "").strip()
+            if not action:
+                continue
+            item_field = str(item.get("field") or item.get("metric_key") or "").strip()
+            if item_field == field_name:
+                return action
+            fallback = fallback or action
+    if fallback:
+        return fallback
+    if recognition.get("needs_clarification"):
+        return str(recognition.get("clarification_question") or "").strip() or None
+    return None
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, Sequence):
+        return [str(item) for item in value]
+    return [str(value)]
 
 
 def _dispatch_approved_targets(

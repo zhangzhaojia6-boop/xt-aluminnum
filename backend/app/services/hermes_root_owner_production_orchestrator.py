@@ -24,7 +24,7 @@ from app.services.hermes_root_owner_message_service import (
 from app.services.hermes_root_owner_reply_channel_service import ensure_root_owner_private_reply_channel
 
 
-_CONTEXT_DOMAINS = {"production", "inventory", "energy", "anomaly"}
+_CONTEXT_DOMAINS = {"production", "inventory", "energy", "anomaly", "evidence"}
 _HERMES_PUBLIC_NAME = "鑫泰铝业智能大脑"
 
 
@@ -303,8 +303,23 @@ def _source_payload_block(
 
 
 def _evidence_payload(decision: EvidenceDecision) -> dict[str, Any]:
+    primary = decision.primary
+    primary_payload = (
+        filter_sensitive_mapping(
+            {
+                "source_key": primary.source_key,
+                "source_type": primary.source_type,
+                "status": primary.status,
+                "value": primary.value,
+                "trace_ref": dict(primary.trace_ref),
+            }
+        )
+        if primary is not None
+        else None
+    )
     return {
-        "primary_source": decision.primary.source_key if decision.primary else None,
+        "primary_source": primary.source_key if primary else None,
+        "primary": primary_payload,
         "candidate_sources": [candidate.source_key for candidate in decision.candidates],
         "conflicts": list(decision.conflicts),
         "missing_sources": list(decision.missing_sources),

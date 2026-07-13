@@ -1,17 +1,68 @@
 from __future__ import annotations
 
+import math
+from datetime import date
+
+import pytest
+
 from app.services.hermes_20_question_acceptance import (
     AcceptanceTurnSnapshot,
+    answer_is_confirmed,
     build_20_question_catalog,
     evaluate_acceptance_summary,
+    evaluate_answers,
     evaluate_question_snapshot,
+    render_acceptance_report,
 )
+from app.services.hermes_root_owner_message_service import understand_root_owner_message
+
+
+_CRITICAL_SOURCES = {
+    "total_output_daily": "mes_readonly",
+    "finished_inbound_daily": "mes_readonly",
+    "wip_total": "mes_readonly",
+    "total_electricity_kwh": "dingtalk_group_chat",
+    "daily_yield_rate": "mes_readonly",
+}
+
+
+def _fact_records(question_id: int) -> list[dict[str, object]]:
+    question = {item.question_id: item for item in build_20_question_catalog()}[question_id]
+    records: list[dict[str, object]] = []
+    for field in question.metric_keys:
+        if field in _CRITICAL_SOURCES:
+            records.append(
+                {
+                    "question_id": question_id,
+                    "field": field,
+                    "status": "confirmed",
+                    "value": 1,
+                    "source": _CRITICAL_SOURCES[field],
+                    "trace_id": f"source-trace-q{question_id}-{field}",
+                    "business_date": "2026-06-27",
+                }
+            )
+        else:
+            records.append(
+                {
+                    "question_id": question_id,
+                    "field": field,
+                    "status": "missing",
+                    "value": None,
+                    "source": None,
+                    "trace_id": None,
+                    "business_date": "2026-06-27",
+                    "reason": f"{field} 的当日正式来源没有返回对应字段",
+                    "action": f"请对应责任人补录 {field} 的当日来源证据",
+                }
+            )
+    return records
 
 
 def _passing_snapshot(question_id: int, *, answer: str | None = None) -> AcceptanceTurnSnapshot:
     catalog = {item.question_id: item for item in build_20_question_catalog()}
     question = catalog[question_id]
-    return AcceptanceTurnSnapshot(
+    snapshot = AcceptanceTurnSnapshot(
         question_id=question.question_id,
         trace_id=f"trace-q{question_id}",
         status="answered",
@@ -56,6 +107,20 @@ def _passing_snapshot(question_id: int, *, answer: str | None = None) -> Accepta
         },
         required_source_health=(),
     )
+    snapshot.fact_answer = _fact_records(question_id)
+    return snapshot
+
+
+def _valid_answers() -> list[dict[str, object]]:
+    return [record for question in build_20_question_catalog() for record in _fact_records(question.question_id)]
+
+
+def _critical_record(answers: list[dict[str, object]], field: str) -> dict[str, object]:
+    return next(record for record in answers if record.get("field") == field)
+
+
+def _evaluate_answers(answers: list[dict[str, object]]) -> dict[str, object]:
+    return evaluate_answers(answers)
 
 
 def test_catalog_has_exactly_20_approved_questions() -> None:
@@ -63,12 +128,291 @@ def test_catalog_has_exactly_20_approved_questions() -> None:
 
     assert len(catalog) == 20
     assert catalog[0].question_id == 1
-    assert catalog[0].question == "今天全厂总产量是多少？"
-    assert catalog[14].metric_keys == ("dingtalk_specialist_evidence",)
+    natural_questions = {item.question for item in catalog}
+    assert {
+        "昨天一共出了多少？",
+        "那入库呢？",
+        "电用了多少度，和群文件对得上吗",
+        "成品率咋这么高，帮我查下是不是口径错了",
+        "接着上一个问题，把证据编号给我",
+    }.issubset(natural_questions)
+    metric_coverage = {metric for item in catalog for metric in item.metric_keys}
+    assert {
+        "total_output_daily",
+        "workshop_output_daily",
+        "finished_inbound_daily",
+        "daily_input_weight",
+        "total_electricity_kwh",
+        "total_gas_m3",
+        "electricity_per_ton",
+        "daily_yield_rate",
+        "cost_per_ton",
+        "wip_total",
+        "remaining_contract_weight",
+        "monthly_total_output",
+        "annual_total_output",
+        "anomaly_explanation_daily",
+        "dingtalk_specialist_evidence",
+        "source_status",
+        "daily_report_readiness",
+    }.issubset(metric_coverage)
     assert catalog[-1].question == "今天日报能不能自动生成？还缺什么？"
 
 
-def test_evaluate_question_snapshot_passes_all_four_gates() -> None:
+def test_twenty_missing_answers_fail_fact_acceptance() -> None:
+    answers = []
+    for question in build_20_question_catalog():
+        for field in question.metric_keys:
+            answers.append(
+                {
+                    "question_id": question.question_id,
+                    "field": field,
+                    "status": "missing",
+                    "value": None,
+                    "source": None,
+                    "trace_id": None,
+                    "business_date": "2026-06-27",
+                    "reason": f"{field} 的当前业务日来源没有返回值",
+                    "action": f"请对应责任人补录 {field} 的当前业务日证据",
+                }
+            )
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert result["confirmed_count"] == 0
+    assert result["critical_coverage"] == {field: False for field in _CRITICAL_SOURCES}
+
+
+@pytest.mark.parametrize("field", sorted(_CRITICAL_SOURCES))
+@pytest.mark.parametrize(
+    ("key", "bad_value", "reason_part"),
+    (
+        ("value", None, "value"),
+        ("source", None, "source"),
+        ("trace_id", None, "trace"),
+        ("business_date", None, "business"),
+        ("source", "rag", "source"),
+        ("source", "output_skill", "source"),
+        ("source", "historical_report", "source"),
+        ("source", "computed", "source"),
+        ("value", math.nan, "finite"),
+        ("value", math.inf, "finite"),
+        ("value", "NaN", "finite"),
+        ("value", "Infinity", "finite"),
+        ("value", "not-a-number", "finite"),
+    ),
+)
+def test_each_critical_field_rejects_missing_or_fake_fact_parts(
+    field: str,
+    key: str,
+    bad_value: object,
+    reason_part: str,
+) -> None:
+    answers = _valid_answers()
+    for record in (item for item in answers if item.get("field") == field):
+        record[key] = bad_value
+        if key == "business_date":
+            record["business_window"] = None
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert result["critical_coverage"][field] is False
+    assert any(
+        failure.get("field") == field and reason_part in str(failure.get("reason"))
+        for failure in result["failures"]
+    )
+
+
+def test_zero_is_a_valid_confirmed_fact_value() -> None:
+    answers = _valid_answers()
+    _critical_record(answers, "total_electricity_kwh")["value"] = 0
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is True
+    assert result["critical_coverage"]["total_electricity_kwh"] is True
+
+
+@pytest.mark.parametrize("value", (math.nan, math.inf, "NaN", "Infinity"))
+def test_any_confirmed_fact_rejects_non_finite_value(value: object) -> None:
+    assert answer_is_confirmed(
+        {
+            "field": "workshop_output_daily",
+            "status": "confirmed",
+            "value": value,
+            "source": "mes_readonly",
+            "trace_id": "source-trace-workshop",
+            "business_date": "2026-06-27",
+        }
+    ) is False
+
+
+@pytest.mark.parametrize("value", ("   ", [], {}))
+def test_any_confirmed_fact_rejects_empty_value(value: object) -> None:
+    assert answer_is_confirmed(
+        {
+            "field": "dingtalk_specialist_evidence",
+            "status": "confirmed",
+            "value": value,
+            "source": "dingtalk_group_chat",
+            "trace_id": "source-trace-evidence",
+            "business_date": "2026-06-27",
+        }
+    ) is False
+
+
+def test_confirmed_fact_rejects_unit_that_breaks_field_contract() -> None:
+    answers = _valid_answers()
+    _critical_record(answers, "total_electricity_kwh")["unit"] = "吨"
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert any("unit" in failure["reason"] for failure in result["failures"])
+
+
+def test_noncritical_confirmed_fact_also_rejects_wrong_known_unit() -> None:
+    assert answer_is_confirmed(
+        {
+            "field": "total_gas_m3",
+            "status": "confirmed",
+            "value": 1250,
+            "source": "dingtalk_group_chat",
+            "trace_id": "source-trace-gas",
+            "business_date": "2026-06-27",
+            "unit": "吨",
+        }
+    ) is False
+
+
+@pytest.mark.parametrize("missing_key", ("reason", "action"))
+def test_noncritical_missing_answer_requires_specific_reason_and_action(missing_key: str) -> None:
+    answers = _valid_answers()
+    record = next(item for item in answers if item["field"] == "workshop_output_daily")
+    record[missing_key] = ""
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert any(
+        failure.get("question_id") == 2 and missing_key in failure["reason"]
+        for failure in result["failures"]
+    )
+
+
+@pytest.mark.parametrize("missing_key", ("reason", "action"))
+def test_noncritical_conflict_answer_requires_specific_reason_and_action(missing_key: str) -> None:
+    answers = _valid_answers()
+    record = next(item for item in answers if item["field"] == "workshop_output_daily")
+    record["status"] = "conflict"
+    record["reason"] = "MES 与钉钉的车间产量不一致"
+    record["action"] = "请生产负责人按来源 trace 复核差异字段"
+    record[missing_key] = ""
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert any(
+        failure.get("question_id") == 2 and missing_key in failure["reason"]
+        for failure in result["failures"]
+    )
+
+
+def test_fact_evaluator_requires_complete_twenty_question_coverage() -> None:
+    answers = [record for record in _valid_answers() if record["question_id"] != 20]
+
+    result = _evaluate_answers(answers)
+
+    assert result["passed"] is False
+    assert any(failure["reason"] == "question_coverage_incomplete" for failure in result["failures"])
+
+
+def test_snapshot_fact_gate_ignores_extra_recognized_candidates_but_checks_requested_field() -> None:
+    question = build_20_question_catalog()[1]
+    snapshot = _passing_snapshot(2)
+    snapshot.fact_answer.extend(
+        [
+            {
+                "question_id": 2,
+                "field": "total_output_daily",
+                "status": "missing",
+                "value": None,
+                "source": None,
+                "trace_id": None,
+                "business_date": "2026-06-27",
+                "reason": "primary_fact_missing_field:total_output_daily",
+                "action": None,
+            },
+            {
+                "question_id": 2,
+                "field": "daily_input_weight",
+                "status": "missing",
+                "value": None,
+                "source": None,
+                "trace_id": None,
+                "business_date": "2026-06-27",
+                "reason": "primary_fact_missing_field:daily_input_weight",
+                "action": None,
+            },
+        ]
+    )
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert "fact" not in result.failed_gate_names
+
+
+def test_multi_field_conflict_question_checks_each_record_without_requiring_confirmation() -> None:
+    question = build_20_question_catalog()[16]
+    snapshot = _passing_snapshot(17)
+    snapshot.fact_answer = [
+        {
+            "question_id": 17,
+            "field": field,
+            "status": "conflict",
+            "value": value,
+            "source": "mes_readonly",
+            "trace_id": f"trace-{field}",
+            "business_date": "2026-06-27",
+            "reason": f"{field} 与另一个来源的同口径值不一致",
+            "action": f"请生产负责人按 trace 复核 {field} 的来源差异",
+        }
+        for field, value in (("total_output_daily", 118.0), ("finished_inbound_daily", 110.0))
+    ]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert "fact" not in result.failed_gate_names
+
+
+def test_follow_up_catalog_question_passes_real_recognition_payload_gate() -> None:
+    matches = [item for item in build_20_question_catalog() if item.question == "接着上一个问题，把证据编号给我"]
+    assert matches
+    question = matches[0]
+    plan = understand_root_owner_message(
+        question.question,
+        default_business_date=date(2026, 6, 27),
+        previous_domain="evidence",
+    )
+    snapshot = _passing_snapshot(question.question_id)
+    snapshot.recognition = {
+        "domain": plan.domain,
+        "metric_keys": list(plan.metric_keys),
+        "business_date": plan.business_date.isoformat(),
+        "needs_clarification": plan.needs_clarification,
+        "recognition_reason": plan.recognition_reason,
+    }
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert plan.needs_clarification is False
+    assert "context_follow_up" in plan.recognition_reason
+    assert "understanding" not in result.failed_gate_names
+
+
+def test_evaluate_question_snapshot_passes_all_five_gates() -> None:
     result = evaluate_question_snapshot(build_20_question_catalog()[0], _passing_snapshot(1))
 
     assert result.core_passed is True
@@ -110,7 +454,7 @@ def test_answer_gate_rejects_answer_that_is_not_really_chinese() -> None:
 
 def test_answer_gate_rejects_public_identity_terms_regardless_of_case() -> None:
     question = build_20_question_catalog()[0]
-    for forbidden_term in ("Developer", "Engineer", "codex", "CODEX"):
+    for forbidden_term in ("Developer", "Engineer", "codex", "CODEX", "研发助手", "工程师"):
         snapshot = _passing_snapshot(
             1,
             answer=(
@@ -234,6 +578,73 @@ def test_source_gate_accepts_canonical_dingtalk_group_content_status() -> None:
     assert result.core_passed is True
 
 
+def test_required_source_name_without_healthy_real_evidence_fails() -> None:
+    question = build_20_question_catalog()[0]
+    snapshot = _passing_snapshot(1)
+    snapshot.evidence["primary_source"] = "data_hub_projection"
+    snapshot.evidence["candidate_sources"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_status"]["dingtalk_group_content"] = {
+        "status": "failed",
+        "reason": "source_failed",
+    }
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "source" in result.failed_gate_names
+    assert "dingtalk_source_not_usable" in result.failed_reasons
+
+
+def test_required_mes_source_needs_healthy_candidate_evidence() -> None:
+    question = build_20_question_catalog()[1]
+    snapshot = _passing_snapshot(2)
+    snapshot.evidence["primary_source"] = "data_hub_projection"
+    snapshot.evidence["candidate_sources"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "failed",
+        "reason": "source_failed",
+    }
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "source" in result.failed_gate_names
+    assert "mes_readonly_source_not_usable" in result.failed_reasons
+
+
+def test_dingtalk_supporting_only_does_not_confirm_critical_value() -> None:
+    question = build_20_question_catalog()[4]
+    snapshot = _passing_snapshot(5)
+    snapshot.evidence["primary_source"] = "data_hub_projection"
+    snapshot.evidence["candidate_sources"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_status"]["dingtalk_group_content"] = {
+        "status": "supporting_only",
+        "supporting_count": 1,
+    }
+    snapshot.evidence["trace"]["supporting_evidence"] = [
+        {"source_key": "dingtalk_group_file", "status": "supporting_only"}
+    ]
+    snapshot.fact_answer = [
+        {
+            "question_id": 5,
+            "field": "total_electricity_kwh",
+            "status": "missing",
+            "value": None,
+            "source": None,
+            "trace_id": None,
+            "business_date": "2026-06-27",
+            "reason": "群文件只有辅助说明，没有 total_electricity_kwh 数值",
+            "action": "请电工补录当日总电量表计值和来源证据",
+        }
+    ]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert "source" not in result.failed_gate_names
+    assert "fact" in result.failed_gate_names
+    assert result.core_passed is False
+
+
 def test_daily_report_gate_present_passes_source_health_prerequisite() -> None:
     question = build_20_question_catalog()[0]
     snapshot = _passing_snapshot(1)
@@ -242,7 +653,7 @@ def test_daily_report_gate_present_passes_source_health_prerequisite() -> None:
         "source_key": "daily_report_gate",
         "status": "passed",
         "business_date": "2026-06-27",
-        "output_skill_alignment": {"status": "passed"},
+        "output_skill_alignment": {"status": "passed", "reference_mode": "compare"},
         "fact_closure": {"status": "pass"},
         "gap_plan": {"status": "ready"},
     }
@@ -251,6 +662,25 @@ def test_daily_report_gate_present_passes_source_health_prerequisite() -> None:
 
     assert result.core_passed is True
     assert "source" not in result.failed_gate_names
+
+
+@pytest.mark.parametrize("reference_mode", ("adopt", "reference_only"))
+def test_daily_report_gate_rejects_non_compare_reference_modes(reference_mode: str) -> None:
+    question = build_20_question_catalog()[0]
+    snapshot = _passing_snapshot(1)
+    snapshot.required_source_health = ("daily_report_gate",)
+    snapshot.source_health["daily_report_gate"] = {
+        "source_key": "daily_report_gate",
+        "status": "passed",
+        "business_date": "2026-06-27",
+        "output_skill_alignment": {"status": "passed", "reference_mode": reference_mode},
+        "fact_closure": {"status": "pass"},
+    }
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "daily_report_gate_not_compare_only" in result.failed_reasons
 
 
 def test_daily_report_gate_missing_fails_only_when_required() -> None:
@@ -337,3 +767,11 @@ def test_understanding_gate_rejects_wrong_domain_for_factory_overview() -> None:
 
     assert result.core_passed is False
     assert "domain_not_recognized" in result.failed_reasons
+
+
+def test_report_displays_fact_gate() -> None:
+    snapshots = [_passing_snapshot(item.question_id) for item in build_20_question_catalog()]
+
+    report = render_acceptance_report(evaluate_acceptance_summary(snapshots))
+
+    assert "| 问题 | 理解 | 来源 | 事实 | 回答 | 钉钉 | 状态 |" in report
