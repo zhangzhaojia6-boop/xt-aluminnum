@@ -88,11 +88,14 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'finished_inbound_output',
             'wms_direct',
             'mes_stock_header_records',
+            'mes_stock_records',
         },
         'wip_total': {
             'dingtalk_supplement',
             'root_owner_correction',
             'mes_wip_distribution',
+            'mes_coil_snapshot_business_date',
+            'mes_daily_wip_snapshot',
             'mes_wip_total_snapshot',
         },
         'total_electricity_kwh': {
@@ -132,6 +135,11 @@ def test_daily_report_metric_contracts_prohibit_cross_metric_and_derived_sources
     assert 'finished_inbound_output' not in daily_report_contract_for('total_output_daily').allowed_source_types
     assert 'mes_stock_header_records' not in daily_report_contract_for('total_output_daily').allowed_source_types
     assert 'mes_stock_header_records' in daily_report_contract_for('finished_inbound_daily').allowed_source_types
+    assert 'mes_stock_records' in daily_report_contract_for('finished_inbound_daily').allowed_source_types
+    assert {
+        'mes_coil_snapshot_business_date',
+        'mes_daily_wip_snapshot',
+    }.issubset(daily_report_contract_for('wip_total').allowed_source_types)
 
     yield_contract = daily_report_contract_for('daily_yield_rate')
     assert yield_contract.requires_same_business_window is True

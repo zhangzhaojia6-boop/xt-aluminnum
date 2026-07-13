@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from app.services.report.daily_report_fact_closure import (
     CRITICAL_DAILY_FACT_FIELDS,
     build_daily_report_fact_closure,
@@ -161,6 +163,27 @@ def test_mes_stock_header_records_only_confirms_finished_inbound() -> None:
     assert closure["status"] == "blocked"
     assert _field_status(closure, "total_output_daily") == "needs_evidence"
     assert _field_status(closure, "finished_inbound_daily") == "confirmed"
+
+
+@pytest.mark.parametrize(
+    ("field_name", "source_type"),
+    [
+        ("finished_inbound_daily", "mes_stock_records"),
+        ("wip_total", "mes_coil_snapshot_business_date"),
+        ("wip_total", "mes_daily_wip_snapshot"),
+    ],
+)
+def test_verified_projection_sources_confirm_their_matching_critical_field(
+    field_name: str,
+    source_type: str,
+) -> None:
+    bundle = _confirmed_bundle()
+    _set_source(bundle, field_name, source_type)
+
+    closure = build_daily_report_fact_closure(bundle)
+
+    assert closure["status"] == "pass"
+    assert _field_status(closure, field_name) == "confirmed"
 
 
 def test_daily_yield_rate_plain_computed_source_needs_evidence() -> None:

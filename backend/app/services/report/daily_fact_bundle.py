@@ -374,17 +374,21 @@ def _direct_source_evidence_gaps(
         fact_value=fact_value,
         source_detail=source_detail,
     )
-    has_sync_run = verifier.verify_sync(
+    has_sync_metadata = any(
+        source_detail.get(key) not in (None, "")
+        for key in ("sync_run_id", "cursor_key", "sync_trace_id")
+    ) or str(source_detail.get("trace_id") or "").startswith("mes-sync-run:")
+    has_valid_sync = not has_sync_metadata or verifier.verify_sync(
         field_name=field_name,
         source_type=source_type,
         source_ref=str(source_ref or ""),
         sync_run_id=sync_run_id,
         cursor_key=source_detail.get("cursor_key"),
-        trace_id=source_detail.get("trace_id"),
+        trace_id=source_detail.get("sync_trace_id") or source_detail.get("trace_id"),
         window_start=window_start,
         window_end=window_end,
     )
-    if not has_projection_read and not has_sync_run:
+    if not has_projection_read or not has_valid_sync:
         gaps.append("missing_read_evidence")
     return gaps
 

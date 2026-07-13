@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
 
 from sqlalchemy import and_, inspect, or_
 from sqlalchemy.orm import Session
 
 from app.core.business_time import local_now, production_business_window
-from app.domain.metric_contracts import daily_report_tolerance_for
 from app.models.mes import (
     MesCoilSnapshot,
     MesDailyWipSnapshot,
@@ -19,10 +19,16 @@ from app.models.mes import (
     MesWipTotalSnapshot,
     MesWorkshopProcessRecord,
 )
+from app.services.report.mes_factory_production_fact import (
+    FINISHED_INBOUND_DETAIL_SOURCE_PATH,
+    FINISHED_INBOUND_HEADER_SOURCE_PATH,
+)
 from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
 
 
 MATERIAL_INCLUDED_STATUSES = ("已使用", "未使用")
+PROJECTION_METRIC_CONTRACT_VERSION = "2026-07-11"
+PROJECTION_VALUE_TOLERANCE = Decimal("0.001")
 
 
 @dataclass(frozen=True)
@@ -33,6 +39,8 @@ class ProjectionFactContract:
     query_kind: str
     workshop_tokens: tuple[str, ...] = ()
     buckets: tuple[str, ...] = ()
+    expected_unit: str = "吨"
+    metric_contract_version: str = PROJECTION_METRIC_CONTRACT_VERSION
 
 
 @dataclass(frozen=True)
@@ -76,6 +84,7 @@ for _field, _period in (
     )
 
 for _daily_field, _monthly_field, _buckets in (
+    ("foundry_daily", "foundry_month", ("铸锭",)),
     ("cold_1650_daily", "cold_1650_month", ("冷轧1650",)),
     ("cold_1850_daily", "cold_1850_month", ("冷轧1850",)),
     ("cold_2050_daily", "cold_2050_month", ("冷轧2050",)),
@@ -191,10 +200,15 @@ class DailyFactEvidenceVerifier:
         cache_key = (
             field_name,
             source_ref,
+            source_type,
             self.business_date,
             claimed_anchor,
             source_detail.get("row_count"),
             source_detail.get("business_window"),
+            source_detail.get("source_table"),
+            source_detail.get("unit"),
+            source_detail.get("metric_contract_version"),
+            source_detail.get("trace_id"),
             fact_value,
         )
         if cache_key in self._projection_cache:
@@ -230,8 +244,10 @@ class DailyFactEvidenceVerifier:
         cache_key = (
             field_name,
             source_ref,
+            source_type,
             normalized_cursor_key,
             normalized_id,
+            trace_id,
             window_start,
             window_end,
         )
@@ -264,6 +280,8 @@ class DailyFactEvidenceVerifier:
             contract is None
             or source_ref != contract.source_ref
             or source_type not in contract.source_types
+            or source_detail.get("unit") != contract.expected_unit
+            or source_detail.get("metric_contract_version") != contract.metric_contract_version
             or not self._has_table(source_ref)
         ):
             return False
@@ -277,8 +295,10 @@ class DailyFactEvidenceVerifier:
         try:
             claimed_count = int(source_detail.get("row_count"))
             claimed_anchor = int(source_detail.get("latest_row_id"))
-            claimed_value = float(fact_value)
-        except (TypeError, ValueError):
+            claimed_value = Decimal(str(fact_value))
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        if not claimed_value.is_finite():
             return False
         actual = self._projection_evidence(
             contract=contract,
@@ -291,13 +311,13 @@ class DailyFactEvidenceVerifier:
             expected_wip_date = self.business_date + timedelta(days=1)
             if source_detail.get("business_date") != expected_wip_date.isoformat():
                 return False
-        tolerance = daily_report_tolerance_for(field_name)
+        actual_value = Decimal(str(actual.value))
         return bool(
             trace_source_ref == source_ref
             and trace_count == claimed_count == actual.row_count
             and trace_anchor == str(claimed_anchor) == str(actual.latest_row_id)
             and str(source_detail.get("business_window") or "") == actual.business_window
-            and abs(claimed_value - actual.value) <= tolerance + 1e-9
+            and abs(claimed_value - actual_value) <= PROJECTION_VALUE_TOLERANCE
         )
 
     def _projection_evidence(
@@ -478,6 +498,12 @@ class DailyFactEvidenceVerifier:
                 .filter(
                     MesStockRecord.business_date >= month_start,
                     MesStockRecord.business_date <= self.business_date,
+                    MesStockRecord.source_path.in_(
+                        (
+                            FINISHED_INBOUND_HEADER_SOURCE_PATH,
+                            FINISHED_INBOUND_DETAIL_SOURCE_PATH,
+                        )
+                    ),
                 )
                 .order_by(MesStockRecord.id.asc())
                 .all()

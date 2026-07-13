@@ -1170,11 +1170,13 @@ def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> N
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
         _seed_mes_process(db, source_id="1650-1", text="1650冷轧", output_tons=143.95, pass_count=55)
+        _seed_mes_process(db, source_id="foundry-1", text="熔铸车间", output_tons=88, pass_count=12)
         db.commit()
 
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
         process_row_id = db.query(MesWorkshopProcessRecord.id).filter_by(source_id="1650-1").scalar()
+        foundry_row_id = db.query(MesWorkshopProcessRecord.id).filter_by(source_id="foundry-1").scalar()
 
     assert facts.values["cold_1650_daily"] == 143.95
     assert facts.values["cold_1650_pass_daily"] == 55
@@ -1187,6 +1189,19 @@ def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> N
         "row_count": 1,
         "latest_row_id": process_row_id,
         "trace_id": f"projection-read:mes_workshop_process_records:{process_row_id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
+    assert facts.values["foundry_daily"] == 88
+    assert facts.values["foundry_month"] == 88
+    assert facts.sources["foundry_daily"] == {
+        "source_type": "mes_workshop_process_records",
+        "source_table": "MES_ProductProcessRecord",
+        "source_ref": "mes_workshop_process_records",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": foundry_row_id,
+        "trace_id": f"projection-read:mes_workshop_process_records:{foundry_row_id}:1",
         "metric_contract_version": "2026-07-11",
     }
 

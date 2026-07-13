@@ -109,6 +109,7 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
             'finished_inbound_output',
             'wms_direct',
             'mes_stock_header_records',
+            'mes_stock_records',
         }),
     ),
     'wip_total': DailyReportMetricContract(
@@ -118,6 +119,8 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
             'dingtalk_supplement',
             'root_owner_correction',
             'mes_wip_distribution',
+            'mes_coil_snapshot_business_date',
+            'mes_daily_wip_snapshot',
             'mes_wip_total_snapshot',
         }),
     ),

@@ -403,7 +403,7 @@ def test_daily_fact_bundle_rejects_unknown_mes_sync_run_as_read_evidence(
 @pytest.mark.parametrize(
     ("evidence_cursor_key", "evidence_trace_id", "expected_status"),
     [
-        ("mes_workshop_process_records_between", None, "confirmed"),
+        ("mes_workshop_process_records_between", None, "needs_evidence"),
         ("mes_stock_records_between", None, "needs_evidence"),
         ("mes_workshop_process_records_between", "mes-sync-run:999", "needs_evidence"),
     ],
@@ -463,6 +463,130 @@ def test_daily_fact_bundle_only_accepts_matching_completed_mes_sync_run(
     fact = bundle["facts"]["total_output_daily"]
     assert fact["evidence_status"] == expected_status
     assert ("missing_read_evidence" in fact["evidence_gaps"]) is (expected_status == "needs_evidence")
+
+
+def test_daily_fact_bundle_rejects_valid_sync_run_without_matching_field_value(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    cursor_key = "mes_workshop_process_records_between"
+    cursor = MesSyncCursor(
+        cursor_key=cursor_key,
+        last_synced_at=datetime(2026, 7, 8, 7, 55, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+    run = MesSyncRunLog(
+        cursor_key=cursor_key,
+        started_at=datetime(2026, 7, 8, 7, 54, tzinfo=ZoneInfo("Asia/Shanghai")),
+        finished_at=datetime(2026, 7, 8, 7, 56, tzinfo=ZoneInfo("Asia/Shanghai")),
+        status="success",
+        fetched_count=3,
+        metadata_json={"window_started_at": "2026-07-07T07:50:00+08:00"},
+    )
+    db_session.add_all([cursor, run])
+    db_session.commit()
+    source = {
+        "source_type": "mes_packaging_output",
+        "source_ref": "MES_ProductProcessRecord",
+        "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 0,
+        "sync_run_id": run.id,
+        "cursor_key": cursor_key,
+        "trace_id": f"mes-sync-run:{run.id}",
+        "metric_contract_version": "2026-07-11",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 999999},
+            "sources": {"total_output_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert bundle["facts"]["total_output_daily"]["evidence_status"] == "needs_evidence"
+
+
+@pytest.mark.parametrize(
+    ("evidence_cursor_key", "expected_status"),
+    [
+        ("mes_workshop_process_records_between", "confirmed"),
+        ("mes_stock_records_between", "needs_evidence"),
+    ],
+)
+def test_daily_fact_bundle_validates_attached_sync_metadata_after_projection(
+    monkeypatch,
+    db_session: Session,
+    evidence_cursor_key: str,
+    expected_status: str,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    row = MesWorkshopProcessRecord(
+        source_id="projection-with-mismatched-sync",
+        source_path="sqlserver:workshop_process_records",
+        workshop_name="精整",
+        process_name="包装",
+        output_weight_tons=100,
+        business_date=date(2026, 7, 7),
+    )
+    cursor_key = "mes_workshop_process_records_between"
+    cursor = MesSyncCursor(
+        cursor_key=cursor_key,
+        last_synced_at=datetime(2026, 7, 8, 7, 55, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+    run = MesSyncRunLog(
+        cursor_key=cursor_key,
+        started_at=datetime(2026, 7, 8, 7, 54, tzinfo=ZoneInfo("Asia/Shanghai")),
+        finished_at=datetime(2026, 7, 8, 7, 56, tzinfo=ZoneInfo("Asia/Shanghai")),
+        status="success",
+        fetched_count=1,
+        metadata_json={"window_started_at": "2026-07-07T07:50:00+08:00"},
+    )
+    db_session.add_all([row, cursor, run])
+    db_session.commit()
+    source = {
+        "source_type": "mes_packaging_output",
+        "source_ref": "mes_workshop_process_records",
+        "source_table": "MES_ProductProcessRecord",
+        "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": row.id,
+        "trace_id": f"projection-read:mes_workshop_process_records:{row.id}:1",
+        "metric_contract_version": "2026-07-11",
+        "sync_run_id": run.id,
+        "cursor_key": evidence_cursor_key,
+        "sync_trace_id": f"mes-sync-run:{run.id}",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 100},
+            "sources": {"total_output_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert bundle["facts"]["total_output_daily"]["evidence_status"] == expected_status
 
 
 def test_daily_fact_bundle_rejects_sync_run_without_real_cursor(
@@ -746,6 +870,118 @@ def test_daily_fact_bundle_confirms_packaging_projection_only_for_exact_field_qu
     assert bundle["facts"]["total_output_daily"]["evidence_status"] == "confirmed"
 
 
+@pytest.mark.parametrize(
+    ("claimed_value", "expected_status"),
+    [
+        (119.99, "needs_evidence"),
+        (100.0004, "confirmed"),
+    ],
+)
+def test_daily_fact_bundle_uses_projection_precision_not_alignment_tolerance(
+    monkeypatch,
+    db_session: Session,
+    claimed_value: float,
+    expected_status: str,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    row = MesWorkshopProcessRecord(
+        source_id=f"precision-{claimed_value}",
+        source_path="sqlserver:workshop_process_records",
+        workshop_name="精整",
+        process_name="包装",
+        output_weight_tons=100,
+        business_date=date(2026, 7, 7),
+    )
+    db_session.add(row)
+    db_session.commit()
+    source = {
+        "source_type": "mes_packaging_output",
+        "source_ref": "mes_workshop_process_records",
+        "source_table": "MES_ProductProcessRecord",
+        "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": row.id,
+        "trace_id": f"projection-read:mes_workshop_process_records:{row.id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": claimed_value},
+            "sources": {"total_output_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert bundle["facts"]["total_output_daily"]["evidence_status"] == expected_status
+
+
+@pytest.mark.parametrize(
+    ("unit", "metric_contract_version"),
+    [
+        ("kg", "2026-07-11"),
+        ("吨", "fake-version"),
+    ],
+)
+def test_daily_fact_bundle_rejects_projection_with_wrong_unit_or_contract_version(
+    monkeypatch,
+    db_session: Session,
+    unit: str,
+    metric_contract_version: str,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    row = MesWorkshopProcessRecord(
+        source_id=f"contract-metadata-{unit}-{metric_contract_version}",
+        source_path="sqlserver:workshop_process_records",
+        workshop_name="精整",
+        process_name="包装",
+        output_weight_tons=100,
+        business_date=date(2026, 7, 7),
+    )
+    db_session.add(row)
+    db_session.commit()
+    source = {
+        "source_type": "mes_packaging_output",
+        "source_ref": "mes_workshop_process_records",
+        "source_table": "MES_ProductProcessRecord",
+        "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+        "unit": unit,
+        "row_count": 1,
+        "latest_row_id": row.id,
+        "trace_id": f"projection-read:mes_workshop_process_records:{row.id}:1",
+        "metric_contract_version": metric_contract_version,
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 100},
+            "sources": {"total_output_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert bundle["facts"]["total_output_daily"]["evidence_status"] == "needs_evidence"
+
+
 def test_daily_fact_bundle_confirms_wms_detail_projection_for_exact_inbound_query(
     monkeypatch,
     db_session: Session,
@@ -789,6 +1025,115 @@ def test_daily_fact_bundle_confirms_wms_detail_projection_for_exact_inbound_quer
     )
 
     assert bundle["facts"]["finished_inbound_daily"]["evidence_status"] == "confirmed"
+
+
+def test_daily_fact_bundle_rejects_invented_local_wms_detail_path(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    row = MesStockRecord(
+        source_id="invented-wms-detail",
+        source_path="local:invented",
+        net_weight_tons=126.4,
+        business_date=date(2026, 7, 7),
+    )
+    db_session.add(row)
+    db_session.commit()
+    source = {
+        "source_type": "mes_stock_records",
+        "source_ref": "mes_stock_records",
+        "source_table": "WMS_InStockDetail",
+        "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": row.id,
+        "trace_id": f"projection-read:mes_stock_records:{row.id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"finished_inbound_daily": 126.4},
+            "sources": {"finished_inbound_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert bundle["facts"]["finished_inbound_daily"]["evidence_status"] == "needs_evidence"
+
+
+@pytest.mark.parametrize(
+    ("workshop_name", "expected_status"),
+    [
+        ("熔铸车间", "confirmed"),
+        ("冷轧1650", "needs_evidence"),
+    ],
+)
+def test_daily_fact_bundle_validates_foundry_daily_and_month_projection_contracts(
+    monkeypatch,
+    db_session: Session,
+    workshop_name: str,
+    expected_status: str,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    row = MesWorkshopProcessRecord(
+        source_id=f"foundry-contract-{workshop_name}",
+        source_path="sqlserver:workshop_process_records",
+        workshop_name=workshop_name,
+        process_name="铸锭",
+        output_weight_tons=88,
+        business_date=date(2026, 7, 7),
+    )
+    db_session.add(row)
+    db_session.commit()
+    daily_source = {
+        "source_type": "mes_workshop_process_records",
+        "source_ref": "mes_workshop_process_records",
+        "source_table": "MES_ProductProcessRecord",
+        "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": row.id,
+        "trace_id": f"projection-read:mes_workshop_process_records:{row.id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
+    month_source = {
+        **daily_source,
+        "business_window": "2026-07-01T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"foundry_daily": 88, "foundry_month": 88},
+            "sources": {
+                "foundry_daily": daily_source,
+                "foundry_month": month_source,
+            },
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert bundle["facts"]["foundry_daily"]["evidence_status"] == expected_status
+    assert bundle["facts"]["foundry_month"]["evidence_status"] == expected_status
 
 
 def test_daily_fact_bundle_confirms_coil_wip_for_next_business_date(

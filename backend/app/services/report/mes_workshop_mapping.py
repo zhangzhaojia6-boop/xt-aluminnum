@@ -40,7 +40,7 @@ def resolve_mes_process_workshop_bucket(
         return '淬火车间'
     if '热轧' in workshop:
         return '热轧'
-    if any(token in workshop for token in ('铸锭', '铸造', '熔炼')):
+    if any(token in text for token in ('铸锭', '铸造', '熔铸', '熔炼')):
         return '铸锭'
     if any(token in workshop for token in ('铸二', '铸轧二', '铸轧2')):
         return '铸二'
