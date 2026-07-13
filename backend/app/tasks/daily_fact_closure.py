@@ -43,3 +43,9 @@ def run_scheduled_daily_fact_closure() -> dict[str, Any]:
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         return run_daily_fact_closure(session)
+
+
+def run_startup_daily_fact_closure(*, now: datetime) -> dict[str, Any]:
+    SessionLocal = get_sessionmaker()
+    with SessionLocal() as session:
+        return run_daily_fact_closure(session, now=now)

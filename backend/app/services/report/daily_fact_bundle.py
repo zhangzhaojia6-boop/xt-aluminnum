@@ -14,7 +14,16 @@ from sqlalchemy.orm import Session
 
 from app.core.business_time import local_now
 from app.core.redaction import filter_sensitive_mapping
-from app.models.mes import MesSyncRunLog
+from app.models.mes import (
+    MesCoilSnapshot,
+    MesDailyWipSnapshot,
+    MesMaterialRecord,
+    MesStockRecord,
+    MesSyncCursor,
+    MesSyncRunLog,
+    MesWipTotalSnapshot,
+    MesWorkshopProcessRecord,
+)
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
@@ -100,6 +109,14 @@ DIRECT_MES_WMS_SOURCE_TYPES = {
     "mes_verified",
     "wms",
     "wms_direct",
+}
+TRUSTED_PROJECTION_MODELS = {
+    MesCoilSnapshot.__tablename__: MesCoilSnapshot,
+    MesDailyWipSnapshot.__tablename__: MesDailyWipSnapshot,
+    MesMaterialRecord.__tablename__: MesMaterialRecord,
+    MesStockRecord.__tablename__: MesStockRecord,
+    MesWipTotalSnapshot.__tablename__: MesWipTotalSnapshot,
+    MesWorkshopProcessRecord.__tablename__: MesWorkshopProcessRecord,
 }
 
 
@@ -359,6 +376,7 @@ def _direct_source_evidence_gaps(
         has_rows = int(row_count or 0) > 0
     except (TypeError, ValueError):
         has_rows = False
+    has_projection_read = has_rows and _has_verified_projection_read(db, source_detail)
     has_sync_run = _has_successful_sync_read(
         db,
         source_type=source_type,
@@ -367,9 +385,54 @@ def _direct_source_evidence_gaps(
         trace_id=source_detail.get("trace_id"),
         window_end=window_end,
     )
-    if not has_rows and not has_sync_run:
+    if not has_projection_read and not has_sync_run:
         gaps.append("missing_read_evidence")
     return gaps
+
+
+def _has_verified_projection_read(db: Session, source_detail: Mapping[str, Any]) -> bool:
+    trace_id = str(source_detail.get("trace_id") or "").strip()
+    prefix = "projection-read:"
+    if not trace_id.startswith(prefix):
+        return False
+    try:
+        trace_source_ref, trace_tail = trace_id[len(prefix):].split(":", 1)
+        trace_anchor, trace_row_count = trace_tail.rsplit(":", 1)
+        normalized_trace_count = int(trace_row_count)
+        normalized_row_count = int(source_detail.get("row_count"))
+    except (AttributeError, TypeError, ValueError):
+        return False
+    source_ref = str(source_detail.get("source_ref") or "").strip()
+    if (
+        not source_ref
+        or trace_source_ref != source_ref
+        or normalized_trace_count != normalized_row_count
+        or normalized_row_count <= 0
+    ):
+        return False
+    model = TRUSTED_PROJECTION_MODELS.get(source_ref)
+    if model is None or not inspect(db.connection()).has_table(source_ref):
+        return False
+
+    latest_row_id = source_detail.get("latest_row_id")
+    if latest_row_id not in (None, ""):
+        try:
+            normalized_row_id = int(latest_row_id)
+        except (TypeError, ValueError):
+            return False
+        if trace_anchor != str(normalized_row_id):
+            return False
+        return db.query(model.id).filter(model.id == normalized_row_id).scalar() is not None
+
+    snapshot_at = str(source_detail.get("snapshot_at") or "").strip()
+    snapshot_column = getattr(model, "snapshot_at", None)
+    if not snapshot_at or snapshot_column is None or trace_anchor != snapshot_at:
+        return False
+    try:
+        snapshot_time = datetime.fromisoformat(snapshot_at)
+    except ValueError:
+        return False
+    return db.query(model).filter(snapshot_column == snapshot_time).first() is not None
 
 
 def _has_successful_sync_read(
@@ -390,17 +453,30 @@ def _has_successful_sync_read(
     normalized_cursor_key = str(cursor_key or "").strip()
     if not normalized_cursor_key or str(trace_id or "").strip() != f"mes-sync-run:{normalized_id}":
         return False
-    bind = db.get_bind()
-    if bind is None or not inspect(bind).has_table(MesSyncRunLog.__tablename__):
+    connection = db.connection()
+    if not (
+        inspect(connection).has_table(MesSyncRunLog.__tablename__)
+        and inspect(connection).has_table(MesSyncCursor.__tablename__)
+    ):
         return False
-    run = db.get(MesSyncRunLog, normalized_id)
+    run = db.query(MesSyncRunLog).filter(MesSyncRunLog.id == normalized_id).one_or_none()
     if not run or run.status != "success" or run.finished_at is None or int(run.fetched_count or 0) <= 0:
         return False
+    cursor = (
+        db.query(MesSyncCursor)
+        .filter(MesSyncCursor.cursor_key == normalized_cursor_key)
+        .one_or_none()
+    )
+    if cursor is None or cursor.last_synced_at is None:
+        return False
     finished_at = local_now(run.finished_at)
+    cursor_synced_at = local_now(cursor.last_synced_at)
     return bool(
         run.cursor_key == normalized_cursor_key
         and window_end is not None
         and finished_at >= window_end.astimezone(finished_at.tzinfo)
+        and cursor_synced_at >= window_end.astimezone(cursor_synced_at.tzinfo)
+        and cursor_synced_at <= finished_at.astimezone(cursor_synced_at.tzinfo)
     )
 
 
@@ -440,6 +516,18 @@ def _persist_bundle(
 
     snapshot = None
     if snapshot_reason is not None:
+        snapshot_values = {
+            "facts": _json_safe(bundle.get("facts") or {}),
+            "sources": _json_safe(bundle.get("sources") or {}),
+            "conflicts": _json_safe(bundle.get("conflicts") or []),
+            "adopted_values": _adopted_values(bundle),
+            "correction_refs": _json_safe(bundle.get("correction_refs") or []),
+            "dingtalk_refs": _json_safe(bundle.get("dingtalk_refs") or []),
+            "output_skill_alignment": _json_safe(bundle.get("output_skill_alignment") or {}),
+            "payload_hash": _payload_hash(bundle),
+            "created_by_id": getattr(requested_by, "id", None),
+            "trace_id": trace_id,
+        }
         snapshot_key = (
             f"scheduled_daily_closure:{run.run_key}"
             if snapshot_reason == "scheduled_daily_closure"
@@ -454,23 +542,33 @@ def _persist_bundle(
                 .one_or_none()
             )
         if snapshot is None:
-            snapshot = DailyFactBundleSnapshot(
+            candidate = DailyFactBundleSnapshot(
                 run_id=run.id,
                 snapshot_key=snapshot_key,
                 business_date=business_date,
                 snapshot_reason=snapshot_reason,
+                **snapshot_values,
             )
-            db.add(snapshot)
-        snapshot.facts = _json_safe(bundle.get("facts") or {})
-        snapshot.sources = _json_safe(bundle.get("sources") or {})
-        snapshot.conflicts = _json_safe(bundle.get("conflicts") or [])
-        snapshot.adopted_values = _adopted_values(bundle)
-        snapshot.correction_refs = _json_safe(bundle.get("correction_refs") or [])
-        snapshot.dingtalk_refs = _json_safe(bundle.get("dingtalk_refs") or [])
-        snapshot.output_skill_alignment = _json_safe(bundle.get("output_skill_alignment") or {})
-        snapshot.payload_hash = _payload_hash(bundle)
-        snapshot.created_by_id = getattr(requested_by, "id", None)
-        snapshot.trace_id = trace_id
+            if snapshot_key is None:
+                db.add(candidate)
+                snapshot = candidate
+            else:
+                try:
+                    with db.begin_nested():
+                        db.add(candidate)
+                        db.flush()
+                    snapshot = candidate
+                except IntegrityError:
+                    snapshot = (
+                        db.query(DailyFactBundleSnapshot)
+                        .filter(DailyFactBundleSnapshot.snapshot_key == snapshot_key)
+                        .with_for_update()
+                        .one_or_none()
+                    )
+                    if snapshot is None:
+                        raise
+        for field_name, value in snapshot_values.items():
+            setattr(snapshot, field_name, value)
         db.flush()
     return run, snapshot
 

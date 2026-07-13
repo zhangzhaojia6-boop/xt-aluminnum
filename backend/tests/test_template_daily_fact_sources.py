@@ -417,19 +417,24 @@ def test_opening_facts_preserve_real_mes_query_evidence(monkeypatch) -> None:
                 "row_count": 2,
                 "month_row_count": 8,
                 "source_table": "MES_ProductProcessRecord",
+                "projection_table": "mes_workshop_process_records",
                 "date_column": "EndDatetime",
                 "business_window_start": "2026-06-16T07:50:00+08:00",
                 "business_window_end": "2026-06-17T07:50:00+08:00",
                 "month_window_start": "2026-06-01T07:50:00+08:00",
-                "source_trace_id": "projection-read:mes_workshop_process_records:sync-41:2",
-                "source_month_trace_id": "projection-read:mes_workshop_process_records:sync-41:8",
+                "latest_row_id": 41,
+                "month_latest_row_id": 48,
+                "source_trace_id": "projection-read:mes_workshop_process_records:41:2",
+                "source_month_trace_id": "projection-read:mes_workshop_process_records:48:8",
                 "finished_inbound_output": 126.4,
                 "finished_inbound_monthly_output": 400.0,
                 "finished_inbound_source": "mes_stock_header_records",
                 "finished_inbound_row_count": 1,
                 "finished_inbound_month_row_count": 4,
-                "finished_inbound_trace_id": "projection-read:mes_stock_records:stock-9:1",
-                "finished_inbound_month_trace_id": "projection-read:mes_stock_records:stock-9:4",
+                "finished_inbound_latest_row_id": 9,
+                "finished_inbound_month_latest_row_id": 12,
+                "finished_inbound_trace_id": "projection-read:mes_stock_records:9:1",
+                "finished_inbound_month_trace_id": "projection-read:mes_stock_records:12:4",
             },
             "contracts": {},
             "yield_rates": {},
@@ -446,34 +451,42 @@ def test_opening_facts_preserve_real_mes_query_evidence(monkeypatch) -> None:
     assert facts.sources["total_output_daily"] == {
         "source_type": "mes_packaging_output",
         "source_table": "MES_ProductProcessRecord",
+        "projection_table": "mes_workshop_process_records",
         "date_column": "EndDatetime",
-        "source_ref": "MES_ProductProcessRecord",
+        "source_ref": "mes_workshop_process_records",
         "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
         "unit": "吨",
         "row_count": 2,
-        "trace_id": "projection-read:mes_workshop_process_records:sync-41:2",
+        "latest_row_id": 41,
+        "trace_id": "projection-read:mes_workshop_process_records:41:2",
         "metric_contract_version": "2026-07-11",
     }
     assert facts.sources["finished_inbound_daily"] == {
         "source_type": "mes_stock_header_records",
         "source_table": "WMS_InStock",
+        "projection_table": "mes_stock_records",
         "date_column": "InStockDate",
-        "source_ref": "WMS_InStock",
+        "source_ref": "mes_stock_records",
         "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
         "unit": "吨",
         "row_count": 1,
-        "trace_id": "projection-read:mes_stock_records:stock-9:1",
+        "latest_row_id": 9,
+        "trace_id": "projection-read:mes_stock_records:9:1",
         "metric_contract_version": "2026-07-11",
     }
     assert facts.sources["total_output_month"]["business_window"] == (
         "2026-06-01T07:50:00+08:00/2026-06-17T07:50:00+08:00"
     )
     assert facts.sources["total_output_month"]["row_count"] == 8
+    assert facts.sources["total_output_month"]["source_ref"] == "mes_workshop_process_records"
+    assert facts.sources["total_output_month"]["latest_row_id"] == 48
     assert facts.sources["total_output_month"]["trace_id"].endswith(":8")
     assert facts.sources["finished_inbound_month"]["business_window"] == (
         "2026-06-01T07:50:00+08:00/2026-06-17T07:50:00+08:00"
     )
     assert facts.sources["finished_inbound_month"]["row_count"] == 4
+    assert facts.sources["finished_inbound_month"]["source_ref"] == "mes_stock_records"
+    assert facts.sources["finished_inbound_month"]["latest_row_id"] == 12
     assert facts.sources["finished_inbound_month"]["trace_id"].endswith(":4")
 
 
@@ -687,15 +700,20 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
 
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+        hot_roll_row_id = db.query(MesMaterialRecord.id).filter(
+            MesMaterialRecord.source_id == "hot-in-window"
+        ).scalar()
 
     assert facts.values["hot_roll_daily"] == 70
     assert facts.sources["hot_roll_daily"] == {
         "source_type": "mes_material_records",
-        "source_ref": "MES_Material",
+        "source_ref": "mes_material_records",
+        "source_table": "MES_Material",
         "business_window": "2026-06-16T10:00:00+08:00/2026-06-17T10:00:00+08:00",
         "unit": "吨",
         "row_count": 1,
-        "trace_id": "projection-read:mes_material_records:2026-06-16T10:00:00:1",
+        "latest_row_id": hot_roll_row_id,
+        "trace_id": f"projection-read:mes_material_records:{hot_roll_row_id}:1",
         "metric_contract_version": "2026-07-11",
     }
 
@@ -749,6 +767,7 @@ def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> N
         "source_ref": "mes_wip_total_snapshots",
         "business_date": "2026-06-17",
         "business_window": "2026-06-17T08:00:00+08:00/2026-06-17T08:00:00+08:00",
+        "snapshot_at": "2026-06-17T08:00:00+08:00",
         "unit": "吨",
         "row_count": 1,
         "trace_id": "projection-read:mes_wip_total_snapshots:2026-06-17T08:00:00+08:00:1",
@@ -849,6 +868,7 @@ def test_opening_facts_fill_wip_breakdown_from_current_wip_total_snapshot(tmp_pa
         "business_window": "2026-06-17T08:00:00+08:00/2026-06-17T08:00:00+08:00",
         "unit": "吨",
         "row_count": 12,
+        "latest_row_id": 12,
         "trace_id": "projection-read:mes_wip_total_snapshots:12:12",
         "metric_contract_version": "2026-07-11",
     }

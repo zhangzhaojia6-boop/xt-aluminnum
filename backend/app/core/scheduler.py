@@ -87,7 +87,10 @@ def setup_scheduler(target_scheduler=None):
         return None
 
     from app.tasks.daily_report import generate_daily_reports
-    from app.tasks.daily_fact_closure import run_scheduled_daily_fact_closure
+    from app.tasks.daily_fact_closure import (
+        run_scheduled_daily_fact_closure,
+        run_startup_daily_fact_closure,
+    )
     from app.tasks.data_archive import archive_old_data
     from app.tasks.fill_reminder import send_fill_reminders
     from app.tasks.agent_outbox import dispatch_due_agent_outbox_messages
@@ -109,12 +112,17 @@ def setup_scheduler(target_scheduler=None):
         hour=8,
         minute=5,
     )
+    startup_at = local_now()
+
+    def run_daily_fact_closure_startup_catchup():
+        return run_startup_daily_fact_closure(now=startup_at)
+
     _add_job_once(
         active_scheduler,
-        run_scheduled_daily_fact_closure,
+        run_daily_fact_closure_startup_catchup,
         'date',
         job_id='daily_fact_closure_startup_catchup',
-        run_date=local_now(),
+        run_date=startup_at,
     )
     _add_job_once(
         active_scheduler,

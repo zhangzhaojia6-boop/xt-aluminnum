@@ -253,6 +253,7 @@ def _sum_finished_inbound_rows(rows: list[MesStockRecord]) -> dict[str, Any]:
         'output': _round2(total),
         'row_count': row_count,
         'last_seen_from_mes_at': latest_seen.isoformat() if latest_seen is not None else None,
+        'latest_row_id': latest_row_id,
         'trace_id': (
             f'projection-read:mes_stock_records:{latest_row_id}:{row_count}'
             if row_count > 0
@@ -363,8 +364,22 @@ def build_finished_inbound_fact(db: Session, *, target_date: date) -> dict[str, 
         daily = _sum_finished_inbound_rows(_finished_inbound_rows(db, target_date, target_date))
         monthly = _sum_finished_inbound_rows(_finished_inbound_rows(db, month_start, target_date))
     except (AttributeError, SQLAlchemyError):
-        daily = {'output': 0.0, 'row_count': 0, 'last_seen_from_mes_at': None, 'trace_id': None, 'by_source': []}
-        monthly = {'output': 0.0, 'row_count': 0, 'last_seen_from_mes_at': None, 'trace_id': None, 'by_source': []}
+        daily = {
+            'output': 0.0,
+            'row_count': 0,
+            'last_seen_from_mes_at': None,
+            'latest_row_id': None,
+            'trace_id': None,
+            'by_source': [],
+        }
+        monthly = {
+            'output': 0.0,
+            'row_count': 0,
+            'last_seen_from_mes_at': None,
+            'latest_row_id': None,
+            'trace_id': None,
+            'by_source': [],
+        }
     return {
         'target_date': target_date.isoformat(),
         'month_start': month_start.isoformat(),
@@ -380,6 +395,8 @@ def build_finished_inbound_fact(db: Session, *, target_date: date) -> dict[str, 
         'factory_finished_inbound_month_to_date_output': monthly['output'],
         'daily_row_count': daily['row_count'],
         'month_row_count': monthly['row_count'],
+        'daily_latest_row_id': daily['latest_row_id'],
+        'month_latest_row_id': monthly['latest_row_id'],
         'daily_trace_id': daily['trace_id'],
         'month_trace_id': monthly['trace_id'],
         'last_seen_from_mes_at': monthly['last_seen_from_mes_at'] or daily['last_seen_from_mes_at'],

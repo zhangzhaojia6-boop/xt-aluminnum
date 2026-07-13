@@ -8,8 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import Table, create_engine
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Query, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
@@ -182,7 +181,12 @@ def test_daily_fact_closure_rerun_updates_one_run_and_one_snapshot(
     assert refreshed_snapshot.snapshot_key is not None
 
 
-def test_scheduled_snapshot_key_is_unique_across_two_sessions(tmp_path: Path) -> None:
+def test_scheduled_snapshot_race_recovers_and_refreshes_existing_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
     engine = create_engine(f"sqlite:///{tmp_path / 'scheduled-snapshot-race.db'}", future=True)
     Base.metadata.create_all(
         engine,
@@ -193,43 +197,60 @@ def test_scheduled_snapshot_key_is_unique_across_two_sessions(tmp_path: Path) ->
         ],
     )
     SessionLocal = sessionmaker(bind=engine, future=True, expire_on_commit=False)
-    with SessionLocal() as setup_session:
-        run = DailyFactBundleRun(
-            run_key="scheduled-run-key",
-            business_date=date(2026, 7, 7),
-            status="ready",
-            source_status={},
-        )
-        setup_session.add(run)
-        setup_session.commit()
-        run_id = run.id
-
-    snapshot_values = {
-        "run_id": run_id,
-        "snapshot_key": "scheduled_daily_closure:scheduled-run-key",
-        "business_date": date(2026, 7, 7),
-        "snapshot_reason": "scheduled_daily_closure",
-        "facts": {},
-        "sources": {},
-        "conflicts": [],
-        "adopted_values": {},
-        "correction_refs": [],
-        "dingtalk_refs": [],
-        "output_skill_alignment": {},
-        "payload_hash": "a" * 64,
-    }
     first_session = SessionLocal()
     second_session = SessionLocal()
     try:
-        first_session.add(DailyFactBundleSnapshot(**snapshot_values))
-        second_session.add(DailyFactBundleSnapshot(**snapshot_values))
-
+        assert second_session.query(DailyFactBundleSnapshot).count() == 0
+        first_bundle = {
+            "status": "ready",
+            "facts": {"total_output_daily": {"value": 366, "source_type": "mes_packaging_output"}},
+            "sources": {},
+            "conflicts": [],
+        }
+        _, first_snapshot = daily_fact_bundle.persist_daily_fact_bundle_snapshot(
+            first_session,
+            bundle=first_bundle,
+            business_date=date(2026, 7, 7),
+            trace_id="daily-fact-closure:2026-07-07",
+            snapshot_reason="scheduled_daily_closure",
+        )
         first_session.commit()
-        with pytest.raises(IntegrityError):
-            second_session.commit()
-        second_session.rollback()
 
-        assert first_session.query(DailyFactBundleSnapshot).count() == 1
+        original_one_or_none = Query.one_or_none
+        stale_snapshot_read = {"used": False}
+
+        def one_or_none_with_race(query: Query):
+            entity = query.column_descriptions[0].get("entity")
+            if (
+                query.session is second_session
+                and entity is DailyFactBundleSnapshot
+                and not stale_snapshot_read["used"]
+            ):
+                stale_snapshot_read["used"] = True
+                return None
+            return original_one_or_none(query)
+
+        monkeypatch.setattr(Query, "one_or_none", one_or_none_with_race)
+        second_bundle = {
+            **first_bundle,
+            "facts": {"total_output_daily": {"value": 371, "source_type": "mes_packaging_output"}},
+        }
+        _, second_snapshot = daily_fact_bundle.persist_daily_fact_bundle_snapshot(
+            second_session,
+            bundle=second_bundle,
+            business_date=date(2026, 7, 7),
+            trace_id="daily-fact-closure:2026-07-07",
+            snapshot_reason="scheduled_daily_closure",
+        )
+        second_session.commit()
+
+        assert stale_snapshot_read["used"] is True
+        assert second_snapshot.id == first_snapshot.id
+        with SessionLocal() as verification_session:
+            assert verification_session.query(DailyFactBundleRun).count() == 1
+            assert verification_session.query(DailyFactBundleSnapshot).count() == 1
+            stored_snapshot = verification_session.query(DailyFactBundleSnapshot).one()
+            assert stored_snapshot.adopted_values["total_output_daily"] == 371
     finally:
         first_session.close()
         second_session.close()
@@ -285,3 +306,48 @@ def test_scheduled_daily_fact_closure_uses_managed_session(
 
     assert result == {"status": "pass", "same_session": True}
     assert events == ["enter", "exit"]
+
+
+def test_startup_catchup_executes_missed_business_day_and_is_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    from app.core import scheduler as scheduler_module
+
+    class CapturingScheduler:
+        def __init__(self) -> None:
+            self.jobs: dict[str, dict] = {}
+
+        def get_job(self, job_id: str):
+            return self.jobs.get(job_id)
+
+        def add_job(self, func, trigger, **kwargs) -> None:
+            self.jobs[kwargs["id"]] = {"func": func, "trigger": trigger, "kwargs": kwargs}
+
+    _stub_template_facts(monkeypatch, {"total_output_daily": 366})
+    restart_at = datetime(2026, 7, 8, 9, 0, tzinfo=SHANGHAI)
+    resolved_times: list[datetime | None] = []
+
+    def resolve_business_date(now=None):
+        resolved_times.append(now)
+        return date(2026, 7, 7)
+
+    SessionLocal = sessionmaker(bind=db_session.get_bind(), future=True, expire_on_commit=False)
+    monkeypatch.setattr(task_module, "get_sessionmaker", lambda: SessionLocal)
+    monkeypatch.setattr(task_module, "last_completed_production_business_date", resolve_business_date)
+    monkeypatch.setattr(scheduler_module, "local_now", lambda: restart_at)
+    scheduler = CapturingScheduler()
+    scheduler_module.setup_scheduler(scheduler)
+
+    startup_job = scheduler.jobs["daily_fact_closure_startup_catchup"]
+    startup_job["func"]()
+    startup_job["func"]()
+
+    assert startup_job["trigger"] == "date"
+    assert resolved_times == [restart_at, restart_at]
+    db_session.expire_all()
+    assert db_session.query(DailyFactBundleRun).count() == 1
+    assert db_session.query(DailyFactBundleSnapshot).count() == 1
+    snapshot = db_session.query(DailyFactBundleSnapshot).one()
+    assert snapshot.business_date == date(2026, 7, 7)
+    assert snapshot.snapshot_reason == "scheduled_daily_closure"
