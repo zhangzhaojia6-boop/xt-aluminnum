@@ -201,7 +201,17 @@ jobs:
 
           update_trusted_refs() {
             git -C "$DATAHUB_REPO" fetch --prune origin main
-            git -C "$HERMES_REPO" fetch --prune origin feature/xintai-single-ingress-fact-closure:refs/heads/feature/xintai-single-ingress-fact-closure
+            git -C "$HERMES_REPO" fetch --prune origin main
+          }
+
+          require_local_trusted_ref() {
+            local repo="$1"
+            local trusted_ref="$2"
+            local label="$3"
+            if ! git -C "$repo" show-ref --verify --quiet "$trusted_ref"; then
+              echo "${label}_TRUSTED_REF_MISSING"
+              exit 90
+            fi
           }
 
           require_trusted_ancestor() {
@@ -405,7 +415,11 @@ jobs:
             systemctl is-active aluminum-bypass hermes-gateway nginx
             echo "SERVICE_STATUS_END"
 
-            report_http_json "READYZ" "http://127.0.0.1:8000/readyz" /tmp/readyz.json || true
+            if [ "$version_required" = "yes" ]; then
+              report_http_json "READYZ" "http://127.0.0.1:8000/readyz" /tmp/readyz.json
+            else
+              report_http_json "READYZ" "http://127.0.0.1:8000/readyz" /tmp/readyz.json || true
+            fi
             if [ "$version_required" = "yes" ]; then
               report_http_json "VERSIONZ" "http://127.0.0.1:8000/versionz" /tmp/versionz.json
             else
@@ -495,6 +509,18 @@ jobs:
               echo "ROLLBACK_FAILED_SERVICE_HEALTH"
               rollback_failed=1
             fi
+            rollback_readyz_ok=0
+            for attempt in $(seq 1 20); do
+              if curl -fsS http://127.0.0.1:8000/readyz >/tmp/task10-rollback-readyz.json; then
+                rollback_readyz_ok=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$rollback_readyz_ok" != "1" ]; then
+              echo "ROLLBACK_FAILED_READYZ"
+              rollback_failed=1
+            fi
             if [ "$rollback_failed" -eq 0 ]; then
               echo "DEPLOY_FAILED_ROLLBACK_DONE"
               exit "$exit_code"
@@ -523,6 +549,7 @@ jobs:
           require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"
           require_commit_exists "$HERMES_REPO" "$HERMES_SHA"
           update_trusted_refs
+          require_local_trusted_ref "$HERMES_REPO" "$HERMES_TRUSTED_REF" HERMES
           require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB
           require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES
 

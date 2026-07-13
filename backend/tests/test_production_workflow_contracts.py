@@ -120,6 +120,7 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert 'DATAHUB_TRUSTED_REF="origin/main"' in source
     assert 'HERMES_TRUSTED_REF="refs/heads/feature/xintai-single-ingress-fact-closure"' in source
     assert 'merge-base --is-ancestor "$sha" "$trusted_ref"' in source
+    assert 'show-ref --verify --quiet "$trusted_ref"' in source
     assert 'require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB' in source
     assert 'require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT" in source
@@ -158,6 +159,7 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     restart_index = rollback_body.find('systemctl restart aluminum-bypass')
     assert -1 not in (stop_index, repo_restore_index, db_restore_index, deps_restore_index, frontend_restore_index, restart_index)
     assert stop_index < repo_restore_index < db_restore_index < deps_restore_index < frontend_restore_index < restart_index
+    assert 'ROLLBACK_FAILED_READYZ' in rollback_body
     assert source.rfind('trap - EXIT') > source.find('report_status "yes"')
     assert '/versionz' in source
     assert 'BUILD_SHA' in source
@@ -194,6 +196,12 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'rollback_on_apply_error()' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_apply_error \"$rc\"; fi' EXIT" in source
     assert 'trap - EXIT' in source
+    assert 'append_remote_assignment()' in source
+    assert 'printf -v REMOTE_PREAMBLE' in source
+    assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "bash -s"' in source
+    assert "MODE='$MODE'" not in source
+    assert 'STREAM_APP_KEY_B64=' not in source
+    assert 'STREAM_APP_SECRET_B64=' not in source
     apply_trap_index = source.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_apply_error \"$rc\"; fi' EXIT")
     first_mutation_index = source.find('upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"')
     assert -1 not in (apply_trap_index, first_mutation_index)
@@ -265,12 +273,89 @@ def test_production_sync_status_trusted_ancestor_probe_blocks_unmerged_targets()
             encoding='utf-8',
             newline='\n',
         )
-        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_path)
+        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_path, timeout=15)
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
     assert result.returncode == 91
     assert 'DATAHUB_SHA_NOT_TRUSTED' in result.stdout
+
+
+def test_production_sync_status_hermes_local_trusted_branch_probe_preserves_checked_out_branch() -> None:
+    bash = _require_bash()
+    tmp_dir = tempfile.mkdtemp(dir=REPO_ROOT)
+    tmp_path = Path(tmp_dir)
+    try:
+        script_path = tmp_path / 'hermes-trusted-local-ref.sh'
+        script_path.write_text(
+            "\n".join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    'HERMES_TRUSTED_REF="refs/heads/feature/xintai-single-ingress-fact-closure"',
+                    'require_local_trusted_ref() {',
+                    '  local repo="$1"',
+                    '  local trusted_ref="$2"',
+                    '  local label="$3"',
+                    '  if ! git -C "$repo" show-ref --verify --quiet "$trusted_ref"; then',
+                    '    echo "${label}_TRUSTED_REF_MISSING"',
+                    '    exit 90',
+                    '  fi',
+                    '}',
+                    'require_trusted_ancestor() {',
+                    '  local repo="$1"',
+                    '  local sha="$2"',
+                    '  local trusted_ref="$3"',
+                    '  local label="$4"',
+                    '  if ! git -C "$repo" merge-base --is-ancestor "$sha" "$trusted_ref"; then',
+                    '    echo "${label}_SHA_NOT_TRUSTED"',
+                    '    exit 91',
+                    '  fi',
+                    '}',
+                    'repo="$PWD/repo"',
+                    'mkdir "$repo"',
+                    'git -C "$repo" init -q',
+                    'git -C "$repo" config user.email test@example.com',
+                    'git -C "$repo" config user.name test',
+                    'printf "base\n" > "$repo/file.txt"',
+                    'git -C "$repo" add file.txt',
+                    'git -C "$repo" commit -q -m base',
+                    'git -C "$repo" branch -M main',
+                    'git -C "$repo" branch feature/xintai-single-ingress-fact-closure',
+                    'git -C "$repo" checkout -q feature/xintai-single-ingress-fact-closure',
+                    'checked_out_before="$(git -C "$repo" branch --show-current)"',
+                    'printf "trusted\n" >> "$repo/file.txt"',
+                    'git -C "$repo" commit -qam trusted',
+                    'trusted_sha="$(git -C "$repo" rev-parse HEAD)"',
+                    'git -C "$repo" checkout -q main',
+                    'printf "side\n" >> "$repo/file.txt"',
+                    'git -C "$repo" commit -qam side',
+                    'untrusted_sha="$(git -C "$repo" rev-parse HEAD)"',
+                    'require_local_trusted_ref "$repo" "$HERMES_TRUSTED_REF" HERMES',
+                    'printf "checked_out_before=%s\n" "$checked_out_before"',
+                    'if ( require_trusted_ancestor "$repo" "$untrusted_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
+                    '  rc=0',
+                    '  exit 92',
+                    'else',
+                    '  rc="$?"',
+                    'fi',
+                    'checked_out_after="$(git -C "$repo" branch --show-current)"',
+                    'printf "checked_out_after=%s\ntrusted_sha=%s\nprobe_rc=%s\n" "$checked_out_after" "$trusted_sha" "$rc"',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_path, timeout=15)
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+    assert result.returncode == 0
+    assert 'HERMES_SHA_NOT_TRUSTED' in result.stdout
+    assert 'checked_out_before=feature/xintai-single-ingress-fact-closure' in result.stdout
+    assert 'checked_out_after=main' in result.stdout
+    assert 'probe_rc=91' in result.stdout
 
 
 def test_production_sync_status_exit_trap_rolls_back_on_manual_failure_after_mutation() -> None:
@@ -310,6 +395,7 @@ def test_production_sync_status_exit_trap_rolls_back_on_manual_failure_after_mut
             text=True,
             check=False,
             cwd=tmp_root,
+            timeout=15,
         )
         marker_text = marker_path.read_text(encoding='utf-8').strip() if marker_path.exists() else ''
     finally:
@@ -378,6 +464,7 @@ def test_production_sync_status_revision_change_failure_triggers_db_restore_mark
             text=True,
             check=False,
             cwd=tmp_root,
+            timeout=15,
         )
         marker_text = marker_path.read_text(encoding='utf-8').strip() if marker_path.exists() else ''
     finally:
@@ -429,6 +516,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                     'systemctl() { echo "systemctl:$*" >> "$MARKER_PATH"; }',
                     'pg_restore() { echo "pg_restore:$*" >> "$MARKER_PATH"; }',
                     'npm() { echo "npm:$*" >> "$MARKER_PATH"; }',
+                    'curl() { echo "curl:$*" >> "$MARKER_PATH"; }',
                     'cd() { builtin cd "$@"; }',
                     rollback_body,
                     'rollback_on_error 43 >/tmp/rollback-harness.out',
@@ -438,7 +526,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
             encoding='utf-8',
             newline='\n',
         )
-        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root)
+        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
         marker_lines = marker_path.read_text(encoding='utf-8').splitlines() if marker_path.exists() else []
     finally:
         if marker_path.exists():
@@ -452,6 +540,59 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
     assert marker_lines.index('systemctl:stop aluminum-bypass hermes-gateway') < next(
         index for index, line in enumerate(marker_lines) if line.startswith('pg_restore:')
     )
+
+
+def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
+    bash = _require_bash()
+    rollback_body = _extract_shell_function(_read('.github/workflows/production-sync-status.yml'), 'rollback_on_error')
+    tmp_root = REPO_ROOT
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', newline='\n', suffix='.sh', dir=tmp_root, delete=False) as handle:
+        script_path = Path(handle.name)
+    try:
+        script_path.write_text(
+            "\n".join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    'DATAHUB_REPO="$PWD/repo-datahub"',
+                    'HERMES_REPO=/repo-hermes',
+                    'DATAHUB_ENV_FILE="$PWD/env-datahub"',
+                    'HERMES_ENV_FILE="$PWD/env-hermes"',
+                    'DATAHUB_CHECKOUT_DONE=0',
+                    'HERMES_CHECKOUT_DONE=0',
+                    'NEEDS_DB_RESTORE=0',
+                    'DB_BACKUP=' ,
+                    'DATABASE_LIBPQ_URL=postgresql://ignored',
+                    'DATAHUB_ENV_BACKUP=' ,
+                    'HERMES_ENV_BACKUP=' ,
+                    'mkdir -p "$DATAHUB_REPO/backend/.venv/bin" "$DATAHUB_REPO/frontend"',
+                    'printf "#!/usr/bin/env bash\nexit 0\n" > "$DATAHUB_REPO/backend/.venv/bin/python"',
+                    'chmod +x "$DATAHUB_REPO/backend/.venv/bin/python"',
+                    'restore_env_backup() { return 0; }',
+                    'reload_or_restart_nginx() { return 0; }',
+                    'systemctl() { return 0; }',
+                    'pg_restore() { return 0; }',
+                    'npm() { return 0; }',
+                    'curl() { return 1; }',
+                    'sleep() { return 0; }',
+                    'git() { return 0; }',
+                    'cd() { builtin cd "$@"; }',
+                    rollback_body,
+                    'rollback_on_error 43',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
+    finally:
+        if script_path.exists():
+            os.unlink(script_path)
+
+    assert result.returncode == 97
+    assert 'ROLLBACK_FAILED_READYZ' in result.stdout
+    assert 'DEPLOY_FAILED_ROLLBACK_DONE' not in result.stdout
 
 
 def test_configure_dingtalk_apply_failure_restores_env_backups() -> None:
@@ -488,7 +629,7 @@ def test_configure_dingtalk_apply_failure_restores_env_backups() -> None:
             encoding='utf-8',
             newline='\n',
         )
-        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root)
+        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
         marker_lines = marker_path.read_text(encoding='utf-8').splitlines() if marker_path.exists() else []
     finally:
         if marker_path.exists():
@@ -501,6 +642,49 @@ def test_configure_dingtalk_apply_failure_restores_env_backups() -> None:
     assert 'APPLY_FAILED_ROLLBACK_DONE' in result.stdout
     assert 'restore:datahub.env:datahub.env.bak' in marker_lines
     assert 'restore:hermes.env:hermes.env.bak' in marker_lines
+
+
+def test_configure_dingtalk_secret_preamble_reaches_remote_bash_without_echoing_values() -> None:
+    bash = _require_bash()
+    tmp_root = REPO_ROOT
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', newline='\n', suffix='.sh', dir=tmp_root, delete=False) as handle:
+        script_path = Path(handle.name)
+    try:
+        script_path.write_text(
+            "\n".join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    'append_remote_assignment() {',
+                    '  local name="$1"',
+                    '  local value="$2"',
+                    '  printf -v REMOTE_PREAMBLE "%s%s=%q\\n" "$REMOTE_PREAMBLE" "$name" "$value"',
+                    '}',
+                    'REMOTE_PREAMBLE=""',
+                    'append_remote_assignment STREAM_APP_KEY_B64 "secret-app-key"',
+                    'append_remote_assignment MODE "apply"',
+                    '{',
+                    '  printf "%s" "$REMOTE_PREAMBLE"',
+                    "  cat <<'REMOTE'",
+                    'printf "mode=%s\\n" "$MODE"',
+                    'printf "len=%s\\n" "${#STREAM_APP_KEY_B64}"',
+                    "REMOTE",
+                    '} | bash -s',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
+    finally:
+        if script_path.exists():
+            os.unlink(script_path)
+
+    assert result.returncode == 0
+    assert 'mode=apply' in result.stdout
+    assert 'len=14' in result.stdout
+    assert 'secret-app-key' not in result.stdout
 
 
 def test_production_sync_status_pre_revision_detection_failure_triggers_db_restore_marker() -> None:
@@ -548,6 +732,7 @@ def test_production_sync_status_pre_revision_detection_failure_triggers_db_resto
             text=True,
             check=False,
             cwd=tmp_root,
+            timeout=15,
         )
         marker_text = marker_path.read_text(encoding='utf-8').strip() if marker_path.exists() else ''
     finally:
@@ -608,6 +793,7 @@ def test_production_sync_status_post_revision_detection_failure_triggers_db_rest
             text=True,
             check=False,
             cwd=tmp_root,
+            timeout=15,
         )
         marker_text = marker_path.read_text(encoding='utf-8').strip() if marker_path.exists() else ''
     finally:
@@ -647,6 +833,7 @@ def test_target_workflow_run_blocks_pass_bash_n() -> None:
                     text=True,
                     check=False,
                     cwd=REPO_ROOT,
+                    timeout=15,
                 )
                 if result.returncode != 0:
                     failures.append(

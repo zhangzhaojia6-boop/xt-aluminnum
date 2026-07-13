@@ -67,18 +67,36 @@ jobs:
             printf '%s' "$1" | base64 -w0
           }
 
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "MODE='$MODE' AUTHORIZED_GROUP_IDS_B64='$(b64 "$AUTHORIZED_GROUP_IDS")' STREAM_APP_KEY_B64='$(b64 "$STREAM_APP_KEY")' STREAM_APP_SECRET_B64='$(b64 "$STREAM_APP_SECRET")' STREAM_ROBOT_CODE_B64='$(b64 "$STREAM_ROBOT_CODE")' STREAM_AGENT_ID_B64='$(b64 "$STREAM_AGENT_ID")' STREAM_APP_ID_B64='$(b64 "$STREAM_APP_ID")' bash -s" <<'REMOTE'
+          REMOTE_PREAMBLE=""
+          append_remote_assignment MODE "$MODE"
+          append_remote_assignment AUTHORIZED_GROUP_IDS_B64 "$(b64 "$AUTHORIZED_GROUP_IDS")"
+          append_remote_assignment STREAM_APP_KEY_B64 "$(b64 "$STREAM_APP_KEY")"
+          append_remote_assignment STREAM_APP_SECRET_B64 "$(b64 "$STREAM_APP_SECRET")"
+          append_remote_assignment STREAM_ROBOT_CODE_B64 "$(b64 "$STREAM_ROBOT_CODE")"
+          append_remote_assignment STREAM_AGENT_ID_B64 "$(b64 "$STREAM_AGENT_ID")"
+          append_remote_assignment STREAM_APP_ID_B64 "$(b64 "$STREAM_APP_ID")"
+
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
           set -euo pipefail
 
           DATAHUB_REPO="/srv/aluminum-bypass"
           HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
           DATAHUB_ENV_FILE="$DATAHUB_REPO/backend/.env"
           MODE="${MODE:-status}"
+          datahub_env_backup=""
+          hermes_env_backup=""
 
           decode_b64() {
             printf '%s' "$1" | base64 -d
@@ -415,3 +433,4 @@ jobs:
           report_state
           trap - EXIT
           REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "bash -s"
