@@ -8,22 +8,11 @@ import json
 import os
 from typing import Any
 
-from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.business_time import local_now
 from app.core.redaction import filter_sensitive_mapping
-from app.models.mes import (
-    MesCoilSnapshot,
-    MesDailyWipSnapshot,
-    MesMaterialRecord,
-    MesStockRecord,
-    MesSyncCursor,
-    MesSyncRunLog,
-    MesWipTotalSnapshot,
-    MesWorkshopProcessRecord,
-)
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
@@ -33,6 +22,7 @@ from app.services.hermes_dingtalk_evidence_service import (
     query_dingtalk_evidence,
 )
 from app.services.hermes_day1_harness_service import build_output_skill_alignment, load_output_skill_daily_reference
+from app.services.report.daily_fact_evidence_contracts import DailyFactEvidenceVerifier
 from app.services.report.daily_report_fact_closure import build_daily_report_fact_closure
 from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
 from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
@@ -110,16 +100,6 @@ DIRECT_MES_WMS_SOURCE_TYPES = {
     "wms",
     "wms_direct",
 }
-TRUSTED_PROJECTION_MODELS = {
-    MesCoilSnapshot.__tablename__: MesCoilSnapshot,
-    MesDailyWipSnapshot.__tablename__: MesDailyWipSnapshot,
-    MesMaterialRecord.__tablename__: MesMaterialRecord,
-    MesStockRecord.__tablename__: MesStockRecord,
-    MesWipTotalSnapshot.__tablename__: MesWipTotalSnapshot,
-    MesWorkshopProcessRecord.__tablename__: MesWorkshopProcessRecord,
-}
-
-
 def build_daily_fact_bundle(
     db: Session,
     *,
@@ -214,6 +194,7 @@ def _facts_from_template(
 ) -> dict[str, Any]:
     values = dict(template_facts.get("values") or {})
     sources = dict(template_facts.get("sources") or {})
+    evidence_verifier = DailyFactEvidenceVerifier(db, business_date=business_date)
     result: dict[str, Any] = {}
     for field_name, value in values.items():
         normalized_field_name = str(field_name)
@@ -237,9 +218,13 @@ def _facts_from_template(
         if is_direct_source:
             evidence_gaps = _direct_source_evidence_gaps(
                 db,
+                field_name=normalized_field_name,
+                business_date=business_date,
+                fact_value=value,
                 source_type=source_name,
                 source_detail=source_detail,
                 now=now,
+                verifier=evidence_verifier,
             )
             fact["evidence_status"] = "confirmed" if not evidence_gaps else "needs_evidence"
             fact["evidence_gaps"] = evidence_gaps
@@ -337,10 +322,16 @@ def _is_direct_mes_wms_source(source_type: str) -> bool:
 def _direct_source_evidence_gaps(
     db: Session,
     *,
+    field_name: str,
+    business_date: date,
+    fact_value: Any,
     source_type: str,
     source_detail: Mapping[str, Any],
     now: datetime,
+    verifier: DailyFactEvidenceVerifier,
 ) -> list[str]:
+    if verifier.db is not db or verifier.business_date != business_date:
+        raise ValueError("daily_fact_evidence_verifier_scope_mismatch")
     gaps: list[str] = []
     source_ref = next(
         (
@@ -355,6 +346,7 @@ def _direct_source_evidence_gaps(
     for key in ("business_window", "unit", "trace_id", "metric_contract_version"):
         if source_detail.get(key) in (None, ""):
             gaps.append(f"missing_{key}")
+    window_start: datetime | None = None
     window_end: datetime | None = None
     business_window = str(source_detail.get("business_window") or "")
     if business_window:
@@ -376,108 +368,25 @@ def _direct_source_evidence_gaps(
         has_rows = int(row_count or 0) > 0
     except (TypeError, ValueError):
         has_rows = False
-    has_projection_read = has_rows and _has_verified_projection_read(db, source_detail)
-    has_sync_run = _has_successful_sync_read(
-        db,
+    has_projection_read = has_rows and verifier.verify_projection(
+        field_name=field_name,
         source_type=source_type,
+        fact_value=fact_value,
+        source_detail=source_detail,
+    )
+    has_sync_run = verifier.verify_sync(
+        field_name=field_name,
+        source_type=source_type,
+        source_ref=str(source_ref or ""),
         sync_run_id=sync_run_id,
         cursor_key=source_detail.get("cursor_key"),
         trace_id=source_detail.get("trace_id"),
+        window_start=window_start,
         window_end=window_end,
     )
     if not has_projection_read and not has_sync_run:
         gaps.append("missing_read_evidence")
     return gaps
-
-
-def _has_verified_projection_read(db: Session, source_detail: Mapping[str, Any]) -> bool:
-    trace_id = str(source_detail.get("trace_id") or "").strip()
-    prefix = "projection-read:"
-    if not trace_id.startswith(prefix):
-        return False
-    try:
-        trace_source_ref, trace_tail = trace_id[len(prefix):].split(":", 1)
-        trace_anchor, trace_row_count = trace_tail.rsplit(":", 1)
-        normalized_trace_count = int(trace_row_count)
-        normalized_row_count = int(source_detail.get("row_count"))
-    except (AttributeError, TypeError, ValueError):
-        return False
-    source_ref = str(source_detail.get("source_ref") or "").strip()
-    if (
-        not source_ref
-        or trace_source_ref != source_ref
-        or normalized_trace_count != normalized_row_count
-        or normalized_row_count <= 0
-    ):
-        return False
-    model = TRUSTED_PROJECTION_MODELS.get(source_ref)
-    if model is None or not inspect(db.connection()).has_table(source_ref):
-        return False
-
-    latest_row_id = source_detail.get("latest_row_id")
-    if latest_row_id not in (None, ""):
-        try:
-            normalized_row_id = int(latest_row_id)
-        except (TypeError, ValueError):
-            return False
-        if trace_anchor != str(normalized_row_id):
-            return False
-        return db.query(model.id).filter(model.id == normalized_row_id).scalar() is not None
-
-    snapshot_at = str(source_detail.get("snapshot_at") or "").strip()
-    snapshot_column = getattr(model, "snapshot_at", None)
-    if not snapshot_at or snapshot_column is None or trace_anchor != snapshot_at:
-        return False
-    try:
-        snapshot_time = datetime.fromisoformat(snapshot_at)
-    except ValueError:
-        return False
-    return db.query(model).filter(snapshot_column == snapshot_time).first() is not None
-
-
-def _has_successful_sync_read(
-    db: Session,
-    *,
-    source_type: str,
-    sync_run_id: Any,
-    cursor_key: Any,
-    trace_id: Any,
-    window_end: datetime | None,
-) -> bool:
-    if not (source_type == "mes_verified" or source_type.startswith("mes_")):
-        return False
-    try:
-        normalized_id = int(sync_run_id)
-    except (TypeError, ValueError):
-        return False
-    normalized_cursor_key = str(cursor_key or "").strip()
-    if not normalized_cursor_key or str(trace_id or "").strip() != f"mes-sync-run:{normalized_id}":
-        return False
-    connection = db.connection()
-    if not (
-        inspect(connection).has_table(MesSyncRunLog.__tablename__)
-        and inspect(connection).has_table(MesSyncCursor.__tablename__)
-    ):
-        return False
-    run = db.query(MesSyncRunLog).filter(MesSyncRunLog.id == normalized_id).one_or_none()
-    if not run or run.status != "success" or run.finished_at is None or int(run.fetched_count or 0) <= 0:
-        return False
-    cursor = (
-        db.query(MesSyncCursor)
-        .filter(MesSyncCursor.cursor_key == normalized_cursor_key)
-        .one_or_none()
-    )
-    if cursor is None or cursor.last_synced_at is None:
-        return False
-    finished_at = local_now(run.finished_at)
-    cursor_synced_at = local_now(cursor.last_synced_at)
-    return bool(
-        run.cursor_key == normalized_cursor_key
-        and window_end is not None
-        and finished_at >= window_end.astimezone(finished_at.tzinfo)
-        and cursor_synced_at >= window_end.astimezone(cursor_synced_at.tzinfo)
-        and cursor_synced_at <= finished_at.astimezone(cursor_synced_at.tzinfo)
-    )
 
 
 def _persist_bundle(

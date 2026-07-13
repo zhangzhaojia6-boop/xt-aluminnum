@@ -123,6 +123,7 @@ def setup_scheduler(target_scheduler=None):
         'date',
         job_id='daily_fact_closure_startup_catchup',
         run_date=startup_at,
+        misfire_grace_time=300,
     )
     _add_job_once(
         active_scheduler,

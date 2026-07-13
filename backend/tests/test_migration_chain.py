@@ -1,9 +1,12 @@
 import os
 import subprocess
 import sys
+from datetime import date
 from importlib import util as importlib_util
 
+import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
 
 from tests.path_helpers import BACKEND_ROOT
 
@@ -39,6 +42,170 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
     assert '0053_daily_fact_snapshot_key' in current.stdout
+
+
+@pytest.mark.parametrize("legacy_snapshot_count", [1, 3])
+def test_0053_backfills_one_canonical_scheduled_snapshot_without_deleting_history(
+    tmp_path,
+    legacy_snapshot_count: int,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    database_path = tmp_path / f"migration_0053_legacy_{legacy_snapshot_count}.db"
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    business_date = date(2026, 7, 7)
+    trace_id = f"daily-fact-closure:{business_date.isoformat()}"
+    run_key = daily_fact_bundle._run_key(business_date=business_date, trace_id=trace_id)
+    engine = create_engine(database_url, future=True)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"))
+        conn.execute(
+            text("INSERT INTO alembic_version (version_num) VALUES ('0052_hermes_factory_brain')")
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE daily_fact_bundle_runs (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    run_key VARCHAR(160) NOT NULL UNIQUE,
+                    business_date DATE NOT NULL,
+                    requested_by_id INTEGER,
+                    trace_id VARCHAR(128),
+                    status VARCHAR(32) NOT NULL,
+                    source_status JSON NOT NULL,
+                    missing_count INTEGER NOT NULL,
+                    conflict_count INTEGER NOT NULL,
+                    confidence INTEGER,
+                    created_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE daily_fact_bundle_snapshots (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    run_id INTEGER,
+                    business_date DATE NOT NULL,
+                    snapshot_reason VARCHAR(64) NOT NULL,
+                    facts JSON NOT NULL,
+                    sources JSON NOT NULL,
+                    conflicts JSON NOT NULL,
+                    adopted_values JSON NOT NULL,
+                    correction_refs JSON NOT NULL,
+                    dingtalk_refs JSON NOT NULL,
+                    output_skill_alignment JSON NOT NULL,
+                    payload_hash VARCHAR(64) NOT NULL,
+                    created_by_id INTEGER,
+                    trace_id VARCHAR(128),
+                    created_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO daily_fact_bundle_runs
+                    (id, run_key, business_date, trace_id, status, source_status,
+                     missing_count, conflict_count, confidence, created_at)
+                VALUES
+                    (1, :run_key, :business_date, :trace_id, 'ready', '{}', 0, 0, 90,
+                     '2026-07-08 08:05:00')
+                """
+            ),
+            {
+                "run_key": run_key,
+                "business_date": business_date.isoformat(),
+                "trace_id": trace_id,
+            },
+        )
+        for snapshot_id in range(1, legacy_snapshot_count + 1):
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO daily_fact_bundle_snapshots
+                        (id, run_id, business_date, snapshot_reason, facts, sources,
+                         conflicts, adopted_values, correction_refs, dingtalk_refs,
+                         output_skill_alignment, payload_hash, trace_id, created_at)
+                    VALUES
+                        (:id, 1, :business_date, 'scheduled_daily_closure', '{}', '{}',
+                         '[]', '{}', '[]', '[]', '{}', :payload_hash, :trace_id, :created_at)
+                    """
+                ),
+                {
+                    "id": snapshot_id,
+                    "business_date": business_date.isoformat(),
+                    "payload_hash": f"legacy-{snapshot_id}",
+                    "trace_id": trace_id,
+                    "created_at": f"2026-07-08 08:{snapshot_id:02d}:00",
+                },
+            )
+
+    upgrade = _run_alembic("upgrade head", database_url)
+    assert upgrade.returncode == 0, upgrade.stderr
+
+    canonical_key = f"scheduled_daily_closure:{run_key}"
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT id, snapshot_reason, snapshot_key
+                FROM daily_fact_bundle_snapshots
+                ORDER BY id
+                """
+            )
+        ).all()
+    assert len(rows) == legacy_snapshot_count
+    assert rows[-1] == (
+        legacy_snapshot_count,
+        "scheduled_daily_closure",
+        canonical_key,
+    )
+    assert all(
+        row.snapshot_reason == "scheduled_daily_closure_legacy_0053" and row.snapshot_key is None
+        for row in rows[:-1]
+    )
+
+    bundle = {
+        "status": "ready",
+        "facts": {"total_output_daily": {"value": 366}},
+        "sources": {},
+        "missing": [],
+        "missing_fields": [],
+        "conflicts": [],
+        "correction_refs": [],
+        "dingtalk_refs": [],
+        "output_skill_alignment": {},
+    }
+    with Session(engine) as db:
+        _run, snapshot = daily_fact_bundle.persist_daily_fact_bundle_snapshot(
+            db,
+            bundle=bundle,
+            business_date=business_date,
+            trace_id=trace_id,
+            snapshot_reason="scheduled_daily_closure",
+        )
+        db.commit()
+        assert snapshot.id == legacy_snapshot_count
+
+    with engine.connect() as conn:
+        total_count = conn.execute(text("SELECT count(*) FROM daily_fact_bundle_snapshots")).scalar_one()
+        canonical_count = conn.execute(
+            text("SELECT count(*) FROM daily_fact_bundle_snapshots WHERE snapshot_key = :key"),
+            {"key": canonical_key},
+        ).scalar_one()
+    assert total_count == legacy_snapshot_count
+    assert canonical_count == 1
+
+    downgrade = _run_alembic("downgrade 0052_hermes_factory_brain", database_url)
+    assert downgrade.returncode == 0, downgrade.stderr
+    with engine.connect() as conn:
+        reasons = conn.execute(
+            text("SELECT snapshot_reason FROM daily_fact_bundle_snapshots ORDER BY id")
+        ).scalars().all()
+    assert reasons == ["scheduled_daily_closure"] * legacy_snapshot_count
 
 
 def test_legacy_shift_references_are_remapped_by_latest_migration(tmp_path) -> None:

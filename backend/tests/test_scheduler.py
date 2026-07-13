@@ -1,6 +1,10 @@
 import inspect
 import re
+import time
+from threading import Event
 from unittest.mock import MagicMock
+
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.core import scheduler as scheduler_module
 from app.core.scheduler import release_scheduler_leader, setup_scheduler, try_acquire_scheduler_leader
@@ -100,6 +104,33 @@ def test_setup_scheduler_is_idempotent() -> None:
     setup_scheduler(scheduler)
 
     assert len(scheduler.jobs) == first_count
+
+
+def test_startup_daily_fact_catchup_survives_delayed_scheduler_start(monkeypatch) -> None:
+    from app.tasks import daily_fact_closure
+
+    completed = Event()
+    calls = []
+
+    def fake_startup_catchup(*, now):
+        calls.append(now)
+        completed.set()
+
+    monkeypatch.setattr(daily_fact_closure, "run_startup_daily_fact_closure", fake_startup_catchup)
+    monkeypatch.setattr(scheduler_module.settings, "MES_ADAPTER", "null")
+    monkeypatch.setattr(scheduler_module.settings, "IOT_ENERGY_ADAPTER", "null")
+    real_scheduler = BackgroundScheduler(timezone=scheduler_module.settings.DEFAULT_TIMEZONE)
+    setup_scheduler(real_scheduler)
+
+    try:
+        time.sleep(1.3)
+        real_scheduler.start()
+        assert completed.wait(2)
+    finally:
+        real_scheduler.shutdown(wait=False)
+
+    assert len(calls) == 1
+    assert calls[0].tzinfo is not None
 
 
 def test_executive_snapshot_runs_after_business_day_closes() -> None:
