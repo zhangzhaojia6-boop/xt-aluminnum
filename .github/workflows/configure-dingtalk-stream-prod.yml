@@ -1,5 +1,9 @@
 name: Configure DingTalk Stream Production
 
+concurrency:
+  group: xintai-production-ops
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
     inputs:
@@ -124,6 +128,18 @@ jobs:
             printf '%s' "$backup"
           }
 
+          restore_env_backup() {
+            local file="$1"
+            local backup="$2"
+            if [ -z "$backup" ]; then
+              return 0
+            fi
+            if [ ! -f "$backup" ]; then
+              return 1
+            fi
+            cp -pf "$backup" "$file"
+          }
+
           detect_hermes_home() {
             local home
             home="$(systemctl show -p Environment --value hermes-gateway 2>/dev/null | tr ' ' '\n' | sed -n 's/^HERMES_HOME=//p' | tail -n 1)"
@@ -136,6 +152,54 @@ jobs:
 
           HERMES_HOME="$(detect_hermes_home)"
           HERMES_ENV_FILE="$HERMES_HOME/.env"
+
+          reload_or_restart_nginx() {
+            if systemctl reload nginx; then
+              return 0
+            fi
+            systemctl restart nginx
+          }
+
+          rollback_on_apply_error() {
+            local exit_code="${1:-1}"
+            local rollback_failed=0
+            trap - EXIT ERR
+            echo "APPLY_FAILED_ROLLBACK_START"
+            if ! restore_env_backup "$DATAHUB_ENV_FILE" "$datahub_env_backup"; then
+              echo "ROLLBACK_FAILED_DATAHUB_ENV"
+              rollback_failed=1
+            fi
+            if ! restore_env_backup "$HERMES_ENV_FILE" "$hermes_env_backup"; then
+              echo "ROLLBACK_FAILED_HERMES_ENV"
+              rollback_failed=1
+            fi
+            if ! systemctl restart aluminum-bypass; then
+              echo "ROLLBACK_FAILED_ALUMINUM_BYPASS_SERVICE"
+              rollback_failed=1
+            fi
+            if ! systemctl restart hermes-gateway; then
+              echo "ROLLBACK_FAILED_HERMES_GATEWAY_SERVICE"
+              rollback_failed=1
+            fi
+            if ! reload_or_restart_nginx; then
+              echo "ROLLBACK_FAILED_NGINX_SERVICE"
+              rollback_failed=1
+            fi
+            if ! systemctl is-active aluminum-bypass hermes-gateway nginx >/tmp/configure-dingtalk-rollback-services.log; then
+              echo "ROLLBACK_FAILED_SERVICE_HEALTH"
+              rollback_failed=1
+            fi
+            if ! curl -fsS http://127.0.0.1:8000/readyz >/tmp/configure-dingtalk-rollback-readyz.json; then
+              echo "ROLLBACK_FAILED_READYZ"
+              rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              echo "APPLY_FAILED_ROLLBACK_DONE"
+              exit "$exit_code"
+            fi
+            echo "APPLY_FAILED_ROLLBACK_INCOMPLETE"
+            exit 98
+          }
 
           query_stream_persistence() {
             local raw_database_url
@@ -318,6 +382,8 @@ jobs:
           echo "DATAHUB_ENV_BACKUP=$datahub_env_backup"
           echo "HERMES_ENV_BACKUP=$hermes_env_backup"
 
+          trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_apply_error "$rc"; fi' EXIT
+
           upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"
           upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_DINGTALK_MODE" "stream"
           upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_KEY" "$stream_app_key"
@@ -341,10 +407,11 @@ jobs:
 
           systemctl restart aluminum-bypass
           systemctl restart hermes-gateway
-          systemctl reload nginx || systemctl restart nginx
+          reload_or_restart_nginx
           sleep 8
 
           report_stream_connection "yes"
           ensure_no_second_stream_process
           report_state
+          trap - EXIT
           REMOTE

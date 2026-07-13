@@ -1,5 +1,9 @@
 name: Production Sync Status
 
+concurrency:
+  group: xintai-production-ops
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
     inputs:
@@ -72,6 +76,8 @@ jobs:
 
           DATAHUB_REPO="/srv/aluminum-bypass"
           HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
+          DATAHUB_TRUSTED_REF="origin/main"
+          HERMES_TRUSTED_REF="refs/heads/feature/xintai-single-ingress-fact-closure"
           DATAHUB_ENV_FILE="$DATAHUB_REPO/backend/.env"
           BACKUP_DIR="$DATAHUB_REPO/backups"
           MODE="${MODE:-status}"
@@ -191,6 +197,22 @@ jobs:
             local sha="$2"
             git -C "$repo" fetch origin --prune --tags
             git -C "$repo" cat-file -e "${sha}^{commit}"
+          }
+
+          update_trusted_refs() {
+            git -C "$DATAHUB_REPO" fetch --prune origin main
+            git -C "$HERMES_REPO" fetch --prune origin feature/xintai-single-ingress-fact-closure:refs/heads/feature/xintai-single-ingress-fact-closure
+          }
+
+          require_trusted_ancestor() {
+            local repo="$1"
+            local sha="$2"
+            local trusted_ref="$3"
+            local label="$4"
+            if ! git -C "$repo" merge-base --is-ancestor "$sha" "$trusted_ref"; then
+              echo "${label}_SHA_NOT_TRUSTED"
+              exit 91
+            fi
           }
 
           libpq_url_from_database_url() {
@@ -406,6 +428,10 @@ jobs:
             local rollback_failed=0
             trap - EXIT ERR
             echo "DEPLOY_FAILED_ROLLBACK_START"
+            if ! systemctl stop aluminum-bypass hermes-gateway; then
+              echo "ROLLBACK_FAILED_STOP_RUNTIME_SERVICES"
+              rollback_failed=1
+            fi
             if [ "$DATAHUB_CHECKOUT_DONE" = "1" ]; then
               if ! git -C "$DATAHUB_REPO" checkout --detach "$PREVIOUS_DATAHUB_HEAD"; then
                 echo "ROLLBACK_FAILED_DATAHUB_REPO"
@@ -428,13 +454,31 @@ jobs:
             fi
             if [ "$NEEDS_DB_RESTORE" = "1" ] && [ -n "$DB_BACKUP" ] && [ -f "$DB_BACKUP" ]; then
               echo "ROLLBACK_DATABASE_FROM=$DB_BACKUP"
-              if ! pg_restore --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP" >/tmp/task10-db-restore.log 2>&1; then
+              if ! pg_restore --single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP" >/tmp/task10-db-restore.log 2>&1; then
                 echo "ROLLBACK_FAILED_DATABASE_RESTORE"
                 rollback_failed=1
               fi
             else
               echo "ROLLBACK_DATABASE_SKIPPED"
             fi
+            if [ -x "$DATAHUB_REPO/backend/.venv/bin/python" ]; then
+              if ! "$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"; then
+                echo "ROLLBACK_FAILED_BACKEND_REQUIREMENTS"
+                rollback_failed=1
+              fi
+            else
+              echo "ROLLBACK_FAILED_BACKEND_VENV"
+              rollback_failed=1
+            fi
+            if ! (
+              cd "$DATAHUB_REPO/frontend" &&
+              npm ci --no-audit --no-fund &&
+              npm run build
+            ); then
+              echo "ROLLBACK_FAILED_FRONTEND_BUILD"
+              rollback_failed=1
+            fi
+            echo "ROLLBACK_HERMES_DEPENDENCY_SYNC_SKIPPED=deploy_did_not_mutate_hermes_dependencies"
             if ! systemctl restart aluminum-bypass; then
               echo "ROLLBACK_FAILED_ALUMINUM_BYPASS_SERVICE"
               rollback_failed=1
@@ -445,6 +489,10 @@ jobs:
             fi
             if ! reload_or_restart_nginx; then
               echo "ROLLBACK_FAILED_NGINX_SERVICE"
+              rollback_failed=1
+            fi
+            if ! systemctl is-active aluminum-bypass hermes-gateway nginx >/tmp/task10-rollback-service-status.log; then
+              echo "ROLLBACK_FAILED_SERVICE_HEALTH"
               rollback_failed=1
             fi
             if [ "$rollback_failed" -eq 0 ]; then
@@ -474,6 +522,9 @@ jobs:
 
           require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"
           require_commit_exists "$HERMES_REPO" "$HERMES_SHA"
+          update_trusted_refs
+          require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB
+          require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES
 
           mkdir -p "$BACKUP_DIR"
           timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -527,6 +578,7 @@ jobs:
             npm ci --no-audit --no-fund &&
             npm run build
           )
+          echo "HERMES_DEPENDENCY_SYNC_SKIPPED=deploy_did_not_mutate_hermes_dependencies"
 
           upsert_env_value "$DATAHUB_ENV_FILE" "BUILD_SHA" "$DATAHUB_SHA"
           upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_BUILD_SHA" "$HERMES_SHA"

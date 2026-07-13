@@ -87,6 +87,8 @@ def test_versionz_returns_datahub_and_hermes_sha(monkeypatch):
         "datahub_sha": "datahub-sha",
         "hermes_sha": "hermes-sha",
     }
+    assert resp.headers["cache-control"] == "no-store"
+    assert resp.headers["pragma"] == "no-cache"
 
 
 def test_versionz_returns_null_when_shas_are_unset(monkeypatch):
