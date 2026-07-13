@@ -77,7 +77,8 @@ jobs:
           MODE="${MODE:-status}"
           DATAHUB_SHA="${DATAHUB_SHA:-}"
           HERMES_SHA="${HERMES_SHA:-}"
-          CHECKOUT_DONE=0
+          DATAHUB_CHECKOUT_DONE=0
+          HERMES_CHECKOUT_DONE=0
           NEEDS_DB_RESTORE=0
           DATAHUB_ENV_BACKUP=""
           HERMES_ENV_BACKUP=""
@@ -133,9 +134,13 @@ jobs:
           restore_env_backup() {
             local file="$1"
             local backup="$2"
-            if [ -n "$backup" ] && [ -f "$backup" ]; then
-              cp -pf "$backup" "$file"
+            if [ -z "$backup" ]; then
+              return 0
             fi
+            if [ ! -f "$backup" ]; then
+              return 1
+            fi
+            cp -pf "$backup" "$file"
           }
 
           detect_hermes_home() {
@@ -371,27 +376,65 @@ jobs:
             echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
           }
 
-          rollback_on_error() {
-            local exit_code=$?
-            trap - ERR
-            echo "DEPLOY_FAILED_ROLLBACK_START"
-            if [ "$CHECKOUT_DONE" = "1" ]; then
-              git -C "$DATAHUB_REPO" checkout --detach "$PREVIOUS_DATAHUB_HEAD" || true
-              git -C "$HERMES_REPO" checkout --detach "$PREVIOUS_HERMES_HEAD" || true
+          reload_or_restart_nginx() {
+            if systemctl reload nginx; then
+              return 0
             fi
-            restore_env_backup "$DATAHUB_ENV_FILE" "$DATAHUB_ENV_BACKUP"
-            restore_env_backup "$HERMES_ENV_FILE" "$HERMES_ENV_BACKUP"
+            systemctl restart nginx
+          }
+
+          rollback_on_error() {
+            local exit_code="${1:-1}"
+            local rollback_failed=0
+            trap - EXIT ERR
+            echo "DEPLOY_FAILED_ROLLBACK_START"
+            if [ "$DATAHUB_CHECKOUT_DONE" = "1" ]; then
+              if ! git -C "$DATAHUB_REPO" checkout --detach "$PREVIOUS_DATAHUB_HEAD"; then
+                echo "ROLLBACK_FAILED_DATAHUB_REPO"
+                rollback_failed=1
+              fi
+            fi
+            if [ "$HERMES_CHECKOUT_DONE" = "1" ]; then
+              if ! git -C "$HERMES_REPO" checkout --detach "$PREVIOUS_HERMES_HEAD"; then
+                echo "ROLLBACK_FAILED_HERMES_REPO"
+                rollback_failed=1
+              fi
+            fi
+            if ! restore_env_backup "$DATAHUB_ENV_FILE" "$DATAHUB_ENV_BACKUP"; then
+              echo "ROLLBACK_FAILED_DATAHUB_ENV"
+              rollback_failed=1
+            fi
+            if ! restore_env_backup "$HERMES_ENV_FILE" "$HERMES_ENV_BACKUP"; then
+              echo "ROLLBACK_FAILED_HERMES_ENV"
+              rollback_failed=1
+            fi
             if [ "$NEEDS_DB_RESTORE" = "1" ] && [ -n "$DB_BACKUP" ] && [ -f "$DB_BACKUP" ]; then
               echo "ROLLBACK_DATABASE_FROM=$DB_BACKUP"
-              pg_restore --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP" >/tmp/task10-db-restore.log 2>&1 || true
+              if ! pg_restore --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP" >/tmp/task10-db-restore.log 2>&1; then
+                echo "ROLLBACK_FAILED_DATABASE_RESTORE"
+                rollback_failed=1
+              fi
             else
               echo "ROLLBACK_DATABASE_SKIPPED"
             fi
-            systemctl restart aluminum-bypass || true
-            systemctl restart hermes-gateway || true
-            systemctl reload nginx || systemctl restart nginx || true
-            echo "DEPLOY_FAILED_ROLLBACK_DONE"
-            exit "$exit_code"
+            if ! systemctl restart aluminum-bypass; then
+              echo "ROLLBACK_FAILED_ALUMINUM_BYPASS_SERVICE"
+              rollback_failed=1
+            fi
+            if ! systemctl restart hermes-gateway; then
+              echo "ROLLBACK_FAILED_HERMES_GATEWAY_SERVICE"
+              rollback_failed=1
+            fi
+            if ! reload_or_restart_nginx; then
+              echo "ROLLBACK_FAILED_NGINX_SERVICE"
+              rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              echo "DEPLOY_FAILED_ROLLBACK_DONE"
+              exit "$exit_code"
+            fi
+            echo "DEPLOY_FAILED_ROLLBACK_INCOMPLETE"
+            exit 97
           }
 
           RAW_DATABASE_URL="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
@@ -405,8 +448,6 @@ jobs:
             report_status "no"
             exit 0
           fi
-
-          trap rollback_on_error ERR
 
           require_clean_tracked "DATAHUB" "$DATAHUB_REPO"
           require_clean_tracked "HERMES" "$HERMES_REPO"
@@ -423,9 +464,12 @@ jobs:
           DATAHUB_ENV_BACKUP="$(backup_env_file "$DATAHUB_ENV_FILE")"
           HERMES_ENV_BACKUP="$(backup_env_file "$HERMES_ENV_FILE")"
 
+          trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_error "$rc"; fi' EXIT
+
           git -C "$DATAHUB_REPO" checkout --detach "$DATAHUB_SHA"
+          DATAHUB_CHECKOUT_DONE=1
           git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"
-          CHECKOUT_DONE=1
+          HERMES_CHECKOUT_DONE=1
 
           if [ ! -x "$DATAHUB_REPO/backend/.venv/bin/python" ]; then
             echo "BACKEND_VENV_MISSING"
@@ -452,7 +496,7 @@ jobs:
 
           systemctl restart aluminum-bypass
           systemctl restart hermes-gateway
-          systemctl reload nginx || systemctl restart nginx
+          reload_or_restart_nginx
 
           readyz_ok=0
           for attempt in $(seq 1 30); do
