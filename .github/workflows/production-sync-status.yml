@@ -77,7 +77,9 @@ jobs:
           DATAHUB_REPO="/srv/aluminum-bypass"
           HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
           DATAHUB_TRUSTED_REF="origin/main"
-          HERMES_TRUSTED_REF="refs/heads/feature/xintai-single-ingress-fact-closure"
+          HERMES_TRUSTED_REMOTE_URL="https://github.com/zhangzhaojia6-boop/hermes-agent.git"
+          HERMES_TRUSTED_BRANCH="refs/heads/feature/xintai-single-ingress-fact-closure"
+          HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/feature/xintai-single-ingress-fact-closure"
           DATAHUB_ENV_FILE="$DATAHUB_REPO/backend/.env"
           BACKUP_DIR="$DATAHUB_REPO/backups"
           MODE="${MODE:-status}"
@@ -201,15 +203,8 @@ jobs:
 
           update_trusted_refs() {
             git -C "$DATAHUB_REPO" fetch --prune origin main
-            git -C "$HERMES_REPO" fetch --prune origin main
-          }
-
-          require_local_trusted_ref() {
-            local repo="$1"
-            local trusted_ref="$2"
-            local label="$3"
-            if ! git -C "$repo" show-ref --verify --quiet "$trusted_ref"; then
-              echo "${label}_TRUSTED_REF_MISSING"
+            if ! git -C "$HERMES_REPO" fetch --prune "$HERMES_TRUSTED_REMOTE_URL" "+$HERMES_TRUSTED_BRANCH:$HERMES_TRUSTED_REF"; then
+              echo "HERMES_TRUSTED_REF_UNAVAILABLE"
               exit 90
             fi
           }
@@ -549,7 +544,6 @@ jobs:
           require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"
           require_commit_exists "$HERMES_REPO" "$HERMES_SHA"
           update_trusted_refs
-          require_local_trusted_ref "$HERMES_REPO" "$HERMES_TRUSTED_REF" HERMES
           require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB
           require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES
 

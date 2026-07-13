@@ -118,9 +118,12 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert 'checkout --detach "$HERMES_SHA"' in source
     assert 'pg_restore -l "$DB_BACKUP"' in source or 'pg_restore -l "$db_backup"' in source
     assert 'DATAHUB_TRUSTED_REF="origin/main"' in source
-    assert 'HERMES_TRUSTED_REF="refs/heads/feature/xintai-single-ingress-fact-closure"' in source
+    assert 'HERMES_TRUSTED_REMOTE_URL="https://github.com/zhangzhaojia6-boop/hermes-agent.git"' in source
+    assert 'HERMES_TRUSTED_BRANCH="refs/heads/feature/xintai-single-ingress-fact-closure"' in source
+    assert 'HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/feature/xintai-single-ingress-fact-closure"' in source
     assert 'merge-base --is-ancestor "$sha" "$trusted_ref"' in source
-    assert 'show-ref --verify --quiet "$trusted_ref"' in source
+    assert 'fetch --prune "$HERMES_TRUSTED_REMOTE_URL" "+$HERMES_TRUSTED_BRANCH:$HERMES_TRUSTED_REF"' in source
+    assert 'HERMES_TRUSTED_REF_UNAVAILABLE' in source
     assert 'require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB' in source
     assert 'require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT" in source
@@ -199,9 +202,11 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'append_remote_assignment()' in source
     assert 'printf -v REMOTE_PREAMBLE' in source
     assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "bash -s"' in source
-    assert "MODE='$MODE'" not in source
-    assert 'STREAM_APP_KEY_B64=' not in source
-    assert 'STREAM_APP_SECRET_B64=' not in source
+    assert """MODE='$MODE'""" not in source
+    ssh_launch_index = source.find('} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "bash -s"')
+    assert ssh_launch_index != -1
+    assert 'STREAM_APP_KEY_B64' not in source[ssh_launch_index:ssh_launch_index + 200]
+    assert 'STREAM_APP_SECRET_B64' not in source[ssh_launch_index:ssh_launch_index + 200]
     apply_trap_index = source.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_apply_error \"$rc\"; fi' EXIT")
     first_mutation_index = source.find('upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"')
     assert -1 not in (apply_trap_index, first_mutation_index)
@@ -281,24 +286,24 @@ def test_production_sync_status_trusted_ancestor_probe_blocks_unmerged_targets()
     assert 'DATAHUB_SHA_NOT_TRUSTED' in result.stdout
 
 
-def test_production_sync_status_hermes_local_trusted_branch_probe_preserves_checked_out_branch() -> None:
+def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch() -> None:
     bash = _require_bash()
     tmp_dir = tempfile.mkdtemp(dir=REPO_ROOT)
     tmp_path = Path(tmp_dir)
     try:
-        script_path = tmp_path / 'hermes-trusted-local-ref.sh'
+        script_path = tmp_path / 'hermes-cloud-ref.sh'
         script_path.write_text(
             "\n".join(
                 [
                     '#!/usr/bin/env bash',
                     'set -euo pipefail',
-                    'HERMES_TRUSTED_REF="refs/heads/feature/xintai-single-ingress-fact-closure"',
-                    'require_local_trusted_ref() {',
+                    'HERMES_TRUSTED_REMOTE_URL="$PWD/cloud.git"',
+                    'HERMES_TRUSTED_BRANCH="refs/heads/feature/xintai-single-ingress-fact-closure"',
+                    'HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/feature/xintai-single-ingress-fact-closure"',
+                    'update_trusted_refs() {',
                     '  local repo="$1"',
-                    '  local trusted_ref="$2"',
-                    '  local label="$3"',
-                    '  if ! git -C "$repo" show-ref --verify --quiet "$trusted_ref"; then',
-                    '    echo "${label}_TRUSTED_REF_MISSING"',
+                    '  if ! git -C "$repo" fetch --prune "$HERMES_TRUSTED_REMOTE_URL" "+$HERMES_TRUSTED_BRANCH:$HERMES_TRUSTED_REF"; then',
+                    '    echo "HERMES_TRUSTED_REF_UNAVAILABLE"',
                     '    exit 90',
                     '  fi',
                     '}',
@@ -312,35 +317,44 @@ def test_production_sync_status_hermes_local_trusted_branch_probe_preserves_chec
                     '    exit 91',
                     '  fi',
                     '}',
-                    'repo="$PWD/repo"',
-                    'mkdir "$repo"',
-                    'git -C "$repo" init -q',
-                    'git -C "$repo" config user.email test@example.com',
-                    'git -C "$repo" config user.name test',
-                    'printf "base\n" > "$repo/file.txt"',
-                    'git -C "$repo" add file.txt',
-                    'git -C "$repo" commit -q -m base',
-                    'git -C "$repo" branch -M main',
-                    'git -C "$repo" branch feature/xintai-single-ingress-fact-closure',
-                    'git -C "$repo" checkout -q feature/xintai-single-ingress-fact-closure',
-                    'checked_out_before="$(git -C "$repo" branch --show-current)"',
-                    'printf "trusted\n" >> "$repo/file.txt"',
-                    'git -C "$repo" commit -qam trusted',
-                    'trusted_sha="$(git -C "$repo" rev-parse HEAD)"',
-                    'git -C "$repo" checkout -q main',
-                    'printf "side\n" >> "$repo/file.txt"',
-                    'git -C "$repo" commit -qam side',
-                    'untrusted_sha="$(git -C "$repo" rev-parse HEAD)"',
-                    'require_local_trusted_ref "$repo" "$HERMES_TRUSTED_REF" HERMES',
-                    'printf "checked_out_before=%s\n" "$checked_out_before"',
-                    'if ( require_trusted_ancestor "$repo" "$untrusted_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
+                    'work="$PWD/work"',
+                    'seed="$PWD/seed"',
+                    'cloud="$PWD/cloud.git"',
+                    'git init --bare -q "$cloud"',
+                    'mkdir "$seed"',
+                    'git -C "$seed" init -q',
+                    'git -C "$seed" config user.email test@example.com',
+                    'git -C "$seed" config user.name test',
+                    'printf "base\n" > "$seed/file.txt"',
+                    'git -C "$seed" add file.txt',
+                    'git -C "$seed" commit -q -m base',
+                    'git -C "$seed" branch -M main',
+                    'git -C "$seed" remote add origin "$cloud"',
+                    'git -C "$seed" push -q origin main',
+                    'git -C "$seed" checkout -q -b feature/xintai-single-ingress-fact-closure',
+                    'printf "trusted\n" >> "$seed/file.txt"',
+                    'git -C "$seed" commit -qam trusted',
+                    'trusted_sha="$(git -C "$seed" rev-parse HEAD)"',
+                    'git -C "$seed" push -q origin feature/xintai-single-ingress-fact-closure',
+                    'git clone -q "$cloud" "$work"',
+                    'git -C "$work" config user.email test@example.com',
+                    'git -C "$work" config user.name test',
+                    'git -C "$work" checkout -q -b feature/xintai-single-ingress-fact-closure origin/main',
+                    'checked_out_before="$(git -C "$work" branch --show-current)"',
+                    'printf "evil\n" >> "$work/file.txt"',
+                    'git -C "$work" commit -qam evil',
+                    'evil_local_sha="$(git -C "$work" rev-parse HEAD)"',
+                    'git -C "$work" checkout -q feature/xintai-single-ingress-fact-closure',
+                    'update_trusted_refs "$work"',
+                    'fetched_ref_sha="$(git -C "$work" rev-parse "$HERMES_TRUSTED_REF")"',
+                    'checked_out_after_fetch="$(git -C "$work" branch --show-current)"',
+                    'if ( require_trusted_ancestor "$work" "$evil_local_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
                     '  rc=0',
                     '  exit 92',
                     'else',
                     '  rc="$?"',
                     'fi',
-                    'checked_out_after="$(git -C "$repo" branch --show-current)"',
-                    'printf "checked_out_after=%s\ntrusted_sha=%s\nprobe_rc=%s\n" "$checked_out_after" "$trusted_sha" "$rc"',
+                    'printf "checked_out_before=%s\nchecked_out_after_fetch=%s\ntrusted_sha=%s\nfetched_ref_sha=%s\nevil_local_sha=%s\nprobe_rc=%s\n" "$checked_out_before" "$checked_out_after_fetch" "$trusted_sha" "$fetched_ref_sha" "$evil_local_sha" "$rc"',
                     '',
                 ]
             ),
@@ -354,7 +368,9 @@ def test_production_sync_status_hermes_local_trusted_branch_probe_preserves_chec
     assert result.returncode == 0
     assert 'HERMES_SHA_NOT_TRUSTED' in result.stdout
     assert 'checked_out_before=feature/xintai-single-ingress-fact-closure' in result.stdout
-    assert 'checked_out_after=main' in result.stdout
+    assert 'checked_out_after_fetch=feature/xintai-single-ingress-fact-closure' in result.stdout
+    assert 'trusted_sha=' in result.stdout
+    assert 'fetched_ref_sha=' in result.stdout
     assert 'probe_rc=91' in result.stdout
 
 
