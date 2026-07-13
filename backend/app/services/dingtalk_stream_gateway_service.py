@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import base64
+from datetime import datetime
 import logging
 from pathlib import Path
 from typing import Any, Mapping
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.active_workshops import is_active_production_workshop_name, normalize_workshop_name
+from app.core.business_time import resolve_production_business_date
 from app.core.redaction import redact_secret_text
 from app.models.agent_communication import MultimodalEvidence
 from app.services.dingtalk_energy_ingest_service import (
@@ -212,6 +216,10 @@ def _base_evidence_payload(event: NormalizedDingTalkEvent, *, parse_status: str)
         value = event.raw_payload.get(key)
         if value not in (None, ''):
             payload[key] = value
+    for key in ('workshop_name', 'workshopName', 'workshop'):
+        value = event.raw_payload.get(key)
+        if value not in (None, ''):
+            payload[key] = value
     return payload
 
 
@@ -245,7 +253,40 @@ def _find_duplicate_evidence(
 
 
 def _resolve_business_date(event: NormalizedDingTalkEvent):
-    return resolve_dingtalk_energy_business_date(dict(event.raw_payload), file_name=event.file_name)
+    explicit_date = resolve_dingtalk_energy_business_date(
+        dict(event.raw_payload),
+        file_name=event.file_name,
+        fallback_to_last_completed=False,
+    )
+    if explicit_date is not None:
+        return explicit_date
+    workshop_name = normalize_workshop_name(
+        event.raw_payload.get('workshop_name')
+        or event.raw_payload.get('workshopName')
+        or event.raw_payload.get('workshop')
+    )
+    event_time = _parse_event_datetime(event.event_time)
+    if not is_active_production_workshop_name(workshop_name) or event_time is None:
+        return None
+    return resolve_production_business_date(event_time, workshop_name=workshop_name)
+
+
+def _parse_event_datetime(value: Any) -> datetime | None:
+    text = str(value or '').strip()
+    if not text:
+        return None
+    try:
+        numeric_value = float(text)
+    except ValueError:
+        numeric_value = None
+    if numeric_value is not None:
+        if numeric_value > 10**12:
+            numeric_value /= 1000.0
+        return datetime.fromtimestamp(numeric_value, tz=ZoneInfo(settings.DEFAULT_TIMEZONE))
+    try:
+        return datetime.fromisoformat(text.replace('Z', '+00:00'))
+    except ValueError:
+        return None
 
 
 def _is_file_event(event: NormalizedDingTalkEvent) -> bool:

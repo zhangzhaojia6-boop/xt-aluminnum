@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ from app.models.hermes_factory_brain import HermesDingTalkSamplingRule
 from app.models.master import Team, Workshop
 from app.models.system import User
 from app.services.hermes_dingtalk_sampling_service import sample_dingtalk_message
+from app.services.hermes_dingtalk_evidence_service import query_dingtalk_evidence
 
 
 def _db() -> Session:
@@ -41,7 +42,7 @@ def test_four_conditions_promote_specialist_file_to_high_priority_evidence() -> 
             channel_key='cid-production',
             specialist_user_id='dt-output-owner',
             content_types=['production_table'],
-            time_window_payload={'mode': 'recent_days', 'days': 30},
+            time_window_payload={'mode': 'recent_days', 'days': 30, 'workshop_name': '铸二'},
             priority='high',
             status='active',
             created_by_id=1,
@@ -66,6 +67,15 @@ def test_four_conditions_promote_specialist_file_to_high_priority_evidence() -> 
     evidence = db.query(MultimodalEvidence).one()
     assert evidence.evidence_type == 'dingtalk_file'
     assert evidence.payload['sampling_priority'] == 'high'
+    items = query_dingtalk_evidence(db, business_date=date(2026, 6, 25))
+    assert len(items) == 1
+    assert items[0].workshop_name == '铸二'
+    assert items[0].parse_status == 'text_captured'
+    assert items[0].adoptable_as_fact is True
+    assert items[0].group_id == 'cid-production'
+    assert items[0].conversation_id == 'cid-production'
+    assert items[0].sender_id == 'dt-output-owner'
+    assert items[0].event_time == datetime(2026, 6, 25, 8, 10, tzinfo=timezone.utc)
 
 
 def test_missing_specialist_does_not_promote_to_high_priority() -> None:

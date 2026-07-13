@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 import csv
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 import hashlib
 import json
@@ -12,13 +12,12 @@ from pathlib import Path
 import re
 from typing import Any
 
-from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
-from app.core.business_time import production_business_window
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
-from app.models import ChatInboxMessage, MasterCodeAlias, RagDocument, RagSourceIngestion
+from app.models import MasterCodeAlias
 from app.models.hermes_data_audit import HermesCorrectionAction, HermesDataAuditRun
+from app.services.hermes_dingtalk_evidence_service import DingTalkEvidenceItem, query_dingtalk_evidence
 from app.services.mapping_reconciliation_service import PARSEABLE_REFERENCE_EXTENSIONS, parse_output_skill_reference_file
 
 
@@ -207,38 +206,6 @@ def _iso_datetime(value: Any) -> str | None:
     return redact_secret_text(str(value))
 
 
-def _coerce_datetime(value: Any, *, fallback_tz: Any = None) -> datetime | None:
-    if isinstance(value, datetime):
-        if value.tzinfo is None and fallback_tz is not None:
-            return value.replace(tzinfo=fallback_tz)
-        return value
-    if value in (None, ''):
-        return None
-    if isinstance(value, (int, float)):
-        raw_value = float(value)
-        if raw_value > 10**12:
-            raw_value /= 1000.0
-        return datetime.fromtimestamp(raw_value, tz=fallback_tz or timezone.utc)
-    text = str(value).strip()
-    if not text:
-        return None
-    try:
-        numeric_value = float(text)
-    except ValueError:
-        numeric_value = None
-    if numeric_value is not None:
-        if numeric_value > 10**12:
-            numeric_value /= 1000.0
-        return datetime.fromtimestamp(numeric_value, tz=fallback_tz or timezone.utc)
-    try:
-        parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None and fallback_tz is not None:
-        return parsed.replace(tzinfo=fallback_tz)
-    return parsed
-
-
 def _redacted_sample_text(value: Any, *, limit: int = _AUDIT_TEXT_SAMPLE_LIMIT) -> str:
     redacted = redact_secret_text(str(value or ''))
     sample = redacted[:limit]
@@ -246,26 +213,6 @@ def _redacted_sample_text(value: Any, *, limit: int = _AUDIT_TEXT_SAMPLE_LIMIT) 
         marker = ' <redacted>'
         sample = f"{sample[: max(limit - len(marker), 0)]}{marker}"
     return sample
-
-
-def _iter_string_values(value: Any) -> list[str]:
-    if isinstance(value, Mapping):
-        items: list[str] = []
-        for nested in value.values():
-            items.extend(_iter_string_values(nested))
-        return items
-    if isinstance(value, (list, tuple, set)):
-        items: list[str] = []
-        for nested in value:
-            items.extend(_iter_string_values(nested))
-        return items
-    if value in (None, ''):
-        return []
-    return [str(value)]
-
-
-def _contains_dingtalk_marker(*values: Any) -> bool:
-    return any('dingtalk' in item.lower() for value in values for item in _iter_string_values(value))
 
 
 def _numeric_value(value: Any) -> float | None:
@@ -818,8 +765,24 @@ class HermesDataAuditService:
         return mes_result, hub_snapshot, hub_status, hub_error, output_skill_snapshot
 
     def _read_dingtalk_evidence(self, *, business_date: date) -> dict[str, Any]:
-        text_items, text_status, text_error = self._read_dingtalk_text_evidence(business_date=business_date)
-        file_items, file_status, file_error = self._read_dingtalk_file_evidence(business_date=business_date)
+        try:
+            rows = query_dingtalk_evidence(
+                self._db,
+                business_date=business_date,
+                newest_first=True,
+                limit=_DINGTALK_EVIDENCE_LIMIT * 4,
+                per_source_key_limit=_DINGTALK_EVIDENCE_LIMIT,
+                content_channels=('dingtalk_group',),
+            )
+        except Exception as exc:
+            error = redact_secret_text(str(exc))
+            text_items, text_status, text_error = [], 'failed', error
+            file_items, file_status, file_error = [], 'failed', error
+        else:
+            text_items = self._summarize_dingtalk_items(rows, source='dingtalk_text')
+            file_items = self._summarize_dingtalk_items(rows, source='dingtalk_file')
+            text_status, text_error = ('ok' if text_items else 'empty'), None
+            file_status, file_error = ('ok' if file_items else 'empty'), None
         return {
             'dingtalk_text': {
                 'status': text_status,
@@ -838,91 +801,89 @@ class HermesDataAuditService:
         }
 
     def _read_dingtalk_text_evidence(self, *, business_date: date) -> tuple[list[dict[str, Any]], str, str | None]:
-        window_start, window_end = production_business_window(business_date)
-        candidate_start = window_start - timedelta(days=1)
-        candidate_end = window_end + timedelta(days=1)
         try:
-            rows = (
-                self._db.query(ChatInboxMessage)
-                .filter(
-                    ChatInboxMessage.channel == 'dingtalk_group',
-                    ChatInboxMessage.created_at >= candidate_start,
-                    ChatInboxMessage.created_at < candidate_end,
-                )
-                .order_by(ChatInboxMessage.created_at.desc(), ChatInboxMessage.id.desc())
-                .all()
+            rows = query_dingtalk_evidence(
+                self._db,
+                business_date=business_date,
+                newest_first=True,
+                limit=_DINGTALK_EVIDENCE_LIMIT * 4,
+                per_source_key_limit=_DINGTALK_EVIDENCE_LIMIT,
+                content_channels=('dingtalk_group',),
             )
         except Exception as exc:
             return [], 'failed', redact_secret_text(str(exc))
-
-        items: list[dict[str, Any]] = []
-        for row in rows:
-            sent_at = self._dingtalk_message_datetime(row, fallback_tz=window_start.tzinfo)
-            if sent_at is None or sent_at < window_start or sent_at >= window_end:
-                continue
-            redacted_text = redact_secret_text(row.text or '')
-            items.append(
-                {
-                    'source': 'dingtalk_text',
-                    'channel': redact_secret_text(row.channel or ''),
-                    'group_id': redact_secret_text(row.group_id or '') or None,
-                    'trace_id': redact_secret_text(row.trace_id or ''),
-                    'sender_external_id': redact_secret_text(row.sender_external_id or '') or None,
-                    'sent_at': _iso_datetime(sent_at),
-                    'created_at': _iso_datetime(row.created_at),
-                    'text_sample': _redacted_sample_text(redacted_text),
-                    'text_hash': hashlib.sha256(redacted_text.encode('utf-8')).hexdigest(),
-                }
-            )
-            if len(items) >= _DINGTALK_EVIDENCE_LIMIT:
-                break
+        items = self._summarize_dingtalk_items(rows, source='dingtalk_text')
         return items, 'ok' if items else 'empty', None
 
     def _read_dingtalk_file_evidence(self, *, business_date: date) -> tuple[list[dict[str, Any]], str, str | None]:
-        window_start, window_end = production_business_window(business_date)
         try:
-            rows = (
-                self._db.query(RagDocument, RagSourceIngestion)
-                .join(RagSourceIngestion, RagSourceIngestion.document_id == RagDocument.id)
-                .filter(
-                    RagDocument.status == 'active',
-                    RagSourceIngestion.status == 'active',
-                    RagSourceIngestion.created_at >= window_start,
-                    RagSourceIngestion.created_at < window_end,
-                    self._dingtalk_ingestion_marker_clause(),
-                )
-                .order_by(RagSourceIngestion.created_at.desc(), RagSourceIngestion.id.desc(), RagDocument.id.desc())
-                .limit(_DINGTALK_EVIDENCE_LIMIT * 2)
-                .all()
+            rows = query_dingtalk_evidence(
+                self._db,
+                business_date=business_date,
+                newest_first=True,
+                limit=_DINGTALK_EVIDENCE_LIMIT * 4,
+                per_source_key_limit=_DINGTALK_EVIDENCE_LIMIT,
+                content_channels=('dingtalk_group',),
             )
         except Exception as exc:
             return [], 'failed', redact_secret_text(str(exc))
-
-        items: list[dict[str, Any]] = []
-        seen_document_ids: set[int] = set()
-        for document, ingestion in rows:
-            if document.id in seen_document_ids:
-                continue
-            if not self._is_dingtalk_file_document(document=document, ingestion=ingestion):
-                continue
-            seen_document_ids.add(document.id)
-            source_type = self._dingtalk_source_type(document=document, ingestion=ingestion)
-            source_ref = self._dingtalk_source_ref(document=document, ingestion=ingestion)
-            items.append(
-                {
-                    'source': 'dingtalk_file',
-                    'document_id': document.id,
-                    'filename': redact_secret_text(document.filename),
-                    'source_name': redact_secret_text(document.source_name),
-                    'file_size': document.file_size,
-                    'created_at': _iso_datetime(document.created_at),
-                    'source_ref': source_ref,
-                    'source_type': source_type,
-                }
-            )
-            if len(items) >= _DINGTALK_EVIDENCE_LIMIT:
-                break
+        items = self._summarize_dingtalk_items(rows, source='dingtalk_file')
         return items, 'ok' if items else 'empty', None
+
+    def _summarize_dingtalk_items(
+        self,
+        rows: Sequence[DingTalkEvidenceItem],
+        *,
+        source: str,
+    ) -> list[dict[str, Any]]:
+        if source == 'dingtalk_file':
+            selected = [item for item in rows if item.source_key == 'dingtalk_group_file']
+        else:
+            selected = [
+                item
+                for item in rows
+                if item.source_key == 'dingtalk_group_content'
+                and str(item.payload.get('channel') or 'dingtalk_group') == 'dingtalk_group'
+            ]
+        return [
+            self._summarize_dingtalk_item(item, source=source)
+            for item in selected[:_DINGTALK_EVIDENCE_LIMIT]
+        ]
+
+    @staticmethod
+    def _summarize_dingtalk_item(item: DingTalkEvidenceItem, *, source: str) -> dict[str, Any]:
+        redacted_text = redact_secret_text(item.text or '')
+        summary = {
+            'source': source,
+            'evidence_id': item.evidence_id,
+            'channel': redact_secret_text(str(item.payload.get('channel') or 'dingtalk_group')),
+            'group_id': redact_secret_text(item.group_id or '') or None,
+            'conversation_id': redact_secret_text(item.conversation_id or '') or None,
+            'trace_id': redact_secret_text(item.trace_id or ''),
+            'sender_id': redact_secret_text(item.sender_id or '') or None,
+            'sender_external_id': redact_secret_text(item.sender_id or '') or None,
+            'event_time': _iso_datetime(item.event_time),
+            'sent_at': _iso_datetime(item.event_time),
+            'created_at': _iso_datetime(item.created_at),
+            'business_date': item.business_date.isoformat() if item.business_date else None,
+            'content_kind': item.content_kind,
+            'parse_status': item.parse_status,
+            'confirmation_status': item.confirmation_status,
+            'visible_to_hermes': item.visible_to_hermes,
+            'adoptable_as_fact': item.adoptable_as_fact,
+        }
+        if source == 'dingtalk_file':
+            summary['document_id'] = item.payload.get('document_id') or item.evidence_id
+            summary['filename'] = redact_secret_text(str(item.payload.get('file_name') or ''))
+            summary['source_name'] = redact_secret_text(str(item.payload.get('source_name') or '钉钉群文件'))
+            summary['file_size'] = item.payload.get('dingtalk_file_size')
+            summary['file_uri'] = redact_secret_text(item.file_uri or '') or None
+            summary['source_ref'] = redact_secret_text(item.file_uri or '') or None
+            summary['source_type'] = 'dingtalk_file'
+        else:
+            summary['text_sample'] = _redacted_sample_text(redacted_text)
+            summary['text_hash'] = hashlib.sha256(redacted_text.encode('utf-8')).hexdigest()
+        return summary
 
     def _read_mes_sources(self, *, business_date: date, mes_query_keys: Sequence[str] | None) -> dict[str, Any]:
         if self._mes_read_service is None:
@@ -1292,57 +1253,6 @@ class HermesDataAuditService:
         elif output_issues:
             source_errors['output_skill'] = _redact_issue_payload(output_issues)
         return source_errors
-
-    @staticmethod
-    def _dingtalk_message_datetime(message: ChatInboxMessage, *, fallback_tz: Any = None) -> datetime | None:
-        payload = message.source_payload or {}
-        for key in ('sent_at', 'sentAt', 'message_time', 'messageTime', 'msgTime', 'timestamp'):
-            if key in payload and payload[key] not in (None, ''):
-                parsed = _coerce_datetime(payload[key], fallback_tz=fallback_tz)
-                if parsed is not None:
-                    return parsed
-        return _coerce_datetime(message.created_at, fallback_tz=fallback_tz)
-
-    @staticmethod
-    def _is_dingtalk_file_document(*, document: RagDocument, ingestion: RagSourceIngestion | None) -> bool:
-        if ingestion is None or ingestion.status != 'active':
-            return False
-        return _contains_dingtalk_marker(
-            getattr(ingestion, 'source_type', None),
-            getattr(ingestion, 'source_ref', None),
-            getattr(ingestion, 'metadata_payload', None),
-        )
-
-    @staticmethod
-    def _dingtalk_ingestion_marker_clause() -> Any:
-        metadata_text = cast(RagSourceIngestion.metadata_payload, String)
-        return or_(
-            RagSourceIngestion.source_type.in_(('dingtalk', 'dingtalk_file', 'dingtalk_text', 'dingtalk_group')),
-            RagSourceIngestion.source_type.ilike('dingtalk_%'),
-            RagSourceIngestion.source_ref.ilike('dingtalk:%'),
-            metadata_text.ilike('%dingtalk_file%'),
-            metadata_text.ilike('%dingtalk_group%'),
-        )
-
-    @staticmethod
-    def _dingtalk_source_type(*, document: RagDocument, ingestion: RagSourceIngestion | None) -> str | None:
-        if ingestion is not None and ingestion.source_type:
-            return redact_secret_text(ingestion.source_type)
-        metadata_payload = document.metadata_payload or {}
-        source_type = metadata_payload.get('source_type') or metadata_payload.get('source')
-        if source_type in (None, ''):
-            return None
-        return redact_secret_text(str(source_type))
-
-    @staticmethod
-    def _dingtalk_source_ref(*, document: RagDocument, ingestion: RagSourceIngestion | None) -> str | None:
-        if ingestion is not None and ingestion.source_ref:
-            return redact_secret_text(ingestion.source_ref)
-        metadata_payload = document.metadata_payload or {}
-        source_ref = metadata_payload.get('source_ref')
-        if source_ref in (None, ''):
-            return None
-        return redact_secret_text(str(source_ref))
 
     def _output_skill_root_path(self) -> Path | None:
         raw_value = self._output_skill_root or os.getenv('OUTPUT_SKILL_ROOT')

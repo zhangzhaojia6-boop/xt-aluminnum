@@ -13,6 +13,7 @@ from app.models import Base
 from app.models.agent_communication import MultimodalEvidence
 from app.services import dingtalk_service
 from app.services import dingtalk_stream_gateway_service as gateway
+from app.services.hermes_dingtalk_evidence_service import query_dingtalk_evidence
 
 
 def _db_session():
@@ -93,6 +94,21 @@ def test_authorized_text_event_writes_message_text(monkeypatch) -> None:
         assert evidence.payload['business_date'] == '2026-06-28'
         assert evidence.payload['group_id'] == 'group-001'
         assert evidence.payload['trace_id'] == 'msg-001'
+    finally:
+        db.close()
+
+
+def test_authorized_text_event_keeps_normalized_workshop_name(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    db = _db_session()
+    try:
+        gateway.ingest_dingtalk_stream_event(
+            db,
+            _text_payload(workshopName='铸轧二车间'),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['workshop_name'] == '铸二'
     finally:
         db.close()
 
@@ -438,13 +454,8 @@ def test_raw_metadata_is_bounded_and_marks_truncation_for_oversized_payload(monk
         db.close()
 
 
-def test_business_date_falls_back_to_business_time_helper(monkeypatch) -> None:
+def test_missing_business_date_without_workshop_stays_unknown(monkeypatch) -> None:
     _allow_group(monkeypatch)
-    monkeypatch.setattr(
-        gateway,
-        'resolve_dingtalk_energy_business_date',
-        lambda payload, *, file_name=None: date(2026, 7, 6),
-    )
     db = _db_session()
     try:
         payload = _text_payload(messageId='msg-no-date')
@@ -452,7 +463,58 @@ def test_business_date_falls_back_to_business_time_helper(monkeypatch) -> None:
         gateway.ingest_dingtalk_stream_event(db, payload)
 
         evidence = db.query(MultimodalEvidence).one()
-        assert evidence.payload['business_date'] == '2026-07-06'
+        assert evidence.payload['business_date'] is None
+    finally:
+        db.close()
+
+
+def test_missing_business_date_with_unknown_workshop_stays_unknown(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    db = _db_session()
+    try:
+        payload = _text_payload(
+            messageId='msg-unknown-workshop',
+            workshopName='UNKNOWN_WORKSHOP',
+            createTime='2026-06-03T08:00:00+08:00',
+        )
+        del payload['data']['businessDate']
+        gateway.ingest_dingtalk_stream_event(db, payload)
+
+        evidence = db.query(MultimodalEvidence).one()
+        evidence.confirmation_status = 'confirmed'
+        db.commit()
+        items = query_dingtalk_evidence(db, business_date=date(2026, 6, 3))
+
+        assert evidence.payload['workshop_name'] is None
+        assert evidence.payload['business_date'] is None
+        assert len(items) == 1
+        assert items[0].adoptable_as_fact is False
+    finally:
+        db.close()
+
+
+def test_stream_without_business_date_uses_event_time_and_workshop_for_confirmed_fact(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    db = _db_session()
+    try:
+        payload = _text_payload(
+            messageId='msg-workshop-no-date',
+            workshopName='铸轧二车间',
+            createTime='2026-06-03T09:00:00+08:00',
+        )
+        del payload['data']['businessDate']
+        gateway.ingest_dingtalk_stream_event(db, payload)
+
+        evidence = db.query(MultimodalEvidence).one()
+        evidence.confirmation_status = 'confirmed'
+        db.commit()
+        items = query_dingtalk_evidence(db, business_date=date(2026, 6, 2))
+
+        assert evidence.payload['business_date'] == '2026-06-02'
+        assert evidence.payload['workshop_name'] == '铸二'
+        assert len(items) == 1
+        assert items[0].business_date == date(2026, 6, 2)
+        assert items[0].adoptable_as_fact is True
     finally:
         db.close()
 

@@ -64,7 +64,12 @@ def _date_from_file_name(file_name: str) -> date | None:
     return None
 
 
-def resolve_dingtalk_energy_business_date(payload: dict[str, Any], *, file_name: str | None = None) -> date:
+def resolve_dingtalk_energy_business_date(
+    payload: dict[str, Any],
+    *,
+    file_name: str | None = None,
+    fallback_to_last_completed: bool = True,
+) -> date | None:
     for key in DATE_KEYS:
         parsed = _parse_date_text(payload.get(key))
         if parsed is not None:
@@ -72,7 +77,9 @@ def resolve_dingtalk_energy_business_date(payload: dict[str, Any], *, file_name:
     parsed = _date_from_file_name(_clean_text(file_name))
     if parsed is not None:
         return parsed
-    return last_completed_production_business_date()
+    if fallback_to_last_completed:
+        return last_completed_production_business_date()
+    return None
 
 
 def _inline_file_bytes(payload: dict[str, Any]) -> tuple[bytes | None, str | None]:
@@ -143,6 +150,8 @@ def ingest_dingtalk_energy_file(
         return _attach_ingest_result(db, evidence, {'status': 'skipped', 'reason': 'not_excel_file'})
 
     business_date = resolve_dingtalk_energy_business_date(payload, file_name=file_name)
+    if business_date is None:  # pragma: no cover - default resolver mode always returns a date
+        business_date = last_completed_production_business_date()
     stored_path = _stored_file_path(business_date=business_date, trace_id=trace_id, file_name=file_name)
     stored_path.write_bytes(content)
 

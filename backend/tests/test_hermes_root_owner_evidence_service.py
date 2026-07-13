@@ -1,12 +1,48 @@
 from datetime import date
 
+from app.services import hermes_root_owner_evidence_service as root_owner_evidence_service
+from app.services.hermes_dingtalk_evidence_service import DingTalkEvidenceItem
 from app.services.hermes_root_owner_evidence_service import (
     EvidenceCandidate,
     choose_primary_evidence,
     collect_root_owner_evidence,
 )
-from app.services.hermes_data_audit_service import HermesDataAuditService
 from app.services.hermes_root_owner_message_service import RootOwnerMessagePlan
+
+
+def _dingtalk_item(
+    *,
+    trace_id: str,
+    value: float,
+    adoptable: bool,
+    source_key: str = "dingtalk_group_content",
+) -> DingTalkEvidenceItem:
+    return DingTalkEvidenceItem(
+        evidence_id=1,
+        trace_id=trace_id,
+        business_date=date(2026, 6, 27),
+        event_time=None,
+        group_id="group-1",
+        conversation_id="group-1",
+        sender_id="sender-1",
+        content_kind="file_text" if source_key == "dingtalk_group_file" else "message_text",
+        text=f"总产量 {value} 吨",
+        parse_status="text_captured",
+        confirmation_status="confirmed" if adoptable else "machine_only",
+        visible_to_hermes=True,
+        adoptable_as_fact=adoptable,
+        source_key=source_key,
+        evidence_type="dingtalk_file" if source_key == "dingtalk_group_file" else "dingtalk_text",
+        file_uri="dingtalk://file/1" if source_key == "dingtalk_group_file" else None,
+        payload={
+            "source": "dingtalk",
+            "business_date": "2026-06-27",
+            "trace_id": trace_id,
+            "parse_status": "text_captured",
+            "fact_updates": {"total_output_daily": {"value": value}},
+        },
+        created_at=None,
+    )
 
 
 def _message_plan(
@@ -243,39 +279,9 @@ def test_energy_domain_checks_mes_readonly_even_without_energy_fact() -> None:
 
 
 def test_default_dingtalk_reader_promotes_structured_metric_fact_over_mes(monkeypatch) -> None:
-    def read_dingtalk_evidence(self, *, business_date):
-        return {
-            "dingtalk_text": {
-                "status": "ok",
-                "count": 1,
-                "items": [
-                    {
-                        "trace_id": "trace-ding-structured",
-                        "facts": [
-                            {
-                                "metric_key": "total_output_daily",
-                                "value": 118.0,
-                                "unit": "吨",
-                            }
-                        ],
-                        "validation": {
-                            "authorized_group": "verified",
-                            "specialist_sender": "verified",
-                            "content_type": "text",
-                            "business_day_window": "matched",
-                        },
-                        "text_sample": "负责人确认今天产量 118 吨",
-                    }
-                ],
-                "error": None,
-            },
-            "dingtalk_file": {
-                "status": "empty",
-                "count": 0,
-                "items": [],
-                "error": None,
-            },
-        }
+    def read_dingtalk_evidence(_db, *, business_date):
+        assert business_date == date(2026, 6, 27)
+        return [_dingtalk_item(trace_id="trace-ding-structured", value=118.0, adoptable=True)]
 
     class MesReader:
         def read_sources(self, **_kwargs):
@@ -284,7 +290,7 @@ def test_default_dingtalk_reader_promotes_structured_metric_fact_over_mes(monkey
                 "records": {"total_output_daily": 100.0},
             }
 
-    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+    monkeypatch.setattr(root_owner_evidence_service, "query_dingtalk_evidence", read_dingtalk_evidence)
 
     decision = collect_root_owner_evidence(
         db=object(),
@@ -302,32 +308,9 @@ def test_default_dingtalk_reader_promotes_structured_metric_fact_over_mes(monkey
 
 
 def test_default_dingtalk_group_fact_without_specialist_sender_becomes_primary(monkeypatch) -> None:
-    def read_dingtalk_evidence(self, *, business_date):
-        return {
-            "dingtalk_text": {
-                "status": "ok",
-                "count": 1,
-                "items": [
-                    {
-                        "trace_id": "trace-ding-group-three-conditions",
-                        "facts": [{"metric_key": "total_output_daily", "value": 118.0}],
-                        "validation": {
-                            "authorized_group": "verified",
-                            "content_type": "text",
-                            "time_range": "matched",
-                        },
-                        "text_sample": "群里确认今天产量 118 吨",
-                    }
-                ],
-                "error": None,
-            },
-            "dingtalk_file": {
-                "status": "empty",
-                "count": 0,
-                "items": [],
-                "error": None,
-            },
-        }
+    def read_dingtalk_evidence(_db, *, business_date):
+        assert business_date == date(2026, 6, 27)
+        return [_dingtalk_item(trace_id="trace-ding-group-three-conditions", value=118.0, adoptable=True)]
 
     class MesReader:
         def read_sources(self, **_kwargs):
@@ -336,7 +319,7 @@ def test_default_dingtalk_group_fact_without_specialist_sender_becomes_primary(m
                 "records": {"total_output_daily": 100.0},
             }
 
-    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+    monkeypatch.setattr(root_owner_evidence_service, "query_dingtalk_evidence", read_dingtalk_evidence)
 
     decision = collect_root_owner_evidence(
         db=object(),
@@ -357,27 +340,9 @@ def test_default_dingtalk_group_fact_without_specialist_sender_becomes_primary(m
 
 
 def test_default_dingtalk_reader_keeps_unverified_facts_supporting_and_uses_mes(monkeypatch) -> None:
-    def read_dingtalk_evidence(self, *, business_date):
-        return {
-            "dingtalk_text": {
-                "status": "ok",
-                "count": 1,
-                "items": [
-                    {
-                        "trace_id": "trace-ding-unverified",
-                        "facts": [{"metric_key": "total_output_daily", "value": 118.0}],
-                        "text_sample": "群里有人说今天产量 118 吨",
-                    }
-                ],
-                "error": None,
-            },
-            "dingtalk_file": {
-                "status": "empty",
-                "count": 0,
-                "items": [],
-                "error": None,
-            },
-        }
+    def read_dingtalk_evidence(_db, *, business_date):
+        assert business_date == date(2026, 6, 27)
+        return [_dingtalk_item(trace_id="trace-ding-unverified", value=118.0, adoptable=False)]
 
     class MesReader:
         def read_sources(self, **_kwargs):
@@ -386,7 +351,7 @@ def test_default_dingtalk_reader_keeps_unverified_facts_supporting_and_uses_mes(
                 "records": {"total_output_daily": 100.0},
             }
 
-    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+    monkeypatch.setattr(root_owner_evidence_service, "query_dingtalk_evidence", read_dingtalk_evidence)
 
     decision = collect_root_owner_evidence(
         db=object(),
@@ -405,33 +370,9 @@ def test_default_dingtalk_reader_keeps_unverified_facts_supporting_and_uses_mes(
 
 
 def test_default_dingtalk_reader_keeps_condition_rules_supporting_and_uses_mes(monkeypatch) -> None:
-    def read_dingtalk_evidence(self, *, business_date):
-        return {
-            "dingtalk_text": {
-                "status": "ok",
-                "count": 1,
-                "items": [
-                    {
-                        "trace_id": "trace-ding-condition-rules",
-                        "content_type": "text",
-                        "specialist_sender": "verified",
-                        "facts": [{"metric_key": "total_output_daily", "value": 118.0}],
-                        "evidence_conditions": {
-                            "authorized_group": "required",
-                            "time_range": "business_day_window",
-                            "content_type": ["text", "file", "image"],
-                        },
-                    }
-                ],
-                "error": None,
-            },
-            "dingtalk_file": {
-                "status": "empty",
-                "count": 0,
-                "items": [],
-                "error": None,
-            },
-        }
+    def read_dingtalk_evidence(_db, *, business_date):
+        assert business_date == date(2026, 6, 27)
+        return [_dingtalk_item(trace_id="trace-ding-condition-rules", value=118.0, adoptable=False)]
 
     class MesReader:
         def read_sources(self, **_kwargs):
@@ -440,7 +381,7 @@ def test_default_dingtalk_reader_keeps_condition_rules_supporting_and_uses_mes(m
                 "records": {"total_output_daily": 100.0},
             }
 
-    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+    monkeypatch.setattr(root_owner_evidence_service, "query_dingtalk_evidence", read_dingtalk_evidence)
 
     decision = collect_root_owner_evidence(
         db=object(),
@@ -459,45 +400,19 @@ def test_default_dingtalk_reader_keeps_condition_rules_supporting_and_uses_mes(m
 
 
 def test_default_dingtalk_reader_prefers_text_over_file_when_both_verified(monkeypatch) -> None:
-    def read_dingtalk_evidence(self, *, business_date):
-        return {
-            "dingtalk_file": {
-                "status": "ok",
-                "count": 1,
-                "items": [
-                    {
-                        "trace_id": "trace-ding-file",
-                        "facts": [{"metric_key": "total_output_daily", "value": 99.0}],
-                        "validation": {
-                            "authorized_group": "verified",
-                            "specialist_sender": "verified",
-                            "content_type": "file",
-                            "time_range": "matched",
-                        },
-                    }
-                ],
-                "error": None,
-            },
-            "dingtalk_text": {
-                "status": "ok",
-                "count": 1,
-                "items": [
-                    {
-                        "trace_id": "trace-ding-text",
-                        "facts": [{"metric_key": "total_output_daily", "value": 118.0}],
-                        "validation": {
-                            "authorized_group": "verified",
-                            "specialist_sender": "verified",
-                            "content_type": "text",
-                            "time_range": "matched",
-                        },
-                    }
-                ],
-                "error": None,
-            },
-        }
+    def read_dingtalk_evidence(_db, *, business_date):
+        assert business_date == date(2026, 6, 27)
+        return [
+            _dingtalk_item(
+                trace_id="trace-ding-file",
+                value=99.0,
+                adoptable=True,
+                source_key="dingtalk_group_file",
+            ),
+            _dingtalk_item(trace_id="trace-ding-text", value=118.0, adoptable=True),
+        ]
 
-    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+    monkeypatch.setattr(root_owner_evidence_service, "query_dingtalk_evidence", read_dingtalk_evidence)
 
     decision = collect_root_owner_evidence(
         db=object(),
@@ -518,23 +433,10 @@ def test_default_dingtalk_reader_prefers_text_over_file_when_both_verified(monke
 
 
 def test_default_dingtalk_reader_preserves_failed_status_and_redacted_error(monkeypatch) -> None:
-    def read_dingtalk_evidence(self, *, business_date):
-        return {
-            "dingtalk_text": {
-                "status": "failed",
-                "count": 0,
-                "items": [],
-                "error": "read failed token=secret-token password=plain-pass",
-            },
-            "dingtalk_file": {
-                "status": "empty",
-                "count": 0,
-                "items": [],
-                "error": None,
-            },
-        }
+    def read_dingtalk_evidence(_db, *, business_date):
+        raise RuntimeError("read failed token=secret-token password=plain-pass")
 
-    monkeypatch.setattr(HermesDataAuditService, "_read_dingtalk_evidence", read_dingtalk_evidence)
+    monkeypatch.setattr(root_owner_evidence_service, "query_dingtalk_evidence", read_dingtalk_evidence)
 
     decision = collect_root_owner_evidence(
         db=object(),
@@ -549,7 +451,7 @@ def test_default_dingtalk_reader_preserves_failed_status_and_redacted_error(monk
 
     assert decision.primary is None
     assert "dingtalk_group_content" in decision.missing_sources
-    assert dingtalk_status["status"] == "partial_failed"
+    assert dingtalk_status["status"] == "failed"
     assert dingtalk_status["reason"] == "source_failed"
     assert text_status["status"] == "failed"
     assert text_status["count"] == 0
@@ -646,3 +548,110 @@ def test_hub_ready_status_can_be_primary_when_mes_is_missing() -> None:
     assert decision.primary.value == {"total_output_daily": 88.0}
     assert decision.trace["source_status"]["data_hub_projection"]["status"] == "ready"
     assert decision.trace["source_status"]["data_hub_projection"]["candidate_status"] == "ok"
+
+
+def test_default_reader_keeps_machine_only_text_as_supporting_only(monkeypatch) -> None:
+    fake_db = type("FakeDb", (), {"query": object()})()
+
+    def fake_query(_db, *, business_date):
+        return [
+            DingTalkEvidenceItem(
+                evidence_id=1,
+                trace_id="trace-machine-only",
+                business_date=business_date,
+                event_time=None,
+                group_id="cid-1",
+                conversation_id="cid-1",
+                sender_id="user-1",
+                content_kind="message_text",
+                text="今日总产量大概 118 吨",
+                parse_status="text_captured",
+                confirmation_status="machine_only",
+                visible_to_hermes=True,
+                adoptable_as_fact=False,
+                source_key="dingtalk_group_content",
+                evidence_type="text",
+                file_uri=None,
+                payload={
+                    "source": "dingtalk",
+                    "business_date": business_date.isoformat(),
+                    "trace_id": "trace-machine-only",
+                    "message_text": "今日总产量大概 118 吨",
+                },
+                created_at=None,
+            )
+        ]
+
+    class MesReader:
+        def read_sources(self, **_kwargs):
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {"total_output_daily": 100.0},
+            }
+
+    monkeypatch.setattr(root_owner_evidence_service, "query_dingtalk_evidence", fake_query)
+
+    decision = collect_root_owner_evidence(
+        db=fake_db,
+        message_plan=_message_plan(),
+        trace_id="trace-machine-only-supporting",
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    assert decision.primary.source_key == "mes_readonly"
+    assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
+    assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 0
+    assert decision.trace["supporting_evidence"][0]["source_key"] == "dingtalk_group_chat"
+
+
+def test_default_reader_requires_trace_before_dingtalk_can_be_primary(monkeypatch) -> None:
+    fake_db = type("FakeDb", (), {"query": object()})()
+
+    def fake_query(_db, *, business_date):
+        return [
+            DingTalkEvidenceItem(
+                evidence_id=2,
+                trace_id="",
+                business_date=business_date,
+                event_time=None,
+                group_id="cid-2",
+                conversation_id="cid-2",
+                sender_id="user-2",
+                content_kind="message_text",
+                text="6月27日总产量 118 吨",
+                parse_status="text_captured",
+                confirmation_status="confirmed",
+                visible_to_hermes=True,
+                adoptable_as_fact=False,
+                source_key="dingtalk_group_content",
+                evidence_type="text",
+                file_uri=None,
+                payload={
+                    "source": "dingtalk",
+                    "business_date": business_date.isoformat(),
+                    "message_text": "6月27日总产量 118 吨",
+                },
+                created_at=None,
+            )
+        ]
+
+    class MesReader:
+        def read_sources(self, **_kwargs):
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {"total_output_daily": 100.0},
+            }
+
+    monkeypatch.setattr(root_owner_evidence_service, "query_dingtalk_evidence", fake_query)
+
+    decision = collect_root_owner_evidence(
+        db=fake_db,
+        message_plan=_message_plan(),
+        trace_id="trace-missing-trace-supporting",
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: None,
+    )
+
+    assert decision.primary.source_key == "mes_readonly"
+    assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"

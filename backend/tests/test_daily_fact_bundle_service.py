@@ -357,6 +357,7 @@ def test_dingtalk_supplement_needs_its_own_trace_for_fact_closure(
                 "business_date": "2026-06-19",
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
+                "parse_status": "text_captured",
                 "fact_updates": {
                     "total_electricity_kwh": {
                         "value": 133201,
@@ -377,8 +378,15 @@ def test_dingtalk_supplement_needs_its_own_trace_for_fact_closure(
 
     closure_field = _fact_closure_field(bundle, "total_electricity_kwh")
     assert closure_field["status"] == "needs_evidence"
-    assert closure_field["source"] == "dingtalk_supplement"
+    assert closure_field["source"] == "owner_or_energy_summary"
     assert closure_field["trace_id"] is None
+    assert bundle["dingtalk_refs"] == []
+    assert any(
+        item["type"] == "dingtalk_candidate_not_applied"
+        and item["field"] == "total_electricity_kwh"
+        and item["reason"] == "missing_trace_id"
+        for item in bundle["conflicts"]
+    )
 
 
 def test_dingtalk_structured_none_value_does_not_clear_missing_field(
@@ -462,6 +470,7 @@ def test_dingtalk_structured_list_field_key_target_date_applies_with_trace(
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
                 "trace_id": "trace-structured",
+                "parse_status": "text_captured",
                 "fact_updates": [
                     {
                         "field": "total_output_daily",
@@ -488,7 +497,7 @@ def test_dingtalk_structured_list_field_key_target_date_applies_with_trace(
     assert closure_field["trace_id"] == "trace-structured"
 
 
-def test_human_confirmed_dingtalk_confirm_result_applies_fact_update(
+def test_human_confirmed_dingtalk_confirm_result_stays_candidate_only(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -519,6 +528,7 @@ def test_human_confirmed_dingtalk_confirm_result_applies_fact_update(
                 "confirm_result": {
                     "business_date": "2026-06-19",
                     "trace_id": "trace-human-confirmed-energy",
+                    "parse_status": "text_captured",
                     "fact_updates": {
                         "total_electricity_kwh": {
                             "value": 18420,
@@ -534,17 +544,24 @@ def test_human_confirmed_dingtalk_confirm_result_applies_fact_update(
 
     bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
 
-    fact = bundle["facts"]["total_electricity_kwh"]
-    assert fact["value"] == 18420
-    assert fact["source"] == "dingtalk_supplement"
-    assert fact["source_detail"]["trace_id"] == "trace-human-confirmed-energy"
-    assert bundle["missing_fields"] == []
+    assert "total_electricity_kwh" not in bundle["facts"]
+    assert bundle["missing_fields"] == ["total_electricity_kwh"]
+    assert bundle["dingtalk_refs"] == []
+    assert bundle["conflicts"] == [
+        {
+            "field": "total_electricity_kwh",
+            "type": "dingtalk_candidate_not_applied",
+            "candidate_value": 18420,
+            "reason": "confirmation_status_not_adoptable",
+            "trace_id": "trace-human-confirmed-energy",
+            "evidence_id": 1,
+        }
+    ]
     closure_field = _fact_closure_field(bundle, "total_electricity_kwh")
-    assert closure_field["status"] == "confirmed"
-    assert closure_field["source"] == "dingtalk_supplement"
+    assert closure_field["status"] == "missing"
 
 
-def test_human_confirmed_dingtalk_daily_report_text_applies_parsed_fields(
+def test_human_confirmed_dingtalk_daily_report_text_stays_candidate_only(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -583,30 +600,36 @@ def test_human_confirmed_dingtalk_daily_report_text_applies_parsed_fields(
             source_user_id=None,
             recognized_text=report_text,
             confirmation_status="human_confirmed",
-            payload={"source": "dingtalk", "trace_id": "trace-human-confirmed-report"},
+            payload={
+                "source": "dingtalk",
+                "trace_id": "trace-human-confirmed-report",
+                "parse_status": "text_captured",
+            },
         )
     )
     db_session.commit()
 
     bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
 
-    assert bundle["facts"]["total_output_daily"]["value"] == 371
-    assert bundle["facts"]["finished_inbound_daily"]["value"] == 365.2
-    assert bundle["facts"]["wip_total"]["value"] == 1136
-    assert bundle["facts"]["total_electricity_kwh"]["value"] == 18420
-    assert bundle["facts"]["daily_yield_rate"]["value"] == 83.4
-    assert bundle["facts"]["total_output_daily"]["source"] == "dingtalk_supplement"
-    assert set(bundle["dingtalk_refs"][0]["field_names"]) >= {
+    assert bundle["facts"] == {}
+    assert bundle["dingtalk_refs"] == []
+    assert bundle["missing_fields"] == [
         "total_output_daily",
         "finished_inbound_daily",
         "wip_total",
         "total_electricity_kwh",
         "daily_yield_rate",
-    }
-    assert bundle["missing_fields"] == []
+    ]
+    assert [item["reason"] for item in bundle["conflicts"]] == [
+        "confirmation_status_not_adoptable",
+        "confirmation_status_not_adoptable",
+        "confirmation_status_not_adoptable",
+        "confirmation_status_not_adoptable",
+        "confirmation_status_not_adoptable",
+    ]
 
 
-def test_dingtalk_file_payload_text_applies_parsed_fields(
+def test_attachment_text_payload_applies_parsed_fields(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -631,23 +654,21 @@ def test_dingtalk_file_payload_text_applies_parsed_fields(
             source_user_id=None,
             file_uri="dingtalk://media/daily-report-20260619",
             recognized_text="日报文件已上传",
-            confirmation_status="human_confirmed",
+            confirmation_status="confirmed",
             payload={
                 "source": "dingtalk",
                 "business_date": "2026-06-19",
+                "trace_id": "trace-attachment-report",
+                "parse_status": "text_captured",
                 "file_name": "6月19日生产日报.xlsx",
-                "attachments": [
-                    {
-                        "parsed_text": (
-                            "6月19日生产日报\n"
-                            "车间总产量日合计371吨。\n"
-                            "当天在制料1136吨。\n"
-                            "全厂高压总用电量18420度。\n"
-                            "入库成品日合计365.2吨。\n"
-                            "日成品率83.4%。"
-                        )
-                    }
-                ],
+                "attachment_text": (
+                    "6月19日生产日报\n"
+                    "车间总产量日合计371吨。\n"
+                    "当天在制料1136吨。\n"
+                    "全厂高压总用电量18420度。\n"
+                    "入库成品日合计365.2吨。\n"
+                    "日成品率83.4%。"
+                ),
             },
         )
     )
@@ -659,8 +680,101 @@ def test_dingtalk_file_payload_text_applies_parsed_fields(
     assert bundle["facts"]["total_electricity_kwh"]["value"] == 18420
     assert bundle["facts"]["total_output_daily"]["source_ref"]["source_key"] == "dingtalk_group_file"
     assert bundle["facts"]["total_output_daily"]["source_ref"]["file_uri"] == "dingtalk://media/daily-report-20260619"
-    assert "6月19日生产日报" in bundle["facts"]["total_output_daily"]["source_ref"]["recognized_text"]
+    assert bundle["facts"]["total_output_daily"]["source_ref"]["trace_id"] == "trace-attachment-report"
     assert bundle["missing_fields"] == []
+
+
+def test_dingtalk_daily_report_text_without_trace_stays_candidate_only(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {"total_output_daily": 355},
+            "sources": {"total_output_daily": "mes_packaging_output"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            source_user_id=None,
+            recognized_text="6月19日车间总产量日合计371吨，当天在制料1136吨，全厂高压总用电量18420度。",
+            confirmation_status="confirmed",
+            payload={
+                "source": "dingtalk",
+                "business_date": "2026-06-19",
+                "parse_status": "text_captured",
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["facts"]["total_output_daily"]["value"] == 355
+    assert bundle["dingtalk_refs"] == []
+    assert any(
+        item["type"] == "dingtalk_candidate_not_applied"
+        and item["field"] == "total_output_daily"
+        and item["reason"] == "missing_trace_id"
+        for item in bundle["conflicts"]
+    )
+
+
+def test_dingtalk_text_without_text_captured_status_stays_candidate_only(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {"total_output_daily": 355},
+            "sources": {"total_output_daily": "mes_packaging_output"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            source_user_id=None,
+            recognized_text="6月19日车间总产量日合计371吨，当天在制料1136吨。",
+            confirmation_status="confirmed",
+            payload={
+                "source": "dingtalk",
+                "business_date": "2026-06-19",
+                "trace_id": "trace-text-unavailable",
+                "parse_status": "text_unavailable",
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    assert bundle["facts"]["total_output_daily"]["value"] == 355
+    assert bundle["dingtalk_refs"] == []
+    assert any(
+        item["type"] == "dingtalk_candidate_not_applied"
+        and item["field"] == "total_output_daily"
+        and item["reason"] == "parse_status_not_text_captured"
+        for item in bundle["conflicts"]
+    )
 
 
 def test_machine_only_dingtalk_daily_report_text_is_not_applied(
@@ -730,6 +844,7 @@ def test_specialist_sampled_dingtalk_daily_report_text_is_applied(
                 "channel": "dingtalk_stream",
                 "business_date": "2026-06-19",
                 "trace_id": "stream-msg-001",
+                "parse_status": "text_captured",
             },
         )
     )
@@ -775,6 +890,7 @@ def test_dingtalk_structured_date_mismatch_records_candidate_trace(
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
                 "trace_id": "trace-structured-date-mismatch",
+                "parse_status": "text_captured",
                 "fact_updates": {
                     "total_output_daily": {
                         "value": 371,
@@ -843,6 +959,7 @@ def test_unstructured_dingtalk_evidence_with_matching_business_date_applies_to_f
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
                 "trace_id": "trace-unstructured-output",
+                "parse_status": "text_captured",
             },
         )
     )
@@ -903,6 +1020,8 @@ def test_unstructured_dingtalk_today_without_payload_date_applies_to_current_bun
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
                 "trace_id": "trace-today-output",
+                "workshop_name": "精整",
+                "parse_status": "text_captured",
             },
         )
     )
@@ -959,6 +1078,7 @@ def test_unstructured_dingtalk_month_day_without_payload_date_applies_to_matchin
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
                 "trace_id": "trace-month-day-energy",
+                "parse_status": "text_captured",
             },
         )
     )
@@ -1005,6 +1125,7 @@ def test_same_priority_dingtalk_candidate_does_not_override_existing_dingtalk_fa
                     "include_in_daily_sample": True,
                     "evidence_kind": "fact",
                     "trace_id": "trace-first-output",
+                    "parse_status": "text_captured",
                 },
             ),
             MultimodalEvidence(
@@ -1016,6 +1137,7 @@ def test_same_priority_dingtalk_candidate_does_not_override_existing_dingtalk_fa
                     "include_in_daily_sample": True,
                     "evidence_kind": "fact",
                     "trace_id": "trace-second-output",
+                    "parse_status": "text_captured",
                 },
             ),
         ]
@@ -1065,6 +1187,8 @@ def test_unstructured_dingtalk_today_from_other_business_day_records_candidate_t
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
                 "trace_id": "trace-old-today-output",
+                "workshop_name": "精整",
+                "parse_status": "text_captured",
             },
         )
     )
@@ -1116,6 +1240,7 @@ def test_unstructured_dingtalk_evidence_without_safe_business_date_records_candi
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
                 "trace_id": "trace-unapplied-output",
+                "parse_status": "text_captured",
             },
         )
     )
@@ -1179,6 +1304,8 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
                 "business_date": "2026-06-19",
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
+                "trace_id": "trace-gas-dingtalk",
+                "parse_status": "text_captured",
                 "fact_updates": {
                     "total_gas_m3": {
                         "value": 50578,
@@ -1210,6 +1337,7 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
         "source_key": "dingtalk_group_file",
         "recognized_text": "6月19日天然气共计50578m³",
         "business_date": "2026-06-19",
+        "trace_id": "trace-gas-dingtalk",
     }
     assert fact["source_ref"] == {
         "source": "dingtalk_supplement",
@@ -1220,6 +1348,7 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
         "source_key": "dingtalk_group_file",
         "recognized_text": "6月19日天然气共计50578m³",
         "business_date": "2026-06-19",
+        "trace_id": "trace-gas-dingtalk",
     }
     assert bundle["sources"]["total_gas_m3"]["source"] == "dingtalk_supplement"
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_gas_m3"]}]
@@ -1284,6 +1413,8 @@ def test_dingtalk_supplement_does_not_override_root_owner_correction(
                 "business_date": "2026-06-19",
                 "include_in_daily_sample": True,
                 "evidence_kind": "fact",
+                "trace_id": "trace-gas-dingtalk",
+                "parse_status": "text_captured",
                 "fact_updates": {
                     "total_gas_m3": {
                         "value": 50578,

@@ -6,6 +6,8 @@ from hashlib import sha256
 
 from sqlalchemy.orm import Session
 
+from app.core.active_workshops import is_active_production_workshop_name, normalize_workshop_name
+from app.core.business_time import resolve_production_business_date
 from app.core.redaction import redact_secret_text
 from app.models.agent_communication import MultimodalEvidence
 from app.models.hermes_factory_brain import HermesDingTalkSamplingRule
@@ -47,8 +49,25 @@ def sample_dingtalk_message(
     if not _has_time_window(rule):
         return DingTalkSamplingResult(matched=False, priority='low', evidence_id=None, rule_key=None)
 
+    time_window = rule.time_window_payload or {}
+    workshop_name = normalize_workshop_name(time_window.get('workshop_name') or time_window.get('workshop'))
+    if not is_active_production_workshop_name(workshop_name):
+        workshop_name = ''
+    clean_message_text = str(message_text or '').strip()
     payload = {
+        'source': 'dingtalk',
         'trace_id': trace_id,
+        'business_date': (
+            resolve_production_business_date(message_time, workshop_name=workshop_name).isoformat()
+            if workshop_name
+            else None
+        ),
+        'workshop_name': workshop_name or None,
+        'parse_status': 'text_captured' if clean_message_text else 'text_unavailable',
+        'group_id': redact_secret_text(channel_key),
+        'conversation_id': redact_secret_text(channel_key),
+        'dingtalk_sender_id': redact_secret_text(sender_user_id),
+        'event_time': message_time.isoformat(),
         'channel_key': redact_secret_text(channel_key),
         'sender_user_id': redact_secret_text(sender_user_id),
         'message_time': message_time.isoformat(),
@@ -57,7 +76,8 @@ def sample_dingtalk_message(
         'file_hash': _hash_file_name(file_name),
         'sampling_rule_key': rule.rule_key,
         'sampling_priority': rule.priority,
-        'time_window': rule.time_window_payload or {},
+        'time_window': time_window,
+        'file_text' if file_name else 'message_text': redact_secret_text(clean_message_text),
     }
     evidence = MultimodalEvidence(
         evidence_type='dingtalk_file' if file_name else 'dingtalk_text',

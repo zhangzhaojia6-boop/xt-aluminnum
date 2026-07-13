@@ -8,6 +8,7 @@ from typing import Any
 from app.core.redaction import redact_secret_text
 from sqlalchemy.orm import Session
 
+from app.core.active_workshops import is_active_production_workshop_name, normalize_workshop_name
 from app.core.redaction import filter_sensitive_mapping
 from app.models.agent_communication import MultimodalEvidence
 from app.models.system import User
@@ -115,6 +116,11 @@ def record_day1_dingtalk_evidence(
     file_hash = payload_file_hash or (hashlib.sha1(raw_file_id.encode('utf-8')).hexdigest() if raw_file_id else None)
     evidence_type = 'attachment' if file_name or raw_file_id else 'text'
     is_attachment = evidence_type == 'attachment'
+    workshop_name = normalize_workshop_name(
+        _clean_payload_text(payload, 'workshop_name', 'workshopName', 'workshop')
+    )
+    if not is_active_production_workshop_name(workshop_name):
+        workshop_name = ''
     parse_status = _clean_payload_text(payload, 'parse_status') or (
         'text_captured' if str(recognized_text or '').strip() else 'text_unavailable'
     )
@@ -127,6 +133,7 @@ def record_day1_dingtalk_evidence(
             'group_id': group_id,
             'trace_id': trace_id,
             'business_date': business_date.isoformat() if business_date else None,
+            'workshop_name': workshop_name or None,
             'file_name': file_name,
             'file_hash': file_hash,
             'parse_status': parse_status,
@@ -153,6 +160,8 @@ def record_day1_dingtalk_evidence(
             'dingtalk_received_at': _clean_payload_text(payload, 'receivedAt', 'received_at'),
             'dingtalk_message_time': _clean_payload_text(
                 payload,
+                'event_time',
+                'eventTime',
                 'messageTime',
                 'msgCreateTime',
                 'createTime',
