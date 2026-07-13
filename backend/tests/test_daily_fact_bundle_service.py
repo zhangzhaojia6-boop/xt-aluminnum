@@ -1136,6 +1136,89 @@ def test_daily_fact_bundle_validates_foundry_daily_and_month_projection_contract
     assert bundle["facts"]["foundry_month"]["evidence_status"] == expected_status
 
 
+def test_cast_workshops_are_not_aggregated_or_verified_as_foundry(
+    db_session: Session,
+) -> None:
+    from app.services.report import template_daily_fact_sources
+    from app.services.report.daily_fact_evidence_contracts import DailyFactEvidenceVerifier
+    from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
+
+    process_rows = [
+        MesWorkshopProcessRecord(
+            source_id=source_id,
+            source_path="sqlserver:workshop_process_records",
+            workshop_name=workshop_name,
+            process_name=process_name,
+            output_weight_tons=output_weight,
+            business_date=date(2026, 7, 7),
+        )
+        for source_id, workshop_name, process_name, output_weight in (
+            ("same-day-foundry", "熔铸车间", "铸造", 88),
+            ("same-day-cast-2", "铸二车间", "铸造", 100),
+            ("same-day-cast-3", "铸三车间", "熔炼", 120),
+        )
+    ]
+    material_rows = [
+        MesMaterialRecord(
+            source_id=source_id,
+            source_path="sqlserver:MES_Material",
+            workshop_name=workshop_name,
+            weight_tons=weight_tons,
+            production_date=datetime(2026, 7, 7, 10, 30),
+            business_date=date(2026, 7, 7),
+            status_name="已使用",
+        )
+        for source_id, workshop_name, weight_tons in (
+            ("same-day-cast-2-material", "铸二车间", 100),
+            ("same-day-cast-3-material", "铸三车间", 120),
+        )
+    ]
+    db_session.add_all([*process_rows, *material_rows])
+    db_session.commit()
+
+    field_names = ("foundry_daily", "cast_2_daily", "cast_3_daily")
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=date(2026, 7, 7))
+    template_daily_fact_sources.collect_mes_material_workshop_facts(db_session, facts)
+    template_daily_fact_sources.collect_mes_workshop_facts(db_session, facts)
+    verifier = DailyFactEvidenceVerifier(db_session, business_date=date(2026, 7, 7))
+
+    assert {
+        "aggregates": {field_name: facts.values[field_name] for field_name in field_names},
+        "evidence_verified": {
+            field_name: verifier.verify_projection(
+                field_name=field_name,
+                source_type=facts.sources[field_name]["source_type"],
+                fact_value=facts.values[field_name],
+                source_detail=facts.sources[field_name],
+            )
+            for field_name in field_names
+        },
+        "mapping": {
+            "foundry": resolve_mes_process_workshop_bucket("熔铸车间", "铸造"),
+            "cast_2": resolve_mes_process_workshop_bucket("铸二车间", "铸造"),
+            "cast_3": resolve_mes_process_workshop_bucket("铸三车间", "熔炼"),
+            "hot_roll": resolve_mes_process_workshop_bucket("热轧车间", "铸造"),
+        },
+    } == {
+        "aggregates": {
+            "foundry_daily": 88,
+            "cast_2_daily": 100,
+            "cast_3_daily": 120,
+        },
+        "evidence_verified": {
+            "foundry_daily": True,
+            "cast_2_daily": True,
+            "cast_3_daily": True,
+        },
+        "mapping": {
+            "foundry": "铸锭",
+            "cast_2": "铸二",
+            "cast_3": "铸三",
+            "hot_roll": "热轧",
+        },
+    }
+
+
 def test_daily_fact_bundle_confirms_coil_wip_for_next_business_date(
     monkeypatch,
     db_session: Session,
