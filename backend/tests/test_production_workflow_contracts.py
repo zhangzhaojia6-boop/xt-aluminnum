@@ -108,10 +108,24 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert 'pg_restore -l "$DB_BACKUP"' in source or 'pg_restore -l "$db_backup"' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT" in source
     assert 'trap rollback_on_error ERR' not in source
+    assert 'get_alembic_revisions()' in source
+    assert 'PRE_MIGRATION_REVISIONS' in source
+    assert 'POST_MIGRATION_REVISIONS' in source
+    assert 'NEEDS_DB_RESTORE=1' in source
+    assert 'if [ "$PRE_MIGRATION_REVISIONS" = "$POST_MIGRATION_REVISIONS" ]; then' in source
+    assert 'NEEDS_DB_RESTORE=0' in source
+    pre_index = source.find('PRE_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"')
+    set_restore_index = source.find('NEEDS_DB_RESTORE=1')
+    alembic_index = source.find('alembic upgrade head')
+    post_index = source.find('POST_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"')
+    reset_restore_index = source.find('NEEDS_DB_RESTORE=0', post_index)
+    assert -1 not in (pre_index, set_restore_index, alembic_index, post_index, reset_restore_index)
+    assert pre_index < set_restore_index < alembic_index < post_index < reset_restore_index
     rollback_body = _extract_shell_function(source, 'rollback_on_error')
     assert 'ROLLBACK_FAILED_' in rollback_body
     assert '|| true' not in rollback_body
     assert 'DEPLOY_FAILED_ROLLBACK_DONE' in rollback_body
+    assert source.rfind('trap - EXIT') > source.find('report_status "yes"')
     assert '/versionz' in source
     assert 'BUILD_SHA' in source
     assert 'HERMES_BUILD_SHA' in source
@@ -198,6 +212,74 @@ def test_production_sync_status_exit_trap_rolls_back_on_manual_failure_after_mut
     assert 'DEPLOY_FAILED_ROLLBACK_START' in result.stdout
     assert 'DEPLOY_FAILED_ROLLBACK_DONE' in result.stdout
     assert marker_text == 'rollback rc=42'
+
+
+def test_production_sync_status_revision_change_failure_triggers_db_restore_marker() -> None:
+    bash = _require_bash()
+    trap_line = _find_rollback_trap_line(_read('.github/workflows/production-sync-status.yml'))
+    tmp_root = REPO_ROOT
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', newline='\n', suffix='.sh', dir=tmp_root, delete=False) as handle:
+        script_path = Path(handle.name)
+    marker_path = script_path.with_suffix('.log')
+    try:
+        script_path.write_text(
+            "\n".join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    f'MARKER_PATH="{marker_path.name}"',
+                    'DATAHUB_CHECKOUT_DONE=1',
+                    'HERMES_CHECKOUT_DONE=1',
+                    'DB_BACKUP=/tmp/fake.dump',
+                    'DATABASE_LIBPQ_URL=postgresql://ignored',
+                    'NEEDS_DB_RESTORE=0',
+                    'PRE_MIGRATION_REVISIONS=rev-before',
+                    'rollback_on_error() {',
+                    '  local exit_code="${1:-1}"',
+                    '  trap - EXIT ERR',
+                    '  local rollback_failed=0',
+                    '  echo "DEPLOY_FAILED_ROLLBACK_START"',
+                    '  if [ "$NEEDS_DB_RESTORE" = "1" ]; then',
+                    '    echo "ROLLBACK_DATABASE_FROM=$DB_BACKUP"',
+                    '    echo "db_restore" >> "$MARKER_PATH"',
+                    '  fi',
+                    '  if [ "$rollback_failed" -eq 0 ]; then',
+                    '    echo "DEPLOY_FAILED_ROLLBACK_DONE"',
+                    '    exit "$exit_code"',
+                    '  fi',
+                    '  exit 97',
+                    '}',
+                    trap_line,
+                    'NEEDS_DB_RESTORE=1',
+                    'POST_MIGRATION_REVISIONS=rev-after',
+                    'if [ "$PRE_MIGRATION_REVISIONS" = "$POST_MIGRATION_REVISIONS" ]; then',
+                    '  NEEDS_DB_RESTORE=0',
+                    'fi',
+                    'exit 43',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run(
+            [bash, script_path.name],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=tmp_root,
+        )
+        marker_text = marker_path.read_text(encoding='utf-8').strip() if marker_path.exists() else ''
+    finally:
+        if marker_path.exists():
+            os.unlink(marker_path)
+        if script_path.exists():
+            os.unlink(script_path)
+
+    assert result.returncode == 43
+    assert 'ROLLBACK_DATABASE_FROM=/tmp/fake.dump' in result.stdout
+    assert 'DEPLOY_FAILED_ROLLBACK_DONE' in result.stdout
+    assert marker_text == 'db_restore'
 
 
 def test_target_workflow_run_blocks_pass_bash_n() -> None:

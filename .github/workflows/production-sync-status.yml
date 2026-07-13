@@ -204,6 +204,19 @@ jobs:
           PY
           }
 
+          get_alembic_revisions() {
+            local database_url="$1"
+            DATABASE_URL="$database_url" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with engine.connect() as conn:
+              rows = conn.execute(text("SELECT version_num FROM alembic_version ORDER BY version_num")).scalars().all()
+          print(",".join(str(row) for row in rows))
+          PY
+          }
+
           report_http_json() {
             local label="$1"
             local url="$2"
@@ -443,6 +456,8 @@ jobs:
             exit 40
           fi
           DATABASE_LIBPQ_URL="$(libpq_url_from_database_url "$RAW_DATABASE_URL")"
+          PRE_MIGRATION_REVISIONS=""
+          POST_MIGRATION_REVISIONS=""
 
           if [ "$MODE" = "status" ]; then
             report_status "no"
@@ -477,12 +492,19 @@ jobs:
           fi
 
           "$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"
+          PRE_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"
+          echo "PRE_MIGRATION_REVISIONS=$PRE_MIGRATION_REVISIONS"
+          NEEDS_DB_RESTORE=1
           if ! (
             cd "$DATAHUB_REPO/backend" &&
             DATABASE_URL="$RAW_DATABASE_URL" ./.venv/bin/python -m alembic upgrade head
           ); then
-            NEEDS_DB_RESTORE=1
             exit 42
+          fi
+          POST_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"
+          echo "POST_MIGRATION_REVISIONS=$POST_MIGRATION_REVISIONS"
+          if [ "$PRE_MIGRATION_REVISIONS" = "$POST_MIGRATION_REVISIONS" ]; then
+            NEEDS_DB_RESTORE=0
           fi
 
           (
@@ -574,4 +596,5 @@ jobs:
           echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
 
           report_status "yes"
+          trap - EXIT
           REMOTE
