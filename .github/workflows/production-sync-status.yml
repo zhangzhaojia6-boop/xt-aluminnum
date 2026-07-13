@@ -542,8 +542,8 @@ jobs:
           require_clean_tracked "HERMES" "$HERMES_REPO"
 
           require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"
-          require_commit_exists "$HERMES_REPO" "$HERMES_SHA"
           update_trusted_refs
+          require_commit_exists "$HERMES_REPO" "$HERMES_SHA"
           require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB
           require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES
 

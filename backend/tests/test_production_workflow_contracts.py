@@ -124,6 +124,9 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert 'merge-base --is-ancestor "$sha" "$trusted_ref"' in source
     assert 'fetch --prune "$HERMES_TRUSTED_REMOTE_URL" "+$HERMES_TRUSTED_BRANCH:$HERMES_TRUSTED_REF"' in source
     assert 'HERMES_TRUSTED_REF_UNAVAILABLE' in source
+    assert 'require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"' in source
+    assert 'update_trusted_refs' in source
+    assert 'require_commit_exists "$HERMES_REPO" "$HERMES_SHA"' in source
     assert 'require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB' in source
     assert 'require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT" in source
@@ -137,12 +140,17 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert 'NEEDS_DB_RESTORE=1' in source
     assert 'if alembic_revisions_valid "$PRE_MIGRATION_REVISIONS" && alembic_revisions_valid "$POST_MIGRATION_REVISIONS" && [ "$PRE_MIGRATION_REVISIONS" = "$POST_MIGRATION_REVISIONS" ]; then' in source
     assert 'NEEDS_DB_RESTORE=0' in source
+    datahub_exists_index = source.find('require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"')
+    trusted_fetch_index = source.find('\n          update_trusted_refs\n')
+    hermes_exists_index = source.find('require_commit_exists "$HERMES_REPO" "$HERMES_SHA"')
+    trusted_ancestor_index = source.find('require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES')
     pre_index = source.find('if PRE_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"; then')
     set_restore_index = source.find('NEEDS_DB_RESTORE=1')
     alembic_index = source.find('alembic upgrade head')
     post_index = source.find('if POST_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"; then')
     reset_restore_index = source.find('NEEDS_DB_RESTORE=0', post_index)
-    assert -1 not in (pre_index, set_restore_index, alembic_index, post_index, reset_restore_index)
+    assert -1 not in (datahub_exists_index, trusted_fetch_index, hermes_exists_index, trusted_ancestor_index, pre_index, set_restore_index, alembic_index, post_index, reset_restore_index)
+    assert datahub_exists_index < trusted_fetch_index < hermes_exists_index < trusted_ancestor_index < set_restore_index
     assert set_restore_index < pre_index < alembic_index < post_index < reset_restore_index
     rollback_body = _extract_shell_function(source, 'rollback_on_error')
     assert 'systemctl stop aluminum-bypass hermes-gateway' in rollback_body
@@ -336,25 +344,37 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
                     'git -C "$seed" commit -qam trusted',
                     'trusted_sha="$(git -C "$seed" rev-parse HEAD)"',
                     'git -C "$seed" push -q origin feature/xintai-single-ingress-fact-closure',
-                    'git clone -q "$cloud" "$work"',
+                    'mkdir "$work"',
+                    'git -C "$work" init -q',
                     'git -C "$work" config user.email test@example.com',
                     'git -C "$work" config user.name test',
-                    'git -C "$work" checkout -q -b feature/xintai-single-ingress-fact-closure origin/main',
+                    'git -C "$work" remote add origin "$cloud"',
+                    'git -C "$work" fetch -q origin main:refs/remotes/origin/main',
+                    'git -C "$work" checkout -q -b feature/xintai-single-ingress-fact-closure refs/remotes/origin/main',
                     'checked_out_before="$(git -C "$work" branch --show-current)"',
                     'printf "evil\n" >> "$work/file.txt"',
                     'git -C "$work" commit -qam evil',
                     'evil_local_sha="$(git -C "$work" rev-parse HEAD)"',
                     'git -C "$work" checkout -q feature/xintai-single-ingress-fact-closure',
+                    'if git -C "$work" cat-file -e "${trusted_sha}^{commit}" 2>/dev/null; then',
+                    '  exit 93',
+                    'fi',
                     'update_trusted_refs "$work"',
                     'fetched_ref_sha="$(git -C "$work" rev-parse "$HERMES_TRUSTED_REF")"',
                     'checked_out_after_fetch="$(git -C "$work" branch --show-current)"',
+                    'git -C "$work" cat-file -e "${trusted_sha}^{commit}"',
+                    'if ( require_trusted_ancestor "$work" "$trusted_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
+                    '  trusted_rc=0',
+                    'else',
+                    '  trusted_rc="$?"',
+                    'fi',
                     'if ( require_trusted_ancestor "$work" "$evil_local_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
-                    '  rc=0',
+                    '  evil_rc=0',
                     '  exit 92',
                     'else',
-                    '  rc="$?"',
+                    '  evil_rc="$?"',
                     'fi',
-                    'printf "checked_out_before=%s\nchecked_out_after_fetch=%s\ntrusted_sha=%s\nfetched_ref_sha=%s\nevil_local_sha=%s\nprobe_rc=%s\n" "$checked_out_before" "$checked_out_after_fetch" "$trusted_sha" "$fetched_ref_sha" "$evil_local_sha" "$rc"',
+                    'printf "checked_out_before=%s\nchecked_out_after_fetch=%s\ntrusted_sha=%s\nfetched_ref_sha=%s\nevil_local_sha=%s\ntrusted_rc=%s\nevil_rc=%s\n" "$checked_out_before" "$checked_out_after_fetch" "$trusted_sha" "$fetched_ref_sha" "$evil_local_sha" "$trusted_rc" "$evil_rc"',
                     '',
                 ]
             ),
@@ -371,7 +391,8 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
     assert 'checked_out_after_fetch=feature/xintai-single-ingress-fact-closure' in result.stdout
     assert 'trusted_sha=' in result.stdout
     assert 'fetched_ref_sha=' in result.stdout
-    assert 'probe_rc=91' in result.stdout
+    assert 'trusted_rc=0' in result.stdout
+    assert 'evil_rc=91' in result.stdout
 
 
 def test_production_sync_status_exit_trap_rolls_back_on_manual_failure_after_mutation() -> None:
