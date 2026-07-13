@@ -92,7 +92,6 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'dingtalk_supplement',
             'root_owner_correction',
             'mes_packaging_output',
-            'mes_verified',
         },
         'workshop_output_daily': {
             'dingtalk_supplement',
@@ -101,8 +100,6 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'finished_inbound_daily': {
             'dingtalk_supplement',
             'root_owner_correction',
-            'finished_inbound_output',
-            'wms_direct',
             'mes_stock_header_records',
             'mes_stock_records',
         },
@@ -113,7 +110,6 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'wip_total': {
             'dingtalk_supplement',
             'root_owner_correction',
-            'mes_wip_distribution',
             'mes_coil_snapshot_business_date',
             'mes_daily_wip_snapshot',
             'mes_wip_total_snapshot',
@@ -121,10 +117,6 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'total_electricity_kwh': {
             'dingtalk_supplement',
             'root_owner_correction',
-            'iot_energy',
-            'owner_daily',
-            'owner_or_energy_summary',
-            'data_hub_manual',
         },
         'total_gas_m3': {
             'dingtalk_supplement',
@@ -136,9 +128,6 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'daily_yield_rate': {
             'dingtalk_supplement',
             'root_owner_correction',
-            'owner_daily',
-            'quality_yield_daily',
-            'computed_same_basis',
         },
         'cost_per_ton': {
             'dingtalk_supplement',
@@ -195,10 +184,58 @@ def test_daily_report_metric_contracts_prohibit_cross_metric_and_derived_sources
 
     yield_contract = daily_report_contract_for('daily_yield_rate')
     assert yield_contract.requires_same_business_window is True
-    assert 'computed_same_basis' in yield_contract.allowed_source_types
-    assert {'computed', 'yield_projection', 'mes_feeding_to_finished_inbound'}.isdisjoint(
+    assert {
+        'computed',
+        'computed_same_basis',
+        'owner_daily',
+        'quality_yield_daily',
+        'yield_projection',
+        'mes_feeding_to_finished_inbound',
+    }.isdisjoint(
         yield_contract.allowed_source_types
     )
+
+
+_UNANCHORED_REVIEWER_SOURCE_PAIRS = (
+    ('total_output_daily', 'mes_verified'),
+    ('finished_inbound_daily', 'finished_inbound_output'),
+    ('finished_inbound_daily', 'wms_direct'),
+    ('wip_total', 'mes_wip_distribution'),
+    ('total_electricity_kwh', 'data_hub_manual'),
+    ('total_electricity_kwh', 'iot_energy'),
+    ('total_electricity_kwh', 'owner_daily'),
+    ('total_electricity_kwh', 'owner_or_energy_summary'),
+    ('daily_yield_rate', 'computed_same_basis'),
+    ('daily_yield_rate', 'owner_daily'),
+    ('daily_yield_rate', 'quality_yield_daily'),
+)
+
+
+def test_every_confirmable_allowed_source_type_resolves_to_a_canonical_contract() -> None:
+    unresolved = sorted(
+        (field_name, source_type)
+        for field_name, contract in metric_contracts.DAILY_REPORT_METRIC_CONTRACTS.items()
+        if contract.confirmation_allowed
+        for source_type in contract.allowed_source_types
+        if metric_contracts.fact_source_contract_for(field_name, source_type) is None
+    )
+
+    assert unresolved == []
+
+
+@pytest.mark.parametrize(('field_name', 'source_type'), _UNANCHORED_REVIEWER_SOURCE_PAIRS)
+def test_unanchored_upstream_source_type_is_not_nominally_confirmable(
+    field_name: str,
+    source_type: str,
+) -> None:
+    contract = metric_contracts.daily_report_contract_for(field_name)
+
+    assert source_type not in contract.allowed_source_types
+    assert metric_contracts.fact_source_contract_for(field_name, source_type) is None
+
+
+def test_allowed_source_types_are_derived_from_canonical_source_contracts() -> None:
+    assert isinstance(metric_contracts.DailyReportMetricContract.allowed_source_types, property)
 
 
 def test_daily_report_metric_contract_is_immutable() -> None:

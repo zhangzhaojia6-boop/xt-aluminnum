@@ -1805,7 +1805,8 @@ def test_dingtalk_supplement_needs_its_own_trace_for_fact_closure(
 
     closure_field = _fact_closure_field(bundle, "total_electricity_kwh")
     assert closure_field["status"] == "needs_evidence"
-    assert closure_field["source"] == "owner_or_energy_summary"
+    assert bundle["facts"]["total_electricity_kwh"]["source"] == "owner_or_energy_summary"
+    assert closure_field["source"] is None
     assert closure_field["trace_id"] is None
     assert bundle["dingtalk_refs"] == []
     assert any(

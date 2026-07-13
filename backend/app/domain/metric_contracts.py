@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 from app.core.business_time import OWNER_DAILY_BUSINESS_DAY_START, PRODUCTION_BUSINESS_DAY_START
@@ -112,7 +112,6 @@ class FactSourceContract:
 class DailyReportMetricContract:
     unit: str | None
     tolerance: float
-    allowed_source_types: frozenset[str]
     value_kind: str = 'finite_number'
     confirmation_allowed: bool = True
     allowed_non_confirmed_statuses: frozenset[str] = frozenset({'missing', 'conflict'})
@@ -121,6 +120,16 @@ class DailyReportMetricContract:
     requires_same_business_window: bool = False
     source_contracts: tuple[FactSourceContract, ...] = ()
     metric_contract_version: str = DAILY_REPORT_METRIC_CONTRACT_VERSION
+    field_name: str = ''
+
+    @property
+    def allowed_source_types(self) -> frozenset[str]:
+        if not self.confirmation_allowed:
+            return frozenset()
+        return frozenset(
+            contract.source_type
+            for contract in _canonical_source_contracts(self.field_name, self)
+        )
 
 
 def _dingtalk_source_contract() -> FactSourceContract:
@@ -226,6 +235,13 @@ def _projection_source_contracts(field_name: str) -> tuple[FactSourceContract, .
     return tuple(result)
 
 
+def _canonical_source_contracts(
+    field_name: str,
+    metric_contract: DailyReportMetricContract,
+) -> tuple[FactSourceContract, ...]:
+    return metric_contract.source_contracts + _projection_source_contracts(field_name)
+
+
 def _confirmable_source_contracts() -> tuple[FactSourceContract, ...]:
     return (
         _dingtalk_source_contract(),
@@ -233,162 +249,99 @@ def _confirmable_source_contracts() -> tuple[FactSourceContract, ...]:
     )
 
 
-DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
+def _bind_metric_contracts(
+    contracts: Mapping[str, DailyReportMetricContract],
+) -> dict[str, DailyReportMetricContract]:
+    return {
+        field_name: replace(contract, field_name=field_name)
+        for field_name, contract in contracts.items()
+    }
+
+
+DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = _bind_metric_contracts({
     'total_output_daily': DailyReportMetricContract(
         unit='吨',
         tolerance=20.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-            'mes_packaging_output',
-            'mes_verified',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'workshop_output_daily': DailyReportMetricContract(
         unit='吨',
         tolerance=0.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-        }),
         value_kind='numeric_mapping',
         source_contracts=_confirmable_source_contracts(),
     ),
     'finished_inbound_daily': DailyReportMetricContract(
         unit='吨',
         tolerance=20.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-            'finished_inbound_output',
-            'wms_direct',
-            'mes_stock_header_records',
-            'mes_stock_records',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'daily_input_weight': DailyReportMetricContract(
         unit='吨',
         tolerance=0.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'wip_total': DailyReportMetricContract(
         unit='吨',
         tolerance=20.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-            'mes_wip_distribution',
-            'mes_coil_snapshot_business_date',
-            'mes_daily_wip_snapshot',
-            'mes_wip_total_snapshot',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'total_electricity_kwh': DailyReportMetricContract(
         unit='kWh',
         tolerance=20.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-            'iot_energy',
-            'owner_daily',
-            'owner_or_energy_summary',
-            'data_hub_manual',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'total_gas_m3': DailyReportMetricContract(
         unit='m³',
         tolerance=0.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'electricity_per_ton': DailyReportMetricContract(
         unit='kWh/吨',
         tolerance=0.2,
-        allowed_source_types=frozenset({'dingtalk_supplement'}),
         requires_same_business_window=True,
         source_contracts=(_electricity_per_ton_source_contract(),),
     ),
     'daily_yield_rate': DailyReportMetricContract(
         unit='%',
         tolerance=0.2,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-            'owner_daily',
-            'quality_yield_daily',
-            'computed_same_basis',
-        }),
         requires_same_business_window=True,
         source_contracts=_confirmable_source_contracts(),
     ),
     'cost_per_ton': DailyReportMetricContract(
         unit='元/吨',
         tolerance=0.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'remaining_contract_weight': DailyReportMetricContract(
         unit='吨',
         tolerance=0.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'monthly_total_output': DailyReportMetricContract(
         unit='吨',
         tolerance=0.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'annual_total_output': DailyReportMetricContract(
         unit='吨',
         tolerance=0.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-        }),
         source_contracts=_confirmable_source_contracts(),
     ),
     'anomaly_explanation_daily': DailyReportMetricContract(
         unit=None,
         tolerance=0.0,
-        allowed_source_types=frozenset({
-            'dingtalk_supplement',
-            'root_owner_correction',
-        }),
         value_kind='nonempty_text',
         source_contracts=_confirmable_source_contracts(),
     ),
     'dingtalk_specialist_evidence': DailyReportMetricContract(
         unit=None,
         tolerance=0.0,
-        allowed_source_types=frozenset({'dingtalk_supplement'}),
         value_kind='evidence_collection',
         source_contracts=(_dingtalk_source_contract(),),
     ),
     'source_status': DailyReportMetricContract(
         unit=None,
         tolerance=0.0,
-        allowed_source_types=frozenset(),
         value_kind='diagnostic_status',
         confirmation_allowed=False,
         allowed_non_confirmed_statuses=frozenset({'candidate', 'missing', 'conflict'}),
@@ -399,7 +352,6 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
     'daily_report_readiness': DailyReportMetricContract(
         unit=None,
         tolerance=0.0,
-        allowed_source_types=frozenset(),
         value_kind='diagnostic_status',
         confirmation_allowed=False,
         allowed_non_confirmed_statuses=frozenset({'candidate', 'missing', 'conflict'}),
@@ -407,7 +359,7 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = {
             'daily_report_readiness_confirmed_not_allowed_without_persisted_diagnostic_anchor'
         ),
     ),
-}
+})
 
 
 def daily_report_contract_for(field: str) -> DailyReportMetricContract:
@@ -481,23 +433,12 @@ def fact_source_contract_for(
     if (
         metric_contract is None
         or not metric_contract.confirmation_allowed
-        or source_type not in metric_contract.allowed_source_types
     ):
         return None
-    source_contract = next(
-        (
-            source_contract
-            for source_contract in metric_contract.source_contracts
-            if source_contract.source_type == source_type
-        ),
-        None,
-    )
-    if source_contract is not None:
-        return source_contract
     return next(
         (
             source_contract
-            for source_contract in _projection_source_contracts(field_name)
+            for source_contract in _canonical_source_contracts(field_name, metric_contract)
             if source_contract.source_type == source_type
         ),
         None,

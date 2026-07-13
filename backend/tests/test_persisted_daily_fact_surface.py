@@ -30,10 +30,10 @@ FIELD_VALUES = {
 }
 FIELD_SOURCES = {
     "total_output_daily": "mes_packaging_output",
-    "finished_inbound_daily": "finished_inbound_output",
-    "wip_total": "mes_wip_distribution",
-    "total_electricity_kwh": "owner_or_energy_summary",
-    "daily_yield_rate": "computed_same_basis",
+    "finished_inbound_daily": "mes_stock_header_records",
+    "wip_total": "mes_daily_wip_snapshot",
+    "total_electricity_kwh": "root_owner_correction",
+    "daily_yield_rate": "root_owner_correction",
 }
 
 

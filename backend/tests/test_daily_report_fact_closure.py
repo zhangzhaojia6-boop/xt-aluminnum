@@ -13,9 +13,9 @@ from app.services.report.daily_report_fact_closure import (
 def _confirmed_bundle() -> dict[str, Any]:
     sources = {
         "total_output_daily": "mes_packaging_output",
-        "finished_inbound_daily": "finished_inbound_output",
-        "wip_total": "mes_wip_distribution",
-        "total_electricity_kwh": "owner_or_energy_summary",
+        "finished_inbound_daily": "mes_stock_header_records",
+        "wip_total": "mes_daily_wip_snapshot",
+        "total_electricity_kwh": "root_owner_correction",
         "daily_yield_rate": "root_owner_correction",
     }
     values = {
@@ -149,18 +149,33 @@ def test_pseudo_mes_or_wms_source_strings_need_evidence() -> None:
         assert _field_status(closure, "total_output_daily") == "needs_evidence"
 
 
-def test_real_bundle_source_types_with_per_field_traces_confirm_where_intended() -> None:
+@pytest.mark.parametrize(
+    ("field_name", "source_type"),
+    [
+        ("total_output_daily", "mes_verified"),
+        ("finished_inbound_daily", "finished_inbound_output"),
+        ("finished_inbound_daily", "wms_direct"),
+        ("wip_total", "mes_wip_distribution"),
+        ("total_electricity_kwh", "data_hub_manual"),
+        ("total_electricity_kwh", "iot_energy"),
+        ("total_electricity_kwh", "owner_daily"),
+        ("total_electricity_kwh", "owner_or_energy_summary"),
+        ("daily_yield_rate", "computed_same_basis"),
+        ("daily_yield_rate", "owner_daily"),
+        ("daily_yield_rate", "quality_yield_daily"),
+    ],
+)
+def test_unanchored_source_type_needs_evidence(
+    field_name: str,
+    source_type: str,
+) -> None:
     bundle = _confirmed_bundle()
-    _set_source(bundle, "total_output_daily", "mes_packaging_output")
-    _set_source(bundle, "finished_inbound_daily", "finished_inbound_output")
-    _set_source(bundle, "wip_total", "mes_wip_distribution")
-    _set_source(bundle, "total_electricity_kwh", "owner_or_energy_summary")
-    _set_source(bundle, "daily_yield_rate", "computed_same_basis")
+    _set_source(bundle, field_name, source_type)
 
     closure = build_daily_report_fact_closure(bundle)
 
-    assert closure["status"] == "pass"
-    assert closure["counts"]["confirmed"] == len(CRITICAL_DAILY_FACT_FIELDS)
+    assert closure["status"] == "blocked"
+    assert _field_status(closure, field_name) == "needs_evidence"
 
 
 def test_mes_stock_header_records_only_confirms_finished_inbound() -> None:
@@ -204,16 +219,6 @@ def test_daily_yield_rate_plain_computed_source_needs_evidence() -> None:
 
     assert closure["status"] == "blocked"
     assert _field_status(closure, "daily_yield_rate") == "needs_evidence"
-
-
-def test_daily_yield_rate_computed_same_basis_with_field_trace_is_confirmed() -> None:
-    bundle = _confirmed_bundle()
-    _set_source(bundle, "daily_yield_rate", "computed_same_basis")
-
-    closure = build_daily_report_fact_closure(bundle)
-
-    assert closure["status"] == "pass"
-    assert _field_status(closure, "daily_yield_rate") == "confirmed"
 
 
 def test_derived_and_reference_sources_block_even_with_allowed_source_present() -> None:
@@ -286,16 +291,6 @@ def test_yield_projection_for_daily_yield_rate_needs_evidence() -> None:
 
     assert closure["status"] == "blocked"
     assert _field_status(closure, "daily_yield_rate") == "needs_evidence"
-
-
-def test_total_electricity_allows_data_hub_manual_source() -> None:
-    bundle = _confirmed_bundle()
-    _set_source(bundle, "total_electricity_kwh", "data_hub_manual")
-
-    closure = build_daily_report_fact_closure(bundle)
-
-    assert closure["status"] == "pass"
-    assert _field_status(closure, "total_electricity_kwh") == "confirmed"
 
 
 def test_every_critical_field_has_required_keys() -> None:
