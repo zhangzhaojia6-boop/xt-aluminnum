@@ -28,7 +28,6 @@ const CORE_PAGES = [
 const SECONDARY_PAGES = [
   ['fill-details', fillDetails],
   ['energy', energy],
-  ['alerts', alerts],
   ['workshop-dashboard', workshopDashboard],
 ]
 
@@ -56,6 +55,11 @@ test('second pass secondary management pages keep the same visual pass and sourc
     assert.match(src, /人工填报/, `${name} missing manual source label`)
     assert.match(src, /算法数据/, `${name} missing algorithm source label`)
   }
+  assert.match(alerts, /data-visual-pass="stitch-image2-second-pass"/)
+  assert.doesNotMatch(alerts, /data-testid="second-pass-source-strip"/)
+  assert.doesNotMatch(alerts, />MES 外部数据</)
+  assert.doesNotMatch(alerts, />人工填报</)
+  assert.doesNotMatch(alerts, />算法数据</)
 })
 
 test('system settings exposes the thirteen-workshop and MES mapping cockpit in the same visual language', () => {

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createAlertsTimeline } from '../src/composables/useAlertsTimeline.js'
+import { buildAlertWorkQueues } from '../src/components/manage/_alertEventNormalize.js'
 
 function makeFakes({ fdOk = true, qOk = true, rOk = true, liveOk = true } = {}) {
   return {
@@ -239,6 +240,15 @@ test('missing canonical capability becomes a system fallback without business co
     reconciliation: 0,
     mes: 0,
   })
+  const businessEvents = t.events.value.filter((event) => !event.isFallback)
+  const capabilityEvents = t.events.value.filter((event) => event.isFallback)
+  const queueCount = buildAlertWorkQueues(t.events.value)
+    .reduce((sum, queue) => sum + queue.count, 0)
+  assert.equal(businessEvents.length, 0)
+  assert.equal(businessEvents.filter((event) => event.status === 'open').length, 0)
+  assert.equal(queueCount, 0)
+  assert.equal(capabilityEvents.length, 1)
+  assert.equal(capabilityEvents[0].summary, '当日事实闭包不可用')
 })
 
 test('available canonical capability does not create a system fallback', async () => {
@@ -263,27 +273,36 @@ test('available canonical capability does not create a system fallback', async (
   assert.deepEqual(t.events.value, [])
 })
 
-test('daily fact alert detail never exposes a derived reference source', async () => {
+test('daily fact alert detail never exposes derived or unknown sources', async () => {
   const t = createAlertsTimeline({
     ...makeEmptyFakes(),
     fetchDailyProduction: async () => ({
       fact_closure_available: true,
-      fact_missing: [{
-        id: 'missing-derived-source',
-        field: 'total_output_daily',
-        source: 'output_skill',
-        status: 'needs_evidence',
-        target_date: '2026-05-19',
-      }],
+      fact_missing: [
+        {
+          id: 'missing-derived-source',
+          field: 'total_output_daily',
+          source: 'output_skill',
+          status: 'needs_evidence',
+          target_date: '2026-05-19',
+        },
+        {
+          id: 'missing-unknown-source',
+          field: 'finished_inbound_daily',
+          source: 'invented_unapproved_source',
+          status: 'needs_evidence',
+          target_date: '2026-05-19',
+        },
+      ],
     }),
     now: new Date('2026-05-20T08:00:00'),
   })
 
   await t.load()
 
-  assert.equal(t.events.value.length, 1)
-  assert.doesNotMatch(t.events.value[0].detail, /output_skill/)
-  assert.match(t.events.value[0].detail, /暂无可信来源/)
+  assert.equal(t.events.value.length, 2)
+  for (const event of t.events.value) assert.match(event.detail, /暂无可信来源/)
+  assert.doesNotMatch(JSON.stringify(t.events.value), /output_skill|invented_unapproved_source/)
 })
 
 test('initial trace query filters the timeline to matching real events', async () => {
@@ -323,6 +342,10 @@ test('daily endpoint failure adds a visible non-business fallback and lastError'
   assert.equal(t.events.value[0].detailRoute, '/manage/today?section=daily-report')
   assert.match(t.lastError.value, /事实|日报/)
   assert.equal(t.domainCounts.value.reporting, 0)
+  assert.equal(
+    buildAlertWorkQueues(t.events.value).reduce((sum, queue) => sum + queue.count, 0),
+    0
+  )
 })
 
 test('domainCounts reflects full unfiltered totals', async () => {

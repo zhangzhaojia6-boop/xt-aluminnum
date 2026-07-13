@@ -310,7 +310,7 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
     'hermes-failure': `${row.agent_code || row.agentCode || 'Hermes'} 运行失败`,
     'dingtalk-failure': `${row.agent_code || row.agentCode || '钉钉入站'} 运行失败`,
   }
-  const factSource = safeFactSource(row.source ?? row.source_type)
+  const factSource = safeFactSource(row.source ?? row.source_type, field)
   const sourceLabel = kind.startsWith('fact-')
     ? (factSource || '暂无可信来源')
     : factSource
@@ -392,7 +392,7 @@ const ALERT_WORK_QUEUE_DEFS = [
 
 export function buildAlertWorkQueues(events = []) {
   const buckets = Object.fromEntries(ALERT_WORK_QUEUE_DEFS.map((item) => [item.key, []]))
-  safeArray(events).forEach((event) => {
+  safeArray(events).filter((event) => !event?.isFallback).forEach((event) => {
     const key = queueKeyForEvent(event)
     buckets[key].push(event)
   })

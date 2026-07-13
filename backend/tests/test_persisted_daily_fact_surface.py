@@ -378,12 +378,20 @@ def test_derived_reference_sources_never_reach_manage_fact_or_alert_surfaces(db_
     _add_snapshot(
         db_session,
         facts=facts,
-        conflicts=[{
-            "field": "finished_inbound_daily",
-            "status": "mismatch",
-            "source": "official_daily_report",
-            "trace_id": "trace-reference-source",
-        }],
+        conflicts=[
+            {
+                "field": "finished_inbound_daily",
+                "status": "mismatch",
+                "source": "official_daily_report",
+                "trace_id": "trace-reference-source",
+            },
+            {
+                "field": "total_electricity_kwh",
+                "status": "mismatch",
+                "source": "invented_unapproved_source",
+                "trace_id": "trace-unknown-source",
+            },
+        ],
         value_suffix="derived-source-redaction",
     )
     db_session.commit()
@@ -401,7 +409,8 @@ def test_derived_reference_sources_never_reach_manage_fact_or_alert_surfaces(db_
     ]
     assert payload["fact_missing"][0]["source"] is None
     assert _field(payload, "wip_total")["source"] is None
-    assert payload["fact_conflicts"][0]["source"] is None
+    assert [item["source"] for item in payload["fact_conflicts"]] == [None, None]
     assert "output_skill" not in str(payload["fact_closure"])
     assert "official_daily_report" not in str(payload["fact_conflicts"])
     assert "invented_unapproved_source" not in str(payload["fact_closure"])
+    assert "invented_unapproved_source" not in str(payload["fact_conflicts"])

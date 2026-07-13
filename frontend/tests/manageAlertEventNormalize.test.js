@@ -186,3 +186,19 @@ test('buildAlertWorkQueues keeps known quality and reconciliation domains before
   assert.equal(queues.find((queue) => queue.key === 'energy')?.count, 1)
   assert.equal(queues.find((queue) => queue.key === 'mes')?.count, 1)
 })
+
+test('buildAlertWorkQueues excludes capability fallbacks from every business queue', () => {
+  const queues = buildAlertWorkQueues([
+    {
+      id: 'fact-closure-capability:missing',
+      domain: 'reporting',
+      summary: '当日事实闭包不可用',
+      status: null,
+      isFallback: true,
+    },
+  ])
+
+  assert.equal(queues.reduce((sum, queue) => sum + queue.count, 0), 0)
+  assert.equal(queues.reduce((sum, queue) => sum + queue.openCount, 0), 0)
+  assert.deepEqual(queues.flatMap((queue) => queue.items), [])
+})

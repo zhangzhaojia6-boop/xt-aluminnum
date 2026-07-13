@@ -2,25 +2,45 @@ import { filterActiveWorkshopRows, isRetiredWorkshopName } from './activeWorksho
 
 export const MISSING_DAILY_VALUE = '暂无可信数据'
 
-const DERIVED_REFERENCE_SOURCES = new Set([
-  'official_daily_report',
-  'datahub_final_daily_report',
-  'daily_fact_bundle',
-  'formal',
-  'formal_daily_report',
-  'formal_report',
-  'historical',
-  'historical_report',
-  'output_skill',
-  'rag',
-  'reference_only',
-  'data_hub_projection',
-  'yield_projection',
-  'contract_projection',
-  'computed',
-  'unknown',
-  'missing',
-])
+const TRUSTED_FACT_SOURCES = {
+  total_output_daily: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'mes_packaging_output',
+    'mes_verified',
+  ]),
+  finished_inbound_daily: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'finished_inbound_output',
+    'wms_direct',
+    'mes_stock_header_records',
+    'mes_stock_records',
+  ]),
+  wip_total: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'mes_wip_distribution',
+    'mes_coil_snapshot_business_date',
+    'mes_daily_wip_snapshot',
+    'mes_wip_total_snapshot',
+  ]),
+  total_electricity_kwh: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'iot_energy',
+    'owner_daily',
+    'owner_or_energy_summary',
+    'data_hub_manual',
+  ]),
+  daily_yield_rate: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'owner_daily',
+    'quality_yield_daily',
+    'computed_same_basis',
+  ]),
+}
 
 function normalizeFactSource(value) {
   if (typeof value !== 'string' || !value.trim()) return ''
@@ -32,9 +52,10 @@ function normalizeFactSource(value) {
     .replace(/^_|_$/g, '')
 }
 
-export function safeFactSource(value) {
+export function safeFactSource(value, field) {
   const normalized = normalizeFactSource(value)
-  if (!normalized || DERIVED_REFERENCE_SOURCES.has(normalized)) return null
+  const allowed = TRUSTED_FACT_SOURCES[field]
+  if (!normalized || !allowed?.has(normalized)) return null
   return value.trim()
 }
 
@@ -294,7 +315,7 @@ export function buildFactClosureSurface(factClosure) {
       value: Object.prototype.hasOwnProperty.call(field, 'value') ? field.value : null,
       unit: typeof field.unit === 'string' ? field.unit : null,
       status: typeof field.status === 'string' && field.status ? field.status : 'missing',
-      source: safeFactSource(field.source) || '暂无可信来源',
+      source: safeFactSource(field.source, field.field) || '暂无可信来源',
       businessWindow: typeof field.business_window === 'string' ? field.business_window : null,
       action: typeof field.action === 'string' && field.action ? field.action : '等待鑫泰铝业智能大脑追踪',
       traceId: typeof field.trace_id === 'string' ? field.trace_id : '',

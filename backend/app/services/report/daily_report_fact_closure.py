@@ -26,25 +26,6 @@ CRITICAL_DAILY_FACT_FIELDS = (
 )
 
 BLOCKING_STATUSES = {"missing", "mismatch", "needs_evidence"}
-DERIVED_REFERENCE_SOURCE_TYPES = {
-    "official_daily_report",
-    "datahub_final_daily_report",
-    "daily_fact_bundle",
-    "formal",
-    "formal_daily_report",
-    "formal_report",
-    "historical",
-    "historical_report",
-    "output_skill",
-    "rag",
-    "reference_only",
-    "data_hub_projection",
-    "yield_projection",
-    "contract_projection",
-    "computed",
-    "unknown",
-    "missing",
-}
 
 
 def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]:
@@ -65,11 +46,7 @@ def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]
     for field in CRITICAL_DAILY_FACT_FIELDS:
         fact = _mapping(facts.get(field))
         source_types = _source_types(fact, sources.get(field))
-        source = _safe_surface_source(
-            field,
-            _source_for_field(fact, sources.get(field)),
-            source_types,
-        )
+        source = _source_for_field(field, fact, sources.get(field))
         value = _value_for_field(bundle, fact, field)
         unit = fact.get("unit")
         business_window = _mapping(fact.get("source_detail")).get("business_window")
@@ -192,8 +169,8 @@ def _fact_conflict_alerts(conflicts: Any, *, target_date: date) -> list[dict[str
     for index, raw in enumerate(conflicts):
         if not isinstance(raw, Mapping):
             continue
-        item = _redact_derived_source_values(dict(raw))
-        field = str(item.get("field") or item.get("field_name") or "unknown")
+        field = str(raw.get("field") or raw.get("field_name") or "unknown")
+        item = _redact_untrusted_source_values(dict(raw), field=field)
         trace_id = _present_text(item.get("trace_id"))
         item.setdefault("id", f"{field}:{index}")
         item.setdefault("status", "mismatch")
@@ -371,7 +348,7 @@ def _source_types(fact: Mapping[str, Any], source_detail: Any) -> list[str]:
     return normalized
 
 
-def _source_for_field(fact: Mapping[str, Any], source_detail: Any) -> Any:
+def _source_for_field(field: str, fact: Mapping[str, Any], source_detail: Any) -> Any:
     source = _mapping(source_detail)
     fact_detail = _mapping(fact.get("source_detail"))
     nested_source = _mapping(source.get("source_detail"))
@@ -385,34 +362,59 @@ def _source_for_field(fact: Mapping[str, Any], source_detail: Any) -> Any:
         nested_source.get("source"),
         nested_source.get("source_type"),
     ):
-        if _has_value(value):
+        if _source_value_is_allowed(field, value):
             return value
     return None
 
 
-def _safe_surface_source(field: str, source: Any, source_types: list[str]) -> Any:
-    if not _is_allowed_source(field, source_types):
-        return None
-    return source
-
-
-def _redact_derived_source_values(value: Any, *, source_context: bool = False) -> Any:
+def _redact_untrusted_source_values(
+    value: Any,
+    *,
+    field: str,
+    source_context: bool = False,
+) -> Any:
     if isinstance(value, Mapping):
         return {
-            key: _redact_derived_source_values(
+            key: _redact_untrusted_source_values(
                 item,
-                source_context=source_context or "source" in str(key).lower(),
+                field=field,
+                source_context=_is_source_value_key(key),
             )
             for key, item in value.items()
         }
     if isinstance(value, list):
         return [
-            _redact_derived_source_values(item, source_context=source_context)
+            _redact_untrusted_source_values(
+                item,
+                field=field,
+                source_context=source_context,
+            )
             for item in value
         ]
-    if source_context and _normalize_source_type(value) in DERIVED_REFERENCE_SOURCE_TYPES:
+    if source_context and not _source_value_is_allowed(field, value):
         return None
     return value
+
+
+def _is_source_value_key(key: Any) -> bool:
+    normalized = str(key).strip().lower()
+    return (
+        normalized in {"source", "source_type", "sources"}
+        or normalized.endswith("_source")
+        or normalized.endswith("_source_type")
+        or (normalized.startswith("source_") and normalized != "source_detail")
+    )
+
+
+def _source_value_is_allowed(field: str, value: Any) -> bool:
+    source_type = _normalize_source_type(value)
+    if source_type is None:
+        return False
+    try:
+        allowed = daily_report_contract_for(field).allowed_source_types
+    except KeyError:
+        return False
+    return source_type in allowed
 
 
 def _trace_id_for_field(
@@ -443,7 +445,5 @@ def _normalize_source_type(value: Any) -> str | None:
 
 
 def _is_allowed_source(field: str, source_types: list[str]) -> bool:
-    if any(source_type in DERIVED_REFERENCE_SOURCE_TYPES for source_type in source_types):
-        return False
     allowed = daily_report_contract_for(field).allowed_source_types
     return bool(source_types) and all(source_type in allowed for source_type in source_types)

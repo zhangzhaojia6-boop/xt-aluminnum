@@ -267,7 +267,7 @@ test('fact closure surface shows zero blocked count when critical facts are conf
         value: 62,
         unit: '吨',
         status: 'confirmed',
-        source: '钉钉群日报',
+        source: 'dingtalk_supplement',
         action: '已完成',
         trace_id: 'trace-1',
         business_window: '2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00',
@@ -277,7 +277,7 @@ test('fact closure surface shows zero blocked count when critical facts are conf
         value: 58.5,
         unit: '吨',
         status: 'confirmed',
-        source: '成品入库单',
+        source: 'wms_direct',
         action: '已完成',
         trace_id: 'trace-2',
         business_window: '2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00',
@@ -293,7 +293,7 @@ test('fact closure surface shows zero blocked count when critical facts are conf
       value: 62,
       unit: '吨',
       status: 'confirmed',
-      source: '钉钉群日报',
+      source: 'dingtalk_supplement',
       businessWindow: '2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00',
       action: '已完成',
       traceId: 'trace-1',
@@ -303,7 +303,7 @@ test('fact closure surface shows zero blocked count when critical facts are conf
       value: 58.5,
       unit: '吨',
       status: 'confirmed',
-      source: '成品入库单',
+      source: 'wms_direct',
       businessWindow: '2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00',
       action: '已完成',
       traceId: 'trace-2',
@@ -327,7 +327,7 @@ test('fact closure surface counts missing and mismatch facts as blocked', () => 
         value: 58.5,
         unit: '吨',
         status: 'mismatch',
-        source: 'MES/WMS 对比',
+        source: 'wms_direct',
         trace_id: 'trace-3',
         business_window: 'window-3',
       },
@@ -336,7 +336,7 @@ test('fact closure surface counts missing and mismatch facts as blocked', () => 
         value: 93.4,
         unit: '%',
         status: 'confirmed',
-        source: '日报快照',
+        source: 'computed_same_basis',
       },
     ],
   })
@@ -359,7 +359,7 @@ test('fact closure surface counts missing and mismatch facts as blocked', () => 
       value: 58.5,
       unit: '吨',
       status: 'mismatch',
-      source: 'MES/WMS 对比',
+      source: 'wms_direct',
       businessWindow: 'window-3',
       action: '等待鑫泰铝业智能大脑追踪',
       traceId: 'trace-3',
@@ -369,7 +369,7 @@ test('fact closure surface counts missing and mismatch facts as blocked', () => 
       value: 93.4,
       unit: '%',
       status: 'confirmed',
-      source: '日报快照',
+      source: 'computed_same_basis',
       businessWindow: null,
       action: '等待鑫泰铝业智能大脑追踪',
       traceId: '',
@@ -462,6 +462,32 @@ test('fact closure surface redacts derived reference sources without changing fa
   assert.equal(card.value, '--')
   assert.equal(card.status, 'needs_evidence')
   assert.equal(card.sourceLabel, '暂无可信来源')
+})
+
+test('fact closure surface and mapped KPI hide unknown unapproved sources', () => {
+  const closure = {
+    status: 'blocked',
+    critical_fields: [{
+      field: 'total_output_daily',
+      value: 62,
+      unit: '吨',
+      source: 'invented_unapproved_source',
+      status: 'needs_evidence',
+      business_window: 'window-real',
+      trace_id: 'trace-real',
+    }],
+  }
+
+  const surface = buildFactClosureSurface(closure)
+  const card = buildDailySettlementCards({ plant_output: { daily_output: 999 } }, closure)
+    .find((item) => item.key === 'plant-output')
+
+  assert.equal(surface.criticalFields[0].source, '暂无可信来源')
+  assert.equal(surface.criticalFields[0].status, 'needs_evidence')
+  assert.equal(surface.criticalFields[0].businessWindow, 'window-real')
+  assert.equal(card.value, '--')
+  assert.equal(card.sourceLabel, '暂无可信来源')
+  assert.doesNotMatch(JSON.stringify({ surface, card }), /invented_unapproved_source/)
 })
 
 test('openFactTrace pushes only non-empty traces through the existing alerts route', () => {
