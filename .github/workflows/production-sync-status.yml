@@ -217,6 +217,11 @@ jobs:
           PY
           }
 
+          alembic_revisions_valid() {
+            local revisions="${1:-}"
+            [[ "$revisions" =~ ^[0-9a-fA-F]+(,[0-9a-fA-F]+)*$ ]]
+          }
+
           report_http_json() {
             local label="$1"
             local url="$2"
@@ -492,18 +497,28 @@ jobs:
           fi
 
           "$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"
-          PRE_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"
-          echo "PRE_MIGRATION_REVISIONS=$PRE_MIGRATION_REVISIONS"
           NEEDS_DB_RESTORE=1
+          if PRE_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"; then
+            :
+          else
+            echo "PRE_MIGRATION_REVISION_DETECTION_FAILED"
+            exit 45
+          fi
+          echo "PRE_MIGRATION_REVISIONS=$PRE_MIGRATION_REVISIONS"
           if ! (
             cd "$DATAHUB_REPO/backend" &&
             DATABASE_URL="$RAW_DATABASE_URL" ./.venv/bin/python -m alembic upgrade head
           ); then
             exit 42
           fi
-          POST_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"
+          if POST_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"; then
+            :
+          else
+            echo "POST_MIGRATION_REVISION_DETECTION_FAILED"
+            exit 46
+          fi
           echo "POST_MIGRATION_REVISIONS=$POST_MIGRATION_REVISIONS"
-          if [ "$PRE_MIGRATION_REVISIONS" = "$POST_MIGRATION_REVISIONS" ]; then
+          if alembic_revisions_valid "$PRE_MIGRATION_REVISIONS" && alembic_revisions_valid "$POST_MIGRATION_REVISIONS" && [ "$PRE_MIGRATION_REVISIONS" = "$POST_MIGRATION_REVISIONS" ]; then
             NEEDS_DB_RESTORE=0
           fi
 
