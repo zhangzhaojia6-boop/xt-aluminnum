@@ -5,6 +5,7 @@ import importlib.util
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, cast
+from zoneinfo import ZoneInfo
 
 import pytest
 import sqlalchemy as sa
@@ -17,6 +18,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
+from app.models.mes import MesSyncRunLog
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 
@@ -43,6 +45,7 @@ def db_session() -> Iterator[Session]:
             cast(Table, User.__table__),
             cast(Table, ChatInboxMessage.__table__),
             cast(Table, MultimodalEvidence.__table__),
+            cast(Table, MesSyncRunLog.__table__),
             cast(Table, DailyFactBundleRun.__table__),
             cast(Table, DailyFactBundleSnapshot.__table__),
             cast(Table, DailyFactCorrection.__table__),
@@ -75,7 +78,7 @@ def test_daily_fact_bundle_tables_are_registered() -> None:
         ],
     )
 
-    _assert_daily_fact_bundle_schema(inspect(engine))
+    _assert_daily_fact_bundle_schema(inspect(engine), expect_snapshot_key=True)
 
 
 def test_daily_fact_bundle_migration_creates_sqlite_tables_and_indexes(monkeypatch) -> None:
@@ -89,16 +92,36 @@ def test_daily_fact_bundle_migration_creates_sqlite_tables_and_indexes(monkeypat
         monkeypatch.setattr(migration, "op", operations)
 
         migration.upgrade()
-        _assert_daily_fact_bundle_schema(inspect(connection))
+        _assert_daily_fact_bundle_schema(inspect(connection), expect_snapshot_key=False)
 
         migration.upgrade()
-        _assert_daily_fact_bundle_schema(inspect(connection))
+        _assert_daily_fact_bundle_schema(inspect(connection), expect_snapshot_key=False)
 
         migration.downgrade()
         table_names = set(inspect(connection).get_table_names())
         assert "daily_fact_bundle_runs" not in table_names
         assert "daily_fact_bundle_snapshots" not in table_names
         assert "daily_fact_corrections" not in table_names
+
+
+def test_daily_fact_bundle_snapshot_key_migration_adds_unique_nullable_key(monkeypatch) -> None:
+    base_migration = _load_daily_fact_bundle_migration()
+    snapshot_key_migration = _load_snapshot_key_migration()
+    engine = create_engine("sqlite:///:memory:")
+
+    with engine.begin() as connection:
+        sa.Table("users", sa.MetaData(), sa.Column("id", sa.Integer(), primary_key=True)).create(connection)
+        context = MigrationContext.configure(connection)
+        operations = Operations(context)
+        monkeypatch.setattr(base_migration, "op", operations)
+        monkeypatch.setattr(snapshot_key_migration, "op", operations)
+
+        base_migration.upgrade()
+        snapshot_key_migration.upgrade()
+        _assert_daily_fact_bundle_schema(inspect(connection), expect_snapshot_key=True)
+
+        snapshot_key_migration.downgrade()
+        _assert_daily_fact_bundle_schema(inspect(connection), expect_snapshot_key=False)
 
 
 def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Session) -> None:
@@ -138,15 +161,9 @@ def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Se
     assert fact["priority"] == 80
     assert fact["confidence"] == 0.85
     assert fact["adoption_reason"] == "来自 mes_packaging_output"
-    assert fact["source_detail"] == {
-        "source": "mes_packaging_output",
-        "source_type": "mes_packaging_output",
-        "source_ref": "mes_workshop_process_records",
-        "business_window": "2026-06-19T07:50:00+08:00/2026-06-20T07:50:00+08:00",
-        "unit": "吨",
-        "trace_id": "mes:total_output_daily:2026-06-19",
-        "metric_contract_version": "2026-07-11",
-    }
+    assert fact["source_detail"] == {"source": "mes_packaging_output"}
+    assert fact["evidence_status"] == "needs_evidence"
+    assert "missing_trace_id" in fact["evidence_gaps"]
     assert bundle["missing_fields"] == []
     assert bundle["missing"] == []
     assert bundle["conflicts"] == []
@@ -157,7 +174,7 @@ def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Se
     } == EXPECTED_CRITICAL_DAILY_FACT_FIELDS
 
 
-def test_daily_fact_bundle_adds_complete_field_specific_mes_source_traces(
+def test_daily_fact_bundle_empty_mes_projection_needs_evidence_without_forged_metadata(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -165,19 +182,13 @@ def test_daily_fact_bundle_adds_complete_field_specific_mes_source_traces(
 
     def fake_template_facts(db, *, target_date, wip_date=None):
         return {
-            "values": {
-                "total_output_daily": 366,
-                "finished_inbound_daily": 126.4,
-            },
+            "values": {"total_output_daily": 0},
             "sources": {
                 "total_output_daily": {
                     "source_type": "mes_packaging_output",
                     "source_table": "MES_ProductProcessRecord",
-                },
-                "finished_inbound_daily": {
-                    "source_type": "finished_inbound_output",
-                    "source_table": "WMS_InStock",
-                },
+                    "row_count": 0,
+                }
             },
             "missing_fields": [],
             "conflicts": [],
@@ -194,25 +205,222 @@ def test_daily_fact_bundle_adds_complete_field_specific_mes_source_traces(
         business_date=date(2026, 7, 7),
     )
 
-    expected_window = "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00"
-    expected_sources = {
-        "total_output_daily": ("mes_packaging_output", "MES_ProductProcessRecord"),
-        "finished_inbound_daily": ("finished_inbound_output", "WMS_InStock"),
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["source_detail"] == {
+        "source_type": "mes_packaging_output",
+        "source_table": "MES_ProductProcessRecord",
+        "row_count": 0,
     }
-    for field_name, (source_type, source_ref) in expected_sources.items():
-        fact = bundle["facts"][field_name]
-        for source in (fact["source_detail"], fact["source_ref"]):
-            assert source["source_type"] == source_type
-            assert source["source_ref"] == source_ref
-            assert source["business_window"] == expected_window
-            assert source["unit"] == "吨"
-            assert source["trace_id"] == f"mes:{field_name}:2026-07-07"
-            assert source["metric_contract_version"] == "2026-07-11"
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
 
-    assert (
-        bundle["facts"]["total_output_daily"]["source_detail"]["trace_id"]
-        != bundle["facts"]["finished_inbound_daily"]["source_detail"]["trace_id"]
+
+def test_daily_fact_bundle_direct_source_requires_row_or_sync_evidence(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 366},
+            "sources": {
+                "total_output_daily": {
+                    "source_type": "mes_packaging_output",
+                    "source_ref": "MES_ProductProcessRecord",
+                    "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+                    "unit": "吨",
+                    "trace_id": "projection-read:packaging:2026-07-07",
+                    "metric_contract_version": "2026-07-11",
+                }
+            },
+            "missing_fields": [],
+            "conflicts": [],
+        },
     )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+    )
+
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["evidence_status"] == "needs_evidence"
+    assert "missing_read_evidence" in fact["evidence_gaps"]
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
+
+
+def test_daily_fact_bundle_rejects_unknown_mes_sync_run_as_read_evidence(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 366},
+            "sources": {
+                "total_output_daily": {
+                    "source_type": "mes_packaging_output",
+                    "source_ref": "MES_ProductProcessRecord",
+                    "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+                    "unit": "吨",
+                    "sync_run_id": 999,
+                    "trace_id": "mes-sync-run:999",
+                    "metric_contract_version": "2026-07-11",
+                }
+            },
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+    )
+
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["evidence_status"] == "needs_evidence"
+    assert "missing_read_evidence" in fact["evidence_gaps"]
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
+
+
+@pytest.mark.parametrize(
+    ("evidence_cursor_key", "evidence_trace_id", "expected_status"),
+    [
+        ("mes_workshop_process_records_between", None, "confirmed"),
+        ("mes_stock_records_between", None, "needs_evidence"),
+        ("mes_workshop_process_records_between", "mes-sync-run:999", "needs_evidence"),
+    ],
+)
+def test_daily_fact_bundle_only_accepts_matching_completed_mes_sync_run(
+    monkeypatch,
+    db_session: Session,
+    evidence_cursor_key: str,
+    evidence_trace_id: str | None,
+    expected_status: str,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    sync_run = MesSyncRunLog(
+        cursor_key="mes_workshop_process_records_between",
+        started_at=datetime(2026, 7, 8, 7, 55, tzinfo=ZoneInfo("Asia/Shanghai")),
+        finished_at=datetime(2026, 7, 8, 7, 56, tzinfo=ZoneInfo("Asia/Shanghai")),
+        status="success",
+        fetched_count=3,
+    )
+    db_session.add(sync_run)
+    db_session.flush()
+    source = {
+        "source_type": "mes_packaging_output",
+        "source_ref": "MES_ProductProcessRecord",
+        "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+        "unit": "吨",
+        "sync_run_id": sync_run.id,
+        "cursor_key": evidence_cursor_key,
+        "trace_id": evidence_trace_id or f"mes-sync-run:{sync_run.id}",
+        "metric_contract_version": "2026-07-11",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 366},
+            "sources": {"total_output_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["evidence_status"] == expected_status
+    assert ("missing_read_evidence" in fact["evidence_gaps"]) is (expected_status == "needs_evidence")
+
+
+def test_daily_fact_bundle_does_not_confirm_unclosed_1000_business_window(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    source = {
+        "source_type": "mes_material_records",
+        "source_ref": "MES_MaterialRecord",
+        "business_window": "2026-07-07T10:00:00+08:00/2026-07-08T10:00:00+08:00",
+        "unit": "吨",
+        "row_count": 3,
+        "trace_id": "projection-read:mes_material_records:2026-07-07:3",
+        "metric_contract_version": "2026-07-11",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 70},
+            "sources": {"total_output_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["source_detail"]["business_window"] == source["business_window"]
+    assert fact["evidence_status"] == "needs_evidence"
+    assert "business_window_not_closed" in fact["evidence_gaps"]
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
+
+
+def test_daily_fact_bundle_preserves_direct_source_unit_after_1000_window_closes(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    source = {
+        "source_type": "mes_material_records",
+        "source_ref": "MES_Material",
+        "business_window": "2026-07-07T10:00:00+08:00/2026-07-08T10:00:00+08:00",
+        "unit": "吨",
+        "row_count": 3,
+        "trace_id": "projection-read:mes_material_records:42:3",
+        "metric_contract_version": "2026-07-11",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"hot_roll_daily": 70},
+            "sources": {"hot_roll_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 10, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    fact = bundle["facts"]["hot_roll_daily"]
+    assert fact["unit"] == "吨"
+    assert fact["evidence_status"] == "confirmed"
 
 
 def test_daily_fact_bundle_does_not_forge_mes_trace_for_non_mes_source(
@@ -248,7 +456,7 @@ def test_daily_fact_bundle_does_not_forge_mes_trace_for_non_mes_source(
     assert "trace_id" not in fact["source_ref"]
 
 
-def test_daily_fact_bundle_only_confirms_direct_mes_fields_with_generated_traces(
+def test_daily_fact_bundle_does_not_confirm_sources_without_real_field_traces(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -284,11 +492,11 @@ def test_daily_fact_bundle_only_confirms_direct_mes_fields_with_generated_traces
 
     closure = bundle["fact_closure"]
     assert closure["status"] == "blocked"
-    assert closure["counts"]["confirmed"] == 3
-    assert closure["counts"]["needs_evidence"] == 2
-    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "confirmed"
-    assert _fact_closure_field(bundle, "finished_inbound_daily")["status"] == "confirmed"
-    assert _fact_closure_field(bundle, "wip_total")["status"] == "confirmed"
+    assert closure["counts"]["confirmed"] == 0
+    assert closure["counts"]["needs_evidence"] == 5
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
+    assert _fact_closure_field(bundle, "finished_inbound_daily")["status"] == "needs_evidence"
+    assert _fact_closure_field(bundle, "wip_total")["status"] == "needs_evidence"
     assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "needs_evidence"
     assert _fact_closure_field(bundle, "daily_yield_rate")["status"] == "needs_evidence"
     assert {
@@ -1664,7 +1872,7 @@ def test_daily_fact_bundle_persists_light_run_and_formal_snapshot(
     assert snapshot.trace_id == "trace-fact-bundle-persist"
 
 
-def test_same_non_scheduled_snapshot_reason_refreshes_one_snapshot(
+def test_same_formal_snapshot_reason_creates_immutable_snapshots(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -1693,7 +1901,9 @@ def test_same_non_scheduled_snapshot_reason_refreshes_one_snapshot(
         persist_run=True,
         snapshot_reason="formal_daily_report",
     )
-    first_hash = db_session.query(DailyFactBundleSnapshot).one().payload_hash
+    first_snapshot = db_session.query(DailyFactBundleSnapshot).one()
+    first_snapshot_id = first_snapshot.id
+    first_hash = first_snapshot.payload_hash
     daily_fact_bundle.build_daily_fact_bundle(
         db_session,
         business_date=date(2026, 6, 19),
@@ -1703,10 +1913,15 @@ def test_same_non_scheduled_snapshot_reason_refreshes_one_snapshot(
     )
 
     assert db_session.query(DailyFactBundleRun).count() == 1
-    assert db_session.query(DailyFactBundleSnapshot).count() == 1
-    refreshed = db_session.query(DailyFactBundleSnapshot).one()
-    assert refreshed.adopted_values["total_output_daily"] == 367
-    assert refreshed.payload_hash != first_hash
+    snapshots = db_session.query(DailyFactBundleSnapshot).order_by(DailyFactBundleSnapshot.id).all()
+    assert len(snapshots) == 2
+    assert snapshots[0].id == first_snapshot_id
+    assert snapshots[0].adopted_values["total_output_daily"] == 366
+    assert snapshots[0].payload_hash == first_hash
+    assert snapshots[1].adopted_values["total_output_daily"] == 367
+    assert snapshots[1].payload_hash != first_hash
+    assert snapshots[0].snapshot_key is None
+    assert snapshots[1].snapshot_key is None
 
 
 def test_build_daily_fact_bundle_recovers_when_run_insert_hits_unique_race(
@@ -2038,7 +2253,11 @@ def test_refresh_bundle_metadata_syncs_fact_overlays() -> None:
     assert refreshed["status"] == "blocked"
 
 
-def _assert_daily_fact_bundle_schema(inspector: sa.Inspector) -> None:
+def _assert_daily_fact_bundle_schema(
+    inspector: sa.Inspector,
+    *,
+    expect_snapshot_key: bool,
+) -> None:
     table_names = set(inspector.get_table_names())
     assert "daily_fact_bundle_runs" in table_names
     assert "daily_fact_bundle_snapshots" in table_names
@@ -2047,16 +2266,35 @@ def _assert_daily_fact_bundle_schema(inspector: sa.Inspector) -> None:
     run_indexes = inspector.get_indexes("daily_fact_bundle_runs")
     snapshot_indexes = inspector.get_indexes("daily_fact_bundle_snapshots")
     correction_indexes = inspector.get_indexes("daily_fact_corrections")
+    snapshot_columns = {column["name"]: column for column in inspector.get_columns("daily_fact_bundle_snapshots")}
     assert any("run_key" in index["column_names"] and bool(index.get("unique")) for index in run_indexes)
     assert any("business_date" in index["column_names"] for index in run_indexes)
     assert any("run_id" in index["column_names"] for index in snapshot_indexes)
     assert any("payload_hash" in index["column_names"] for index in snapshot_indexes)
+    if expect_snapshot_key:
+        assert snapshot_columns["snapshot_key"]["nullable"] is True
+        assert any(
+            index["column_names"] == ["snapshot_key"] and bool(index.get("unique"))
+            for index in snapshot_indexes
+        )
+    else:
+        assert "snapshot_key" not in snapshot_columns
     assert any("field_name" in index["column_names"] for index in correction_indexes)
 
 
 def _load_daily_fact_bundle_migration():
     migration_path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "0050_daily_fact_bundle.py"
     spec = importlib.util.spec_from_file_location("daily_fact_bundle_migration_0050", migration_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_snapshot_key_migration():
+    migration_path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "0053_daily_fact_snapshot_key.py"
+    spec = importlib.util.spec_from_file_location("daily_fact_snapshot_key_migration_0053", migration_path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

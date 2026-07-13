@@ -8,11 +8,13 @@ import json
 import os
 from typing import Any
 
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import production_business_window
+from app.core.business_time import local_now
 from app.core.redaction import filter_sensitive_mapping
+from app.models.mes import MesSyncRunLog
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
@@ -93,28 +95,11 @@ FIELD_UNITS = {
     "verified_cost_total": "万元",
     "cost_per_ton": "元/吨",
 }
-METRIC_CONTRACT_VERSION = "2026-07-11"
 DIRECT_MES_WMS_SOURCE_TYPES = {
     "finished_inbound_output",
     "mes_verified",
     "wms",
     "wms_direct",
-}
-DIRECT_MES_WMS_SOURCE_REFS = {
-    "finished_inbound_output": "WMS_InStock",
-    "mes_coil_snapshot_business_date": "mes_coil_snapshots",
-    "mes_daily_wip_snapshot": "mes_daily_wip_snapshots",
-    "mes_delivery_records": "mes_delivery_records",
-    "mes_material_records": "mes_material_records",
-    "mes_packaging_output": "mes_workshop_process_records",
-    "mes_stock_header_records": "WMS_InStock",
-    "mes_stock_records": "mes_stock_records",
-    "mes_verified": "mes_readonly_adapter",
-    "mes_wip_distribution": "mes_wip_distribution",
-    "mes_wip_total_snapshot": "mes_wip_total_snapshots",
-    "mes_workshop_process_records": "mes_workshop_process_records",
-    "wms": "wms_readonly_adapter",
-    "wms_direct": "wms_readonly_adapter",
 }
 
 
@@ -127,9 +112,16 @@ def build_daily_fact_bundle(
     persist_run: bool = False,
     snapshot_reason: str | None = None,
     allow_output_skill_reference_adoption: bool = True,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
+    effective_now = local_now(now)
     template_facts = template_daily_report.build_template_daily_report_facts(db, target_date=business_date)
-    facts_payload = _facts_from_template(template_facts, business_date=business_date)
+    facts_payload = _facts_from_template(
+        db,
+        template_facts,
+        business_date=business_date,
+        now=effective_now,
+    )
     bundle = _bundle_from_facts(
         business_date=business_date,
         facts_payload=facts_payload,
@@ -196,7 +188,13 @@ def persist_daily_fact_bundle_snapshot(
     return run, snapshot
 
 
-def _facts_from_template(template_facts: Mapping[str, Any], *, business_date: date) -> dict[str, Any]:
+def _facts_from_template(
+    db: Session,
+    template_facts: Mapping[str, Any],
+    *,
+    business_date: date,
+    now: datetime,
+) -> dict[str, Any]:
     values = dict(template_facts.get("values") or {})
     sources = dict(template_facts.get("sources") or {})
     result: dict[str, Any] = {}
@@ -204,16 +202,10 @@ def _facts_from_template(template_facts: Mapping[str, Any], *, business_date: da
         normalized_field_name = str(field_name)
         source_name, source_detail = _source_from_template(sources.get(field_name))
         unit = FIELD_UNITS.get(normalized_field_name)
-        if _is_direct_mes_wms_source(source_name):
-            unit = _field_unit(normalized_field_name)
-            source_detail = _direct_mes_wms_source_detail(
-                field_name=normalized_field_name,
-                source_type=source_name,
-                source_detail=source_detail,
-                business_date=business_date,
-                unit=unit,
-            )
-        result[normalized_field_name] = _fact_item(
+        is_direct_source = _is_direct_mes_wms_source(source_name)
+        if is_direct_source and source_detail.get("unit") not in (None, ""):
+            unit = str(source_detail["unit"])
+        fact = _fact_item(
             value=value,
             unit=unit,
             source=source_name,
@@ -225,6 +217,16 @@ def _facts_from_template(template_facts: Mapping[str, Any], *, business_date: da
             source_detail=source_detail,
             source_ref={"business_date": business_date.isoformat(), **source_detail},
         )
+        if is_direct_source:
+            evidence_gaps = _direct_source_evidence_gaps(
+                db,
+                source_type=source_name,
+                source_detail=source_detail,
+                now=now,
+            )
+            fact["evidence_status"] = "confirmed" if not evidence_gaps else "needs_evidence"
+            fact["evidence_gaps"] = evidence_gaps
+        result[normalized_field_name] = fact
     return result
 
 
@@ -315,35 +317,91 @@ def _is_direct_mes_wms_source(source_type: str) -> bool:
     )
 
 
-def _direct_mes_wms_source_detail(
+def _direct_source_evidence_gaps(
+    db: Session,
     *,
-    field_name: str,
     source_type: str,
     source_detail: Mapping[str, Any],
-    business_date: date,
-    unit: str | None,
-) -> dict[str, Any]:
-    detail = dict(source_detail)
-    window_start, window_end = production_business_window(business_date)
+    now: datetime,
+) -> list[str]:
+    gaps: list[str] = []
     source_ref = next(
         (
-            str(detail[key]).strip()
-            for key in ("source_ref", "source_table", "projection_table", "table", "adapter")
-            if detail.get(key) not in (None, "")
+            source_detail.get(key)
+            for key in ("source_ref", "source_table", "projection_table", "adapter")
+            if source_detail.get(key) not in (None, "")
         ),
-        DIRECT_MES_WMS_SOURCE_REFS.get(source_type, f"adapter:{source_type}"),
+        None,
     )
-    detail.update(
-        {
-            "source_type": source_type,
-            "source_ref": source_ref,
-            "business_window": f"{window_start.isoformat()}/{window_end.isoformat()}",
-            "unit": unit,
-            "trace_id": f"mes:{field_name}:{business_date.isoformat()}",
-            "metric_contract_version": METRIC_CONTRACT_VERSION,
-        }
+    if source_ref is None:
+        gaps.append("missing_source_ref")
+    for key in ("business_window", "unit", "trace_id", "metric_contract_version"):
+        if source_detail.get(key) in (None, ""):
+            gaps.append(f"missing_{key}")
+    window_end: datetime | None = None
+    business_window = str(source_detail.get("business_window") or "")
+    if business_window:
+        try:
+            window_start, window_end = (
+                datetime.fromisoformat(item)
+                for item in business_window.split("/", 1)
+            )
+        except (TypeError, ValueError):
+            gaps.append("invalid_business_window")
+        else:
+            if window_start.tzinfo is None or window_end.tzinfo is None or window_end < window_start:
+                gaps.append("invalid_business_window")
+            elif window_end > now.astimezone(window_end.tzinfo):
+                gaps.append("business_window_not_closed")
+    row_count = source_detail.get("row_count")
+    sync_run_id = source_detail.get("sync_run_id")
+    try:
+        has_rows = int(row_count or 0) > 0
+    except (TypeError, ValueError):
+        has_rows = False
+    has_sync_run = _has_successful_sync_read(
+        db,
+        source_type=source_type,
+        sync_run_id=sync_run_id,
+        cursor_key=source_detail.get("cursor_key"),
+        trace_id=source_detail.get("trace_id"),
+        window_end=window_end,
     )
-    return detail
+    if not has_rows and not has_sync_run:
+        gaps.append("missing_read_evidence")
+    return gaps
+
+
+def _has_successful_sync_read(
+    db: Session,
+    *,
+    source_type: str,
+    sync_run_id: Any,
+    cursor_key: Any,
+    trace_id: Any,
+    window_end: datetime | None,
+) -> bool:
+    if not (source_type == "mes_verified" or source_type.startswith("mes_")):
+        return False
+    try:
+        normalized_id = int(sync_run_id)
+    except (TypeError, ValueError):
+        return False
+    normalized_cursor_key = str(cursor_key or "").strip()
+    if not normalized_cursor_key or str(trace_id or "").strip() != f"mes-sync-run:{normalized_id}":
+        return False
+    bind = db.get_bind()
+    if bind is None or not inspect(bind).has_table(MesSyncRunLog.__tablename__):
+        return False
+    run = db.get(MesSyncRunLog, normalized_id)
+    if not run or run.status != "success" or run.finished_at is None or int(run.fetched_count or 0) <= 0:
+        return False
+    finished_at = local_now(run.finished_at)
+    return bool(
+        run.cursor_key == normalized_cursor_key
+        and window_end is not None
+        and finished_at >= window_end.astimezone(finished_at.tzinfo)
+    )
 
 
 def _persist_bundle(
@@ -382,17 +440,23 @@ def _persist_bundle(
 
     snapshot = None
     if snapshot_reason is not None:
-        snapshot = (
-            db.query(DailyFactBundleSnapshot)
-            .filter(
-                DailyFactBundleSnapshot.run_id == run.id,
-                DailyFactBundleSnapshot.snapshot_reason == snapshot_reason,
-            )
-            .one_or_none()
+        snapshot_key = (
+            f"scheduled_daily_closure:{run.run_key}"
+            if snapshot_reason == "scheduled_daily_closure"
+            else None
         )
+        snapshot = None
+        if snapshot_key is not None:
+            snapshot = (
+                db.query(DailyFactBundleSnapshot)
+                .filter(DailyFactBundleSnapshot.snapshot_key == snapshot_key)
+                .with_for_update()
+                .one_or_none()
+            )
         if snapshot is None:
             snapshot = DailyFactBundleSnapshot(
                 run_id=run.id,
+                snapshot_key=snapshot_key,
                 business_date=business_date,
                 snapshot_reason=snapshot_reason,
             )

@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, inspect, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import production_business_window
+from app.core.business_time import local_now, production_business_window
 from app.models.master import Workshop
 from app.models.mes import (
     MesCoilSnapshot,
@@ -214,6 +214,49 @@ def _set_missing_value(facts: TemplateDailyFacts, key: str, value: Any, source_t
     _set_value(facts, key, value, source_type, **source_extra)
 
 
+def _wip_distribution_source(
+    rows: list[dict[str, Any]],
+    *,
+    business_date: date,
+) -> tuple[str, dict[str, Any]]:
+    source_types = {
+        str(row.get("source_basis") or "").strip()
+        for row in rows
+        if row.get("source_basis")
+    }
+    source_type = next(iter(source_types)) if len(source_types) == 1 else "mes_wip_distribution"
+    detail: dict[str, Any] = {"business_date": business_date.isoformat()}
+    source_refs = {
+        "mes_wip_total_snapshot": "mes_wip_total_snapshots",
+        "mes_daily_wip_snapshot": "mes_daily_wip_snapshots",
+        "mes_coil_snapshot_business_date": "mes_coil_snapshots",
+    }
+    snapshot_values = [
+        str(row.get("snapshot_at") or "").strip()
+        for row in rows
+        if row.get("snapshot_at")
+    ]
+    source_ref = source_refs.get(source_type)
+    if not source_ref or not snapshot_values:
+        return source_type, detail
+    try:
+        snapshot_at = max(local_now(datetime.fromisoformat(item)) for item in snapshot_values).isoformat()
+    except ValueError:
+        return source_type, detail
+    row_count = len(rows)
+    detail.update(
+        {
+            "source_ref": source_ref,
+            "business_window": f"{snapshot_at}/{snapshot_at}",
+            "unit": "吨",
+            "row_count": row_count,
+            "trace_id": f"projection-read:{source_ref}:{snapshot_at}:{row_count}",
+            "metric_contract_version": "2026-07-11",
+        }
+    )
+    return source_type, detail
+
+
 def _matches_any(value: Any, tokens: tuple[str, ...]) -> bool:
     text = str(value or "")
     return any(token and token in text for token in tokens)
@@ -402,6 +445,57 @@ def _wip_breakdown_from_coil_snapshots(db: Session, business_date: date) -> dict
     return {key: round(value, 3) for key, value in values.items()}
 
 
+def _wip_snapshot_source_detail(
+    db: Session,
+    *,
+    source_type: str,
+    business_date: date,
+) -> dict[str, Any]:
+    if not hasattr(db, "query"):
+        return {}
+    if source_type == "mes_wip_total_snapshot":
+        start_at, end_at = production_business_window(business_date)
+        query = db.query(
+            func.count(MesWipTotalSnapshot.id),
+            func.max(MesWipTotalSnapshot.id),
+            func.max(MesWipTotalSnapshot.snapshot_at),
+        ).filter(
+            MesWipTotalSnapshot.snapshot_at >= start_at,
+            MesWipTotalSnapshot.snapshot_at < end_at,
+        )
+        source_ref = MesWipTotalSnapshot.__tablename__
+    elif source_type == "mes_daily_wip_snapshot":
+        query = db.query(
+            func.count(MesDailyWipSnapshot.id),
+            func.max(MesDailyWipSnapshot.id),
+            func.max(MesDailyWipSnapshot.snapshot_at),
+        ).filter(
+            MesDailyWipSnapshot.business_date == business_date,
+            or_(
+                MesDailyWipSnapshot.source.is_(None),
+                MesDailyWipSnapshot.source != "output_skill_daily_report",
+            ),
+        )
+        source_ref = MesDailyWipSnapshot.__tablename__
+    else:
+        return {}
+    try:
+        row_count, latest_row_id, snapshot_at = query.one()
+    except (OperationalError, ProgrammingError):
+        return {}
+    if int(row_count or 0) <= 0 or latest_row_id is None or snapshot_at is None:
+        return {}
+    snapshot_text = local_now(snapshot_at).isoformat()
+    return {
+        "source_ref": source_ref,
+        "business_window": f"{snapshot_text}/{snapshot_text}",
+        "unit": "吨",
+        "row_count": int(row_count),
+        "trace_id": f"projection-read:{source_ref}:{latest_row_id}:{int(row_count)}",
+        "metric_contract_version": "2026-07-11",
+    }
+
+
 def _row_text(row: MesWorkshopProcessRecord) -> str:
     payload = row.source_payload or {}
     payload_text = " ".join(str(payload.get(key) or "") for key in ("process_code", "report_process_code", "metric_code"))
@@ -491,7 +585,7 @@ def _sum_mes_material_rows(
     *,
     tokens: tuple[str, ...],
     prefer_explicit_status: bool,
-) -> tuple[float | None, int]:
+) -> tuple[float | None, int, datetime | None]:
     matched: list[tuple[MesMaterialRecord, float]] = []
     for row in rows:
         if not _matches_any(row.workshop_name, tokens):
@@ -501,11 +595,12 @@ def _sum_mes_material_rows(
             continue
         matched.append((row, weight))
     if not matched:
-        return None, 0
+        return None, 0, None
 
     require_explicit_status = prefer_explicit_status and any(_material_status_text(row) for row, _weight in matched)
     total = 0.0
     count = 0
+    latest_source_at: datetime | None = None
     for row, weight in matched:
         if require_explicit_status and not _material_status_text(row):
             continue
@@ -513,7 +608,10 @@ def _sum_mes_material_rows(
             continue
         total += weight
         count += 1
-    return (round(total, 3), count) if count else (None, 0)
+        source_at = row.last_seen_from_mes_at or row.production_date
+        if source_at is not None and (latest_source_at is None or source_at > latest_source_at):
+            latest_source_at = source_at
+    return (round(total, 3), count, latest_source_at) if count else (None, 0, None)
 
 
 def _query_mes_material_output(
@@ -522,11 +620,11 @@ def _query_mes_material_output(
     start: date,
     end: date,
     tokens: tuple[str, ...],
-) -> tuple[float | None, int]:
+) -> tuple[float | None, int, datetime | None]:
     if not hasattr(db, "query"):
-        return None, 0
+        return None, 0, None
     if not _has_table(db, MesMaterialRecord.__tablename__):
-        return None, 0
+        return None, 0, None
 
     business_date_rows = (
         db.query(MesMaterialRecord)
@@ -544,8 +642,7 @@ def _query_mes_material_output(
             prefer_explicit_status=False,
         )
 
-    day_start = datetime.combine(start, time.min)
-    day_end = datetime.combine(end + timedelta(days=1), time.min)
+    day_start, day_end = _billet_material_business_window(start, end)
     rows = (
         db.query(MesMaterialRecord)
         .filter(
@@ -816,57 +913,148 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
         "source_table": plant_output.get("source_table"),
         "date_column": plant_output.get("date_column"),
     }
+    if (
+        int(plant_output.get("row_count") or 0) > 0
+        and plant_output.get("source_table")
+        and plant_output.get("business_window_start")
+        and plant_output.get("business_window_end")
+        and plant_output.get("source_trace_id")
+    ):
+        output_source_extra.update(
+            {
+                "source_ref": plant_output["source_table"],
+                "business_window": (
+                    f"{plant_output['business_window_start']}/{plant_output['business_window_end']}"
+                ),
+                "unit": "吨",
+                "row_count": int(plant_output["row_count"]),
+                "trace_id": plant_output["source_trace_id"],
+                "metric_contract_version": "2026-07-11",
+            }
+        )
+    output_month_source_extra = {
+        "source_table": plant_output.get("source_table"),
+        "date_column": plant_output.get("date_column"),
+    }
+    if (
+        int(plant_output.get("month_row_count") or 0) > 0
+        and plant_output.get("source_table")
+        and plant_output.get("month_window_start")
+        and plant_output.get("business_window_end")
+        and plant_output.get("source_month_trace_id")
+    ):
+        output_month_source_extra.update(
+            {
+                "source_ref": plant_output["source_table"],
+                "business_window": (
+                    f"{plant_output['month_window_start']}/{plant_output['business_window_end']}"
+                ),
+                "unit": "吨",
+                "row_count": int(plant_output["month_row_count"]),
+                "trace_id": plant_output["source_month_trace_id"],
+                "metric_contract_version": "2026-07-11",
+            }
+        )
     inbound_source_extra = {
         "source_table": "WMS_InStock" if plant_output.get("finished_inbound_source") == "mes_stock_header_records" else None,
         "date_column": "InStockDate" if plant_output.get("finished_inbound_source") == "mes_stock_header_records" else None,
     }
+    inbound_month_source_extra = dict(inbound_source_extra)
+    if (
+        int(plant_output.get("finished_inbound_row_count") or 0) > 0
+        and inbound_source_extra["source_table"]
+        and plant_output.get("business_window_start")
+        and plant_output.get("business_window_end")
+        and plant_output.get("finished_inbound_trace_id")
+    ):
+        inbound_source_extra.update(
+            {
+                "source_ref": inbound_source_extra["source_table"],
+                "business_window": (
+                    f"{plant_output['business_window_start']}/{plant_output['business_window_end']}"
+                ),
+                "unit": "吨",
+                "row_count": int(plant_output["finished_inbound_row_count"]),
+                "trace_id": plant_output["finished_inbound_trace_id"],
+                "metric_contract_version": "2026-07-11",
+            }
+        )
+    if (
+        int(plant_output.get("finished_inbound_month_row_count") or 0) > 0
+        and inbound_source_extra["source_table"]
+        and plant_output.get("month_window_start")
+        and plant_output.get("business_window_end")
+        and plant_output.get("finished_inbound_month_trace_id")
+    ):
+        inbound_month_source_extra.update(
+            {
+                "source_ref": inbound_source_extra["source_table"],
+                "business_window": (
+                    f"{plant_output['month_window_start']}/{plant_output['business_window_end']}"
+                ),
+                "unit": "吨",
+                "row_count": int(plant_output["finished_inbound_month_row_count"]),
+                "trace_id": plant_output["finished_inbound_month_trace_id"],
+                "metric_contract_version": "2026-07-11",
+            }
+        )
     official_output = _official_template_total_output(db, facts.target_date, plant_output)
-    _set_value(
-        facts,
-        "total_output_daily",
-        official_output["daily"],
-        official_output["source_type"],
-        **output_source_extra,
-    )
-    _set_value(
-        facts,
-        "total_output_month",
-        official_output["monthly"],
-        official_output["source_type"],
-        **output_source_extra,
-    )
-    _set_value(
-        facts,
-        "total_output_delta",
-        official_output["delta"],
-        official_output["source_type"],
-        **output_source_extra,
-    )
-    _set_value(
-        facts,
-        "finished_inbound_daily",
-        plant_output.get("finished_inbound_output"),
-        plant_output.get("finished_inbound_source") or "finished_inbound_output",
-        **inbound_source_extra,
-    )
-    _set_value(
-        facts,
-        "finished_inbound_month",
-        plant_output.get("finished_inbound_monthly_output"),
-        plant_output.get("finished_inbound_source") or "finished_inbound_output",
-        **inbound_source_extra,
-    )
+    output_row_count = plant_output.get("row_count")
+    output_has_rows = output_row_count is None or int(output_row_count or 0) > 0
+    if output_has_rows:
+        _set_value(
+            facts,
+            "total_output_daily",
+            official_output["daily"],
+            official_output["source_type"],
+            **output_source_extra,
+        )
+        _set_value(
+            facts,
+            "total_output_month",
+            official_output["monthly"],
+            official_output["source_type"],
+            **output_month_source_extra,
+        )
+        _set_value(
+            facts,
+            "total_output_delta",
+            official_output["delta"],
+            official_output["source_type"],
+            **output_source_extra,
+        )
+    inbound_row_count = plant_output.get("finished_inbound_row_count")
+    inbound_has_rows = inbound_row_count is None or int(inbound_row_count or 0) > 0
+    if inbound_has_rows:
+        _set_value(
+            facts,
+            "finished_inbound_daily",
+            plant_output.get("finished_inbound_output"),
+            plant_output.get("finished_inbound_source") or "finished_inbound_output",
+            **inbound_source_extra,
+        )
+        _set_value(
+            facts,
+            "finished_inbound_month",
+            plant_output.get("finished_inbound_monthly_output"),
+            plant_output.get("finished_inbound_source") or "finished_inbound_output",
+            **inbound_month_source_extra,
+        )
     shipment_totals = daily_overview_builder._query_mes_delivery_output_by_date(db, facts.target_date, facts.target_date)
     _set_value(facts, "shipment_daily", shipment_totals.get(facts.target_date), "mes_delivery_records")
 
     wip_total = sum(_to_float(row.get("total_weight")) for row in wip_distribution)
     if wip_total > 0:
+        wip_source_type, wip_source_detail = _wip_distribution_source(
+            wip_distribution,
+            business_date=effective_wip_date,
+        )
         _set_value(
             facts,
             "wip_total",
             round(wip_total, 2),
-            "mes_wip_distribution",
-            business_date=overview.get("wip_business_date") or effective_wip_date.isoformat(),
+            wip_source_type,
+            **wip_source_detail,
         )
     wip_breakdown = _wip_breakdown_from_daily_snapshots(db, effective_wip_date)
     wip_breakdown_source = "mes_daily_wip_snapshot"
@@ -876,13 +1064,21 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
     if not wip_breakdown:
         wip_breakdown = _wip_breakdown_from_total_snapshots(db, effective_wip_date)
         wip_breakdown_source = "mes_wip_total_snapshot"
+    wip_source_detail = {
+        "business_date": overview.get("wip_business_date") or effective_wip_date.isoformat(),
+        **_wip_snapshot_source_detail(
+            db,
+            source_type=wip_breakdown_source,
+            business_date=effective_wip_date,
+        ),
+    }
     for key, value in wip_breakdown.items():
         _set_value(
             facts,
             key,
             value,
             wip_breakdown_source,
-            business_date=overview.get("wip_business_date") or effective_wip_date.isoformat(),
+            **wip_source_detail,
         )
 
     _set_value(facts, "daily_contract_weight", contracts.get("daily_new"), "contract_projection")
@@ -955,16 +1151,50 @@ def collect_manual_workshop_facts(db: Session, facts: TemplateDailyFacts) -> Non
 def collect_mes_material_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
     month_start = facts.target_date.replace(day=1)
     for key, tokens in MES_MATERIAL_OUTPUT_WORKSHOPS.items():
-        daily, daily_count = _query_mes_material_output(db, start=facts.target_date, end=facts.target_date, tokens=tokens)
-        monthly, monthly_count = _query_mes_material_output(db, start=month_start, end=facts.target_date, tokens=tokens)
-        _set_value(facts, key, daily, "mes_material_records", basis="ProductionDate 08:00-08:00", roll_count=daily_count)
+        daily, daily_count, daily_source_at = _query_mes_material_output(
+            db,
+            start=facts.target_date,
+            end=facts.target_date,
+            tokens=tokens,
+        )
+        monthly, monthly_count, monthly_source_at = _query_mes_material_output(
+            db,
+            start=month_start,
+            end=facts.target_date,
+            tokens=tokens,
+        )
+        daily_start, daily_end = production_business_window(facts.target_date, workshop_name=tokens[0])
+        daily_source_detail = {
+            "source_ref": "MES_Material",
+            "business_window": f"{daily_start.isoformat()}/{daily_end.isoformat()}",
+            "unit": "吨",
+            "row_count": daily_count,
+            "metric_contract_version": "2026-07-11",
+        }
+        if daily_count > 0 and daily_source_at is not None:
+            daily_source_detail["trace_id"] = (
+                f"projection-read:mes_material_records:{daily_source_at.isoformat()}:{daily_count}"
+            )
+        _set_value(facts, key, daily, "mes_material_records", **daily_source_detail)
+        month_start_at, _unused = production_business_window(month_start, workshop_name=tokens[0])
+        _unused, month_end_at = production_business_window(facts.target_date, workshop_name=tokens[0])
+        monthly_source_detail = {
+            "source_ref": "MES_Material",
+            "business_window": f"{month_start_at.isoformat()}/{month_end_at.isoformat()}",
+            "unit": "吨",
+            "row_count": monthly_count,
+            "metric_contract_version": "2026-07-11",
+        }
+        if monthly_count > 0 and monthly_source_at is not None:
+            monthly_source_detail["trace_id"] = (
+                f"projection-read:mes_material_records:{monthly_source_at.isoformat()}:{monthly_count}"
+            )
         _set_value(
             facts,
             MONTHLY_FIELD_BY_DAILY_FIELD[key],
             monthly,
             "mes_material_records",
-            basis="ProductionDate 08:00-08:00",
-            roll_count=monthly_count,
+            **monthly_source_detail,
         )
 
 

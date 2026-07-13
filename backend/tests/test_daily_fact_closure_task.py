@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import Table, create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -119,6 +120,28 @@ def test_daily_fact_closure_honors_explicit_target_date(
     assert result["trace_id"] == "daily-fact-closure:2026-07-06"
 
 
+def test_daily_fact_closure_passes_scheduler_time_to_fact_evidence_check(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    scheduled_at = datetime(2026, 7, 8, 8, 5, tzinfo=SHANGHAI)
+    captured: dict[str, object] = {}
+
+    def fake_build(db: Session, **kwargs):
+        captured.update(kwargs)
+        return {"fact_closure": {"status": "blocked"}}
+
+    monkeypatch.setattr(task_module, "build_daily_fact_bundle", fake_build)
+
+    task_module.run_daily_fact_closure(
+        db_session,
+        target_date=date(2026, 7, 7),
+        now=scheduled_at,
+    )
+
+    assert captured["now"] == scheduled_at
+
+
 def test_daily_fact_closure_never_adopts_output_skill_reference(
     monkeypatch: pytest.MonkeyPatch,
     db_session: Session,
@@ -156,6 +179,60 @@ def test_daily_fact_closure_rerun_updates_one_run_and_one_snapshot(
     refreshed_snapshot = db_session.query(DailyFactBundleSnapshot).one()
     assert refreshed_snapshot.adopted_values["total_output_daily"] == 371
     assert refreshed_snapshot.payload_hash != first_hash
+    assert refreshed_snapshot.snapshot_key is not None
+
+
+def test_scheduled_snapshot_key_is_unique_across_two_sessions(tmp_path: Path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'scheduled-snapshot-race.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            cast(Table, User.__table__),
+            cast(Table, DailyFactBundleRun.__table__),
+            cast(Table, DailyFactBundleSnapshot.__table__),
+        ],
+    )
+    SessionLocal = sessionmaker(bind=engine, future=True, expire_on_commit=False)
+    with SessionLocal() as setup_session:
+        run = DailyFactBundleRun(
+            run_key="scheduled-run-key",
+            business_date=date(2026, 7, 7),
+            status="ready",
+            source_status={},
+        )
+        setup_session.add(run)
+        setup_session.commit()
+        run_id = run.id
+
+    snapshot_values = {
+        "run_id": run_id,
+        "snapshot_key": "scheduled_daily_closure:scheduled-run-key",
+        "business_date": date(2026, 7, 7),
+        "snapshot_reason": "scheduled_daily_closure",
+        "facts": {},
+        "sources": {},
+        "conflicts": [],
+        "adopted_values": {},
+        "correction_refs": [],
+        "dingtalk_refs": [],
+        "output_skill_alignment": {},
+        "payload_hash": "a" * 64,
+    }
+    first_session = SessionLocal()
+    second_session = SessionLocal()
+    try:
+        first_session.add(DailyFactBundleSnapshot(**snapshot_values))
+        second_session.add(DailyFactBundleSnapshot(**snapshot_values))
+
+        first_session.commit()
+        with pytest.raises(IntegrityError):
+            second_session.commit()
+        second_session.rollback()
+
+        assert first_session.query(DailyFactBundleSnapshot).count() == 1
+    finally:
+        first_session.close()
+        second_session.close()
 
 
 def test_daily_fact_closure_rolls_back_and_propagates_errors(

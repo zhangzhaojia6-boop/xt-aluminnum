@@ -108,6 +108,7 @@ def _empty_sum() -> dict[str, Any]:
         'output': 0.0,
         'row_count': 0,
         'last_seen_from_mes_at': None,
+        'trace_id': None,
         'by_workshop': [],
     }
 
@@ -116,6 +117,7 @@ def _sum_rows(rows: list[MesWorkshopProcessRecord]) -> dict[str, Any]:
     total = 0.0
     row_count = 0
     latest_seen = None
+    latest_row_id = None
     by_workshop: dict[str, dict[str, Any]] = {}
     for row in rows:
         if not is_factory_packaging_process(row):
@@ -125,6 +127,7 @@ def _sum_rows(rows: list[MesWorkshopProcessRecord]) -> dict[str, Any]:
             continue
         row_count += 1
         total += output
+        latest_row_id = max(latest_row_id or 0, int(row.id or 0))
         if row.last_seen_from_mes_at is not None and (
             latest_seen is None or row.last_seen_from_mes_at > latest_seen
         ):
@@ -142,6 +145,7 @@ def _sum_rows(rows: list[MesWorkshopProcessRecord]) -> dict[str, Any]:
         'output': _round2(total),
         'row_count': row_count,
         'last_seen_from_mes_at': latest_seen.isoformat() if latest_seen is not None else None,
+        'trace_id': f'projection-read:{FACT_PROJECTION_TABLE}:{latest_row_id}:{row_count}',
         'by_workshop': [
             {
                 'workshop_name': item['workshop_name'],
@@ -365,7 +369,9 @@ def build_factory_packaging_fact(db: Session, *, target_date: date) -> dict[str,
             'daily_output': business_daily['output'],
             'month_to_date_output': business_month['output'],
             'daily_row_count': business_daily['row_count'],
+            'trace_id': business_daily['trace_id'],
             'month_row_count': business_month['row_count'],
+            'month_trace_id': business_month['trace_id'],
             'by_workshop': business_daily['by_workshop'],
             'month_by_workshop': business_month['by_workshop'],
         },

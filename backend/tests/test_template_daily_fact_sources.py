@@ -376,6 +376,107 @@ def test_total_output_stays_packaging_when_finished_inbound_diverges(tmp_path, m
     assert facts.values["cost_per_ton"] == 203.0
 
 
+def test_opening_facts_do_not_publish_zero_from_empty_mes_projection(monkeypatch) -> None:
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {
+                "daily_output": 0.0,
+                "monthly_output": 0.0,
+                "row_count": 0,
+                "finished_inbound_output": 0.0,
+                "finished_inbound_monthly_output": 0.0,
+                "finished_inbound_row_count": 0,
+                "finished_inbound_source": "mes_stock_records_missing",
+            },
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+    template_daily_fact_sources.collect_opening_facts(object(), facts)
+
+    assert "total_output_daily" not in facts.values
+    assert "finished_inbound_daily" not in facts.values
+
+
+def test_opening_facts_preserve_real_mes_query_evidence(monkeypatch) -> None:
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {
+                "daily_output": 366.0,
+                "monthly_output": 366.0,
+                "row_count": 2,
+                "month_row_count": 8,
+                "source_table": "MES_ProductProcessRecord",
+                "date_column": "EndDatetime",
+                "business_window_start": "2026-06-16T07:50:00+08:00",
+                "business_window_end": "2026-06-17T07:50:00+08:00",
+                "month_window_start": "2026-06-01T07:50:00+08:00",
+                "source_trace_id": "projection-read:mes_workshop_process_records:sync-41:2",
+                "source_month_trace_id": "projection-read:mes_workshop_process_records:sync-41:8",
+                "finished_inbound_output": 126.4,
+                "finished_inbound_monthly_output": 400.0,
+                "finished_inbound_source": "mes_stock_header_records",
+                "finished_inbound_row_count": 1,
+                "finished_inbound_month_row_count": 4,
+                "finished_inbound_trace_id": "projection-read:mes_stock_records:stock-9:1",
+                "finished_inbound_month_trace_id": "projection-read:mes_stock_records:stock-9:4",
+            },
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+    template_daily_fact_sources.collect_opening_facts(object(), facts)
+
+    assert facts.sources["total_output_daily"] == {
+        "source_type": "mes_packaging_output",
+        "source_table": "MES_ProductProcessRecord",
+        "date_column": "EndDatetime",
+        "source_ref": "MES_ProductProcessRecord",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 2,
+        "trace_id": "projection-read:mes_workshop_process_records:sync-41:2",
+        "metric_contract_version": "2026-07-11",
+    }
+    assert facts.sources["finished_inbound_daily"] == {
+        "source_type": "mes_stock_header_records",
+        "source_table": "WMS_InStock",
+        "date_column": "InStockDate",
+        "source_ref": "WMS_InStock",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "trace_id": "projection-read:mes_stock_records:stock-9:1",
+        "metric_contract_version": "2026-07-11",
+    }
+    assert facts.sources["total_output_month"]["business_window"] == (
+        "2026-06-01T07:50:00+08:00/2026-06-17T07:50:00+08:00"
+    )
+    assert facts.sources["total_output_month"]["row_count"] == 8
+    assert facts.sources["total_output_month"]["trace_id"].endswith(":8")
+    assert facts.sources["finished_inbound_month"]["business_window"] == (
+        "2026-06-01T07:50:00+08:00/2026-06-17T07:50:00+08:00"
+    )
+    assert facts.sources["finished_inbound_month"]["row_count"] == 4
+    assert facts.sources["finished_inbound_month"]["trace_id"].endswith(":4")
+
+
 def test_total_output_delta_falls_back_to_previous_packaging_when_overview_yesterday_missing(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
     previous_date = REPORT_DATE - timedelta(days=1)
@@ -588,7 +689,15 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
     assert facts.values["hot_roll_daily"] == 70
-    assert facts.sources["hot_roll_daily"]["source_type"] == "mes_material_records"
+    assert facts.sources["hot_roll_daily"] == {
+        "source_type": "mes_material_records",
+        "source_ref": "MES_Material",
+        "business_window": "2026-06-16T10:00:00+08:00/2026-06-17T10:00:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "trace_id": "projection-read:mes_material_records:2026-06-16T10:00:00:1",
+        "metric_contract_version": "2026-07-11",
+    }
 
 
 def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> None:
@@ -604,7 +713,13 @@ def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> N
             "energy": {},
             "cost": {},
             "wip_business_date": wip_date.isoformat() if wip_date else None,
-            "wip_distribution": [{"total_weight": 879.0}],
+            "wip_distribution": [
+                {
+                    "total_weight": 879.0,
+                    "source_basis": "mes_wip_total_snapshot",
+                    "snapshot_at": "2026-06-17T08:00:00+08:00",
+                }
+            ],
         }
 
     monkeypatch.setattr(
@@ -629,7 +744,16 @@ def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> N
 
     assert seen == {"target_date": date(2026, 6, 16), "wip_date": date(2026, 6, 17)}
     assert facts.values["wip_total"] == 879.0
-    assert facts.sources["wip_total"]["business_date"] == "2026-06-17"
+    assert facts.sources["wip_total"] == {
+        "source_type": "mes_wip_total_snapshot",
+        "source_ref": "mes_wip_total_snapshots",
+        "business_date": "2026-06-17",
+        "business_window": "2026-06-17T08:00:00+08:00/2026-06-17T08:00:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "trace_id": "projection-read:mes_wip_total_snapshots:2026-06-17T08:00:00+08:00:1",
+        "metric_contract_version": "2026-07-11",
+    }
     assert facts.as_dict()["wip_date"] == "2026-06-17"
 
 
@@ -718,7 +842,16 @@ def test_opening_facts_fill_wip_breakdown_from_current_wip_total_snapshot(tmp_pa
     assert facts.values["wip_hot_plate_shearing"] == 1.206
     assert facts.values["wip_coating"] == 3.652
     assert facts.values["wip_total"] == 823.665
-    assert facts.sources["wip_total"]["business_date"] == "2026-06-17"
+    assert facts.sources["wip_total"] == {
+        "source_type": "mes_wip_total_snapshot",
+        "business_date": "2026-06-17",
+        "source_ref": "mes_wip_total_snapshots",
+        "business_window": "2026-06-17T08:00:00+08:00/2026-06-17T08:00:00+08:00",
+        "unit": "吨",
+        "row_count": 12,
+        "trace_id": "projection-read:mes_wip_total_snapshots:12:12",
+        "metric_contract_version": "2026-07-11",
+    }
 
 
 def test_opening_facts_prefer_daily_wip_snapshot_for_historical_breakdown(tmp_path, monkeypatch) -> None:

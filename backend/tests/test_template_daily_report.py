@@ -279,8 +279,11 @@ def test_build_facts_uses_mes_material_for_hot_roll_and_process_for_cold_roll(tm
     with SessionLocal() as db:
         facts = template_daily_report.build_template_daily_report_facts(db, target_date=REPORT_DATE)
 
-    assert facts["values"]["hot_roll_daily"] == 88.0
+    assert facts["values"]["hot_roll_daily"] == 12.0
     assert facts["sources"]["hot_roll_daily"]["source_type"] == "mes_material_records"
+    assert facts["sources"]["hot_roll_daily"]["business_window"] == (
+        "2026-06-16T10:00:00+08:00/2026-06-17T10:00:00+08:00"
+    )
     assert facts["values"]["cold_1650_daily"] == 33.0
     assert facts["sources"]["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
     assert facts["values"]["coating_daily"] == 0.0

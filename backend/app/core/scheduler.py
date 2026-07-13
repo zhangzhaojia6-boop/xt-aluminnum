@@ -10,6 +10,7 @@ except ImportError:  # pragma: no cover
 from sqlalchemy import text
 
 from app.config import settings
+from app.core.business_time import local_now
 
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,21 @@ def setup_scheduler(target_scheduler=None):
         'cron',
         job_id='daily_fact_closure_0805',
         hour=8,
+        minute=5,
+    )
+    _add_job_once(
+        active_scheduler,
+        run_scheduled_daily_fact_closure,
+        'date',
+        job_id='daily_fact_closure_startup_catchup',
+        run_date=local_now(),
+    )
+    _add_job_once(
+        active_scheduler,
+        run_scheduled_daily_fact_closure,
+        'cron',
+        job_id='daily_fact_closure_1005_refresh',
+        hour=10,
         minute=5,
     )
     if (settings.MES_ADAPTER or 'null').strip().lower() != 'null':

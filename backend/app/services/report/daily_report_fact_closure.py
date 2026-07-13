@@ -57,7 +57,15 @@ def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]
         source = source_types[0] if source_types else None
         value = _value_for_field(bundle, fact, field)
         trace_id = _trace_id_for_field(fact, sources.get(field))
-        status = _field_status(field, value, source_types, trace_id, missing_fields, mismatch_fields)
+        status = _field_status(
+            field,
+            value,
+            source_types,
+            trace_id,
+            missing_fields,
+            mismatch_fields,
+            evidence_status=fact.get("evidence_status"),
+        )
         counts[status] += 1
         critical_fields.append(
             {
@@ -85,6 +93,7 @@ def _field_status(
     trace_id: Any,
     missing_fields: set[str],
     mismatch_fields: set[str],
+    evidence_status: Any = None,
 ) -> str:
     if field in missing_fields:
         return "missing"
@@ -93,6 +102,8 @@ def _field_status(
     if not _has_value(value) or not source_types:
         return "missing"
     if not _is_allowed_source(field, source_types):
+        return "needs_evidence"
+    if evidence_status == "needs_evidence":
         return "needs_evidence"
     if not _has_value(trace_id):
         return "needs_evidence"

@@ -1148,6 +1148,8 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     monthly_output_source = 'mes_packaging_output'
     daily_output_source = mes_sources_by_date.get(target_date, 'mes_packaging_output')
     business_window_start, business_window_end = production_business_window(target_date)
+    month_window_start, _month_window_end = production_business_window(month_start)
+    packaging_business_day = mes_home_fact.get('business_day') or {}
     source_table_by_key = {
         'mes_stock_header_records': 'WMS_InStock',
         'mes_stock_records': 'WMS_InStockDetail',
@@ -1178,8 +1180,12 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'projection_weight_field': 'output_weight_tons' if daily_output_source == 'mes_workshop_process_records' else None,
         'projection_date_field': 'business_date' if daily_output_source == 'mes_workshop_process_records' else None,
         'row_count': mes_row_counts_by_date.get(target_date, 0),
+        'month_row_count': int(packaging_business_day.get('month_row_count') or sum(mes_row_counts_by_date.values())),
+        'source_trace_id': packaging_business_day.get('trace_id'),
+        'source_month_trace_id': packaging_business_day.get('month_trace_id'),
         'business_window_start': business_window_start.isoformat(),
         'business_window_end': business_window_end.isoformat(),
+        'month_window_start': month_window_start.isoformat(),
         'monthly_output_source': monthly_output_source,
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),
@@ -1199,6 +1205,10 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'factory_feeding_daily_input': _round2(factory_production_fact.get('factory_feeding_daily_input')),
         'factory_feeding_month_to_date_input': _round2(factory_production_fact.get('factory_feeding_month_to_date_input')),
         'finished_inbound_output': _round2(finished_inbound_output),
+        'finished_inbound_row_count': int(finished_inbound_fact.get('daily_row_count') or 0),
+        'finished_inbound_month_row_count': int(finished_inbound_fact.get('month_row_count') or 0),
+        'finished_inbound_trace_id': finished_inbound_fact.get('daily_trace_id'),
+        'finished_inbound_month_trace_id': finished_inbound_fact.get('month_trace_id'),
         'finished_inbound_monthly_output': _round2(finished_inbound_monthly_output),
         'finished_inbound_monthly_average': _round2(finished_inbound_monthly_output / days_elapsed),
         'finished_inbound_basis_label': '全厂入库产量',

@@ -38,7 +38,7 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0052_hermes_factory_brain' in current.stdout
+    assert '0053_daily_fact_snapshot_key' in current.stdout
 
 
 def test_legacy_shift_references_are_remapped_by_latest_migration(tmp_path) -> None:

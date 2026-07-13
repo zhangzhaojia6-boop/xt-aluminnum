@@ -26,6 +26,7 @@ def run_daily_fact_closure(
             persist_run=True,
             snapshot_reason="scheduled_daily_closure",
             allow_output_skill_reference_adoption=False,
+            now=now,
         )
         db.commit()
     except Exception:
