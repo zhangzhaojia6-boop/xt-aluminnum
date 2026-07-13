@@ -4,149 +4,530 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Type 'prod-sync' to confirm production repository sync
+        description: Type 'prod-sync' to confirm production status or exact-SHA deploy
         required: true
       mode:
-        description: Check status only, or fast-forward production to origin/main
+        description: Read-only production status, or deploy exact requested SHAs
         required: true
         default: status
         type: choice
         options:
           - status
-          - sync
+          - deploy
+      datahub_sha:
+        description: Full 40-character Data Hub commit SHA. Required for deploy mode.
+        required: false
+      hermes_sha:
+        description: Full 40-character Hermes commit SHA. Required for deploy mode.
+        required: false
 
 jobs:
   production-sync-status:
     if: github.event.inputs.confirm == 'prod-sync'
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
-      - name: Check or sync production repository
+      - name: Check production status or deploy exact SHAs
         env:
           SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           SSH_USER: ${{ secrets.PROD_SSH_USER }}
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
-          SYNC_MODE: ${{ github.event.inputs.mode }}
+          MODE: ${{ github.event.inputs.mode }}
+          DATAHUB_SHA: ${{ github.event.inputs.datahub_sha }}
+          HERMES_SHA: ${{ github.event.inputs.hermes_sha }}
         run: |
           set -euo pipefail
+
           test -n "$SSH_HOST"
           test -n "$SSH_USER"
           test -n "$SSH_KEY"
-          case "$SYNC_MODE" in
-            status|sync) ;;
-            *) echo "unsupported mode"; exit 2 ;;
+
+          effective_mode="$MODE"
+          case "$effective_mode" in
+            status|deploy|sync) ;;
+            *)
+              echo "unsupported mode: $effective_mode"
+              exit 2
+              ;;
           esac
+          if [ "$effective_mode" = "sync" ]; then
+            echo "MODE_ALIAS=sync -> deploy"
+            effective_mode="deploy"
+          fi
+
+          if [ "$effective_mode" = "deploy" ]; then
+            printf '%s' "$DATAHUB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+            printf '%s' "$HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          fi
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "SYNC_MODE='$SYNC_MODE' bash -s" <<'REMOTE'
+            "MODE='$effective_mode' DATAHUB_SHA='$DATAHUB_SHA' HERMES_SHA='$HERMES_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
-          cd /srv/aluminum-bypass
 
-          echo "PROD_BRANCH=$(git branch --show-current)"
-          echo "PROD_HEAD_BEFORE=$(git rev-parse HEAD)"
-          git status --short --branch
+          DATAHUB_REPO="/srv/aluminum-bypass"
+          HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
+          DATAHUB_ENV_FILE="$DATAHUB_REPO/backend/.env"
+          BACKUP_DIR="$DATAHUB_REPO/backups"
+          MODE="${MODE:-status}"
+          DATAHUB_SHA="${DATAHUB_SHA:-}"
+          HERMES_SHA="${HERMES_SHA:-}"
+          CHECKOUT_DONE=0
+          NEEDS_DB_RESTORE=0
+          DATAHUB_ENV_BACKUP=""
+          HERMES_ENV_BACKUP=""
+          DB_BACKUP=""
+          DATABASE_LIBPQ_URL=""
+          PREVIOUS_DATAHUB_HEAD="$(git -C "$DATAHUB_REPO" rev-parse HEAD)"
+          PREVIOUS_HERMES_HEAD="$(git -C "$HERMES_REPO" rev-parse HEAD)"
 
-          if ! git diff --quiet || ! git diff --cached --quiet; then
-            echo "PRODUCTION_REPOSITORY_HAS_TRACKED_LOCAL_CHANGES"
-            git status --short
-            exit 30
-          fi
+          read_env_value() {
+            local key="$1"
+            local file="$2"
+            [ -f "$file" ] || return 0
+            { grep -E "^${key}=" "$file" || true; } | tail -n 1 | cut -d= -f2- | tr -d '\r'
+          }
 
-          git fetch origin main
+          upsert_env_value() {
+            local file="$1"
+            local key="$2"
+            local value="$3"
+            python3 - "$file" "$key" "$value" <<'PY'
+          from pathlib import Path
+          import sys
 
-          if [ "$SYNC_MODE" = "sync" ]; then
-            git merge --ff-only origin/main
-            env_file="/srv/aluminum-bypass/backend/.env"
-            if [ -f "$env_file" ]; then
-              cp -p "$env_file" "$env_file.backup-runtime-$(date +%Y%m%d%H%M%S)"
+          path = Path(sys.argv[1])
+          key = sys.argv[2]
+          value = sys.argv[3]
+          lines = path.read_text(encoding='utf-8').splitlines() if path.exists() else []
+          output = []
+          seen = False
+          prefix = f"{key}="
+          for line in lines:
+              if line.startswith(prefix):
+                  output.append(f"{key}={value}")
+                  seen = True
+              else:
+                  output.append(line)
+          if not seen:
+              output.append(f"{key}={value}")
+          path.write_text("\n".join(output) + "\n", encoding='utf-8')
+          PY
+          }
 
-              read_env() {
-                { grep -E "^$1=" "$env_file" || true; } | tail -n 1 | cut -d= -f2- | tr -d '\r'
-              }
+          backup_env_file() {
+            local file="$1"
+            if [ ! -f "$file" ]; then
+              return 0
+            fi
+            local backup="${file}.backup-task10-$(date -u +%Y%m%dT%H%M%SZ)"
+            cp -p "$file" "$backup"
+            printf '%s' "$backup"
+          }
 
-              write_env() {
-                key="$1"
-                value="$2"
-                if grep -qE "^${key}=" "$env_file"; then
-                  sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
-                else
-                  printf '\n%s=%s\n' "$key" "$value" >> "$env_file"
-                fi
-              }
+          restore_env_backup() {
+            local file="$1"
+            local backup="$2"
+            if [ -n "$backup" ] && [ -f "$backup" ]; then
+              cp -pf "$backup" "$file"
+            fi
+          }
 
-              app_connection_mode="$(read_env APP_CONNECTION_PUSH_MODE | tr '[:upper:]' '[:lower:]')"
-              app_connection_mode="${app_connection_mode:-disabled}"
-              app_connection_enabled="$(read_env APP_CONNECTION_ENABLED | tr '[:upper:]' '[:lower:]')"
-              app_connection_enabled="${app_connection_enabled:-false}"
-              case "$app_connection_mode" in
-                disabled|dry_run|enabled|"") ;;
-                *)
-                  if [ "$app_connection_enabled" = "true" ]; then
-                    write_env APP_CONNECTION_PUSH_MODE dry_run
-                  else
-                    write_env APP_CONNECTION_PUSH_MODE disabled
-                  fi
-                  echo "REPAIRED_APP_CONNECTION_PUSH_MODE"
-                  ;;
-              esac
+          detect_hermes_home() {
+            local home
+            home="$(systemctl show -p Environment --value hermes-gateway 2>/dev/null | tr ' ' '\n' | sed -n 's/^HERMES_HOME=//p' | tail -n 1)"
+            if [ -n "$home" ]; then
+              printf '%s\n' "$home"
+            else
+              dirname "$HERMES_REPO"
+            fi
+          }
 
-              mobile_mode="$(read_env MOBILE_DATA_ENTRY_MODE | tr '[:upper:]' '[:lower:]')"
-              mobile_mode="${mobile_mode:-manual_only}"
-              mobile_mes_display="$(read_env MOBILE_MES_DISPLAY_ENABLED | tr '[:upper:]' '[:lower:]')"
-              mobile_mes_display="${mobile_mes_display:-false}"
-              if [ "$mobile_mode" = "manual_only" ] && [ "$mobile_mes_display" = "true" ]; then
-                write_env MOBILE_DATA_ENTRY_MODE mes_assisted
-                echo "REPAIRED_MOBILE_DATA_ENTRY_MODE_FOR_MES_DISPLAY"
+          HERMES_HOME="$(detect_hermes_home)"
+          HERMES_ENV_FILE="$HERMES_HOME/.env"
+
+          git_tracked_clean() {
+            local repo="$1"
+            git -C "$repo" diff --quiet && git -C "$repo" diff --cached --quiet
+          }
+
+          print_repo_status() {
+            local label="$1"
+            local repo="$2"
+            local tracked_state="clean"
+            if ! git_tracked_clean "$repo"; then
+              tracked_state="dirty"
+            fi
+            echo "${label}_BRANCH=$(git -C "$repo" branch --show-current)"
+            echo "${label}_HEAD=$(git -C "$repo" rev-parse HEAD)"
+            echo "${label}_TRACKED_STATE=$tracked_state"
+            echo "${label}_UNTRACKED_START"
+            git -C "$repo" ls-files --others --exclude-standard || true
+            echo "${label}_UNTRACKED_END"
+          }
+
+          require_clean_tracked() {
+            local label="$1"
+            local repo="$2"
+            if ! git_tracked_clean "$repo"; then
+              echo "${label}_TRACKED_LOCAL_CHANGES_DETECTED"
+              git -C "$repo" status --short
+              exit 30
+            fi
+          }
+
+          require_commit_exists() {
+            local repo="$1"
+            local sha="$2"
+            git -C "$repo" fetch origin --prune --tags
+            git -C "$repo" cat-file -e "${sha}^{commit}"
+          }
+
+          libpq_url_from_database_url() {
+            local database_url="$1"
+            DATABASE_URL="$database_url" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          import os
+          from sqlalchemy.engine import make_url
+
+          url = make_url(os.environ["DATABASE_URL"])
+          print(url.set(drivername=url.drivername.split("+", 1)[0]).render_as_string(hide_password=False))
+          PY
+          }
+
+          report_http_json() {
+            local label="$1"
+            local url="$2"
+            local target_file="$3"
+            if curl -fsS "$url" > "$target_file"; then
+              echo "${label}_URL=$url"
+              python3 - "$target_file" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+          PY
+            else
+              echo "${label}_URL=$url"
+              echo "${label}_FAILED"
+              return 1
+            fi
+          }
+
+          query_stream_persistence() {
+            local database_url="$1"
+            DATABASE_URL="$database_url" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          import json
+          import os
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          payload = {
+              "chat_inbox_count": 0,
+              "chat_inbox_latest_at": None,
+              "chat_inbox_latest_trace_id": None,
+              "multimodal_evidence_count": 0,
+              "multimodal_evidence_latest_at": None,
+              "multimodal_evidence_latest_trace_id": None,
+          }
+          with engine.connect() as conn:
+              inbox = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total,
+                             MAX(created_at) AS latest_at,
+                             (
+                               SELECT trace_id
+                               FROM chat_inbox
+                               WHERE trace_id LIKE 'dingtalk-stream-sha256:%'
+                               ORDER BY created_at DESC, id DESC
+                               LIMIT 1
+                             ) AS latest_trace_id
+                      FROM chat_inbox
+                      WHERE trace_id LIKE 'dingtalk-stream-sha256:%'
+                      """
+                  )
+              ).mappings().one()
+              evidence = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total,
+                             MAX(created_at) AS latest_at,
+                             (
+                               SELECT payload->>'trace_id'
+                               FROM multimodal_evidence
+                               WHERE payload IS NOT NULL
+                                 AND payload->>'source' = 'dingtalk'
+                                 AND payload->>'trace_id' LIKE 'dingtalk-stream-sha256:%'
+                               ORDER BY created_at DESC, id DESC
+                               LIMIT 1
+                             ) AS latest_trace_id
+                      FROM multimodal_evidence
+                      WHERE payload IS NOT NULL
+                        AND payload->>'source' = 'dingtalk'
+                        AND payload->>'trace_id' LIKE 'dingtalk-stream-sha256:%'
+                      """
+                  )
+              ).mappings().one()
+          payload["chat_inbox_count"] = int(inbox["total"] or 0)
+          payload["chat_inbox_latest_at"] = None if inbox["latest_at"] is None else str(inbox["latest_at"])
+          payload["chat_inbox_latest_trace_id"] = inbox["latest_trace_id"]
+          payload["multimodal_evidence_count"] = int(evidence["total"] or 0)
+          payload["multimodal_evidence_latest_at"] = None if evidence["latest_at"] is None else str(evidence["latest_at"])
+          payload["multimodal_evidence_latest_trace_id"] = evidence["latest_trace_id"]
+          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+          PY
+          }
+
+          verify_smoke_trace_persisted() {
+            local database_url="$1"
+            local trace_id="$2"
+            DATABASE_URL="$database_url" TRACE_ID="$trace_id" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          import json
+          import os
+          from sqlalchemy import create_engine, text
+
+          trace_id = os.environ["TRACE_ID"]
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with engine.connect() as conn:
+              inbox = conn.execute(
+                  text("SELECT id, created_at FROM chat_inbox WHERE trace_id = :trace_id ORDER BY id DESC LIMIT 1"),
+                  {"trace_id": trace_id},
+              ).mappings().first()
+              evidence = conn.execute(
+                  text(
+                      """
+                      SELECT id, created_at
+                      FROM multimodal_evidence
+                      WHERE payload IS NOT NULL
+                        AND payload->>'trace_id' = :trace_id
+                      ORDER BY id DESC
+                      LIMIT 1
+                      """
+                  ),
+                  {"trace_id": trace_id},
+              ).mappings().first()
+          if inbox is None or evidence is None:
+              raise SystemExit(1)
+          print(
+              json.dumps(
+                  {
+                      "trace_id": trace_id,
+                      "chat_inbox_id": int(inbox["id"]),
+                      "chat_inbox_created_at": str(inbox["created_at"]),
+                      "multimodal_evidence_id": int(evidence["id"]),
+                      "multimodal_evidence_created_at": str(evidence["created_at"]),
+                  },
+                  ensure_ascii=False,
+                  sort_keys=True,
+              )
+          )
+          PY
+          }
+
+          report_stream_connection() {
+            local require_connected="$1"
+            local active_since
+            local connected_line
+            active_since="$(systemctl show -p ActiveEnterTimestamp --value hermes-gateway)"
+            echo "HERMES_ACTIVE_ENTER_TIMESTAMP=$active_since"
+            connected_line="$(journalctl -u hermes-gateway --since "$active_since" --no-pager -o short-iso 2>/dev/null | grep -F 'Connected via Stream Mode' | tail -n 1 || true)"
+            if [ -n "$connected_line" ]; then
+              echo "HERMES_STREAM_CONNECTED=yes"
+              echo "HERMES_STREAM_CONNECTED_LINE=$connected_line"
+            else
+              echo "HERMES_STREAM_CONNECTED=no"
+              echo "HERMES_STREAM_CONNECTED_LINE=none"
+              if [ "$require_connected" = "yes" ]; then
+                return 1
               fi
             fi
-            echo "INSTALL_BACKEND_REQUIREMENTS"
-            if [ -x backend/.venv/bin/python ]; then
-              backend/.venv/bin/python -m pip install -r backend/requirements.txt
+          }
+
+          report_status() {
+            local version_required="$1"
+
+            print_repo_status "DATAHUB" "$DATAHUB_REPO"
+            print_repo_status "HERMES" "$HERMES_REPO"
+
+            echo "SERVICE_STATUS_START"
+            systemctl is-active aluminum-bypass hermes-gateway nginx
+            echo "SERVICE_STATUS_END"
+
+            report_http_json "READYZ" "http://127.0.0.1:8000/readyz" /tmp/readyz.json || true
+            if [ "$version_required" = "yes" ]; then
+              report_http_json "VERSIONZ" "http://127.0.0.1:8000/versionz" /tmp/versionz.json
             else
-              echo "BACKEND_VENV_MISSING"
-              exit 33
+              report_http_json "VERSIONZ" "http://127.0.0.1:8000/versionz" /tmp/versionz.json || true
             fi
-            echo "HERMES_GATEWAY_HEALTH"
-            (cd backend && . .venv/bin/activate && python scripts/hermes_dingtalk_stream_gateway.py --health)
-            echo "BUILD_FRONTEND"
-            if command -v npm >/dev/null 2>&1; then
-              (cd frontend && npm ci --no-audit --no-fund && npm run build)
-              find frontend/dist/assets -maxdepth 1 -name 'Login-*.js' -printf 'FRONTEND_LOGIN_ASSET=%f\n' | sort | tail -n 1
+
+            report_stream_connection "no" || true
+            echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
+          }
+
+          rollback_on_error() {
+            local exit_code=$?
+            trap - ERR
+            echo "DEPLOY_FAILED_ROLLBACK_START"
+            if [ "$CHECKOUT_DONE" = "1" ]; then
+              git -C "$DATAHUB_REPO" checkout --detach "$PREVIOUS_DATAHUB_HEAD" || true
+              git -C "$HERMES_REPO" checkout --detach "$PREVIOUS_HERMES_HEAD" || true
+            fi
+            restore_env_backup "$DATAHUB_ENV_FILE" "$DATAHUB_ENV_BACKUP"
+            restore_env_backup "$HERMES_ENV_FILE" "$HERMES_ENV_BACKUP"
+            if [ "$NEEDS_DB_RESTORE" = "1" ] && [ -n "$DB_BACKUP" ] && [ -f "$DB_BACKUP" ]; then
+              echo "ROLLBACK_DATABASE_FROM=$DB_BACKUP"
+              pg_restore --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP" >/tmp/task10-db-restore.log 2>&1 || true
             else
-              echo "FRONTEND_BUILD_FAILED_NO_NPM"
-              exit 32
+              echo "ROLLBACK_DATABASE_SKIPPED"
             fi
-            echo "RESTART_SERVICES"
-            systemctl restart aluminum-bypass hermes-gateway
-            systemctl reload nginx || systemctl restart nginx
+            systemctl restart aluminum-bypass || true
+            systemctl restart hermes-gateway || true
+            systemctl reload nginx || systemctl restart nginx || true
+            echo "DEPLOY_FAILED_ROLLBACK_DONE"
+            exit "$exit_code"
+          }
+
+          RAW_DATABASE_URL="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
+          if [ -z "$RAW_DATABASE_URL" ]; then
+            echo "DATABASE_URL_MISSING"
+            exit 40
+          fi
+          DATABASE_LIBPQ_URL="$(libpq_url_from_database_url "$RAW_DATABASE_URL")"
+
+          if [ "$MODE" = "status" ]; then
+            report_status "no"
+            exit 0
           fi
 
-          echo "PROD_HEAD_AFTER=$(git rev-parse HEAD)"
-          echo "ORIGIN_MAIN=$(git rev-parse origin/main)"
-          git status --short --branch
+          trap rollback_on_error ERR
 
-          echo "SERVICE_STATUS"
-          systemctl is-active aluminum-bypass hermes-gateway nginx
+          require_clean_tracked "DATAHUB" "$DATAHUB_REPO"
+          require_clean_tracked "HERMES" "$HERMES_REPO"
 
-          echo "READYZ"
+          require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"
+          require_commit_exists "$HERMES_REPO" "$HERMES_SHA"
+
+          mkdir -p "$BACKUP_DIR"
+          timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          DB_BACKUP="$BACKUP_DIR/pre-task10-deploy-${timestamp}.dump"
+          pg_dump --format=custom --file "$DB_BACKUP" "$DATABASE_LIBPQ_URL"
+          pg_restore -l "$DB_BACKUP" >/tmp/task10-db-backup.list
+
+          DATAHUB_ENV_BACKUP="$(backup_env_file "$DATAHUB_ENV_FILE")"
+          HERMES_ENV_BACKUP="$(backup_env_file "$HERMES_ENV_FILE")"
+
+          git -C "$DATAHUB_REPO" checkout --detach "$DATAHUB_SHA"
+          git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"
+          CHECKOUT_DONE=1
+
+          if [ ! -x "$DATAHUB_REPO/backend/.venv/bin/python" ]; then
+            echo "BACKEND_VENV_MISSING"
+            exit 41
+          fi
+
+          "$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"
+          if ! (
+            cd "$DATAHUB_REPO/backend" &&
+            DATABASE_URL="$RAW_DATABASE_URL" ./.venv/bin/python -m alembic upgrade head
+          ); then
+            NEEDS_DB_RESTORE=1
+            exit 42
+          fi
+
+          (
+            cd "$DATAHUB_REPO/frontend" &&
+            npm ci --no-audit --no-fund &&
+            npm run build
+          )
+
+          upsert_env_value "$DATAHUB_ENV_FILE" "BUILD_SHA" "$DATAHUB_SHA"
+          upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_BUILD_SHA" "$HERMES_SHA"
+
+          systemctl restart aluminum-bypass
+          systemctl restart hermes-gateway
+          systemctl reload nginx || systemctl restart nginx
+
           readyz_ok=0
-          for attempt in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:8000/readyz || curl -skfsS https://xtmijd.com/readyz; then
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/readyz >/tmp/readyz.json; then
               readyz_ok=1
               break
             fi
-            sleep 2
+            sleep 3
           done
           if [ "$readyz_ok" != "1" ]; then
-            echo "READYZ_FAILED_AFTER_RESTART"
-            systemctl status aluminum-bypass --no-pager -l || true
-            journalctl -u aluminum-bypass -n 120 --no-pager || true
-            exit 31
+            echo "READYZ_FAILED_AFTER_DEPLOY"
+            exit 43
           fi
+
+          curl -fsS http://127.0.0.1:8000/versionz >/tmp/versionz.json
+          python3 - "$DATAHUB_SHA" "$HERMES_SHA" /tmp/versionz.json <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          expected_datahub = sys.argv[1]
+          expected_hermes = sys.argv[2]
+          payload = json.loads(Path(sys.argv[3]).read_text(encoding='utf-8'))
+          if payload != {
+              "datahub_sha": expected_datahub,
+              "hermes_sha": expected_hermes,
+          }:
+              raise SystemExit(1)
+          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+          PY
+
+          [ "$(git -C "$DATAHUB_REPO" rev-parse HEAD)" = "$DATAHUB_SHA" ]
+          [ "$(git -C "$HERMES_REPO" rev-parse HEAD)" = "$HERMES_SHA" ]
+
+          smoke_token="$(read_env_value HERMES_DINGTALK_INBOUND_TOKEN "$DATAHUB_ENV_FILE")"
+          if [ -z "$smoke_token" ]; then
+            smoke_token="$(read_env_value DINGTALK_INBOUND_TOKEN "$DATAHUB_ENV_FILE")"
+          fi
+          smoke_user_id="$(read_env_value HERMES_SMOKE_ROOT_OWNER_USER_ID "$DATAHUB_ENV_FILE")"
+          if [ -z "$smoke_user_id" ]; then
+            smoke_user_id="$(read_env_value HERMES_OWNER_DINGTALK_USER_IDS "$DATAHUB_ENV_FILE" | cut -d',' -f1 | xargs)"
+          fi
+          smoke_union_id="$(read_env_value HERMES_SMOKE_ROOT_OWNER_UNION_ID "$DATAHUB_ENV_FILE")"
+          if [ -z "$smoke_token" ] || [ -z "$smoke_user_id" ]; then
+            echo "SMOKE_INPUTS_MISSING"
+            exit 44
+          fi
+          smoke_trace="smoke-trace-$(date -u +%Y%m%dT%H%M%SZ)"
+          python3 - "$smoke_user_id" "$smoke_union_id" "$smoke_trace" >/tmp/task10-smoke-payload.json <<'PY'
+          import json
+          import sys
+
+          payload = {
+              "senderStaffId": sys.argv[1],
+              "text": {"content": "【Task10 smoke】只做真实入站留痕，不发钉钉外发。"},
+              "agentCode": "factory_dispatch",
+              "traceId": sys.argv[3],
+              "queueOutbox": False,
+          }
+          if sys.argv[2]:
+              payload["senderUnionId"] = sys.argv[2]
+          print(json.dumps(payload, ensure_ascii=False))
+          PY
+          curl -fsS \
+            -H "content-type: application/json" \
+            -H "x-dingtalk-inbound-token: $smoke_token" \
+            --data @/tmp/task10-smoke-payload.json \
+            http://127.0.0.1:8000/api/v1/dingtalk/agent-inbound >/tmp/task10-smoke-response.json
+          cat /tmp/task10-smoke-response.json
+          echo
+          echo "SMOKE_TRACE_ID=$smoke_trace"
+          echo "SMOKE_PERSISTENCE=$(verify_smoke_trace_persisted "$RAW_DATABASE_URL" "$smoke_trace")"
+
+          report_stream_connection "yes"
+          echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
+
+          report_status "yes"
           REMOTE
