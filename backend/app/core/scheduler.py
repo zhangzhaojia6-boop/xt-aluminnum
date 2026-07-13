@@ -86,6 +86,7 @@ def setup_scheduler(target_scheduler=None):
         return None
 
     from app.tasks.daily_report import generate_daily_reports
+    from app.tasks.daily_fact_closure import run_scheduled_daily_fact_closure
     from app.tasks.data_archive import archive_old_data
     from app.tasks.fill_reminder import send_fill_reminders
     from app.tasks.agent_outbox import dispatch_due_agent_outbox_messages
@@ -99,6 +100,14 @@ def setup_scheduler(target_scheduler=None):
     )
 
     _add_job_once(active_scheduler, generate_daily_reports, 'cron', job_id='daily_report', hour=7, minute=30)
+    _add_job_once(
+        active_scheduler,
+        run_scheduled_daily_fact_closure,
+        'cron',
+        job_id='daily_fact_closure_0805',
+        hour=8,
+        minute=5,
+    )
     if (settings.MES_ADAPTER or 'null').strip().lower() != 'null':
         _add_job_once(
             active_scheduler,

@@ -1,3 +1,4 @@
+import inspect
 import re
 from unittest.mock import MagicMock
 
@@ -30,6 +31,7 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
 
     assert set(scheduler.jobs) >= {
         'daily_report',
+        'daily_fact_closure_0805',
         'mes_sync_core',
         'mes_sync_realtime',
         'mes_sync_business',
@@ -43,6 +45,12 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     assert scheduler.jobs['daily_report']['trigger'] == 'cron'
     assert scheduler.jobs['daily_report']['kwargs']['hour'] == 7
     assert scheduler.jobs['daily_report']['kwargs']['minute'] == 30
+    assert scheduler.jobs['daily_fact_closure_0805']['trigger'] == 'cron'
+    assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['hour'] == 8
+    assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['minute'] == 5
+    assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['coalesce'] is True
+    assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['max_instances'] == 1
+    assert inspect.signature(scheduler.jobs['daily_fact_closure_0805']['func']).parameters == {}
     assert scheduler.jobs['mes_sync_core']['trigger'] == 'interval'
     assert scheduler.jobs['mes_sync_core']['kwargs']['seconds'] == 30
     assert scheduler.jobs['mes_sync_realtime']['trigger'] == 'interval'

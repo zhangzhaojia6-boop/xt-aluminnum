@@ -138,7 +138,15 @@ def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Se
     assert fact["priority"] == 80
     assert fact["confidence"] == 0.85
     assert fact["adoption_reason"] == "来自 mes_packaging_output"
-    assert fact["source_detail"] == {"source": "mes_packaging_output"}
+    assert fact["source_detail"] == {
+        "source": "mes_packaging_output",
+        "source_type": "mes_packaging_output",
+        "source_ref": "mes_workshop_process_records",
+        "business_window": "2026-06-19T07:50:00+08:00/2026-06-20T07:50:00+08:00",
+        "unit": "吨",
+        "trace_id": "mes:total_output_daily:2026-06-19",
+        "metric_contract_version": "2026-07-11",
+    }
     assert bundle["missing_fields"] == []
     assert bundle["missing"] == []
     assert bundle["conflicts"] == []
@@ -149,7 +157,98 @@ def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Se
     } == EXPECTED_CRITICAL_DAILY_FACT_FIELDS
 
 
-def test_daily_fact_bundle_fact_closure_blocks_critical_fields_without_per_field_traces(
+def test_daily_fact_bundle_adds_complete_field_specific_mes_source_traces(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {
+                "total_output_daily": 366,
+                "finished_inbound_daily": 126.4,
+            },
+            "sources": {
+                "total_output_daily": {
+                    "source_type": "mes_packaging_output",
+                    "source_table": "MES_ProductProcessRecord",
+                },
+                "finished_inbound_daily": {
+                    "source_type": "finished_inbound_output",
+                    "source_table": "WMS_InStock",
+                },
+            },
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+    )
+
+    expected_window = "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00"
+    expected_sources = {
+        "total_output_daily": ("mes_packaging_output", "MES_ProductProcessRecord"),
+        "finished_inbound_daily": ("finished_inbound_output", "WMS_InStock"),
+    }
+    for field_name, (source_type, source_ref) in expected_sources.items():
+        fact = bundle["facts"][field_name]
+        for source in (fact["source_detail"], fact["source_ref"]):
+            assert source["source_type"] == source_type
+            assert source["source_ref"] == source_ref
+            assert source["business_window"] == expected_window
+            assert source["unit"] == "吨"
+            assert source["trace_id"] == f"mes:{field_name}:2026-07-07"
+            assert source["metric_contract_version"] == "2026-07-11"
+
+    assert (
+        bundle["facts"]["total_output_daily"]["source_detail"]["trace_id"]
+        != bundle["facts"]["finished_inbound_daily"]["source_detail"]["trace_id"]
+    )
+
+
+def test_daily_fact_bundle_does_not_forge_mes_trace_for_non_mes_source(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_electricity_kwh": 146500},
+            "sources": {
+                "total_electricity_kwh": {
+                    "source_type": "owner_or_energy_summary",
+                    "source_table": "mobile_shift_reports",
+                },
+            },
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 7),
+    )
+
+    fact = bundle["facts"]["total_electricity_kwh"]
+    assert "trace_id" not in fact["source_detail"]
+    assert "metric_contract_version" not in fact["source_detail"]
+    assert "trace_id" not in fact["source_ref"]
+
+
+def test_daily_fact_bundle_only_confirms_direct_mes_fields_with_generated_traces(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -185,7 +284,13 @@ def test_daily_fact_bundle_fact_closure_blocks_critical_fields_without_per_field
 
     closure = bundle["fact_closure"]
     assert closure["status"] == "blocked"
-    assert closure["counts"]["needs_evidence"] == len(EXPECTED_CRITICAL_DAILY_FACT_FIELDS)
+    assert closure["counts"]["confirmed"] == 3
+    assert closure["counts"]["needs_evidence"] == 2
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "confirmed"
+    assert _fact_closure_field(bundle, "finished_inbound_daily")["status"] == "confirmed"
+    assert _fact_closure_field(bundle, "wip_total")["status"] == "confirmed"
+    assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "needs_evidence"
+    assert _fact_closure_field(bundle, "daily_yield_rate")["status"] == "needs_evidence"
     assert {
         item["field"]
         for item in closure["critical_fields"]
@@ -1557,6 +1662,51 @@ def test_daily_fact_bundle_persists_light_run_and_formal_snapshot(
     assert snapshot.adopted_values["total_output_daily"] == 366
     assert len(snapshot.payload_hash) == 64
     assert snapshot.trace_id == "trace-fact-bundle-persist"
+
+
+def test_same_non_scheduled_snapshot_reason_refreshes_one_snapshot(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    values = iter((366, 367))
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {"total_output_daily": next(values)},
+            "sources": {"total_output_daily": "mes_packaging_output"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+
+    daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+        trace_id="trace-formal-refresh",
+        persist_run=True,
+        snapshot_reason="formal_daily_report",
+    )
+    first_hash = db_session.query(DailyFactBundleSnapshot).one().payload_hash
+    daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+        trace_id="trace-formal-refresh",
+        persist_run=True,
+        snapshot_reason="formal_daily_report",
+    )
+
+    assert db_session.query(DailyFactBundleRun).count() == 1
+    assert db_session.query(DailyFactBundleSnapshot).count() == 1
+    refreshed = db_session.query(DailyFactBundleSnapshot).one()
+    assert refreshed.adopted_values["total_output_daily"] == 367
+    assert refreshed.payload_hash != first_hash
 
 
 def test_build_daily_fact_bundle_recovers_when_run_insert_hits_unique_race(

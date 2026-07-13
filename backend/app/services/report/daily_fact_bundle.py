@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.business_time import production_business_window
 from app.core.redaction import filter_sensitive_mapping
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
@@ -92,6 +93,29 @@ FIELD_UNITS = {
     "verified_cost_total": "万元",
     "cost_per_ton": "元/吨",
 }
+METRIC_CONTRACT_VERSION = "2026-07-11"
+DIRECT_MES_WMS_SOURCE_TYPES = {
+    "finished_inbound_output",
+    "mes_verified",
+    "wms",
+    "wms_direct",
+}
+DIRECT_MES_WMS_SOURCE_REFS = {
+    "finished_inbound_output": "WMS_InStock",
+    "mes_coil_snapshot_business_date": "mes_coil_snapshots",
+    "mes_daily_wip_snapshot": "mes_daily_wip_snapshots",
+    "mes_delivery_records": "mes_delivery_records",
+    "mes_material_records": "mes_material_records",
+    "mes_packaging_output": "mes_workshop_process_records",
+    "mes_stock_header_records": "WMS_InStock",
+    "mes_stock_records": "mes_stock_records",
+    "mes_verified": "mes_readonly_adapter",
+    "mes_wip_distribution": "mes_wip_distribution",
+    "mes_wip_total_snapshot": "mes_wip_total_snapshots",
+    "mes_workshop_process_records": "mes_workshop_process_records",
+    "wms": "wms_readonly_adapter",
+    "wms_direct": "wms_readonly_adapter",
+}
 
 
 def build_daily_fact_bundle(
@@ -102,6 +126,7 @@ def build_daily_fact_bundle(
     trace_id: str | None = None,
     persist_run: bool = False,
     snapshot_reason: str | None = None,
+    allow_output_skill_reference_adoption: bool = True,
 ) -> dict[str, Any]:
     template_facts = template_daily_report.build_template_daily_report_facts(db, target_date=business_date)
     facts_payload = _facts_from_template(template_facts, business_date=business_date)
@@ -111,7 +136,7 @@ def build_daily_fact_bundle(
         template_facts=template_facts,
         trace_id=trace_id,
     )
-    reference_only = _should_adopt_output_skill_reference()
+    reference_only = allow_output_skill_reference_adoption and _should_adopt_output_skill_reference()
     bundle["reference_only"] = reference_only
     bundle = _apply_dingtalk_supplements(db, bundle=bundle, business_date=business_date)
     output_skill_root = _output_skill_root()
@@ -176,10 +201,21 @@ def _facts_from_template(template_facts: Mapping[str, Any], *, business_date: da
     sources = dict(template_facts.get("sources") or {})
     result: dict[str, Any] = {}
     for field_name, value in values.items():
+        normalized_field_name = str(field_name)
         source_name, source_detail = _source_from_template(sources.get(field_name))
-        result[str(field_name)] = _fact_item(
+        unit = FIELD_UNITS.get(normalized_field_name)
+        if _is_direct_mes_wms_source(source_name):
+            unit = _field_unit(normalized_field_name)
+            source_detail = _direct_mes_wms_source_detail(
+                field_name=normalized_field_name,
+                source_type=source_name,
+                source_detail=source_detail,
+                business_date=business_date,
+                unit=unit,
+            )
+        result[normalized_field_name] = _fact_item(
             value=value,
-            unit=FIELD_UNITS.get(str(field_name)),
+            unit=unit,
             source=source_name,
             source_type=source_name,
             priority=_source_priority(source_name),
@@ -271,6 +307,45 @@ def _source_confidence(source: str) -> float:
     return 0.5
 
 
+def _is_direct_mes_wms_source(source_type: str) -> bool:
+    return (
+        source_type in DIRECT_MES_WMS_SOURCE_TYPES
+        or source_type.startswith("mes_")
+        or source_type.startswith("wms_")
+    )
+
+
+def _direct_mes_wms_source_detail(
+    *,
+    field_name: str,
+    source_type: str,
+    source_detail: Mapping[str, Any],
+    business_date: date,
+    unit: str | None,
+) -> dict[str, Any]:
+    detail = dict(source_detail)
+    window_start, window_end = production_business_window(business_date)
+    source_ref = next(
+        (
+            str(detail[key]).strip()
+            for key in ("source_ref", "source_table", "projection_table", "table", "adapter")
+            if detail.get(key) not in (None, "")
+        ),
+        DIRECT_MES_WMS_SOURCE_REFS.get(source_type, f"adapter:{source_type}"),
+    )
+    detail.update(
+        {
+            "source_type": source_type,
+            "source_ref": source_ref,
+            "business_window": f"{window_start.isoformat()}/{window_end.isoformat()}",
+            "unit": unit,
+            "trace_id": f"mes:{field_name}:{business_date.isoformat()}",
+            "metric_contract_version": METRIC_CONTRACT_VERSION,
+        }
+    )
+    return detail
+
+
 def _persist_bundle(
     db: Session,
     *,
@@ -281,7 +356,8 @@ def _persist_bundle(
     snapshot_reason: str | None,
 ) -> tuple[DailyFactBundleRun, DailyFactBundleSnapshot | None]:
     run_key = _run_key(business_date=business_date, trace_id=trace_id)
-    run = db.query(DailyFactBundleRun).filter(DailyFactBundleRun.run_key == run_key).one_or_none()
+    run_query = db.query(DailyFactBundleRun).filter(DailyFactBundleRun.run_key == run_key)
+    run = run_query.with_for_update().one_or_none()
     if run is None:
         try:
             with db.begin_nested():
@@ -294,7 +370,7 @@ def _persist_bundle(
                 db.add(run)
                 db.flush()
         except IntegrityError:
-            run = db.query(DailyFactBundleRun).filter(DailyFactBundleRun.run_key == run_key).one_or_none()
+            run = run_query.with_for_update().one_or_none()
             if run is None:
                 raise
     run.status = str(bundle.get("status") or "partial")
@@ -306,22 +382,31 @@ def _persist_bundle(
 
     snapshot = None
     if snapshot_reason is not None:
-        snapshot = DailyFactBundleSnapshot(
-            run_id=run.id,
-            business_date=business_date,
-            snapshot_reason=snapshot_reason,
-            facts=_json_safe(bundle.get("facts") or {}),
-            sources=_json_safe(bundle.get("sources") or {}),
-            conflicts=_json_safe(bundle.get("conflicts") or []),
-            adopted_values=_adopted_values(bundle),
-            correction_refs=_json_safe(bundle.get("correction_refs") or []),
-            dingtalk_refs=_json_safe(bundle.get("dingtalk_refs") or []),
-            output_skill_alignment=_json_safe(bundle.get("output_skill_alignment") or {}),
-            payload_hash=_payload_hash(bundle),
-            created_by_id=getattr(requested_by, "id", None),
-            trace_id=trace_id,
+        snapshot = (
+            db.query(DailyFactBundleSnapshot)
+            .filter(
+                DailyFactBundleSnapshot.run_id == run.id,
+                DailyFactBundleSnapshot.snapshot_reason == snapshot_reason,
+            )
+            .one_or_none()
         )
-        db.add(snapshot)
+        if snapshot is None:
+            snapshot = DailyFactBundleSnapshot(
+                run_id=run.id,
+                business_date=business_date,
+                snapshot_reason=snapshot_reason,
+            )
+            db.add(snapshot)
+        snapshot.facts = _json_safe(bundle.get("facts") or {})
+        snapshot.sources = _json_safe(bundle.get("sources") or {})
+        snapshot.conflicts = _json_safe(bundle.get("conflicts") or [])
+        snapshot.adopted_values = _adopted_values(bundle)
+        snapshot.correction_refs = _json_safe(bundle.get("correction_refs") or [])
+        snapshot.dingtalk_refs = _json_safe(bundle.get("dingtalk_refs") or [])
+        snapshot.output_skill_alignment = _json_safe(bundle.get("output_skill_alignment") or {})
+        snapshot.payload_hash = _payload_hash(bundle)
+        snapshot.created_by_id = getattr(requested_by, "id", None)
+        snapshot.trace_id = trace_id
         db.flush()
     return run, snapshot
 
