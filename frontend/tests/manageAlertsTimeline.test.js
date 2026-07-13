@@ -189,6 +189,25 @@ test('daily fact alerts preserve real traces routes and the selected target date
   assert.equal(t.events.value.find((event) => event.id === 'dingtalk-failure:run-2').traceId, 'trace-dingtalk')
 })
 
+test('daily closure does not create alerts when explicit alert arrays are absent', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async () => ({
+      fact_closure: {
+        critical_fields: [
+          { field: 'total_output_daily', status: 'missing' },
+          { field: 'finished_inbound_daily', status: 'needs_evidence', trace_id: 'trace-closure-only' },
+        ],
+      },
+    }),
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.deepEqual(t.events.value, [])
+})
+
 test('initial trace query filters the timeline to matching real events', async () => {
   const t = createAlertsTimeline({
     ...makeEmptyFakes(),

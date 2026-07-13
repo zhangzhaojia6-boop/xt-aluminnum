@@ -134,6 +134,7 @@ def _add_snapshot(
     conflicts: list[dict[str, Any]] | None = None,
     value_suffix: str = "canonical",
     created_at: datetime | None = None,
+    canonical_key: bool | None = None,
 ) -> DailyFactBundleSnapshot:
     run = DailyFactBundleRun(
         run_key=f"{reason}:{value_suffix}",
@@ -147,6 +148,11 @@ def _add_snapshot(
     payload_facts = facts if facts is not None else _facts()
     snapshot = DailyFactBundleSnapshot(
         run_id=run.id,
+        snapshot_key=(
+            f"scheduled_daily_closure:{run.run_key}"
+            if canonical_key is True or (canonical_key is None and reason == "scheduled_daily_closure")
+            else None
+        ),
         business_date=TARGET_DATE,
         snapshot_reason=reason,
         facts=payload_facts,
@@ -207,6 +213,44 @@ def test_daily_overview_preserves_latest_canonical_snapshot_fact_contract(db_ses
 
 
 def test_daily_overview_without_snapshot_returns_all_critical_facts_missing(db_session: Session) -> None:
+    internal = ChatInboxMessage(
+        channel="internal",
+        text="无快照内部失败",
+        agent_code="factory_dispatch",
+        trace_id="trace-no-snapshot-hermes",
+        created_at=datetime(2026, 7, 7, 12, 0, tzinfo=SHANGHAI),
+    )
+    dingtalk = ChatInboxMessage(
+        channel="dingtalk_group",
+        text="无快照钉钉失败",
+        agent_code="factory_dispatch",
+        trace_id="trace-no-snapshot-dingtalk",
+        created_at=datetime(2026, 7, 7, 13, 0, tzinfo=SHANGHAI),
+    )
+    db_session.add_all([internal, dingtalk])
+    db_session.flush()
+    db_session.add_all([
+        AgentRun(
+            trace_id=internal.trace_id,
+            agent_code="factory_dispatch",
+            chat_inbox_id=internal.id,
+            status="failed",
+            status_color="red",
+            answer="失败",
+            created_at=datetime(2026, 7, 7, 12, 1, tzinfo=SHANGHAI),
+        ),
+        AgentRun(
+            trace_id=dingtalk.trace_id,
+            agent_code="factory_dispatch",
+            chat_inbox_id=dingtalk.id,
+            status="failed",
+            status_color="red",
+            answer="失败",
+            created_at=datetime(2026, 7, 7, 13, 1, tzinfo=SHANGHAI),
+        ),
+    ])
+    db_session.commit()
+
     payload = _overview(db_session)
 
     assert payload["fact_closure"]["status"] == "blocked"
@@ -220,6 +264,10 @@ def test_daily_overview_without_snapshot_returns_all_critical_facts_missing(db_s
         assert fact["source"] is None
         assert fact["business_window"] is None
         assert fact["trace_id"] is None
+    assert payload["fact_missing"] == []
+    assert payload["fact_conflicts"] == []
+    assert payload["hermes_failures"] == []
+    assert payload["dingtalk_inbound_failures"] == []
 
 
 def test_newer_formal_snapshot_never_overrides_canonical_scheduled_snapshot(db_session: Session) -> None:
@@ -246,7 +294,7 @@ def test_newer_formal_snapshot_never_overrides_canonical_scheduled_snapshot(db_s
     assert _field(payload, "total_output_daily")["value"] == 62.0
 
 
-def test_formal_snapshot_is_used_only_when_canonical_snapshot_is_absent(db_session: Session) -> None:
+def test_formal_snapshot_is_ignored_when_canonical_snapshot_is_absent(db_session: Session) -> None:
     formal_facts = _facts()
     formal_facts["total_output_daily"]["value"] = 63.5
     _add_snapshot(
@@ -259,7 +307,27 @@ def test_formal_snapshot_is_used_only_when_canonical_snapshot_is_absent(db_sessi
 
     payload = _overview(db_session)
 
-    assert _field(payload, "total_output_daily")["value"] == 63.5
+    for fact in payload["fact_closure"]["critical_fields"]:
+        assert fact["value"] is None
+        assert fact["status"] == "missing"
+    assert payload["fact_missing"] == []
+    assert payload["fact_conflicts"] == []
+    assert payload["hermes_failures"] == []
+    assert payload["dingtalk_inbound_failures"] == []
+
+
+def test_scheduled_snapshot_without_canonical_key_is_ignored(db_session: Session) -> None:
+    _add_snapshot(
+        db_session,
+        value_suffix="legacy-unkeyed-scheduled",
+        canonical_key=False,
+    )
+    db_session.commit()
+
+    payload = _overview(db_session)
+
+    assert all(item["status"] == "missing" for item in payload["fact_closure"]["critical_fields"])
+    assert payload["fact_missing"] == []
 
 
 def test_snapshot_conflicts_and_missing_facts_become_fact_alerts(db_session: Session) -> None:

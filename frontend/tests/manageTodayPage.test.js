@@ -66,6 +66,15 @@ test('TodayPage uses the Stitch industrial blue wall without expensive effects',
   assert.doesNotMatch(styleBlock, /backdrop-filter|filter:\s*blur/i)
 })
 
+test('TodayPage removes fixed source claims and relies on backend fact sources', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.doesNotMatch(src, /data-testid="second-pass-source-strip"/)
+  assert.doesNotMatch(src, />MES 外部数据</)
+  assert.doesNotMatch(src, />人工填报</)
+  assert.doesNotMatch(src, />算法数据</)
+  assert.match(src, /fact\.source/)
+})
+
 test('TodayPage keeps exception as an entrance without proactive prompts', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.equal(/KeyEventList/.test(src), false)

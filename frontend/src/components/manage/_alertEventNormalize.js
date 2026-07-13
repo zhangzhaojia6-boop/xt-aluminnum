@@ -327,19 +327,9 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
 
 export function normalizeDailyFactAlerts(payload, targetDate) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return []
-  const closureFields = safeArray(payload.fact_closure?.critical_fields)
-  const conflictFields = new Set(
-    safeArray(payload.fact_conflicts).map((row) => row?.field || row?.field_name).filter(Boolean)
-  )
-  const missingRows = safeArray(payload.fact_missing).length
-    ? safeArray(payload.fact_missing)
-    : closureFields.filter((row) => (
-      ['missing', 'needs_evidence'].includes(row?.status)
-      || (row?.status === 'mismatch' && !conflictFields.has(row?.field || row?.field_name))
-    ))
   const groups = [
     ['fact-conflict', safeArray(payload.fact_conflicts), '23:59:59'],
-    ['fact-missing', missingRows, '23:59:58'],
+    ['fact-missing', safeArray(payload.fact_missing), '23:59:58'],
     ['hermes-failure', safeArray(payload.hermes_failures), '23:59:57'],
     ['dingtalk-failure', safeArray(payload.dingtalk_inbound_failures), '23:59:56'],
   ]

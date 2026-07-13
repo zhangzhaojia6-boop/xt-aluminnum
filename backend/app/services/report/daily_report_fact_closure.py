@@ -6,6 +6,7 @@ from datetime import date
 from typing import Any
 from urllib.parse import quote
 
+from sqlalchemy import literal
 from sqlalchemy.orm import Session
 
 from app.core.business_time import production_business_window
@@ -127,6 +128,15 @@ def build_persisted_daily_fact_surface(
             "conflicts": conflicts,
         }
     )
+    if snapshot is None:
+        return {
+            "fact_closure": closure,
+            "fact_conflicts": [],
+            "fact_missing": [],
+            "hermes_failures": [],
+            "dingtalk_inbound_failures": [],
+        }
+
     fact_conflicts = _fact_conflict_alerts(conflicts, target_date=target_date)
     fact_missing = _fact_missing_alerts(closure, target_date=target_date)
     hermes_failures, dingtalk_failures = _failed_agent_alerts(db, target_date=target_date)
@@ -146,21 +156,19 @@ def _latest_daily_fact_snapshot(
 ) -> DailyFactBundleSnapshot | None:
     if db is None:
         return None
-
-    def latest_for(reason: str) -> DailyFactBundleSnapshot | None:
-        return (
-            db.query(DailyFactBundleSnapshot)
-            .join(DailyFactBundleRun, DailyFactBundleRun.id == DailyFactBundleSnapshot.run_id)
-            .filter(
-                DailyFactBundleSnapshot.business_date == target_date,
-                DailyFactBundleRun.business_date == target_date,
-                DailyFactBundleSnapshot.snapshot_reason == reason,
-            )
-            .order_by(DailyFactBundleSnapshot.created_at.desc(), DailyFactBundleSnapshot.id.desc())
-            .first()
+    canonical_key = literal("scheduled_daily_closure:") + DailyFactBundleRun.run_key
+    return (
+        db.query(DailyFactBundleSnapshot)
+        .join(DailyFactBundleRun, DailyFactBundleRun.id == DailyFactBundleSnapshot.run_id)
+        .filter(
+            DailyFactBundleSnapshot.business_date == target_date,
+            DailyFactBundleRun.business_date == target_date,
+            DailyFactBundleSnapshot.snapshot_reason == "scheduled_daily_closure",
+            DailyFactBundleSnapshot.snapshot_key == canonical_key,
         )
-
-    return latest_for("scheduled_daily_closure") or latest_for("formal_daily_report")
+        .order_by(DailyFactBundleSnapshot.created_at.desc(), DailyFactBundleSnapshot.id.desc())
+        .first()
+    )
 
 
 def _fact_conflict_alerts(conflicts: Any, *, target_date: date) -> list[dict[str, Any]]:
