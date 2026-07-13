@@ -59,6 +59,28 @@
       <span class="xt-second-pass-source-strip__item">算法数据</span>
     </div>
 
+    <section class="xt-today__fact-strip" data-testid="today-fact-closure" aria-label="关键事实闭环">
+      <button
+        v-for="fact in factClosureSurface.criticalFields"
+        :key="fact.key"
+        type="button"
+        class="xt-today__fact-item"
+        :class="`is-${fact.status}`"
+        :disabled="!fact.traceId"
+        :aria-label="fact.traceId ? `查看${factFieldLabel(fact.key)}事实链` : `${factFieldLabel(fact.key)}无可用事实链`"
+        @click="openTrace(fact.traceId)"
+      >
+        <span class="xt-today__fact-label">{{ factFieldLabel(fact.key) }}</span>
+        <strong>
+          {{ factValueText(fact) }}
+          <small v-if="fact.unit">{{ fact.unit }}</small>
+        </strong>
+        <span class="xt-today__fact-status">{{ factStatusText(fact.status) }}</span>
+        <span class="xt-today__fact-source">{{ fact.source }}</span>
+        <span class="xt-today__fact-window">{{ fact.businessWindow || '--' }}</span>
+      </button>
+    </section>
+
     <section
       id="daily-report"
       class="xt-today__command-wall"
@@ -252,7 +274,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
@@ -271,8 +293,10 @@ import { fetchUsersPage } from '../../../api/users.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { isCompactClient } from '../../../router/guardRules.js'
 import { buildTodayStitchSurface } from '../../../utils/stitchManageSurface.js'
+import { buildFactClosureSurface } from '../../../utils/manageDailyReportSurface.js'
 
 const auth = useAuthStore()
+const router = useRouter()
 const snapshot = useDashboardSnapshot()
 snapshot.load()
 
@@ -384,16 +408,51 @@ const wipTotalText = computed(() => {
 const missingRows = computed(() => stitchSurface.value.missingReportRows)
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})
+const factClosureSurface = computed(() => buildFactClosureSurface(dailyOverview.value.fact_closure))
 const businessDateLabel = computed(() => {
   const d = dayjs(snapshot.targetDate.value)
   if (!d.isValid()) return snapshot.targetDate.value || '未选择'
   return `${d.month() + 1}月${d.date()}日生产经营数据`
 })
 
+const FACT_FIELD_LABELS = {
+  total_output_daily: '全厂包装产量',
+  finished_inbound_daily: '全厂入库产量',
+  wip_total: '在制料总量',
+  total_electricity_kwh: '全厂用电量',
+  daily_yield_rate: '全厂成品率',
+}
+
+function factFieldLabel(field) {
+  return FACT_FIELD_LABELS[field] || field
+}
+
+function factValueText(fact) {
+  if (fact?.value === null || fact?.value === undefined || fact?.value === '') return '--'
+  const number = Number(fact.value)
+  return Number.isFinite(number) ? fmt(number) : '--'
+}
+
+function factStatusText(status) {
+  return {
+    confirmed: '已确认',
+    missing: '缺失',
+    mismatch: '冲突',
+    needs_evidence: '待补证',
+  }[status] || '待核验'
+}
+
+function openTrace(traceId) {
+  if (!traceId) return
+  router.push({ path: '/manage/alerts', query: { trace_id: traceId } })
+}
+
 const kpiItems = computed(() => {
   return settlementCards.value.map((item) => ({
     ...item,
-    spark: item.key === 'plant-output' ? outputTonsSpark.value : (item.key === 'energy-per-ton' ? energyPerTonSpark.value : null),
+    spark: item.key === 'plant-output' && item.status === 'confirmed'
+      ? outputTonsSpark.value
+      : (item.key === 'energy-per-ton' ? energyPerTonSpark.value : null),
     sparkTone: item.key === 'energy-per-ton' ? 'warning' : 'primary',
   }))
 })
@@ -1712,6 +1771,110 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 10px;
   margin-top: 58px;
+}
+
+.xt-today__fact-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(168px, 1fr));
+  overflow-x: auto;
+  border-top: 1px solid rgba(70, 157, 238, 0.28);
+  border-bottom: 1px solid rgba(70, 157, 238, 0.28);
+  background: rgba(3, 17, 29, 0.72);
+}
+
+.xt-today__fact-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 0;
+  border-right: 1px solid rgba(70, 157, 238, 0.18);
+  color: rgba(225, 240, 255, 0.76);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.xt-today__fact-item:last-child {
+  border-right: 0;
+}
+
+.xt-today__fact-item:focus-visible {
+  outline: 2px solid rgba(71, 171, 255, 0.92);
+  outline-offset: -2px;
+}
+
+.xt-today__fact-item:disabled {
+  cursor: default;
+}
+
+.xt-today__fact-label,
+.xt-today__fact-source,
+.xt-today__fact-window {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xt-today__fact-label {
+  color: rgba(225, 240, 255, 0.68);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.xt-today__fact-item strong {
+  grid-column: 1;
+  color: #f3f9ff;
+  font-family: var(--xt-font-number);
+  font-size: 19px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.xt-today__fact-item strong small {
+  margin-left: 4px;
+  color: rgba(225, 240, 255, 0.52);
+  font-size: 10px;
+}
+
+.xt-today__fact-status {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: #8acbff;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.xt-today__fact-item.is-confirmed .xt-today__fact-status {
+  color: #7ce0a0;
+}
+
+.xt-today__fact-item.is-missing .xt-today__fact-status,
+.xt-today__fact-item.is-mismatch .xt-today__fact-status {
+  color: #ff9d8c;
+}
+
+.xt-today__fact-item.is-needs_evidence .xt-today__fact-status {
+  color: #ffd27a;
+}
+
+.xt-today__fact-source,
+.xt-today__fact-window {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.xt-today__fact-source {
+  color: rgba(144, 204, 250, 0.72);
+}
+
+.xt-today__fact-window {
+  color: rgba(225, 240, 255, 0.42);
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 1360px) {

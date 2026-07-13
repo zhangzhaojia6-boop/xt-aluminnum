@@ -1739,7 +1739,7 @@ def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: 
     assert bundle["confidence"] == 1.0
     assert bundle["status"] == "ready"
     closure_field = _fact_closure_field(bundle, "total_output_daily")
-    assert closure_field["status"] == "confirmed"
+    assert closure_field["status"] == "needs_evidence"
     assert closure_field["source"] == "root_owner_correction"
     assert closure_field["trace_id"] == "trace-root-owner-correction"
 
@@ -1919,7 +1919,7 @@ def test_dingtalk_structured_list_field_key_target_date_applies_with_trace(
     assert bundle["missing_fields"] == []
     assert bundle["status"] == "ready"
     closure_field = _fact_closure_field(bundle, "total_output_daily")
-    assert closure_field["status"] == "confirmed"
+    assert closure_field["status"] == "needs_evidence"
     assert closure_field["source"] == "dingtalk_supplement"
     assert closure_field["trace_id"] == "trace-structured"
 
@@ -2402,7 +2402,7 @@ def test_unstructured_dingtalk_evidence_with_matching_business_date_applies_to_f
     assert bundle["missing_fields"] == []
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_output_daily"]}]
     closure_field = _fact_closure_field(bundle, "total_output_daily")
-    assert closure_field["status"] == "confirmed"
+    assert closure_field["status"] == "needs_evidence"
     assert closure_field["source"] == "dingtalk_supplement"
     assert closure_field["trace_id"] == "trace-unstructured-output"
 
@@ -2462,7 +2462,7 @@ def test_unstructured_dingtalk_today_without_payload_date_applies_to_current_bun
     assert fact["source_detail"]["business_date"] == "2026-06-19"
     assert bundle["missing_fields"] == []
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_output_daily"]}]
-    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "confirmed"
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
 
 
 def test_unstructured_dingtalk_month_day_without_payload_date_applies_to_matching_bundle_day(
@@ -2519,7 +2519,7 @@ def test_unstructured_dingtalk_month_day_without_payload_date_applies_to_matchin
     assert fact["source_detail"]["business_date"] == "2026-06-19"
     assert "total_electricity_kwh" not in bundle["missing_fields"]
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_electricity_kwh"]}]
-    assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "confirmed"
+    assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "needs_evidence"
 
 
 def test_same_priority_dingtalk_candidate_does_not_override_existing_dingtalk_fact(

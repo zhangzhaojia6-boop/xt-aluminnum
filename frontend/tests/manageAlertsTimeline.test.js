@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { createAlertsTimeline } from '../src/composables/useAlertsTimeline.js'
 
 function makeFakes({ fdOk = true, qOk = true, rOk = true, liveOk = true } = {}) {
@@ -60,6 +61,16 @@ function makeFakes({ fdOk = true, qOk = true, rOk = true, liveOk = true } = {}) 
   }
 }
 
+function makeEmptyFakes() {
+  return {
+    fetchFactoryDashboard: async () => ({}),
+    fetchQualityIssues: async () => [],
+    fetchReconciliationItems: async () => [],
+    fetchMesFillGaps: async () => ({ items: [] }),
+    fetchLiveAggregation: async () => ({}),
+  }
+}
+
 test('load sends each endpoint the date parameter expected by its backend', async () => {
   const calls = []
   const t = createAlertsTimeline({
@@ -105,6 +116,110 @@ test('load aggregates events from five endpoints, sorted desc', async () => {
   assert.equal(t.events.value.some((event) => event.id === 'live-missing:missing-cells'), true)
   assert.equal(t.events.value.some((event) => event.id === 'mes-fill-gap:TX-001'), true)
   assert.equal(t.events.value[t.events.value.length - 1].domain, 'reporting')
+})
+
+test('load calls daily production as the sixth endpoint with target_date', async () => {
+  const calls = []
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async (params) => {
+      calls.push(params)
+      return { fact_closure: { critical_fields: [] } }
+    },
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.deepEqual(calls, [{ target_date: '2026-05-19' }])
+})
+
+test('daily fact alerts preserve real traces routes and the selected target date', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async () => ({
+      fact_closure: { critical_fields: [] },
+      fact_conflicts: [{
+        id: 'conflict-1',
+        field: 'total_output_daily',
+        status: 'mismatch',
+        summary: '总产量来源冲突',
+        trace_id: 'trace-conflict',
+        target_date: '2026-05-19',
+      }],
+      fact_missing: [{
+        id: 'missing-1',
+        field: 'finished_inbound_daily',
+        status: 'missing',
+        summary: '成品入库缺少可信来源',
+        trace_id: null,
+        target_date: '2026-05-19',
+      }],
+      hermes_failures: [{
+        id: 'run-1',
+        agent_code: 'factory_dispatch',
+        status: 'failed',
+        occurred_at: '2026-05-19T11:00:00+08:00',
+        trace_id: 'trace-hermes',
+        target_date: '2026-05-19',
+      }],
+      dingtalk_inbound_failures: [{
+        id: 'run-2',
+        agent_code: 'factory_dispatch',
+        status: 'failed',
+        occurred_at: '2026-05-19T10:00:00+08:00',
+        trace_id: 'trace-dingtalk',
+        target_date: '2026-05-19',
+      }],
+    }),
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.equal(t.events.value.length, 4)
+  assert.deepEqual(t.events.value.map((event) => event.targetDate), Array(4).fill('2026-05-19'))
+  assert.equal(t.events.value.find((event) => event.id === 'fact-conflict:conflict-1').traceId, 'trace-conflict')
+  assert.equal(
+    t.events.value.find((event) => event.id === 'fact-conflict:conflict-1').detailRoute,
+    '/manage/alerts?trace_id=trace-conflict'
+  )
+  assert.equal(t.events.value.find((event) => event.id === 'fact-missing:missing-1').traceId, '')
+  assert.equal(t.events.value.find((event) => event.id === 'hermes-failure:run-1').traceId, 'trace-hermes')
+  assert.equal(t.events.value.find((event) => event.id === 'dingtalk-failure:run-2').traceId, 'trace-dingtalk')
+})
+
+test('initial trace query filters the timeline to matching real events', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    traceId: 'trace-hermes',
+    fetchDailyProduction: async () => ({
+      hermes_failures: [
+        { id: 'run-1', status: 'failed', trace_id: 'trace-hermes', target_date: '2026-05-19' },
+        { id: 'run-2', status: 'failed', trace_id: 'trace-other', target_date: '2026-05-19' },
+      ],
+    }),
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.deepEqual(t.filteredEvents.value.map((event) => event.traceId), ['trace-hermes'])
+})
+
+test('daily endpoint failure changes freshness without inventing fact events', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async () => {
+      throw new Error('daily boom')
+    },
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.equal(t.freshnessStatus.value, 'yellow')
+  assert.equal(t.events.value.length, 0)
 })
 
 test('domainCounts reflects full unfiltered totals', async () => {
@@ -170,4 +285,10 @@ test('stepDate(-1) shifts targetDate one day earlier', async () => {
   assert.equal(t.targetDate.value, '2026-05-19')
   t.stepDate(-1)
   assert.equal(t.targetDate.value, '2026-05-18')
+})
+
+test('AlertsPage reads trace_id into the existing timeline filter', () => {
+  const src = readFileSync(new URL('../src/views/manage/alerts/AlertsPage.vue', import.meta.url), 'utf8')
+  assert.match(src, /route\.query\.trace_id/)
+  assert.match(src, /timeline\.setTraceId/)
 })

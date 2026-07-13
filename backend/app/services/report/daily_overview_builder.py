@@ -22,6 +22,7 @@ from app.services.contract_canonical_service import build_contract_projection
 from app.services.production_output_scope import counts_as_workshop_output, normalize_process_stage, pass_count
 from app.services.report._utils import _to_float
 from app.services.report import mes_factory_packaging_fact, mes_factory_production_fact, mes_home_packaging_fact
+from app.services.report.daily_report_fact_closure import build_persisted_daily_fact_surface
 from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
 
 
@@ -1399,6 +1400,7 @@ def build_daily_production_overview(
          'delta_label': _fmt_delta_label(contracts['remaining_delta'])},
         {'key': 'energy_cost_per_ton', 'label': '综合能耗成本', 'value': plant_cost.get('cost_per_ton'), 'unit': '元/吨'},
     ]
+    fact_surface = build_persisted_daily_fact_surface(db, target_date=target_date)
 
     return {
         'target_date': target_date.isoformat(),
@@ -1416,4 +1418,5 @@ def build_daily_production_overview(
         'process_cost': process_cost,
         'attendance': None,
         'oil_consumption': None,
+        **fact_surface,
     }

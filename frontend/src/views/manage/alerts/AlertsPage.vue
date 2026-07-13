@@ -123,6 +123,12 @@ function readDomainsFromRoute() {
   return []
 }
 
+function readTraceIdFromRoute() {
+  const value = route.query.trace_id
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : ''
+  return typeof value === 'string' ? value : ''
+}
+
 function syncRouteFromDomains(domains) {
   const next = { ...route.query }
   delete next.surface
@@ -159,6 +165,7 @@ const alertStats = computed(() => {
 
 onMounted(() => {
   timeline.setDomains(readDomainsFromRoute())
+  timeline.setTraceId(readTraceIdFromRoute())
   if (route.query.surface) syncRouteFromDomains(timeline.domains.value)
   timeline.load()
 })
@@ -175,6 +182,7 @@ watch(() => route.query, () => {
   if (!sameDomains(next, timeline.domains.value)) {
     timeline.setDomains(next)
   }
+  timeline.setTraceId(readTraceIdFromRoute())
 })
 </script>
 

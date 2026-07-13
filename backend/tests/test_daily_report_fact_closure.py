@@ -30,9 +30,19 @@ def _confirmed_bundle() -> dict[str, Any]:
         "facts": {
             field: {
                 "value": values[field],
+                "unit": {
+                    "total_output_daily": "吨",
+                    "finished_inbound_daily": "吨",
+                    "wip_total": "吨",
+                    "total_electricity_kwh": "kWh",
+                    "daily_yield_rate": "%",
+                }[field],
                 "source": source,
                 "source_type": source,
                 "trace_id": f"trace-{field}",
+                "source_detail": {
+                    "business_window": "2026-07-07T07:50:00+08:00/2026-07-08T07:50:00+08:00",
+                },
             }
             for field, source in sources.items()
         },
@@ -236,7 +246,7 @@ def test_derived_source_hidden_in_source_detail_still_blocks() -> None:
 def test_field_source_detail_trace_is_accepted() -> None:
     bundle = _confirmed_bundle()
     bundle["facts"]["wip_total"].pop("trace_id")
-    bundle["facts"]["wip_total"]["source_detail"] = {"trace_id": "trace-wip-detail"}
+    bundle["facts"]["wip_total"]["source_detail"]["trace_id"] = "trace-wip-detail"
 
     closure = build_daily_report_fact_closure(bundle)
 
@@ -292,6 +302,40 @@ def test_every_critical_field_has_required_keys() -> None:
     closure = build_daily_report_fact_closure(_confirmed_bundle())
 
     for item in closure["critical_fields"]:
-        assert {"field", "status", "source", "trace_id", "value", "action"} <= set(item)
+        assert {
+            "field",
+            "value",
+            "unit",
+            "status",
+            "source",
+            "business_window",
+            "trace_id",
+            "action",
+        } <= set(item)
         assert item["field"] in CRITICAL_DAILY_FACT_FIELDS
         assert item["action"]
+
+
+@pytest.mark.parametrize(
+    ("field_name", "missing_key"),
+    [
+        ("total_output_daily", "unit"),
+        ("finished_inbound_daily", "business_window"),
+        ("wip_total", "trace_id"),
+    ],
+)
+def test_missing_fact_contract_metadata_cannot_be_confirmed(
+    field_name: str,
+    missing_key: str,
+) -> None:
+    bundle = _confirmed_bundle()
+    if missing_key == "business_window":
+        bundle["facts"][field_name]["source_detail"].pop(missing_key)
+    else:
+        bundle["facts"][field_name].pop(missing_key)
+
+    closure = build_daily_report_fact_closure(bundle)
+    fact = next(item for item in closure["critical_fields"] if item["field"] == field_name)
+
+    assert fact[missing_key] is None
+    assert fact["status"] == "needs_evidence"

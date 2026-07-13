@@ -562,7 +562,7 @@ export function buildTodayStitchSurface({
       title: '工厂总览',
       subtitle: '昨日日报',
     },
-    kpiStrip: buildDailySettlementCards(overview),
+    kpiStrip: buildDailySettlementCards(overview, overview.fact_closure),
     comparisonRail: buildDailyComparisonCards(overview),
     productionFlow: workshopTable,
     workshopTable,

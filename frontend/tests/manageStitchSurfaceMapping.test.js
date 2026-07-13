@@ -49,6 +49,17 @@ test('today Stitch surface keeps the industrial slots wired to existing daily-re
       business_date: '2026-06-05',
       daily_overview: {
         plant_output: { daily_output: 343, monthly_output: 1494, energy_per_ton: 86.7 },
+        fact_closure: {
+          critical_fields: [{
+            field: 'total_output_daily',
+            value: 343,
+            unit: '吨',
+            status: 'confirmed',
+            source: 'mes_packaging_output',
+            business_window: '2026-06-05T07:50:00+08:00/2026-06-06T07:50:00+08:00',
+            trace_id: 'trace-output-2026-06-05',
+          }],
+        },
         contracts: { daily_new: 2422, unit: '吨' },
         energy: {
           total_electricity: 131500,
