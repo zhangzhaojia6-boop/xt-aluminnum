@@ -698,6 +698,7 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
         'cancel-in-progress': False,
     }
     assert inputs['authorized_group_ids']['default'] == '*'
+    assert inputs['mode']['options'] == ['status', 'stage', 'apply', 'verify']
     assert "backend/scripts/hermes_dingtalk_stream_gateway.py --health" not in source
     assert 'rollback_on_apply_error()' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_apply_error \"$rc\"; fi' EXIT" in source
@@ -712,8 +713,17 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'STREAM_APP_SECRET_B64' not in source[ssh_launch_index:ssh_launch_index + 200]
     apply_trap_index = source.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_apply_error \"$rc\"; fi' EXIT")
     first_mutation_index = source.find('upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"')
-    assert -1 not in (apply_trap_index, first_mutation_index)
+    stage_index = source.find('if [ "$MODE" = "stage" ]; then')
+    restart_index = source.find('systemctl restart aluminum-bypass', first_mutation_index)
+    assert -1 not in (apply_trap_index, first_mutation_index, stage_index, restart_index)
     assert apply_trap_index < first_mutation_index
+    assert first_mutation_index < stage_index < restart_index
+    stage_block = source[stage_index:restart_index]
+    assert 'DINGTALK_STREAM_CONFIGURATION_STAGED=yes' in stage_block
+    assert 'report_state' in stage_block
+    assert 'trap - EXIT' in stage_block
+    assert 'exit 0' in stage_block
+    assert 'if [ "$MODE" = "apply" ] || [ "$MODE" = "stage" ]; then' in source
     assert 'systemctl restart hermes-gateway' in source
     assert '/readyz' in source
     assert 'journalctl -u hermes-gateway' in source

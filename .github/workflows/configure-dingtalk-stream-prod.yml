@@ -11,12 +11,13 @@ on:
         description: Type 'prod-dingtalk-stream' to confirm production DingTalk Stream configuration
         required: true
       mode:
-        description: Check config, apply credentials, or verify fresh real text and file evidence
+        description: Check config, stage credentials, apply them now, or verify fresh real text and file evidence
         required: true
         default: status
         type: choice
         options:
           - status
+          - stage
           - apply
           - verify
       authorized_group_ids:
@@ -54,14 +55,14 @@ jobs:
           test -n "$SSH_KNOWN_HOSTS"
 
           case "$MODE" in
-            status|apply|verify) ;;
+            status|stage|apply|verify) ;;
             *)
               echo "unsupported mode: $MODE"
               exit 2
               ;;
           esac
 
-          if [ "$MODE" = "apply" ]; then
+          if [ "$MODE" = "apply" ] || [ "$MODE" = "stage" ]; then
             test -n "$STREAM_APP_KEY"
             test -n "$STREAM_APP_SECRET"
           fi
@@ -512,6 +513,13 @@ jobs:
           upsert_env_value "$HERMES_ENV_FILE" "XINTAI_EVIDENCE_RELAY_ENABLED" "true"
           upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DATAHUB_BASE_URL" "http://127.0.0.1:8000"
           upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
+
+          if [ "$MODE" = "stage" ]; then
+            echo "DINGTALK_STREAM_CONFIGURATION_STAGED=yes"
+            report_state
+            trap - EXIT
+            exit 0
+          fi
 
           systemctl restart aluminum-bypass
           systemctl restart hermes-gateway
