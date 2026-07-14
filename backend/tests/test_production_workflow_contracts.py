@@ -6,6 +6,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import textwrap
 import time
 
 import pytest
@@ -69,15 +70,22 @@ def _remove_test_tree(path: Path) -> None:
     assert path.resolve().parent == REPO_ROOT
 
     def remove_readonly(func, target, _exc_info) -> None:
-        os.chmod(target, stat.S_IWRITE)
+        mode = stat.S_IRUSR | stat.S_IWUSR
+        if Path(target).is_dir():
+            mode |= stat.S_IXUSR
+        os.chmod(target, mode)
         func(target)
 
+    last_error: OSError | None = None
     for _attempt in range(3):
-        shutil.rmtree(path, onerror=remove_readonly)
+        try:
+            shutil.rmtree(path, onerror=remove_readonly)
+        except OSError as error:
+            last_error = error
         if not path.exists():
             return
         time.sleep(0.05)
-    raise AssertionError(f'failed to remove test directory: {path}')
+    raise AssertionError(f'failed to remove test directory: {path}') from last_error
 
 
 def _workflow_run_blocks(path: str) -> list[tuple[str, str]]:
@@ -203,7 +211,9 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert '"$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"' in rollback_body
     assert 'npm ci --no-audit --no-fund &&' in rollback_body
     assert 'npm run build' in rollback_body
-    assert 'ROLLBACK_HERMES_DEPENDENCY_SYNC_SKIPPED=deploy_did_not_mutate_hermes_dependencies' in rollback_body
+    assert 'restore_hermes_runtime_dropin' in rollback_body
+    assert 'ROLLBACK_HERMES_RUNTIME_RESTORED' in rollback_body
+    assert 'ROLLBACK_HERMES_DEPENDENCY_SYNC_SKIPPED' not in rollback_body
     assert 'ROLLBACK_FAILED_' in rollback_body
     assert '|| true' not in rollback_body
     assert 'DEPLOY_FAILED_ROLLBACK_DONE' in rollback_body
@@ -213,9 +223,10 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     db_restore_index = rollback_body.find('pg_restore --single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP"')
     deps_restore_index = rollback_body.find('"$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"')
     frontend_restore_index = rollback_body.find('npm run build')
+    runtime_restore_index = rollback_body.find('restore_hermes_runtime_dropin')
     restart_index = rollback_body.find('systemctl restart aluminum-bypass')
-    assert -1 not in (stop_index, migration_downgrade_index, repo_restore_index, db_restore_index, deps_restore_index, frontend_restore_index, restart_index)
-    assert stop_index < migration_downgrade_index < repo_restore_index < db_restore_index < deps_restore_index < frontend_restore_index < restart_index
+    assert -1 not in (stop_index, migration_downgrade_index, repo_restore_index, db_restore_index, deps_restore_index, frontend_restore_index, runtime_restore_index, restart_index)
+    assert stop_index < migration_downgrade_index < repo_restore_index < db_restore_index < deps_restore_index < frontend_restore_index < runtime_restore_index < restart_index
     assert 'ROLLBACK_FAILED_READYZ' in rollback_body
     assert source.rfind('trap - EXIT') > source.find('report_status "yes"')
     assert '/versionz' in source
@@ -250,6 +261,170 @@ def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contra
     assert 'for attempt in $(seq 1 "$attempts")' in source
     assert 'sleep "$delay_seconds"' in source
     assert 'report_stream_connection "yes" 40 3' in source
+
+
+def test_production_sync_status_reports_hermes_runtime_without_exposing_process_arguments() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    report_body = _extract_shell_function(source, 'report_hermes_runtime')
+
+    assert 'systemctl show -p MainPID --value hermes-gateway' in report_body
+    assert 'readlink -f "/proc/$runtime_pid/exe"' in report_body
+    assert 'HERMES_RUNTIME_PYTHON=' in report_body
+    assert 'HERMES_RUNTIME_PYTHON_VERSION=' in report_body
+    assert 'HERMES_RUNTIME_PREFIX=' in report_body
+    assert 'HERMES_RUNTIME_BASE_PREFIX=' in report_body
+    assert 'HERMES_RUNTIME_IS_VENV=' in report_body
+    assert 'HERMES_RUNTIME_PACKAGE_VERSION=' in report_body
+    assert 'HERMES_RUNTIME_DINGTALK_STREAM_VERSION=' in report_body
+    assert 'HERMES_RUNTIME_ENTRYPOINT=' in report_body
+    assert 'HERMES_RUNTIME_CWD=' in report_body
+    assert 'HERMES_SERVICE_FRAGMENT_PATH=' in report_body
+    assert 'HERMES_SERVICE_USER=' in report_body
+    assert 'HERMES_SERVICE_WORKING_DIRECTORY=' in report_body
+    assert 'HERMES_HOST_OS_ID=' in report_body
+    assert 'HERMES_HOST_OS_VERSION_ID=' in report_body
+    assert 'HERMES_HOST_UV=' in report_body
+    assert 'HERMES_HOST_PYTHON_3_11=' in report_body
+    assert 'HERMES_HOST_PYTHON_3_12=' in report_body
+    assert '/proc/{runtime_pid}/cmdline' in report_body
+    assert 'HERMES_RUNTIME_ARGV' not in report_body
+    report_status_body = _extract_shell_function(source, 'report_status')
+    assert 'report_hermes_runtime' in report_status_body
+    assert 'capture_hermes_gateway_command_contract' in report_status_body
+    assert 'HERMES_GATEWAY_DEPLOY_CONTRACT=ready' in report_status_body
+    assert 'HERMES_GATEWAY_DEPLOY_CONTRACT=rejected' in report_status_body
+
+
+def test_production_sync_status_builds_reversible_isolated_hermes_runtime() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    deployment = source[source.find('RAW_DATABASE_URL="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"'):]
+
+    assert 'install_managed_uv()' in source
+    assert 'prepare_hermes_runtime()' in source
+    assert 'backup_hermes_runtime_dropin()' in source
+    assert 'restore_hermes_runtime_dropin()' in source
+    assert 'write_hermes_runtime_dropin()' in source
+    assert 'HERMES_MANAGED_UV="$HERMES_HOME/bin/uv"' in source
+    assert 'HERMES_UV_VERSION="0.11.28"' in source
+    assert 'UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python' in source
+    assert 'UV_PYTHON_BIN_DIR=/usr/local/share/uv/bin' in source
+    assert 'uv-x86_64-unknown-linux-gnu.tar.gz' in source
+    assert 'e490a6464492183c5d4534a5527fb4440f7f2bb2f228162ad7e4afe076dc0224' in source
+    assert 'uv-aarch64-unknown-linux-gnu.tar.gz' in source
+    assert '03e9fe0a81b0718d0bc84625de3885df6cc3f89a8b6af6121d6b9f6113fb6533' in source
+    assert 'https://github.com/astral-sh/uv/releases/download/$HERMES_UV_VERSION/$uv_asset' in source
+    assert 'sha256sum -c -' in source
+    assert 'https://astral.sh/uv/install.sh' not in source
+    assert 'python install 3.11' in source
+    assert 'venv "$release_env" --python 3.11' in source
+    assert 'UV_PROJECT_ENVIRONMENT="$release_env"' in source
+    assert 'sync --locked --extra dingtalk --no-editable' in source
+    assert 'git -C "$HERMES_REPO" archive "$target_sha"' in source
+    assert 'cd "$build_source"' in source
+    assert 'HERMES_RUNTIME_ENV_ROOT="$HERMES_HOME/runtime-envs"' in source
+    assert 'release_env="$HERMES_RUNTIME_ENV_ROOT/$target_sha"' in source
+    assert 'capture_hermes_gateway_command_contract()' in source
+    assert 'ExecStart=$runtime_python -P $HERMES_GATEWAY_ARGS' in source
+    writer_body = _extract_shell_function(source, 'write_hermes_runtime_dropin')
+    assert 'ExecStopPost' not in writer_body
+    assert 'WorkingDirectory=' not in writer_body
+    assert 'HERMES_TARGET_PACKAGE_OUTSIDE_RUNTIME' in source
+    assert 'HERMES_DEPENDENCY_SYNC_SKIPPED' not in source
+
+    capture_index = deployment.find('capture_hermes_gateway_command_contract')
+    prepare_index = deployment.find('prepare_hermes_runtime "$HERMES_SHA"')
+    backup_index = deployment.find('backup_hermes_runtime_dropin')
+    trap_index = deployment.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT")
+    stop_index = deployment.find('systemctl stop hermes-gateway')
+    checkout_index = deployment.find('git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"')
+    switch_index = deployment.find('write_hermes_runtime_dropin "$HERMES_TARGET_RUNTIME_ENV"')
+    restart_index = deployment.find('systemctl restart hermes-gateway')
+    assert -1 not in (capture_index, prepare_index, trap_index, backup_index, stop_index, checkout_index, switch_index, restart_index)
+    assert capture_index < prepare_index < backup_index < trap_index < stop_index < checkout_index < switch_index < restart_index
+
+
+def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    capture_body = _extract_shell_function(source, 'capture_hermes_gateway_command_contract')
+
+    assert 'command_args == ["-m", "hermes_cli.main", "gateway", "run"]' in capture_body
+    assert 'command_args[:3] == ["-m", "hermes_cli.main", "-p"]' in capture_body
+    assert 'command_args[4:] == ["gateway", "run"]' in capture_body
+    assert 're.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3])' in capture_body
+    assert 'systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"' in capture_body
+    assert 'service_exec.count("argv[]=") != 1' in capture_body
+    assert 'service_args[1:] != args' in capture_body
+    assert 'service_path != Path(f"/proc/{runtime_pid}/exe").resolve()' in capture_body
+    assert 'command_args = args[1:] if args[:1] == ["-P"] else args' in capture_body
+    assert 'unexpected Hermes gateway command shape' in capture_body
+    assert 'HERMES_GATEWAY_ARGS=' in capture_body
+
+
+def test_hermes_runtime_dropin_switch_and_restore_preserve_previous_service_command() -> None:
+    bash = _require_bash()
+    source = _read('.github/workflows/production-sync-status.yml')
+    function_bodies = [
+        textwrap.dedent(_extract_shell_function(source, name))
+        for name in (
+            'backup_hermes_runtime_dropin',
+            'restore_hermes_runtime_dropin',
+            'write_hermes_runtime_dropin',
+        )
+    ]
+    tmp_root = Path(tempfile.mkdtemp(prefix='runtime-dropin-', dir=REPO_ROOT))
+    target_sha = 'a' * 40
+    script_path = tmp_root / 'harness.sh'
+    try:
+        script_path.write_text(
+            "\n".join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    'HERMES_HOME="$PWD/hermes-home"',
+                    'HERMES_RUNTIME_ENV_ROOT="$PWD/runtime-envs"',
+                    'HERMES_RUNTIME_DROPIN_DIR="$PWD/dropin"',
+                    'HERMES_RUNTIME_DROPIN_FILE="$HERMES_RUNTIME_DROPIN_DIR/10-xintai-runtime.conf"',
+                    'HERMES_RUNTIME_DROPIN_BACKUP=',
+                    'HERMES_RUNTIME_DROPIN_EXISTED=0',
+                    'HERMES_GATEWAY_ARGS="-m hermes_cli.main gateway run"',
+                    f'release_env="$HERMES_RUNTIME_ENV_ROOT/{target_sha}"',
+                    'mkdir -p "$release_env/bin" "$HERMES_RUNTIME_DROPIN_DIR"',
+                    'printf "#!/usr/bin/env bash\\n" > "$release_env/bin/python"',
+                    'chmod +x "$release_env/bin/python"',
+                    'printf "[Service]\\nExecStart=/usr/bin/python3.10 -m hermes_cli.main gateway run\\nExecStopPost=-/bin/true\\nEnvironment=KEEP_ME=yes\\n" > "$HERMES_RUNTIME_DROPIN_FILE"',
+                    'systemctl() { printf "systemctl:%s\\n" "$*"; }',
+                    *function_bodies,
+                    'backup_hermes_runtime_dropin',
+                    'write_hermes_runtime_dropin "$release_env"',
+                    'cp "$HERMES_RUNTIME_DROPIN_FILE" switched.conf',
+                    'restore_hermes_runtime_dropin',
+                    'cp "$HERMES_RUNTIME_DROPIN_FILE" restored.conf',
+                    'test -z "$HERMES_RUNTIME_DROPIN_BACKUP"',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run(
+            [bash, script_path.name],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=tmp_root,
+            timeout=15,
+        )
+        switched = (tmp_root / 'switched.conf').read_text(encoding='utf-8')
+        restored = (tmp_root / 'restored.conf').read_text(encoding='utf-8')
+    finally:
+        _remove_test_tree(tmp_root)
+
+    assert result.returncode == 0, result.stderr
+    normalized_switched = switched.replace('\\', '/')
+    assert f'/runtime-envs/{target_sha}/bin/python -P -m hermes_cli.main gateway run' in normalized_switched
+    assert 'ExecStopPost' not in switched
+    assert restored == '[Service]\nExecStart=/usr/bin/python3.10 -m hermes_cli.main gateway run\nExecStopPost=-/bin/true\nEnvironment=KEEP_ME=yes\n'
+    assert result.stdout.count('systemctl:daemon-reload') == 2
 
 
 def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract() -> None:
@@ -778,6 +953,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                     'alembic_revisions_valid() { return 0; }',
                     'alembic_single_revision_valid() { return 0; }',
                     'restore_env_backup() { echo "env_restore:$1" >> "$MARKER_PATH"; }',
+                    'restore_hermes_runtime_dropin() { echo "runtime_restore" >> "$MARKER_PATH"; }',
                     'reload_or_restart_nginx() { echo "nginx_reload" >> "$MARKER_PATH"; }',
                     'git() { echo "git:$*" >> "$MARKER_PATH"; }',
                     'systemctl() { echo "systemctl:$*" >> "$MARKER_PATH"; }',
@@ -854,6 +1030,7 @@ def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
                     'printf "#!/usr/bin/env bash\nexit 0\n" > "$DATAHUB_REPO/backend/.venv/bin/python"',
                     'chmod +x "$DATAHUB_REPO/backend/.venv/bin/python"',
                     'restore_env_backup() { return 0; }',
+                    'restore_hermes_runtime_dropin() { return 0; }',
                     'reload_or_restart_nginx() { return 0; }',
                     'systemctl() { return 0; }',
                     'pg_restore() { return 0; }',
