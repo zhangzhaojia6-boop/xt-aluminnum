@@ -222,31 +222,6 @@ jobs:
           import subprocess
           import sys
 
-          runtime_pid = sys.argv[1]
-          service_exec = subprocess.check_output(
-              ["systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"],
-              text=True,
-          ).strip()
-          service_pid = subprocess.check_output(
-              ["systemctl", "show", "-p", "MainPID", "--value", "hermes-gateway"],
-              text=True,
-          ).strip()
-          if service_pid != runtime_pid:
-              raise SystemExit("Hermes gateway MainPID changed during verification")
-          if service_exec.count("argv[]=") != 1:
-              raise SystemExit("unexpected Hermes systemd ExecStart count")
-          match = re.search(r"path=(\S+)\s*;\s*argv\[\]=(.*?)\s*;", service_exec)
-          if match is None:
-              raise SystemExit("unexpected Hermes systemd ExecStart shape")
-          service_path = Path(match.group(1)).resolve()
-          service_args = shlex.split(match.group(2))
-          if not service_args or service_path != Path(service_args[0]).resolve():
-              raise SystemExit("Hermes systemd executable mismatch")
-          service_runtime_args = service_args[1:]
-          command_args = service_runtime_args[1:] if service_runtime_args[:1] == ["-P"] else service_runtime_args
-          if command_args[-1:] == ["--replace"]:
-              command_args = command_args[:-1]
-
           def classify_service_arg(value: str) -> str:
               known = {
                   "-P": "safe_path_flag",
@@ -265,28 +240,72 @@ jobs:
                   return "safe_name"
               return "opaque"
 
-          valid = command_args == ["-m", "hermes_cli.main", "gateway", "run"]
-          if not valid:
-              valid = (
-                  len(command_args) == 6
-                  and command_args[:3] == ["-m", "hermes_cli.main", "-p"]
-                  and re.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3]) is not None
-                  and command_args[4:] == ["gateway", "run"]
+          def verify_gateway_command_contract(
+              runtime_pid: str,
+              service_exec: str,
+              service_pid: str,
+              runtime_executable: str,
+              runtime_argv: list[str],
+          ) -> str:
+              if service_pid != runtime_pid:
+                  raise SystemExit("Hermes gateway MainPID changed during verification")
+              if service_exec.count("argv[]=") != 1:
+                  raise SystemExit("unexpected Hermes systemd ExecStart count")
+              match = re.search(r"path=(\S+)\s*;\s*argv\[\]=(.*?)\s*;", service_exec)
+              if match is None:
+                  raise SystemExit("unexpected Hermes systemd ExecStart shape")
+              service_path = Path(match.group(1)).resolve()
+              service_args = shlex.split(match.group(2))
+              if not service_args or service_path != Path(service_args[0]).resolve():
+                  raise SystemExit("Hermes systemd executable mismatch")
+              service_runtime_args = service_args[1:]
+              command_args = service_runtime_args[1:] if service_runtime_args[:1] == ["-P"] else service_runtime_args
+              if command_args[-1:] == ["--replace"]:
+                  command_args = command_args[:-1]
+
+              valid = command_args == ["-m", "hermes_cli.main", "gateway", "run"]
+              if not valid:
+                  valid = (
+                      len(command_args) == 6
+                      and command_args[:3] == ["-m", "hermes_cli.main", "-p"]
+                      and re.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3]) is not None
+                      and command_args[4:] == ["gateway", "run"]
+                  )
+              if not valid:
+                  classes = ",".join(classify_service_arg(value) for value in service_runtime_args)
+                  raise SystemExit(
+                      "unexpected Hermes gateway command shape:"
+                      f"service_argc={len(service_runtime_args)}:"
+                      f"service_classes={classes or 'none'}"
+                  )
+              if service_path != Path(runtime_executable).resolve():
+                  raise SystemExit("Hermes systemd wrapper commands are unsupported")
+              if runtime_argv not in (service_args, ["hermes"]):
+                  raise SystemExit("Hermes running process has an unexpected title")
+              return " ".join(command_args)
+
+          if __name__ == "__main__":
+              runtime_pid = sys.argv[1]
+              service_exec = subprocess.check_output(
+                  ["systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"],
+                  text=True,
+              ).strip()
+              service_pid = subprocess.check_output(
+                  ["systemctl", "show", "-p", "MainPID", "--value", "hermes-gateway"],
+                  text=True,
+              ).strip()
+              runtime_executable = str(Path(f"/proc/{runtime_pid}/exe").resolve())
+              raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
+              runtime_argv = [item.decode("utf-8", errors="strict") for item in raw_args if item]
+              print(
+                  verify_gateway_command_contract(
+                      runtime_pid,
+                      service_exec,
+                      service_pid,
+                      runtime_executable,
+                      runtime_argv,
+                  )
               )
-          if not valid:
-              classes = ",".join(classify_service_arg(value) for value in service_runtime_args)
-              raise SystemExit(
-                  "unexpected Hermes gateway command shape:"
-                  f"service_argc={len(service_runtime_args)}:"
-                  f"service_classes={classes or 'none'}"
-              )
-          if service_path != Path(f"/proc/{runtime_pid}/exe").resolve():
-              raise SystemExit("Hermes systemd wrapper commands are unsupported")
-          raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
-          runtime_argv = [item.decode("utf-8", errors="strict") for item in raw_args if item]
-          if runtime_argv not in (service_args, ["hermes"]):
-              raise SystemExit("Hermes running process has an unexpected title")
-          print(" ".join(command_args))
           PY
                 )" && [ -n "$candidate_args" ]; then
                   HERMES_GATEWAY_ARGS="$candidate_args"
