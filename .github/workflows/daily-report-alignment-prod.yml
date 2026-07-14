@@ -61,7 +61,7 @@ jobs:
           remote_bundle="/tmp/xintai-output-skill-${RUN_ID}.zip"
           scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=no "$bundle" "$SSH_USER@$SSH_HOST:$remote_bundle"
 
-          remote_artifact_dir="/srv/aluminum-bypass/docs/superpowers/reports/daily-report-fact-closure-production-${RUN_ID}"
+          remote_artifact_dir="/var/lib/aluminum-bypass/acceptance/daily-report-alignment-${RUN_ID}"
           set +e
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
             "REMOTE_BUNDLE='$remote_bundle' DAYS='$DAYS' REFERENCE_MODE='$REFERENCE_MODE' RUN_ID='$RUN_ID' ARTIFACT_DIR='$remote_artifact_dir' bash -s" <<'REMOTE'
@@ -69,7 +69,9 @@ jobs:
           output_root="/tmp/xintai-output-skill-${RUN_ID}"
           artifact_dir="$ARTIFACT_DIR"
           rm -rf "$output_root"
-          mkdir -p "$output_root" "$artifact_dir"
+          mkdir -p "$output_root"
+          install -d -m 700 "$artifact_dir"
+          chmod 700 "$artifact_dir"
           python3 - "$REMOTE_BUNDLE" "$output_root" <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
@@ -94,6 +96,8 @@ jobs:
             --json
           status=$?
           set -e
+          find "$artifact_dir" -type d -exec chmod 700 {} +
+          find "$artifact_dir" -type f -exec chmod 600 {} +
           echo "ALIGNMENT_ARTIFACT_DIR=$artifact_dir"
           echo "ALIGNMENT_EXIT_CODE=$status"
           rm -rf "$output_root"

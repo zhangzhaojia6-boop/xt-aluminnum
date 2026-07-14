@@ -13,6 +13,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATHS = (
     '.github/workflows/production-sync-status.yml',
     '.github/workflows/configure-dingtalk-stream-prod.yml',
+    '.github/workflows/daily-report-alignment-prod.yml',
+    '.github/workflows/hermes-acceptance-prod.yml',
+    '.github/workflows/archive-prod-untracked.yml',
 )
 
 
@@ -235,6 +238,92 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'ROLLBACK_FAILED_HERMES_ENV' in rollback_body
     assert 'ROLLBACK_FAILED_READYZ' in rollback_body
 
+
+def test_daily_report_alignment_prod_keeps_artifacts_outside_repo_and_preserves_exit_code() -> None:
+    payload = _load('.github/workflows/daily-report-alignment-prod.yml')
+    source = _read('.github/workflows/daily-report-alignment-prod.yml')
+    inputs = _workflow_inputs(payload)
+
+    assert inputs['reference_mode']['default'] == 'compare'
+    assert "/srv/aluminum-bypass/docs/superpowers/reports" not in source
+    assert '/var/lib/aluminum-bypass/acceptance/daily-report-alignment-${RUN_ID}' in source
+    assert 'install -d -m 700 "$artifact_dir"' in source
+    assert 'chmod 700 "$artifact_dir"' in source
+    assert 'find "$artifact_dir" -type f -exec chmod 600 {} +' in source
+    assert 'find "$artifact_dir" -type d -exec chmod 700 {} +' in source
+    assert 'uses: actions/upload-artifact@v4' in source
+    assert 'if: always()' in source
+    assert 'scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=no -r \\' in source
+    assert 'echo "exit_code=$remote_status" >> "$GITHUB_OUTPUT"' in source
+    assert 'exit 0' in source
+    assert 'official_daily_report' not in source
+    assert '--reference-mode "$REFERENCE_MODE"' in source
+    assert '--output-skill-root "$output_root"' in source
+
+
+def test_hermes_acceptance_prod_fails_closed_without_real_owner_and_keeps_artifacts_outside_repo() -> None:
+    payload = _load('.github/workflows/hermes-acceptance-prod.yml')
+    source = _read('.github/workflows/hermes-acceptance-prod.yml')
+    inputs = _workflow_inputs(payload)
+
+    assert inputs['mode']['default'] == 'preflight'
+    assert "/srv/aluminum-bypass/docs/superpowers/reports" not in source
+    assert '/var/lib/aluminum-bypass/acceptance/hermes-20q-${RUN_ID}' in source
+    assert 'install -d -m 700 "$artifact_dir"' in source
+    assert 'find "$artifact_dir" -type f -exec chmod 600 {} +' in source
+    assert 'find "$artifact_dir" -type d -exec chmod 700 {} +' in source
+    assert 'uses: actions/upload-artifact@v4' in source
+    assert 'if: always()' in source
+    assert 'NO_OWNER_DINGTALK_USER' in source
+    assert '666327013924069283' not in source
+    assert 'GROUP_SECRET_PRESENT=' in source
+    assert 'SELECTED_GROUP_MASKED=' in source
+    assert 'GROUP_SECRET_MASKED=' not in source
+    assert '.filter(User.username.in_(("root-owner", "root_owner")))' in source
+    assert '.filter(User.dingtalk_user_id.is_not(None))' in source
+    assert '.filter(User.is_active.is_(True))' in source
+    assert '.order_by(User.id.asc())' in source
+    assert '.first()' in source
+    assert '.filter(User.dingtalk_user_id.is_not(None))\n                  .order_by(User.id.asc())\n                  .first()' not in source
+    assert 'status=no_admin_user' in source
+
+
+def test_hermes_acceptance_preflight_does_not_register_channel_or_write_db() -> None:
+    source = _read('.github/workflows/hermes-acceptance-prod.yml')
+
+    preflight_index = source.find('if mode == "preflight":')
+    register_index = source.find('register_channel(')
+    run_mode_index = source.find('if mode == "run" and explicit_group_key:')
+    assert preflight_index != -1
+    assert run_mode_index != -1
+    assert register_index != -1
+    assert preflight_index < run_mode_index < register_index
+    assert 'AMBIGUOUS_DINGTALK_GROUP_CANDIDATE' in source
+    assert 'NO_APPROVED_DINGTALK_GROUP_CANDIDATE' in source
+    assert 'EXPLICIT_GROUP_SECRET_REQUIRED_FOR_RUN_REGISTRATION' in source
+
+
+def test_archive_prod_untracked_checks_runtime_references_before_any_move() -> None:
+    payload = _load('.github/workflows/archive-prod-untracked.yml')
+    source = _read('.github/workflows/archive-prod-untracked.yml')
+    inputs = _workflow_inputs(payload)
+
+    assert inputs['mode']['default'] == 'dry-run'
+    assert '/srv/aluminum-bypass-archive/untracked' not in source
+    assert '/var/backups/aluminum-bypass' in source
+    assert 'untracked-${timestamp}-run-${RUN_ID}' in source
+    assert '/etc/systemd/system' in source
+    assert 'systemctl cat ' in source
+    assert 'systemctl list-timers' in source
+    assert '/etc/cron' in source
+    assert 'crontab -l' in source
+    assert 'referenced' in source
+    assert 'clear' in source
+    assert 'RUNTIME_REFERENCE_FOUND' in source
+    assert 'find "$archive_dir" -type d -exec chmod 700 {} +' in source
+    assert 'chmod 600 "$archive_dir/manifest.tsv"' in source
+    assert 'curl -fsS http://127.0.0.1:8000/readyz' in source
+    assert 'git status --short --branch' in source
 
 def test_production_sync_status_trusted_ancestor_probe_blocks_unmerged_targets() -> None:
     bash = _require_bash()

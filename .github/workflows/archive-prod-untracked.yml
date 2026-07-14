@@ -48,7 +48,7 @@ jobs:
             "CLEANUP_MODE='$CLEANUP_MODE' RUN_ID='$RUN_ID' bash -s" <<'REMOTE'
           set -euo pipefail
           repo="/srv/aluminum-bypass"
-          archive_root="/srv/aluminum-bypass-archive/untracked"
+          archive_root="/var/backups/aluminum-bypass"
           test -d "$repo/.git"
           cd "$repo"
 
@@ -64,26 +64,41 @@ jobs:
           git pull --ff-only origin main
 
           timestamp="$(date +%Y%m%d-%H%M%S)"
-          archive_dir="$archive_root/${timestamp}-run-${RUN_ID}"
+          archive_dir="$archive_root/untracked-${timestamp}-run-${RUN_ID}"
           manifest="/tmp/aluminum-bypass-untracked-${RUN_ID}.tsv"
 
-          python3 - "$repo" "$archive_dir" "$manifest" "$CLEANUP_MODE" <<'PY'
+          python3 - "$repo" "$archive_root" "$archive_dir" "$manifest" "$CLEANUP_MODE" <<'PY'
           from __future__ import annotations
 
           import glob
           import os
+          import shlex
           import shutil
           import subprocess
           import sys
           from pathlib import Path
 
           repo = Path(sys.argv[1]).resolve()
-          archive_dir = Path(sys.argv[2]).resolve()
-          manifest = Path(sys.argv[3])
-          mode = sys.argv[4]
+          archive_root = Path(sys.argv[2]).resolve()
+          archive_dir = Path(sys.argv[3]).resolve()
+          manifest = Path(sys.argv[4])
+          mode = sys.argv[5]
+
 
           def git(*args: str) -> bytes:
               return subprocess.check_output(["git", *args], cwd=repo)
+
+
+          def command_text(command: str) -> str:
+              result = subprocess.run(
+                  command,
+                  shell=True,
+                  capture_output=True,
+                  text=True,
+                  check=False,
+              )
+              return result.stdout if result.returncode == 0 else ""
+
 
           def is_tracked(path: Path) -> bool:
               rel = path.relative_to(repo).as_posix()
@@ -95,12 +110,14 @@ jobs:
                   check=False,
               ).returncode == 0
 
+
           def inside(base: Path, path: Path) -> bool:
               try:
                   path.resolve().relative_to(base.resolve())
                   return True
               except ValueError:
                   return False
+
 
           def path_size(path: Path) -> int:
               if path.is_symlink():
@@ -115,6 +132,67 @@ jobs:
                       if not item.is_symlink():
                           total += item.stat().st_size
               return total
+
+
+          def is_candidate_script(path: Path) -> bool:
+              return path.is_file() and path.suffix in {".py", ".sh"}
+
+
+          def matches_runtime_reference(text: str, path: Path, rel: str) -> bool:
+              if not text:
+                  return False
+              terms = (
+                  str(path),
+                  rel,
+                  path.name,
+              )
+              lowered = text.lower()
+              return any(term.lower() in lowered for term in terms if term)
+
+
+          def reference_hits(path: Path) -> list[str]:
+              rel = path.relative_to(repo).as_posix()
+              hits: set[str] = set()
+
+              for unit_path in Path("/etc/systemd/system").rglob("*"):
+                  if not unit_path.is_file():
+                      continue
+                  try:
+                      text = unit_path.read_text(encoding="utf-8", errors="ignore")
+                  except OSError:
+                      continue
+                  if matches_runtime_reference(text, path, rel):
+                      hits.add(f"systemd-path:{unit_path.name}")
+
+              timers_output = command_text("systemctl list-timers --all --no-legend")
+              timer_units: set[str] = set()
+              for raw_line in timers_output.splitlines():
+                  for token in raw_line.split():
+                      if token.endswith(".timer"):
+                          timer_units.add(token)
+              for unit in sorted(timer_units):
+                  text = command_text(f"systemctl cat {shlex.quote(unit)}")
+                  if matches_runtime_reference(text, path, rel):
+                      hits.add(f"systemctl-cat:{unit}")
+
+              cron_candidates = sorted(set(glob.glob("/etc/cron*")) | set(glob.glob("/etc/cron*/*")))
+              for cron_path_raw in cron_candidates:
+                  cron_path = Path(cron_path_raw)
+                  if not cron_path.is_file():
+                      continue
+                  try:
+                      text = cron_path.read_text(encoding="utf-8", errors="ignore")
+                  except OSError:
+                      continue
+                  if matches_runtime_reference(text, path, rel):
+                      hits.add(f"cron:{cron_path}")
+
+              user_crontab = command_text("crontab -l")
+              if matches_runtime_reference(user_crontab, path, rel):
+                  hits.add("crontab-l")
+
+              return sorted(hits)
+
 
           candidates: set[Path] = set()
 
@@ -149,30 +227,73 @@ jobs:
                   continue
               safe.append(path)
 
+          evaluated: list[dict[str, str | int]] = []
           with manifest.open("w", encoding="utf-8") as handle:
-              handle.write("mode\tpath\ttype\tsize_bytes\n")
+              handle.write("mode\tpath\ttype\tsize_bytes\treference_status\treference_hits\n")
               for path in safe:
                   rel = path.relative_to(repo).as_posix()
                   kind = "dir" if path.is_dir() else "file"
-                  handle.write(f"{mode}\t{rel}\t{kind}\t{path_size(path)}\n")
+                  hits = reference_hits(path) if is_candidate_script(path) else []
+                  reference_status = "referenced" if hits else ("clear" if is_candidate_script(path) else "n/a")
+                  hit_text = ",".join(hits)
+                  row = {
+                      "mode": mode,
+                      "path": rel,
+                      "type": kind,
+                      "size_bytes": path_size(path),
+                      "reference_status": reference_status,
+                      "reference_hits": hit_text,
+                  }
+                  evaluated.append(row)
+                  handle.write(
+                      f"{mode}\t{rel}\t{kind}\t{row['size_bytes']}\t{reference_status}\t{hit_text}\n"
+                  )
 
           print(f"CLEANUP_MODE={mode}")
           print(f"REPO={repo}")
           print(f"ARCHIVE_DIR={archive_dir}")
-          print(f"CANDIDATE_COUNT={len(safe)}")
+          print(f"CANDIDATE_COUNT={len(evaluated)}")
           print(manifest.read_text(encoding="utf-8"))
+
+          referenced_scripts = [item for item in evaluated if item["reference_status"] == "referenced"]
+          if mode == "archive" and referenced_scripts:
+              print("RUNTIME_REFERENCE_FOUND")
+              for item in referenced_scripts:
+                  print(f"{item['path']} => {item['reference_hits']}")
+              raise SystemExit(4)
 
           if mode != "archive" or not safe:
               raise SystemExit(0)
 
-          archive_dir.mkdir(parents=True, exist_ok=True)
-          shutil.copy2(manifest, archive_dir / "manifest.tsv")
+          archive_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+          os.chmod(archive_root, 0o700)
+          archive_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+          os.chmod(archive_dir, 0o700)
+          manifest_copy = archive_dir / "manifest.tsv"
+          shutil.copy2(manifest, manifest_copy)
+          os.chmod(manifest_copy, 0o600)
+
           for path in safe:
               rel = path.relative_to(repo)
               destination = archive_dir / rel
-              destination.parent.mkdir(parents=True, exist_ok=True)
+              destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
               shutil.move(str(path), str(destination))
+
+          for root, dirs, files in os.walk(archive_dir):
+              os.chmod(root, 0o700)
+              for dir_name in dirs:
+                  os.chmod(Path(root) / dir_name, 0o700)
+              for file_name in files:
+                  os.chmod(Path(root) / file_name, 0o600)
           PY
+
+          if [ -d "$archive_dir" ]; then
+            find "$archive_dir" -type d -exec chmod 700 {} +
+            find "$archive_dir" -type f -exec chmod 600 {} +
+            if [ -f "$archive_dir/manifest.tsv" ]; then
+              chmod 600 "$archive_dir/manifest.tsv"
+            fi
+          fi
 
           if [ "$CLEANUP_MODE" = "archive" ]; then
             echo "POST_CLEAN_STATUS"

@@ -177,7 +177,7 @@ def test_factory_packaging_reconciliation_route_uses_same_payload(tmp_path) -> N
     app.dependency_overrides.clear()
 
 
-def test_factory_production_reconciliation_route_exposes_feeding_yield_without_hardcoded_delta(tmp_path) -> None:
+def test_factory_production_reconciliation_route_leaves_yield_unavailable_without_same_basis(tmp_path) -> None:
     session_factory = _mes_stock_session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
@@ -250,8 +250,9 @@ def test_factory_production_reconciliation_route_exposes_feeding_yield_without_h
     assert payload['factory_feeding_month_to_date_input'] == 6380.0
     assert payload['factory_packaging_daily_output'] == 66.1
     assert payload['factory_finished_inbound_daily_output'] == 341.6
-    assert payload['daily_yield_rate'] == 80.0
-    assert payload['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
+    assert payload['daily_yield_rate'] is None
+    assert payload['month_yield_rate'] is None
+    assert payload['yield_rate_source'] == 'unavailable_requires_same_basis'
     assert payload['mes_home_reference'] == {}
     assert payload['mes_home_reference_source'] == 'unavailable'
     assert payload['feeding_month_to_date_delta'] is None
