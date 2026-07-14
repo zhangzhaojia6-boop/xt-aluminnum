@@ -5,7 +5,7 @@ from datetime import date
 from importlib import util as importlib_util
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 
 from tests.path_helpers import BACKEND_ROOT
@@ -42,6 +42,118 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
     assert '0054_dingtalk_inbound_receipts' in current.stdout
+
+
+def _create_residual_dingtalk_inbound_receipts(
+    engine,
+    *,
+    include_status_default: bool = True,
+) -> None:
+    status_default = " DEFAULT 'evidence_pending'" if include_status_default else ''
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                f"""
+                CREATE TABLE dingtalk_inbound_receipts (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    dedupe_key VARCHAR(64) NOT NULL,
+                    channel VARCHAR(32) NOT NULL,
+                    group_id VARCHAR(256),
+                    trace_id VARCHAR(128) NOT NULL,
+                    status VARCHAR(32){status_default} NOT NULL,
+                    attempt_count INTEGER DEFAULT 0 NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+                )
+                """
+            )
+        )
+        conn.execute(text("CREATE UNIQUE INDEX ix_dingtalk_inbound_receipts_dedupe_key ON dingtalk_inbound_receipts (dedupe_key)"))
+        conn.execute(text("CREATE INDEX ix_dingtalk_inbound_receipts_channel ON dingtalk_inbound_receipts (channel)"))
+        conn.execute(text("CREATE INDEX ix_dingtalk_inbound_receipts_group_id ON dingtalk_inbound_receipts (group_id)"))
+        conn.execute(text("CREATE INDEX ix_dingtalk_inbound_receipts_trace_id ON dingtalk_inbound_receipts (trace_id)"))
+        conn.execute(text("CREATE INDEX ix_dingtalk_inbound_receipts_status ON dingtalk_inbound_receipts (status)"))
+
+
+def test_0054_adopts_compatible_residual_table_without_deleting_receipts(tmp_path) -> None:
+    database_url = f"sqlite:///{(tmp_path / 'migration_0054_residual.db').as_posix()}"
+    engine = create_engine(database_url, future=True)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"))
+        conn.execute(
+            text("INSERT INTO alembic_version (version_num) VALUES ('0053_daily_fact_snapshot_key')")
+        )
+    _create_residual_dingtalk_inbound_receipts(engine)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO dingtalk_inbound_receipts
+                    (id, dedupe_key, channel, group_id, trace_id, status, attempt_count)
+                VALUES
+                    (1, 'existing-receipt', 'dingtalk_stream', 'group-1',
+                     'trace-existing', 'completed', 1)
+                """
+            )
+        )
+
+    upgrade = _run_alembic('upgrade head', database_url)
+    assert upgrade.returncode == 0, upgrade.stderr
+
+    current = _run_alembic('current', database_url)
+    assert current.returncode == 0, current.stderr
+    assert '0054_dingtalk_inbound_receipts' in current.stdout
+    with engine.connect() as conn:
+        receipt = conn.execute(
+            text(
+                """
+                SELECT dedupe_key, trace_id, status, attempt_count
+                FROM dingtalk_inbound_receipts
+                WHERE id = 1
+                """
+            )
+        ).one()
+    assert receipt == ('existing-receipt', 'trace-existing', 'completed', 1)
+    indexes = {item['name']: item for item in inspect(engine).get_indexes('dingtalk_inbound_receipts')}
+    assert bool(indexes['ix_dingtalk_inbound_receipts_dedupe_key']['unique']) is True
+
+
+def test_0054_rejects_incompatible_residual_table(tmp_path) -> None:
+    database_url = f"sqlite:///{(tmp_path / 'migration_0054_incompatible.db').as_posix()}"
+    engine = create_engine(database_url, future=True)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"))
+        conn.execute(
+            text("INSERT INTO alembic_version (version_num) VALUES ('0053_daily_fact_snapshot_key')")
+        )
+        conn.execute(text("CREATE TABLE dingtalk_inbound_receipts (id INTEGER NOT NULL PRIMARY KEY)"))
+
+    upgrade = _run_alembic('upgrade head', database_url)
+
+    assert upgrade.returncode != 0
+    assert 'incompatible existing dingtalk_inbound_receipts table' in upgrade.stderr
+    current = _run_alembic('current', database_url)
+    assert current.returncode == 0, current.stderr
+    assert '0053_daily_fact_snapshot_key' in current.stdout
+
+
+def test_0054_rejects_residual_table_without_required_defaults(tmp_path) -> None:
+    database_url = f"sqlite:///{(tmp_path / 'migration_0054_missing_default.db').as_posix()}"
+    engine = create_engine(database_url, future=True)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)"))
+        conn.execute(
+            text("INSERT INTO alembic_version (version_num) VALUES ('0053_daily_fact_snapshot_key')")
+        )
+    _create_residual_dingtalk_inbound_receipts(engine, include_status_default=False)
+
+    upgrade = _run_alembic('upgrade head', database_url)
+
+    assert upgrade.returncode != 0
+    assert 'column status has incompatible default' in upgrade.stderr
+    current = _run_alembic('current', database_url)
+    assert current.returncode == 0, current.stderr
+    assert '0053_daily_fact_snapshot_key' in current.stdout
 
 
 @pytest.mark.parametrize("legacy_snapshot_count", [1, 3])

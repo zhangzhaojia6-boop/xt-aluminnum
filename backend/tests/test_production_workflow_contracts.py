@@ -3,9 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
+import time
 
+import pytest
 import yaml
 
 
@@ -48,8 +51,33 @@ def _workflow_concurrency(payload: dict) -> dict:
 
 def _require_bash() -> str:
     bash = shutil.which('bash')
+    if os.name == 'nt':
+        candidates = (
+            Path(os.environ.get('ProgramFiles', '')) / 'Git' / 'bin' / 'bash.exe',
+            Path(os.environ.get('ProgramFiles', '')) / 'Git' / 'usr' / 'bin' / 'bash.exe',
+        )
+        bash = next((str(candidate) for candidate in candidates if candidate.is_file()), bash)
+        if bash and Path(bash).resolve() == Path(os.environ.get('SystemRoot', 'C:\\Windows')) / 'System32' / 'bash.exe':
+            pytest.skip('POSIX bash is required; Windows compatibility bash is unsupported')
     assert bash is not None, 'bash is required to syntax-check workflow run blocks on this machine'
     return bash
+
+
+def _remove_test_tree(path: Path) -> None:
+    if not path.exists():
+        return
+    assert path.resolve().parent == REPO_ROOT
+
+    def remove_readonly(func, target, _exc_info) -> None:
+        os.chmod(target, stat.S_IWRITE)
+        func(target)
+
+    for _attempt in range(3):
+        shutil.rmtree(path, onerror=remove_readonly)
+        if not path.exists():
+            return
+        time.sleep(0.05)
+    raise AssertionError(f'failed to remove test directory: {path}')
 
 
 def _workflow_run_blocks(path: str) -> list[tuple[str, str]]:
@@ -146,6 +174,7 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert 'trap rollback_on_error ERR' not in source
     assert 'get_alembic_revisions()' in source
     assert 'alembic_revisions_valid()' in source
+    assert 'alembic_single_revision_valid()' in source
     assert 'PRE_MIGRATION_REVISIONS' in source
     assert 'POST_MIGRATION_REVISIONS' in source
     assert 'PRE_MIGRATION_REVISION_DETECTION_FAILED' in source
@@ -167,6 +196,9 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert set_restore_index < pre_index < alembic_index < post_index < reset_restore_index
     rollback_body = _extract_shell_function(source, 'rollback_on_error')
     assert 'systemctl stop aluminum-bypass hermes-gateway' in rollback_body
+    assert 'ROLLBACK_DATABASE_DOWNGRADE_TO=$PRE_MIGRATION_REVISIONS' in rollback_body
+    assert 'ROLLBACK_FAILED_DATABASE_DOWNGRADE' in rollback_body
+    assert 'alembic downgrade "$PRE_MIGRATION_REVISIONS"' in rollback_body
     assert 'pg_restore --single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP"' in rollback_body
     assert '"$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"' in rollback_body
     assert 'npm ci --no-audit --no-fund &&' in rollback_body
@@ -176,13 +208,14 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert '|| true' not in rollback_body
     assert 'DEPLOY_FAILED_ROLLBACK_DONE' in rollback_body
     stop_index = rollback_body.find('systemctl stop aluminum-bypass hermes-gateway')
+    migration_downgrade_index = rollback_body.find('alembic downgrade "$PRE_MIGRATION_REVISIONS"')
     repo_restore_index = rollback_body.find('checkout --detach "$PREVIOUS_DATAHUB_HEAD"')
     db_restore_index = rollback_body.find('pg_restore --single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP"')
     deps_restore_index = rollback_body.find('"$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"')
     frontend_restore_index = rollback_body.find('npm run build')
     restart_index = rollback_body.find('systemctl restart aluminum-bypass')
-    assert -1 not in (stop_index, repo_restore_index, db_restore_index, deps_restore_index, frontend_restore_index, restart_index)
-    assert stop_index < repo_restore_index < db_restore_index < deps_restore_index < frontend_restore_index < restart_index
+    assert -1 not in (stop_index, migration_downgrade_index, repo_restore_index, db_restore_index, deps_restore_index, frontend_restore_index, restart_index)
+    assert stop_index < migration_downgrade_index < repo_restore_index < db_restore_index < deps_restore_index < frontend_restore_index < restart_index
     assert 'ROLLBACK_FAILED_READYZ' in rollback_body
     assert source.rfind('trap - EXIT') > source.find('report_status "yes"')
     assert '/versionz' in source
@@ -467,7 +500,7 @@ def test_production_sync_status_trusted_head_probe_blocks_unmerged_targets() -> 
         )
         result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_path, timeout=15)
     finally:
-        shutil.rmtree(tmp_path, ignore_errors=True)
+        _remove_test_tree(tmp_path)
 
     assert result.returncode == 91
     assert 'DATAHUB_SHA_NOT_TRUSTED' in result.stdout
@@ -562,7 +595,7 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
         )
         result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_path, timeout=15)
     finally:
-        shutil.rmtree(tmp_path, ignore_errors=True)
+        _remove_test_tree(tmp_path)
 
     assert result.returncode == 0
     assert 'HERMES_SHA_NOT_TRUSTED' in result.stdout
@@ -695,10 +728,18 @@ def test_production_sync_status_revision_change_failure_triggers_db_restore_mark
     assert marker_text == 'db_restore'
 
 
-def test_production_sync_status_db_restore_harness_stops_services_before_restore() -> None:
+@pytest.mark.parametrize(
+    ('pg_restore_exit_code', 'expected_returncode'),
+    ((0, 43), (1, 97)),
+)
+def test_production_sync_status_db_restore_harness_stops_services_before_restore(
+    pg_restore_exit_code: int,
+    expected_returncode: int,
+) -> None:
     bash = _require_bash()
     rollback_body = _extract_shell_function(_read('.github/workflows/production-sync-status.yml'), 'rollback_on_error')
     tmp_root = REPO_ROOT
+    datahub_repo_path = REPO_ROOT / 'repo-datahub'
     with tempfile.NamedTemporaryFile('w', encoding='utf-8', newline='\n', suffix='.sh', dir=tmp_root, delete=False) as handle:
         script_path = Path(handle.name)
     marker_path = script_path.with_suffix('.log')
@@ -708,7 +749,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                 [
                     '#!/usr/bin/env bash',
                     'set -euo pipefail',
-                    f'MARKER_PATH="{marker_path.name}"',
+                    f'MARKER_PATH="{marker_path.as_posix()}"',
                     'DATAHUB_REPO="$PWD/repo-datahub"',
                     'HERMES_REPO=/repo-hermes',
                     'DATAHUB_ENV_FILE="$PWD/env-datahub"',
@@ -716,6 +757,9 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                     'DATAHUB_CHECKOUT_DONE=1',
                     'HERMES_CHECKOUT_DONE=1',
                     'NEEDS_DB_RESTORE=1',
+                    'PRE_MIGRATION_REVISIONS=0052_hermes_factory_brain',
+                    'RAW_DATABASE_URL=postgresql+psycopg2://ignored',
+                    f'PG_RESTORE_EXIT_CODE={pg_restore_exit_code}',
                     'DB_BACKUP=/tmp/fake.dump',
                     'DATABASE_LIBPQ_URL=postgresql://ignored',
                     'PREVIOUS_DATAHUB_HEAD=old-datahub',
@@ -724,13 +768,20 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                     'HERMES_ENV_BACKUP="$PWD/hermes.env.bak"',
                     'mkdir -p "$DATAHUB_REPO/backend/.venv/bin" "$DATAHUB_REPO/frontend"',
                     'touch "$DB_BACKUP"',
-                    'printf "#!/usr/bin/env bash\necho python:$* >> \\"$MARKER_PATH\\"\n" > "$DATAHUB_REPO/backend/.venv/bin/python"',
+                    'export MARKER_PATH',
+                    'cat > "$DATAHUB_REPO/backend/.venv/bin/python" <<\'PYTHON_STUB\'',
+                    '#!/usr/bin/env bash',
+                    'echo "python:$*" >> "$MARKER_PATH"',
+                    'PYTHON_STUB',
                     'chmod +x "$DATAHUB_REPO/backend/.venv/bin/python"',
+                    'get_alembic_revisions() { echo "0054_dingtalk_inbound_receipts"; }',
+                    'alembic_revisions_valid() { return 0; }',
+                    'alembic_single_revision_valid() { return 0; }',
                     'restore_env_backup() { echo "env_restore:$1" >> "$MARKER_PATH"; }',
                     'reload_or_restart_nginx() { echo "nginx_reload" >> "$MARKER_PATH"; }',
                     'git() { echo "git:$*" >> "$MARKER_PATH"; }',
                     'systemctl() { echo "systemctl:$*" >> "$MARKER_PATH"; }',
-                    'pg_restore() { echo "pg_restore:$*" >> "$MARKER_PATH"; }',
+                    'pg_restore() { echo "pg_restore:$*" >> "$MARKER_PATH"; return "$PG_RESTORE_EXIT_CODE"; }',
                     'npm() { echo "npm:$*" >> "$MARKER_PATH"; }',
                     'curl() { echo "curl:$*" >> "$MARKER_PATH"; }',
                     'cd() { builtin cd "$@"; }',
@@ -745,23 +796,41 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
         result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
         marker_lines = marker_path.read_text(encoding='utf-8').splitlines() if marker_path.exists() else []
     finally:
+        _remove_test_tree(datahub_repo_path)
         if marker_path.exists():
             os.unlink(marker_path)
         if script_path.exists():
             os.unlink(script_path)
 
-    assert result.returncode == 43
+    assert result.returncode == expected_returncode
     assert marker_lines[0] == 'systemctl:stop aluminum-bypass hermes-gateway'
-    assert any(line.startswith('pg_restore:--single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges') for line in marker_lines)
-    assert marker_lines.index('systemctl:stop aluminum-bypass hermes-gateway') < next(
-        index for index, line in enumerate(marker_lines) if line.startswith('pg_restore:')
+    downgrade_index = marker_lines.index(
+        'python:-m alembic downgrade 0052_hermes_factory_brain'
     )
+    datahub_restore_index = next(
+        index
+        for index, line in enumerate(marker_lines)
+        if line.startswith('git:-C ')
+        and line.replace('\\', '/').endswith('/repo-datahub checkout --detach old-datahub')
+    )
+    assert any(line.startswith('pg_restore:--single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges') for line in marker_lines)
+    db_restore_index = next(index for index, line in enumerate(marker_lines) if line.startswith('pg_restore:'))
+    assert marker_lines.index('systemctl:stop aluminum-bypass hermes-gateway') < downgrade_index
+    assert downgrade_index < datahub_restore_index < db_restore_index
+    if pg_restore_exit_code:
+        assert not any(line.startswith('npm:') for line in marker_lines)
+        assert 'systemctl:restart aluminum-bypass' not in marker_lines
+        assert 'systemctl:restart hermes-gateway' not in marker_lines
+    else:
+        assert 'systemctl:restart aluminum-bypass' in marker_lines
+        assert 'systemctl:restart hermes-gateway' in marker_lines
 
 
 def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
     bash = _require_bash()
     rollback_body = _extract_shell_function(_read('.github/workflows/production-sync-status.yml'), 'rollback_on_error')
     tmp_root = REPO_ROOT
+    datahub_repo_path = REPO_ROOT / 'repo-datahub'
     with tempfile.NamedTemporaryFile('w', encoding='utf-8', newline='\n', suffix='.sh', dir=tmp_root, delete=False) as handle:
         script_path = Path(handle.name)
     try:
@@ -803,6 +872,7 @@ def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
         )
         result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
     finally:
+        _remove_test_tree(datahub_repo_path)
         if script_path.exists():
             os.unlink(script_path)
 

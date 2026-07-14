@@ -287,7 +287,12 @@ jobs:
 
           alembic_revisions_valid() {
             local revisions="${1:-}"
-            [[ "$revisions" =~ ^[0-9a-fA-F]+(,[0-9a-fA-F]+)*$ ]]
+            [[ "$revisions" =~ ^[0-9A-Za-z_]+(,[0-9A-Za-z_]+)*$ ]]
+          }
+
+          alembic_single_revision_valid() {
+            local revision="${1:-}"
+            alembic_revisions_valid "$revision" && [[ "$revision" != *,* ]]
           }
 
           report_http_json() {
@@ -492,40 +497,84 @@ jobs:
           rollback_on_error() {
             local exit_code="${1:-1}"
             local rollback_failed=0
+            local rollback_state_failed=0
+            local rollback_current_revisions=""
             trap - EXIT ERR
             echo "DEPLOY_FAILED_ROLLBACK_START"
             if ! systemctl stop aluminum-bypass hermes-gateway; then
               echo "ROLLBACK_FAILED_STOP_RUNTIME_SERVICES"
-              rollback_failed=1
+              echo "DEPLOY_FAILED_ROLLBACK_INCOMPLETE"
+              exit 97
+            fi
+            if [ "$NEEDS_DB_RESTORE" = "1" ] && [ -n "${PRE_MIGRATION_REVISIONS:-}" ]; then
+              if ! alembic_single_revision_valid "$PRE_MIGRATION_REVISIONS"; then
+                echo "ROLLBACK_FAILED_DATABASE_DOWNGRADE_PRE_REVISION"
+                rollback_failed=1
+                rollback_state_failed=1
+              elif ! rollback_current_revisions="$(get_alembic_revisions "$RAW_DATABASE_URL")"; then
+                echo "ROLLBACK_FAILED_DATABASE_DOWNGRADE_CURRENT_REVISION"
+                rollback_failed=1
+                rollback_state_failed=1
+              elif [ "$rollback_current_revisions" != "$PRE_MIGRATION_REVISIONS" ]; then
+                echo "ROLLBACK_DATABASE_DOWNGRADE_TO=$PRE_MIGRATION_REVISIONS"
+                if ! (
+                  cd "$DATAHUB_REPO/backend" &&
+                  DATABASE_URL="$RAW_DATABASE_URL" ./.venv/bin/python -m alembic downgrade "$PRE_MIGRATION_REVISIONS"
+                ); then
+                  echo "ROLLBACK_FAILED_DATABASE_DOWNGRADE"
+                  rollback_failed=1
+                  rollback_state_failed=1
+                fi
+              else
+                echo "ROLLBACK_DATABASE_DOWNGRADE_SKIPPED=already_at_pre_deploy_revision"
+              fi
+            else
+              echo "ROLLBACK_DATABASE_DOWNGRADE_SKIPPED=no_migration_state_change"
             fi
             if [ "$DATAHUB_CHECKOUT_DONE" = "1" ]; then
               if ! git -C "$DATAHUB_REPO" checkout --detach "$PREVIOUS_DATAHUB_HEAD"; then
                 echo "ROLLBACK_FAILED_DATAHUB_REPO"
                 rollback_failed=1
+                rollback_state_failed=1
               fi
             fi
             if [ "$HERMES_CHECKOUT_DONE" = "1" ]; then
               if ! git -C "$HERMES_REPO" checkout --detach "$PREVIOUS_HERMES_HEAD"; then
                 echo "ROLLBACK_FAILED_HERMES_REPO"
                 rollback_failed=1
+                rollback_state_failed=1
               fi
             fi
             if ! restore_env_backup "$DATAHUB_ENV_FILE" "$DATAHUB_ENV_BACKUP"; then
               echo "ROLLBACK_FAILED_DATAHUB_ENV"
               rollback_failed=1
+              rollback_state_failed=1
             fi
             if ! restore_env_backup "$HERMES_ENV_FILE" "$HERMES_ENV_BACKUP"; then
               echo "ROLLBACK_FAILED_HERMES_ENV"
               rollback_failed=1
+              rollback_state_failed=1
             fi
-            if [ "$NEEDS_DB_RESTORE" = "1" ] && [ -n "$DB_BACKUP" ] && [ -f "$DB_BACKUP" ]; then
-              echo "ROLLBACK_DATABASE_FROM=$DB_BACKUP"
-              if ! pg_restore --single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP" >/tmp/task10-db-restore.log 2>&1; then
-                echo "ROLLBACK_FAILED_DATABASE_RESTORE"
+            if [ "$NEEDS_DB_RESTORE" = "1" ]; then
+              if [ -n "$DB_BACKUP" ] && [ -f "$DB_BACKUP" ]; then
+                echo "ROLLBACK_DATABASE_FROM=$DB_BACKUP"
+                if ! pg_restore --single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP" >/tmp/task10-db-restore.log 2>&1; then
+                  echo "ROLLBACK_FAILED_DATABASE_RESTORE"
+                  rollback_failed=1
+                  rollback_state_failed=1
+                fi
+              else
+                echo "ROLLBACK_FAILED_DATABASE_BACKUP_MISSING"
                 rollback_failed=1
+                rollback_state_failed=1
               fi
             else
               echo "ROLLBACK_DATABASE_SKIPPED"
+            fi
+            if [ "$rollback_state_failed" -ne 0 ]; then
+              echo "DEPLOY_FAILED_ROLLBACK_STATE_RESTORE_INCOMPLETE"
+              echo "DEPLOY_FAILED_ROLLBACK_INCOMPLETE"
+              exit 97
             fi
             if [ -x "$DATAHUB_REPO/backend/.venv/bin/python" ]; then
               if ! "$DATAHUB_REPO/backend/.venv/bin/python" -m pip install -r "$DATAHUB_REPO/backend/requirements.txt"; then
@@ -543,6 +592,11 @@ jobs:
             ); then
               echo "ROLLBACK_FAILED_FRONTEND_BUILD"
               rollback_failed=1
+            fi
+            if [ "$rollback_failed" -ne 0 ]; then
+              echo "DEPLOY_FAILED_ROLLBACK_BUILD_RESTORE_INCOMPLETE"
+              echo "DEPLOY_FAILED_ROLLBACK_INCOMPLETE"
+              exit 97
             fi
             echo "ROLLBACK_HERMES_DEPENDENCY_SYNC_SKIPPED=deploy_did_not_mutate_hermes_dependencies"
             if ! systemctl restart aluminum-bypass; then
