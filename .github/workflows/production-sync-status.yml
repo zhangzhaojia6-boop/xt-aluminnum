@@ -407,7 +407,28 @@ jobs:
             echo "HERMES_RUNTIME_DROPIN_INSTALLED=$HERMES_RUNTIME_DROPIN_FILE"
           }
 
+          read_managed_uv_version() {
+            local raw_version=""
+            local version_pattern='^uv ([0-9]+\.[0-9]+\.[0-9]+)( \([A-Za-z0-9_.-]+\))?$'
+            local version_rc
+            HERMES_MANAGED_UV_PARSED_VERSION=""
+            HERMES_MANAGED_UV_FAILURE_REASON=""
+            if raw_version="$("$HERMES_MANAGED_UV" --version 2>/dev/null)"; then
+              :
+            else
+              version_rc="$?"
+              HERMES_MANAGED_UV_FAILURE_REASON="exit_code_$version_rc"
+              return 1
+            fi
+            if [[ ! "$raw_version" =~ $version_pattern ]]; then
+              HERMES_MANAGED_UV_FAILURE_REASON="invalid_version_output"
+              return 1
+            fi
+            HERMES_MANAGED_UV_PARSED_VERSION="${BASH_REMATCH[1]}"
+          }
+
           install_managed_uv() {
+            local actual_version
             local uv_arch
             local uv_archive
             local uv_asset
@@ -415,7 +436,15 @@ jobs:
             local uv_extract_dir
             local uv_sha256
             if [ -x "$HERMES_MANAGED_UV" ]; then
-              test "$("$HERMES_MANAGED_UV" --version)" = "uv $HERMES_UV_VERSION"
+              if ! read_managed_uv_version; then
+                echo "HERMES_MANAGED_UV_INVALID=${HERMES_MANAGED_UV_FAILURE_REASON:-unknown}"
+                return 1
+              fi
+              actual_version="$HERMES_MANAGED_UV_PARSED_VERSION"
+              if [ "$actual_version" != "$HERMES_UV_VERSION" ]; then
+                echo "HERMES_MANAGED_UV_VERSION_MISMATCH=expected_${HERMES_UV_VERSION}_actual_${actual_version}"
+                return 1
+              fi
               echo "HERMES_MANAGED_UV_VERSION=$HERMES_UV_VERSION"
               return
             fi
@@ -462,8 +491,54 @@ jobs:
             rm -f "$uv_archive"
             rm -rf -- "$uv_extract_dir"
             test -x "$HERMES_MANAGED_UV"
-            test "$("$HERMES_MANAGED_UV" --version)" = "uv $HERMES_UV_VERSION"
+            if ! read_managed_uv_version; then
+              echo "HERMES_MANAGED_UV_INVALID=${HERMES_MANAGED_UV_FAILURE_REASON:-unknown}"
+              return 1
+            fi
+            actual_version="$HERMES_MANAGED_UV_PARSED_VERSION"
+            if [ "$actual_version" != "$HERMES_UV_VERSION" ]; then
+              echo "HERMES_MANAGED_UV_VERSION_MISMATCH=expected_${HERMES_UV_VERSION}_actual_${actual_version}"
+              return 1
+            fi
             echo "HERMES_MANAGED_UV_VERSION=$HERMES_UV_VERSION"
+          }
+
+          report_managed_uv_state() {
+            local archive_count
+            local extract_count
+            archive_count="$(find /tmp -maxdepth 1 -type f -name 'hermes-uv.*.tar.gz' -print 2>/dev/null | wc -l | tr -d ' ')"
+            extract_count="$(find /tmp -maxdepth 1 -type d -name 'hermes-uv-extract.*' -print 2>/dev/null | wc -l | tr -d ' ')"
+            echo "HERMES_UV_ARCHIVE_RESIDUE_COUNT=$archive_count"
+            echo "HERMES_UV_EXTRACT_RESIDUE_COUNT=$extract_count"
+            if [ ! -e "$HERMES_MANAGED_UV" ]; then
+              echo "HERMES_MANAGED_UV_STATE=missing"
+              echo "HERMES_MANAGED_UV_VERSION=missing"
+              echo "HERMES_MANAGED_UV_FAILURE_REASON=path_missing"
+              return 0
+            fi
+            if [ ! -x "$HERMES_MANAGED_UV" ]; then
+              echo "HERMES_MANAGED_UV_STATE=not_executable"
+              echo "HERMES_MANAGED_UV_VERSION=unavailable"
+              echo "HERMES_MANAGED_UV_FAILURE_REASON=not_executable"
+              return 0
+            fi
+            if ! read_managed_uv_version; then
+              case "$HERMES_MANAGED_UV_FAILURE_REASON" in
+                exit_code_*) echo "HERMES_MANAGED_UV_STATE=execution_failed" ;;
+                *) echo "HERMES_MANAGED_UV_STATE=version_unreadable" ;;
+              esac
+              echo "HERMES_MANAGED_UV_VERSION=redacted"
+              echo "HERMES_MANAGED_UV_FAILURE_REASON=$HERMES_MANAGED_UV_FAILURE_REASON"
+              return 0
+            fi
+            echo "HERMES_MANAGED_UV_VERSION=$HERMES_MANAGED_UV_PARSED_VERSION"
+            if [ "$HERMES_MANAGED_UV_PARSED_VERSION" = "$HERMES_UV_VERSION" ]; then
+              echo "HERMES_MANAGED_UV_STATE=ready"
+              echo "HERMES_MANAGED_UV_FAILURE_REASON=none"
+            else
+              echo "HERMES_MANAGED_UV_STATE=version_mismatch"
+              echo "HERMES_MANAGED_UV_FAILURE_REASON=expected_version_mismatch"
+            fi
           }
 
           verify_hermes_runtime_env() {
@@ -929,6 +1004,7 @@ jobs:
               report_http_json "VERSIONZ" "http://127.0.0.1:8000/versionz" /tmp/versionz.json || true
             fi
 
+            report_managed_uv_state
             report_hermes_runtime
             if capture_hermes_gateway_command_contract; then
               echo "HERMES_GATEWAY_DEPLOY_CONTRACT=ready"
