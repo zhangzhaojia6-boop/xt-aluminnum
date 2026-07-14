@@ -359,14 +359,83 @@ def test_production_status_reports_managed_uv_state_without_secret_material() ->
     source = _read('.github/workflows/production-sync-status.yml')
     report_body = _extract_shell_function(source, 'report_status')
     uv_report_body = _extract_shell_function(source, 'report_managed_uv_state')
+    install_body = _extract_shell_function(source, 'install_managed_uv')
 
     assert 'report_managed_uv_state' in report_body
     assert 'HERMES_MANAGED_UV_STATE=' in uv_report_body
     assert 'HERMES_MANAGED_UV_VERSION=' in uv_report_body
+    assert 'HERMES_MANAGED_UV_FAILURE_REASON=' in uv_report_body
     assert 'HERMES_UV_ARCHIVE_RESIDUE_COUNT=' in uv_report_body
     assert 'HERMES_UV_EXTRACT_RESIDUE_COUNT=' in uv_report_body
+    assert install_body.count('read_managed_uv_version') >= 2
     assert 'cat ' not in uv_report_body
     assert 'systemctl show -p Environment' not in uv_report_body
+
+
+def test_managed_uv_report_executes_all_states_under_strict_bash() -> None:
+    bash = _require_bash()
+    source = _read('.github/workflows/production-sync-status.yml')
+    parser_body = textwrap.dedent(_extract_shell_function(source, 'read_managed_uv_version'))
+    install_body = textwrap.dedent(_extract_shell_function(source, 'install_managed_uv'))
+    report_body = textwrap.dedent(_extract_shell_function(source, 'report_managed_uv_state'))
+    tmp_root = Path(tempfile.mkdtemp(prefix='managed-uv-report-', dir=REPO_ROOT))
+    script_path = tmp_root / 'harness.sh'
+    try:
+        script_path.write_text(
+            "\n".join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    'HERMES_UV_VERSION=0.11.28',
+                    parser_body,
+                    install_body,
+                    report_body,
+                    'HERMES_MANAGED_UV="$PWD/missing-uv"',
+                    'report_managed_uv_state > missing.out',
+                    'printf "not executable\\n" > "$PWD/fake-uv"',
+                    'chmod 644 "$PWD/fake-uv"',
+                    'HERMES_MANAGED_UV="$PWD/fake-uv"',
+                    'report_managed_uv_state > not-executable.out',
+                    'printf "#!/usr/bin/env bash\\nprintf \'token=must-not-leak\\n\' >&2\\nexit 42\\n" > "$PWD/fake-uv"',
+                    'chmod 755 "$PWD/fake-uv"',
+                    'report_managed_uv_state > execution-failed.out',
+                    'printf "#!/usr/bin/env bash\\nprintf \'uv token=must-not-leak\\n\'\\n" > "$PWD/fake-uv"',
+                    'report_managed_uv_state > unreadable.out',
+                    'printf "#!/usr/bin/env bash\\nprintf \'uv 0.11.27 (x86_64-unknown-linux-gnu)\\n\'\\n" > "$PWD/fake-uv"',
+                    'report_managed_uv_state > mismatch.out',
+                    'printf "#!/usr/bin/env bash\\nprintf \'uv 0.11.28 (x86_64-unknown-linux-gnu)\\n\'\\n" > "$PWD/fake-uv"',
+                    'report_managed_uv_state > ready.out',
+                    'install_managed_uv > install.out',
+                    'grep -Fq "HERMES_MANAGED_UV_STATE=missing" missing.out',
+                    'grep -Fq "HERMES_MANAGED_UV_STATE=not_executable" not-executable.out',
+                    'grep -Fq "HERMES_MANAGED_UV_STATE=execution_failed" execution-failed.out',
+                    'grep -Fq "HERMES_MANAGED_UV_FAILURE_REASON=exit_code_42" execution-failed.out',
+                    'grep -Fq "HERMES_MANAGED_UV_STATE=version_unreadable" unreadable.out',
+                    'grep -Fq "HERMES_MANAGED_UV_FAILURE_REASON=invalid_version_output" unreadable.out',
+                    '! grep -Fq "must-not-leak" execution-failed.out unreadable.out',
+                    'grep -Fq "HERMES_MANAGED_UV_STATE=version_mismatch" mismatch.out',
+                    'grep -Fq "HERMES_MANAGED_UV_VERSION=0.11.27" mismatch.out',
+                    'grep -Fq "HERMES_MANAGED_UV_STATE=ready" ready.out',
+                    'grep -Fq "HERMES_MANAGED_UV_VERSION=0.11.28" ready.out',
+                    'grep -Fq "HERMES_MANAGED_UV_VERSION=0.11.28" install.out',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run(
+            [bash, script_path.name],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=tmp_root,
+            timeout=15,
+        )
+    finally:
+        _remove_test_tree(tmp_root)
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
