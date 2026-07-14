@@ -347,17 +347,105 @@ def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
     source = _read('.github/workflows/production-sync-status.yml')
     capture_body = _extract_shell_function(source, 'capture_hermes_gateway_command_contract')
 
+    assert 'local attempts="${1:-5}"' in capture_body
+    assert 'local delay_seconds="${2:-1}"' in capture_body
+    assert 'for attempt in $(seq 1 "$attempts")' in capture_body
+    assert 'HERMES_GATEWAY_COMMAND_ATTEMPT=' in capture_body
+    assert 'sleep "$delay_seconds"' in capture_body
     assert 'command_args == ["-m", "hermes_cli.main", "gateway", "run"]' in capture_body
     assert 'command_args[:3] == ["-m", "hermes_cli.main", "-p"]' in capture_body
     assert 'command_args[4:] == ["gateway", "run"]' in capture_body
     assert 're.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3])' in capture_body
     assert 'systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"' in capture_body
+    assert 'systemctl", "show", "-p", "MainPID", "--value", "hermes-gateway"' in capture_body
+    assert 'Hermes gateway MainPID changed during verification' in capture_body
     assert 'service_exec.count("argv[]=") != 1' in capture_body
     assert 'service_args[1:] != args' in capture_body
     assert 'service_path != Path(f"/proc/{runtime_pid}/exe").resolve()' in capture_body
     assert 'command_args = args[1:] if args[:1] == ["-P"] else args' in capture_body
     assert 'unexpected Hermes gateway command shape' in capture_body
     assert 'HERMES_GATEWAY_ARGS=' in capture_body
+
+
+def test_hermes_gateway_command_contract_retries_transient_pid_and_rejects_persistent_failure(tmp_path: Path) -> None:
+    bash = _require_bash()
+    source = _read('.github/workflows/production-sync-status.yml')
+    capture_body = textwrap.dedent(_extract_shell_function(source, 'capture_hermes_gateway_command_contract'))
+    script_path = tmp_path / 'gateway-contract-retry.sh'
+    script_path.write_text(
+        "\n".join(
+            [
+                '#!/usr/bin/env bash',
+                'set -euo pipefail',
+                'SCENARIO=""',
+                'SYSTEMCTL_COUNT_FILE="$PWD/systemctl-count"',
+                'systemctl() {',
+                '  local count',
+                '  count="$(cat "$SYSTEMCTL_COUNT_FILE")"',
+                '  count=$((count + 1))',
+                '  printf "%s\\n" "$count" > "$SYSTEMCTL_COUNT_FILE"',
+                '  if { [ "$SCENARIO" = "transient" ] && [ "$count" -gt 1 ]; } || [ "$SCENARIO" = "verifier" ]; then',
+                '    printf "4242\\n"',
+                '  else',
+                '    printf "0\\n"',
+                '  fi',
+                '}',
+                'python3() {',
+                '  cat >/dev/null',
+                '  if [ "$SCENARIO" = "verifier" ]; then',
+                '    printf "%s\\n" "unexpected Hermes gateway command shape" >&2',
+                '    return 1',
+                '  fi',
+                '  printf "%s\\n" "-m hermes_cli.main gateway run"',
+                '}',
+                capture_body,
+                'printf "0\\n" > "$SYSTEMCTL_COUNT_FILE"',
+                'SCENARIO="transient"',
+                'capture_hermes_gateway_command_contract 2 0 > transient.out',
+                '[ "$HERMES_GATEWAY_ARGS" = "-m hermes_cli.main gateway run" ]',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ATTEMPT=1/2:main_pid_unavailable" transient.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ATTEMPT=2/2:accepted" transient.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_CONTRACT=accepted" transient.out',
+                'printf "0\\n" > "$SYSTEMCTL_COUNT_FILE"',
+                'SCENARIO="persistent"',
+                'HERMES_GATEWAY_ARGS="stale"',
+                'set +e',
+                'capture_hermes_gateway_command_contract 2 0 > persistent.out',
+                'persistent_rc="$?"',
+                'set -e',
+                '[ "$persistent_rc" -ne 0 ]',
+                '[ -z "$HERMES_GATEWAY_ARGS" ]',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ATTEMPT=1/2:main_pid_unavailable" persistent.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ATTEMPT=2/2:main_pid_unavailable" persistent.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ERROR=main_pid_unavailable" persistent.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_CONTRACT=rejected" persistent.out',
+                'printf "0\\n" > "$SYSTEMCTL_COUNT_FILE"',
+                'SCENARIO="verifier"',
+                'set +e',
+                'capture_hermes_gateway_command_contract 1 0 > verifier.out',
+                'verifier_rc="$?"',
+                'set -e',
+                '[ "$verifier_rc" -ne 0 ]',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ATTEMPT=1/1:rejected" verifier.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ERROR=unexpected Hermes gateway command shape" verifier.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_CONTRACT=rejected" verifier.out',
+                '',
+            ]
+        ),
+        encoding='utf-8',
+        newline='\n',
+    )
+
+    result = subprocess.run(
+        [bash, script_path.name],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+        timeout=15,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_hermes_runtime_dropin_switch_and_restore_preserve_previous_service_command() -> None:

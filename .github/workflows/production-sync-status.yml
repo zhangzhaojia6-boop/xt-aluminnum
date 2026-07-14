@@ -202,13 +202,20 @@ jobs:
           HERMES_GATEWAY_ARGS=""
 
           capture_hermes_gateway_command_contract() {
+            local attempts="${1:-5}"
+            local delay_seconds="${2:-1}"
+            local attempt
             local runtime_pid
-            runtime_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null || true)"
-            if ! printf '%s' "$runtime_pid" | grep -Eq '^[1-9][0-9]*$'; then
-              echo "HERMES_GATEWAY_COMMAND_CONTRACT=main_pid_unavailable"
-              return 1
-            fi
-            HERMES_GATEWAY_ARGS="$(python3 - "$runtime_pid" <<'PY'
+            local candidate_args
+            local verifier_error_file
+            local last_error="verification_error"
+            HERMES_GATEWAY_ARGS=""
+            verifier_error_file="$(mktemp /tmp/hermes-gateway-contract.XXXXXX)"
+            for attempt in $(seq 1 "$attempts"); do
+              runtime_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null || true)"
+              if printf '%s' "$runtime_pid" | grep -Eq '^[1-9][0-9]*$'; then
+                : > "$verifier_error_file"
+                if candidate_args="$(python3 - "$runtime_pid" 2>"$verifier_error_file" <<'PY'
           from pathlib import Path
           import re
           import shlex
@@ -234,6 +241,12 @@ jobs:
               ["systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"],
               text=True,
           ).strip()
+          service_pid = subprocess.check_output(
+              ["systemctl", "show", "-p", "MainPID", "--value", "hermes-gateway"],
+              text=True,
+          ).strip()
+          if service_pid != runtime_pid:
+              raise SystemExit("Hermes gateway MainPID changed during verification")
           if service_exec.count("argv[]=") != 1:
               raise SystemExit("unexpected Hermes systemd ExecStart count")
           match = re.search(r"path=(\S+)\s*;\s*argv\[\]=(.*?)\s*;", service_exec)
@@ -249,9 +262,38 @@ jobs:
               raise SystemExit("Hermes systemd arguments differ from the running process")
           print(" ".join(command_args))
           PY
-          )"
-            test -n "$HERMES_GATEWAY_ARGS"
-            echo "HERMES_GATEWAY_COMMAND_CONTRACT=accepted"
+                )" && [ -n "$candidate_args" ]; then
+                  HERMES_GATEWAY_ARGS="$candidate_args"
+                  rm -f "$verifier_error_file"
+                  echo "HERMES_GATEWAY_COMMAND_ATTEMPT=${attempt}/${attempts}:accepted"
+                  echo "HERMES_GATEWAY_COMMAND_CONTRACT=accepted"
+                  return 0
+                fi
+                last_error="$(tail -n 1 "$verifier_error_file" 2>/dev/null || true)"
+                echo "HERMES_GATEWAY_COMMAND_ATTEMPT=${attempt}/${attempts}:rejected"
+              else
+                last_error="main_pid_unavailable"
+                echo "HERMES_GATEWAY_COMMAND_ATTEMPT=${attempt}/${attempts}:main_pid_unavailable"
+              fi
+              if [ "$attempt" -lt "$attempts" ]; then
+                sleep "$delay_seconds"
+              fi
+            done
+            rm -f "$verifier_error_file"
+            case "$last_error" in
+              main_pid_unavailable|verification_error|\
+              "unexpected Hermes gateway command shape"|\
+              "unexpected Hermes systemd ExecStart count"|\
+              "unexpected Hermes systemd ExecStart shape"|\
+              "Hermes gateway MainPID changed during verification"|\
+              "Hermes systemd executable mismatch"|\
+              "Hermes systemd wrapper commands are unsupported"|\
+              "Hermes systemd arguments differ from the running process") ;;
+              *) last_error="verification_error" ;;
+            esac
+            echo "HERMES_GATEWAY_COMMAND_ERROR=$last_error"
+            echo "HERMES_GATEWAY_COMMAND_CONTRACT=rejected"
+            return 1
           }
 
           backup_hermes_runtime_dropin() {
