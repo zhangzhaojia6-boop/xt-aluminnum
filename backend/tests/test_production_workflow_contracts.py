@@ -356,12 +356,15 @@ def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
         'command_args = service_runtime_args[1:] if service_runtime_args[:1] == ["-P"] else service_runtime_args'
         in capture_body
     )
+    assert 'if command_args[-1:] == ["--replace"]:' in capture_body
+    assert 'command_args = command_args[:-1]' in capture_body
     assert 'command_args == ["-m", "hermes_cli.main", "gateway", "run"]' in capture_body
     assert 'command_args[:3] == ["-m", "hermes_cli.main", "-p"]' in capture_body
     assert 'command_args[4:] == ["gateway", "run"]' in capture_body
     assert 're.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3])' in capture_body
     assert 'def classify_service_arg(value: str) -> str:' in capture_body
     assert '"hermes_module"' in capture_body
+    assert '"--replace": "legacy_replace_flag"' in capture_body
     assert '"safe_name"' in capture_body
     assert 'unexpected Hermes gateway command shape:service_argc=' in capture_body
     assert ':service_classes=' in capture_body

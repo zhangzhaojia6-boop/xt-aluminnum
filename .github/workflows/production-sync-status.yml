@@ -244,6 +244,8 @@ jobs:
               raise SystemExit("Hermes systemd executable mismatch")
           service_runtime_args = service_args[1:]
           command_args = service_runtime_args[1:] if service_runtime_args[:1] == ["-P"] else service_runtime_args
+          if command_args[-1:] == ["--replace"]:
+              command_args = command_args[:-1]
 
           def classify_service_arg(value: str) -> str:
               known = {
@@ -253,6 +255,7 @@ jobs:
                   "-p": "profile_flag",
                   "gateway": "gateway_command",
                   "run": "run_command",
+                  "--replace": "legacy_replace_flag",
               }
               if value in known:
                   return known[value]
