@@ -17,7 +17,7 @@ test('AlertsPage keeps existing timeline components and counts', () => {
   assert.match(SRC, /DomainFilterChips/)
   assert.match(SRC, /EventTimeline/)
   assert.match(SRC, /openCount/)
-  assert.match(SRC, /timeline\.filteredEvents\.value\.length/)
+  assert.match(SRC, /businessEvents\.value\.length/)
 })
 
 test('AlertsPage applies industrial blue command surface without hard-coded hex', () => {

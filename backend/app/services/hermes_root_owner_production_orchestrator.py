@@ -24,7 +24,6 @@ from app.services.hermes_root_owner_message_service import (
 from app.services.hermes_root_owner_reply_channel_service import ensure_root_owner_private_reply_channel
 
 
-_CONTEXT_DOMAINS = {"production", "inventory", "energy", "anomaly"}
 _HERMES_PUBLIC_NAME = "鑫泰铝业智能大脑"
 
 
@@ -63,7 +62,7 @@ def run_root_owner_production_turn(
     clean_trace_id = str(trace_id or "").strip() or uuid4().hex
     clean_text = str(text or "").strip()
     sender_id = str(sender_external_id or getattr(current_user, "dingtalk_user_id", "") or "").strip()
-    previous_domain = _previous_root_owner_private_domain(
+    previous_domain, previous_metric_keys, previous_business_date = _previous_root_owner_private_context(
         db,
         sender_id=sender_id,
         current_trace_id=clean_trace_id,
@@ -73,6 +72,8 @@ def run_root_owner_production_turn(
         clean_text,
         default_business_date=default_business_date,
         previous_domain=previous_domain,
+        previous_metric_keys=previous_metric_keys,
+        previous_business_date=previous_business_date,
     )
     source = _source_payload_block(plan=plan, source_payload=source_payload)
 
@@ -182,15 +183,15 @@ def run_root_owner_production_turn(
     )
 
 
-def _previous_root_owner_private_domain(
+def _previous_root_owner_private_context(
     db: Session,
     *,
     sender_id: str,
     current_trace_id: str,
     current_text: str,
-) -> str | None:
+) -> tuple[str | None, tuple[str, ...], date | None]:
     if not sender_id:
-        return None
+        return None, (), None
     rows = (
         db.query(AgentRun, ChatInboxMessage)
         .join(ChatInboxMessage, AgentRun.chat_inbox_id == ChatInboxMessage.id)
@@ -207,13 +208,13 @@ def _previous_root_owner_private_domain(
         source_payload = inbox.source_payload
         if isinstance(source_payload, Mapping) and source_payload.get("root_owner_private_loop") is not True:
             continue
-        domain = _recognition_domain_from_run(run)
-        if domain:
-            return domain
-    return None
+        context = _recognition_context_from_run(run)
+        if context is not None:
+            return context
+    return None, (), None
 
 
-def _recognition_domain_from_run(run: AgentRun) -> str | None:
+def _recognition_context_from_run(run: AgentRun) -> tuple[str, tuple[str, ...], date | None] | None:
     payload = run.result_payload
     if not isinstance(payload, Mapping):
         return None
@@ -221,7 +222,20 @@ def _recognition_domain_from_run(run: AgentRun) -> str | None:
     if not isinstance(recognition, Mapping):
         return None
     domain = str(recognition.get("domain") or "").strip()
-    return domain if domain in _CONTEXT_DOMAINS else None
+    if not domain or domain == "general":
+        return None
+    raw_metric_keys = recognition.get("metric_keys")
+    metric_keys = (
+        tuple(str(item).strip() for item in raw_metric_keys if str(item).strip())
+        if isinstance(raw_metric_keys, (list, tuple))
+        else ()
+    )
+    raw_business_date = str(recognition.get("business_date") or "").strip()
+    try:
+        business_date = date.fromisoformat(raw_business_date) if raw_business_date else None
+    except ValueError:
+        business_date = None
+    return domain, metric_keys, business_date
 
 
 def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:
@@ -303,8 +317,23 @@ def _source_payload_block(
 
 
 def _evidence_payload(decision: EvidenceDecision) -> dict[str, Any]:
+    primary = decision.primary
+    primary_payload = (
+        filter_sensitive_mapping(
+            {
+                "source_key": primary.source_key,
+                "source_type": primary.source_type,
+                "status": primary.status,
+                "value": primary.value,
+                "trace_ref": dict(primary.trace_ref),
+            }
+        )
+        if primary is not None
+        else None
+    )
     return {
-        "primary_source": decision.primary.source_key if decision.primary else None,
+        "primary_source": primary.source_key if primary else None,
+        "primary": primary_payload,
         "candidate_sources": [candidate.source_key for candidate in decision.candidates],
         "conflicts": list(decision.conflicts),
         "missing_sources": list(decision.missing_sources),

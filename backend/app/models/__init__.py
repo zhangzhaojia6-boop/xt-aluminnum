@@ -22,6 +22,7 @@ from app.models.agent_communication import (
     AgentRun,
     ChatInboxMessage,
     CommunicationChannel,
+    DingTalkInboundReceipt,
     ExternalMessageLog,
     MultimodalEvidence,
 )
@@ -143,6 +144,7 @@ __all__ = [
     'AgentEvent',
     'AgentOutboxMessage',
     'ChatInboxMessage',
+    'DingTalkInboundReceipt',
     'AgentRun',
     'ExternalMessageLog',
     'MultimodalEvidence',

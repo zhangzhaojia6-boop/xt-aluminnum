@@ -74,6 +74,38 @@ def test_api_v1_readyz_matches_readiness(monkeypatch):
     assert resp.json()["checks"]["database"] == "ok"
 
 
+def test_versionz_returns_datahub_and_hermes_sha(monkeypatch):
+    client = TestClient(app)
+
+    monkeypatch.setenv("BUILD_SHA", "datahub-sha")
+    monkeypatch.setenv("HERMES_BUILD_SHA", "hermes-sha")
+
+    resp = client.get("/versionz")
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "datahub_sha": "datahub-sha",
+        "hermes_sha": "hermes-sha",
+    }
+    assert resp.headers["cache-control"] == "no-store"
+    assert resp.headers["pragma"] == "no-cache"
+
+
+def test_versionz_returns_null_when_shas_are_unset(monkeypatch):
+    client = TestClient(app)
+
+    monkeypatch.delenv("BUILD_SHA", raising=False)
+    monkeypatch.delenv("HERMES_BUILD_SHA", raising=False)
+
+    resp = client.get("/versionz")
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "datahub_sha": None,
+        "hermes_sha": None,
+    }
+
+
 def test_readyz_not_ready(monkeypatch):
     client = TestClient(app)
 

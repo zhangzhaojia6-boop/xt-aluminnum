@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import os
+import time
 from uuid import uuid4
 
 import requests
@@ -25,6 +28,27 @@ def mask_secret(value: str) -> str:
     if len(clean) <= 8:
         return "*" * len(clean)
     return f"{clean[:4]}...{clean[-4:]}"
+
+
+def build_signed_headers(payload: dict, *, secret: str, kind: str = "root_owner_smoke") -> dict[str, str]:
+    timestamp = str(int(time.time()))
+    nonce = uuid4().hex
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    signed = b".".join(
+        (
+            timestamp.encode("ascii"),
+            nonce.encode("ascii"),
+            kind.encode("ascii"),
+            canonical,
+        )
+    )
+    signature = hmac.new(secret.encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return {
+        "x-dingtalk-inbound-timestamp": timestamp,
+        "x-dingtalk-inbound-nonce": nonce,
+        "x-dingtalk-inbound-kind": kind,
+        "x-dingtalk-inbound-signature": f"sha256={signature}",
+    }
 
 
 def main() -> None:
@@ -51,7 +75,7 @@ def main() -> None:
     )
     response = requests.post(
         url,
-        headers={"x-dingtalk-inbound-token": args.token},
+        headers=build_signed_headers(payload, secret=args.token),
         json=payload,
         timeout=20,
     )

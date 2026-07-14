@@ -53,9 +53,9 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
         domain="production",
         priority=10,
         status="ok",
-        value={"total_output_daily": 118.0},
+        value={"total_output_daily": 118.0, "token": "primary-secret-token"},
         summary="负责人群里确认 118 吨",
-        trace_ref={"trace_id": "trace-ding-001"},
+        trace_ref={"trace_id": "trace-ding-001", "password": "primary-secret-password"},
     )
     decision = EvidenceDecision(
         primary=primary,
@@ -127,6 +127,15 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
             assert payload["source"]["recognition_reason"]
             assert payload["source"]["source_payload"]["source"] == "test"
             assert payload["evidence"]["primary_source"] == "dingtalk_group_chat"
+            assert payload["evidence"]["primary"] == {
+                "source_key": "dingtalk_group_chat",
+                "source_type": "dingtalk_group_content",
+                "status": "ok",
+                "value": {"total_output_daily": 118.0},
+                "trace_ref": {"trace_id": "trace-ding-001"},
+            }
+            assert "primary-secret-token" not in repr(payload)
+            assert "primary-secret-password" not in repr(payload)
             assert payload["recognition"]["domain"] == "production"
             assert payload["dispatch"]["outbox_message_id"] == result.outbox_message_id
             assert payload["dispatch"]["status"] == "sent"
@@ -137,7 +146,7 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
         db.close()
 
 
-def test_private_follow_up_inherits_previous_production_domain(monkeypatch) -> None:
+def test_private_evidence_follow_up_recovers_previous_production_fact_context(monkeypatch) -> None:
     db = _db_session()
     db.add(_root_owner())
     db.commit()
@@ -162,7 +171,16 @@ def test_private_follow_up_inherits_previous_production_domain(monkeypatch) -> N
     seen_plans = []
 
     def fake_collect(_db, *, message_plan, trace_id, mes_reader=None):
-        seen_plans.append((trace_id, message_plan.raw_text, message_plan.domain, message_plan.business_date))
+        seen_plans.append(
+            (
+                trace_id,
+                message_plan.raw_text,
+                message_plan.domain,
+                message_plan.metric_keys,
+                message_plan.intent,
+                message_plan.business_date,
+            )
+        )
         return decision
 
     monkeypatch.setattr(
@@ -181,7 +199,7 @@ def test_private_follow_up_inherits_previous_production_domain(monkeypatch) -> N
     try:
         first = run_root_owner_production_turn(
             db,
-            text="今天产量咋样",
+            text="昨天一共出了多少？",
             current_user=db.get(User, 1),
             sender_external_id="dt-root-001",
             trace_id="trace-root-turn-first",
@@ -190,7 +208,7 @@ def test_private_follow_up_inherits_previous_production_domain(monkeypatch) -> N
         )
         second = run_root_owner_production_turn(
             db,
-            text="昨天呢",
+            text="接着上一个问题，把证据编号给我",
             current_user=db.get(User, 1),
             sender_external_id="dt-root-001",
             trace_id="trace-root-turn-follow-up",
@@ -201,8 +219,22 @@ def test_private_follow_up_inherits_previous_production_domain(monkeypatch) -> N
         assert first.status == "answered"
         assert second.status == "answered"
         assert seen_plans == [
-            ("trace-root-turn-first", "今天产量咋样", "production", date(2026, 6, 27)),
-            ("trace-root-turn-follow-up", "昨天呢", "production", date(2026, 6, 26)),
+            (
+                "trace-root-turn-first",
+                "昨天一共出了多少？",
+                "production",
+                ("total_output_daily",),
+                "production_summary",
+                date(2026, 6, 26),
+            ),
+            (
+                "trace-root-turn-follow-up",
+                "接着上一个问题，把证据编号给我",
+                "production",
+                ("total_output_daily",),
+                "evidence_follow_up",
+                date(2026, 6, 26),
+            ),
         ]
 
         follow_up_run = (
@@ -212,6 +244,9 @@ def test_private_follow_up_inherits_previous_production_domain(monkeypatch) -> N
         )
         recognition = follow_up_run.result_payload["recognition"]
         assert recognition["domain"] == "production"
+        assert recognition["metric_keys"] == ["total_output_daily"]
+        assert recognition["business_date"] == "2026-06-26"
+        assert recognition["intent"] == "evidence_follow_up"
         assert recognition["needs_clarification"] is False
         assert "context_follow_up" in recognition["recognition_reason"]
         assert follow_up_run.result_payload["evidence"]["primary_source"] == "dingtalk_group_chat"

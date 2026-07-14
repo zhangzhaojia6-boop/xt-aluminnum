@@ -6,20 +6,8 @@ on:
       confirm:
         description: Type 'hermes-20q' to confirm production Hermes acceptance
         required: true
-      mode:
-        description: Run preflight only, or send the real 20-question gate
-        required: true
-        default: preflight
-        type: choice
-        options:
-          - preflight
-          - run
       business_date:
         description: Business date in YYYY-MM-DD; empty uses production current date
-        required: false
-        default: ''
-      limit:
-        description: Optional question limit for controlled smoke; empty means all 20
         required: false
         default: ''
 
@@ -33,42 +21,58 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Hermes production acceptance
+        id: acceptance
         env:
           SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           SSH_USER: ${{ secrets.PROD_SSH_USER }}
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
-          ACCEPTANCE_MODE: ${{ github.event.inputs.mode }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           BUSINESS_DATE: ${{ github.event.inputs.business_date }}
-          LIMIT: ${{ github.event.inputs.limit }}
           DINGTALK_ACCEPTANCE_GROUP_KEY: ${{ secrets.DINGTALK_ACCEPTANCE_GROUP_KEY }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
           test -n "$SSH_HOST"
           test -n "$SSH_USER"
           test -n "$SSH_KEY"
-          case "$ACCEPTANCE_MODE" in
-            preflight|run) ;;
-            *) echo "unsupported mode"; exit 2 ;;
-          esac
+          test -n "$SSH_KNOWN_HOSTS"
+          test -n "$DINGTALK_ACCEPTANCE_GROUP_KEY"
           if [ -n "$BUSINESS_DATE" ] && ! printf '%s' "$BUSINESS_DATE" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
             echo "business_date must be YYYY-MM-DD"
-            exit 2
-          fi
-          if [ -n "$LIMIT" ] && ! printf '%s' "$LIMIT" | grep -Eq '^[0-9]+$'; then
-            echo "limit must be an integer"
             exit 2
           fi
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "ACCEPTANCE_MODE='$ACCEPTANCE_MODE' BUSINESS_DATE='$BUSINESS_DATE' LIMIT='$LIMIT' DINGTALK_ACCEPTANCE_GROUP_KEY='$DINGTALK_ACCEPTANCE_GROUP_KEY' bash -s" <<'REMOTE'
+          remote_artifact_dir="/var/lib/aluminum-bypass/acceptance/hermes-20q-${RUN_ID}"
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+
+          REMOTE_PREAMBLE=""
+          append_remote_assignment BUSINESS_DATE "$BUSINESS_DATE"
+          append_remote_assignment RUN_ID "$RUN_ID"
+          append_remote_assignment ARTIFACT_DIR "$remote_artifact_dir"
+          append_remote_assignment DINGTALK_ACCEPTANCE_GROUP_KEY "$DINGTALK_ACCEPTANCE_GROUP_KEY"
+
+          set +e
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
           set -euo pipefail
           cd /srv/aluminum-bypass/backend
           . .venv/bin/activate
+          artifact_dir="$ARTIFACT_DIR"
+          install -d -m 700 "$artifact_dir"
+          chmod 700 "$artifact_dir"
+          set +e
           python - <<'PY'
           from __future__ import annotations
 
@@ -80,7 +84,6 @@ jobs:
 
           from app.config import settings
           from app.database import get_sessionmaker
-          from app.models.agent_communication import CommunicationChannel
           from app.models.system import User
           from app.services.external_readonly_source_registry import (
               build_external_readonly_sources,
@@ -102,31 +105,15 @@ jobs:
               return text[:4] + "***" + text[-4:]
 
 
-          def channel_score(channel: CommunicationChannel) -> int:
-              meta = channel.metadata_payload if isinstance(channel.metadata_payload, dict) else {}
-              text = " ".join(
-                  [
-                      str(channel.name or ""),
-                      str(channel.target_type or ""),
-                      str(channel.target_key or ""),
-                      str(meta.get("managed_by") or ""),
-                      str(meta.get("owner_name") or ""),
-                  ]
-              ).lower()
-              score = 0
-              if channel.target_type == "acceptance_test":
-                  score += 100
-              if "hermes_20_question_acceptance" in text:
-                  score += 90
-              for token in ("测试", "验收", "调试", "debug", "test", "20问", "20 question"):
-                  if token in text:
-                      score += 40
-              for token in ("生产群", "管理群", "全厂", "工作通知"):
-                  if token in text:
-                      score -= 80
-              if not channel.dry_run:
-                  score += 10
-              return score
+          artifact_dir = Path(str(os.environ.get("ARTIFACT_DIR") or "").strip())
+          artifact_dir.mkdir(parents=True, exist_ok=True)
+          artifact_dir.chmod(0o700)
+
+
+          def write_artifact(name: str, content: str) -> None:
+              path = artifact_dir / name
+              path.write_text(content, encoding="utf-8")
+              os.chmod(path, 0o600)
 
 
           def acceptance_channel_type(channel_key: str) -> str:
@@ -147,12 +134,14 @@ jobs:
               user = (
                   db.query(User)
                   .filter(User.dingtalk_user_id.is_not(None))
+                  .filter(User.is_active.is_(True))
+                  .filter(User.username.in_(("root-owner", "root_owner")))
                   .order_by(User.id.asc())
                   .first()
               )
               if user and str(user.dingtalk_user_id or "").strip():
                   return str(user.dingtalk_user_id).strip()
-              return "666327013924069283"
+              return ""
 
 
           def business_date_value() -> str:
@@ -162,72 +151,56 @@ jobs:
               return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
 
 
-          mode = str(os.environ.get("ACCEPTANCE_MODE") or "preflight").strip()
-          limit_raw = str(os.environ.get("LIMIT") or "").strip()
-          limit = int(limit_raw) if limit_raw else None
           explicit_group_key = str(os.environ.get("DINGTALK_ACCEPTANCE_GROUP_KEY") or "").strip()
+          run_label = f"{business_date_value()}-run"
           session_factory = get_sessionmaker()
 
           with session_factory() as db:
               owner_id = selected_owner_id(db)
-              channels = (
-                  db.query(CommunicationChannel)
-                  .filter(CommunicationChannel.channel_type.in_(("dingtalk_group", "dingtalk_custom_robot")))
-                  .filter(CommunicationChannel.is_active.is_(True))
-                  .order_by(CommunicationChannel.id.asc())
-                  .all()
-              )
-              ranked = sorted(
-                  [(channel_score(channel), channel) for channel in channels],
-                  key=lambda item: (item[0], not item[1].dry_run, -item[1].id),
-                  reverse=True,
-              )
+              if not owner_id:
+                  print("NO_OWNER_DINGTALK_USER")
+                  write_artifact(
+                      f"{run_label}-preflight.txt",
+                      "status=no_owner_dingtalk_user\nowner_id_masked=\ngroup_secret_present="
+                      + str(bool(explicit_group_key))
+                      + "\n",
+                  )
+                  sys.exit(23)
+
               print("DINGTALK_NOTIFY_DRY_RUN=", bool(getattr(settings, "DINGTALK_NOTIFY_DRY_RUN", True)))
               print("OWNER_ID_MASKED=", mask(owner_id))
               print("GROUP_SECRET_PRESENT=", bool(explicit_group_key))
-              print("GROUP_CHANNELS_MASKED")
-              for score, channel in ranked:
-                  print(
-                      {
-                          "id": channel.id,
-                          "score": score,
-                          "name": channel.name,
-                          "key": mask(channel.channel_key),
-                          "target_type": channel.target_type,
-                          "target_key": mask(channel.target_key),
-                          "dry_run": channel.dry_run,
-                      }
-                  )
-              if explicit_group_key:
-                  from app.services import agent_communication_service
+              if not explicit_group_key:
+                  print("EXPLICIT_GROUP_SECRET_REQUIRED_FOR_RUN_REGISTRATION")
+                  sys.exit(24)
+              selected_group_masked = mask(explicit_group_key)
+              print("SELECTED_GROUP_MASKED=", selected_group_masked, "explicit_production_acceptance_group")
+              from app.services import agent_communication_service
 
-                  explicit_channel_type = acceptance_channel_type(explicit_group_key)
-                  group = agent_communication_service.register_channel(
-                      db,
-                      channel_type=explicit_channel_type,
-                      channel_key=explicit_group_key,
-                      name="Hermes 20 问验收测试群",
-                      target_type="acceptance_test",
-                      target_key="hermes_20_question_acceptance",
-                      dry_run=False,
-                      metadata_payload={"managed_by": "hermes_20_question_acceptance"},
-                  )
-              else:
-                  candidates = [(score, channel) for score, channel in ranked if score >= 40]
-                  if not candidates:
-                      print("NO_APPROVED_DINGTALK_GROUP_CANDIDATE")
-                      sys.exit(20)
-                  if len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
-                      print("AMBIGUOUS_DINGTALK_GROUP_CANDIDATE")
-                      sys.exit(21)
-                  group = candidates[0][1]
-              print("SELECTED_GROUP_MASKED=", mask(group.channel_key), group.name)
-              if mode == "preflight":
-                  sys.exit(0)
+              group = agent_communication_service.register_channel(
+                  db,
+                  channel_type=acceptance_channel_type(explicit_group_key),
+                  channel_key=explicit_group_key,
+                  name="Hermes 20 问真实验收群",
+                  target_type="production_acceptance",
+                  target_key="hermes_20_question_production_acceptance",
+                  dry_run=False,
+                  metadata_payload={"managed_by": "hermes_20_question_production_acceptance"},
+              )
 
               current_user = db.get(User, 1) or db.query(User).filter(User.role == "admin").order_by(User.id.asc()).first()
               if current_user is None:
                   print("NO_ADMIN_USER")
+                  write_artifact(
+                      f"{run_label}-preflight.txt",
+                      "status=no_admin_user\nowner_id_masked="
+                      + mask(owner_id)
+                      + "\nselected_group_masked="
+                      + selected_group_masked
+                      + "\ngroup_secret_present="
+                      + str(bool(explicit_group_key))
+                      + "\n",
+                  )
                   sys.exit(22)
               source_health = health_check_sources(
                   build_external_readonly_sources(),
@@ -243,18 +216,53 @@ jobs:
                       DingTalkDeliveryTarget(
                           channel_type=group.channel_type,
                           channel_key=group.channel_key,
+                          target_type="production_acceptance",
+                          target_key="hermes_20_question_production_acceptance",
+                          name="Hermes 20 问真实验收群",
                       ),
                   ),
-                  limit=limit,
+                  limit=None,
               )
 
+              if len(outcome.snapshots) != 20:
+                  print("HERMES_20Q_INCOMPLETE=", len(outcome.snapshots))
+                  sys.exit(25)
+
           report = render_acceptance_report(outcome.summary)
-          report_path = Path("/srv/aluminum-bypass/docs/superpowers/reports") / (
-              f"{business_date_value()}-hermes-20-question-real-acceptance-production.md"
-          )
+          report_path = artifact_dir / f"{business_date_value()}-hermes-20-question-real-acceptance-production.md"
           report_path.write_text(report, encoding="utf-8")
+          os.chmod(report_path, 0o600)
           print(report)
           print("REPORT_PATH=", report_path)
           sys.exit(0 if outcome.summary.core_passed and outcome.summary.delivery_passed else 1)
           PY
+          status=$?
+          set -e
+          find "$artifact_dir" -type d -exec chmod 700 {} +
+          find "$artifact_dir" -type f -exec chmod 600 {} +
+          exit "$status"
           REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"
+          remote_status=$?
+          set -e
+
+          local_artifact_dir="hermes-20q-production-${RUN_ID}"
+          mkdir -p "$local_artifact_dir"
+          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -r \
+            "$SSH_USER@$SSH_HOST:$remote_artifact_dir/." "$local_artifact_dir/" || true
+          echo "artifact_dir=$remote_artifact_dir" >> "$GITHUB_OUTPUT"
+          echo "local_artifact_dir=$local_artifact_dir" >> "$GITHUB_OUTPUT"
+          echo "exit_code=$remote_status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload Hermes acceptance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-20q-production-${{ github.run_id }}
+          path: ${{ steps.acceptance.outputs.local_artifact_dir }}
+          if-no-files-found: warn
+
+      - name: Fail when Hermes acceptance failed
+        if: steps.acceptance.outputs.exit_code != '0'
+        run: exit ${{ steps.acceptance.outputs.exit_code }}

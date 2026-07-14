@@ -1,5 +1,10 @@
+import inspect
 import re
+import time
+from threading import Event
 from unittest.mock import MagicMock
+
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.core import scheduler as scheduler_module
 from app.core.scheduler import release_scheduler_leader, setup_scheduler, try_acquire_scheduler_leader
@@ -30,6 +35,9 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
 
     assert set(scheduler.jobs) >= {
         'daily_report',
+        'daily_fact_closure_0805',
+        'daily_fact_closure_1005_refresh',
+        'daily_fact_closure_startup_catchup',
         'mes_sync_core',
         'mes_sync_realtime',
         'mes_sync_business',
@@ -43,6 +51,18 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     assert scheduler.jobs['daily_report']['trigger'] == 'cron'
     assert scheduler.jobs['daily_report']['kwargs']['hour'] == 7
     assert scheduler.jobs['daily_report']['kwargs']['minute'] == 30
+    assert scheduler.jobs['daily_fact_closure_0805']['trigger'] == 'cron'
+    assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['hour'] == 8
+    assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['minute'] == 5
+    assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['coalesce'] is True
+    assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['max_instances'] == 1
+    assert inspect.signature(scheduler.jobs['daily_fact_closure_0805']['func']).parameters == {}
+    assert scheduler.jobs['daily_fact_closure_1005_refresh']['trigger'] == 'cron'
+    assert scheduler.jobs['daily_fact_closure_1005_refresh']['kwargs']['hour'] == 10
+    assert scheduler.jobs['daily_fact_closure_1005_refresh']['kwargs']['minute'] == 5
+    assert scheduler.jobs['daily_fact_closure_startup_catchup']['trigger'] == 'date'
+    assert scheduler.jobs['daily_fact_closure_startup_catchup']['kwargs']['run_date'].tzinfo is not None
+    assert inspect.signature(scheduler.jobs['daily_fact_closure_startup_catchup']['func']).parameters == {}
     assert scheduler.jobs['mes_sync_core']['trigger'] == 'interval'
     assert scheduler.jobs['mes_sync_core']['kwargs']['seconds'] == 30
     assert scheduler.jobs['mes_sync_realtime']['trigger'] == 'interval'
@@ -84,6 +104,33 @@ def test_setup_scheduler_is_idempotent() -> None:
     setup_scheduler(scheduler)
 
     assert len(scheduler.jobs) == first_count
+
+
+def test_startup_daily_fact_catchup_survives_delayed_scheduler_start(monkeypatch) -> None:
+    from app.tasks import daily_fact_closure
+
+    completed = Event()
+    calls = []
+
+    def fake_startup_catchup(*, now):
+        calls.append(now)
+        completed.set()
+
+    monkeypatch.setattr(daily_fact_closure, "run_startup_daily_fact_closure", fake_startup_catchup)
+    monkeypatch.setattr(scheduler_module.settings, "MES_ADAPTER", "null")
+    monkeypatch.setattr(scheduler_module.settings, "IOT_ENERGY_ADAPTER", "null")
+    real_scheduler = BackgroundScheduler(timezone=scheduler_module.settings.DEFAULT_TIMEZONE)
+    setup_scheduler(real_scheduler)
+
+    try:
+        time.sleep(1.3)
+        real_scheduler.start()
+        assert completed.wait(2)
+    finally:
+        real_scheduler.shutdown(wait=False)
+
+    assert len(calls) == 1
+    assert calls[0].tzinfo is not None
 
 
 def test_executive_snapshot_runs_after_business_day_closes() -> None:

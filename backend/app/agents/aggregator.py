@@ -165,14 +165,13 @@ class AggregatorAgent(BaseAgent):
             input_value = totals["input_weight"]
             electricity_value = totals["electricity_kwh"]
             attendance_value = int(totals["actual_headcount"])
-            yield_rate = round((output_value / input_value) * 100, 2) if input_value > 0 else 0.0
             workshop_summary.append(
                 {
                     "workshop_id": workshop_id,
                     "workshop_name": workshop_map.get(workshop_id, f"车间{workshop_id}"),
                     "output_weight": output_value,
                     "input_weight": input_value,
-                    "yield_rate": yield_rate,
+                    "yield_rate": None,
                     "attendance_count": attendance_value,
                     "electricity_kwh": electricity_value,
                 }
@@ -182,15 +181,19 @@ class AggregatorAgent(BaseAgent):
             total_energy += electricity_value
             total_attendance += attendance_value
 
-        runtime_yield_rate = round((total_output / total_input) * 100, 2) if total_input > 0 else 0.0
         matrix_ready = yield_matrix_lane.get("quality_status") == "ready"
         matrix_company_total = yield_matrix_lane.get("company_total_yield") if matrix_ready else None
-        overall_yield_rate = float(matrix_company_total) if matrix_company_total is not None else runtime_yield_rate
+        overall_yield_rate = float(matrix_company_total) if matrix_company_total is not None else None
         reporting_rate = round((confirmed_count / total_expected) * 100, 2) if total_expected > 0 else 100.0
         missing_tip = f"注意：{pending_count}个班次待补报或未闭环。" if pending_count > 0 else ""
+        yield_summary = (
+            f"成材率 {overall_yield_rate:.2f}%"
+            if overall_yield_rate is not None
+            else "成材率 暂无正式数据"
+        )
         boss_summary = (
             f"{target_date.strftime('%Y-%m-%d')} 生产日报：今日产量 {total_output:.2f} 吨，上报率 {reporting_rate:.2f}%，"
-            f"成材率 {overall_yield_rate:.2f}%，出勤 {total_attendance} 人。{missing_tip}"
+            f"{yield_summary}，出勤 {total_attendance} 人。{missing_tip}"
         ).strip()
 
         _ = report_service._build_boss_text_summary(db, report_date=target_date, scope=CANONICAL_SCOPE)
@@ -219,7 +222,7 @@ class AggregatorAgent(BaseAgent):
             "total_output_weight": total_output,
             "total_input_weight": total_input,
             "yield_rate": overall_yield_rate,
-            "yield_rate_source": "yield_matrix_lane" if matrix_company_total is not None else "runtime_work_order",
+            "yield_rate_source": "yield_matrix_lane" if matrix_company_total is not None else None,
             "total_attendance": total_attendance,
             "total_electricity_kwh": total_energy,
             "workshops": workshop_summary,

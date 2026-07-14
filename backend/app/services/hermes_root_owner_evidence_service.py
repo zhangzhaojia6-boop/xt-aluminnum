@@ -6,7 +6,11 @@ from typing import Any, Callable, Mapping
 from sqlalchemy.orm import Session
 
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
-from app.services.hermes_data_audit_service import HermesDataAuditService
+from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
+from app.services.hermes_dingtalk_evidence_service import (
+    DingTalkEvidenceItem,
+    query_dingtalk_evidence,
+)
 from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.report import template_daily_report
 
@@ -46,31 +50,6 @@ _PRODUCTION_QUERY_KEYS = {
     "remaining_contract_weight": "stock_records",
 }
 _MES_DOMAINS = {"production", "factory_overview", "anomaly", "inventory", "quality", "operations", "energy"}
-_DINGTALK_FACT_FIELDS = ("facts", "parsed_facts", "metrics", "payload")
-_VALIDATION_CONTAINER_FIELDS = ("metadata", "validation", "fact_validation", "evidence_conditions")
-_VALIDATION_TRUE_TEXT = {
-    "1",
-    "true",
-    "yes",
-    "y",
-    "ok",
-    "matched",
-    "verified",
-    "valid",
-    "passed",
-    "confirmed",
-    "authorized",
-}
-_DINGTALK_CONTENT_TYPES = {"text", "file", "image"}
-_DINGTALK_AUTHORIZED_GROUP_FIELDS = ("authorized_group", "group_authorized", "authorized")
-_DINGTALK_SENDER_FIELDS = (
-    "specialist_sender",
-    "authorized_sender",
-    "sender_verified",
-    "responsible_sender",
-)
-_DINGTALK_TIME_FIELDS = ("time_range", "business_day_window", "time_range_matched")
-_DINGTALK_SPECIALIST_METRIC_KEYS = {"dingtalk_specialist_evidence"}
 _MES_METRIC_FIELD_ALIASES = {
     "total_output_daily": ("total_output_daily", "net_weight", "weight", "output_weight", "quantity"),
     "workshop_output_daily": ("workshop_output_daily", "net_weight", "weight", "output_weight", "quantity"),
@@ -284,24 +263,30 @@ def _read_dingtalk_candidates_with_status(
 ) -> tuple[list[EvidenceCandidate], dict[str, Any]]:
     if db is None:
         return [], {"status": "missing", "reason": "db_unavailable", "sources": {}}
-    payload = HermesDataAuditService(db)._read_dingtalk_evidence(business_date=business_date)
     result: list[EvidenceCandidate] = []
     sources: dict[str, dict[str, Any]] = {}
-    for source_name in ("dingtalk_file", "dingtalk_text"):
-        source_payload = payload.get(source_name) or {}
-        source_status = str(source_payload.get("status") or "missing")
-        items = source_payload.get("items") or []
+    try:
+        items = query_dingtalk_evidence(db, business_date=business_date)
+    except Exception as exc:
+        error = redact_secret_text(str(exc))
+        sources = {
+            "dingtalk_text": {"status": "failed", "count": 0, "error": error},
+            "dingtalk_file": {"status": "failed", "count": 0, "error": error},
+        }
+        return [], _dingtalk_source_status(sources, [], metric_keys)
+    grouped_items = {
+        "dingtalk_text": [item for item in items if item.source_key == "dingtalk_group_content"],
+        "dingtalk_file": [item for item in items if item.source_key == "dingtalk_group_file"],
+    }
+    for source_name, source_items in grouped_items.items():
+        source_status = "ok" if source_items else "empty"
         sources[source_name] = {
             "status": source_status,
-            "count": int(source_payload.get("count") or len(items)),
+            "count": len(source_items),
         }
-        if source_payload.get("error"):
-            sources[source_name]["error"] = redact_secret_text(str(source_payload.get("error")))
-        if not items:
-            continue
-        source_key = "dingtalk_group_file" if source_name == "dingtalk_file" else "dingtalk_group_chat"
-        for index, item in enumerate(items):
-            fact_value = _extract_dingtalk_metric_fact(item, set(metric_keys))
+        for index, item in enumerate(source_items):
+            fact_value = _extract_dingtalk_item_metric_fact(item, set(metric_keys))
+            source_key = "dingtalk_group_file" if source_name == "dingtalk_file" else "dingtalk_group_chat"
             if fact_value:
                 result.append(
                     EvidenceCandidate(
@@ -309,17 +294,21 @@ def _read_dingtalk_candidates_with_status(
                         source_type="dingtalk_group_content",
                         domain="factory",
                         priority=DINGTALK_PRIORITY,
-                        status=_candidate_status(source_status),
+                        status="ok",
                         value=filter_sensitive_mapping(fact_value),
                         summary=f"{source_key} 解析到指标事实",
                         trace_ref={
                             "source": source_name,
                             "item_index": index,
-                            "count": len(items),
-                            "fact_validated": True,
+                            "count": len(source_items),
+                            "trace_id": item.trace_id,
+                            "content_kind": item.content_kind,
+                            "adoptable_as_fact": item.adoptable_as_fact,
                         },
                     )
                 )
+                continue
+            if not item.visible_to_hermes:
                 continue
             result.append(
                 EvidenceCandidate(
@@ -327,10 +316,27 @@ def _read_dingtalk_candidates_with_status(
                     source_type="dingtalk_group_content",
                     domain="factory",
                     priority=DINGTALK_PRIORITY,
-                    status=_candidate_status(source_status),
-                    value=filter_sensitive_mapping({"items": [item]}),
+                    status="supporting_only",
+                    value=filter_sensitive_mapping(
+                        {
+                            "evidence_id": item.evidence_id,
+                            "trace_id": item.trace_id,
+                            "content_kind": item.content_kind,
+                            "text": item.text,
+                            "confirmation_status": item.confirmation_status,
+                            "parse_status": item.parse_status,
+                            "adoptable_as_fact": item.adoptable_as_fact,
+                        }
+                    ),
                     summary=f"{source_key} 命中辅助证据",
-                    trace_ref={"source": source_name, "item_index": index, "count": len(items)},
+                    trace_ref={
+                        "source": source_name,
+                        "item_index": index,
+                        "count": len(source_items),
+                        "trace_id": item.trace_id,
+                        "content_kind": item.content_kind,
+                        "adoptable_as_fact": item.adoptable_as_fact,
+                    },
                 )
             )
     return result, _dingtalk_source_status(sources, result, metric_keys)
@@ -456,32 +462,23 @@ def _is_current_dingtalk_metric_fact(candidate: EvidenceCandidate, metric_keys: 
     )
 
 
-def _extract_dingtalk_metric_fact(
-    value: Any,
-    metric_keys: set[str],
-    validation_context: tuple[Mapping[str, Any], ...] = (),
-) -> dict[str, Any] | None:
-    if not metric_keys:
+def _extract_dingtalk_item_metric_fact(item: DingTalkEvidenceItem, metric_keys: set[str]) -> dict[str, Any] | None:
+    if not item.adoptable_as_fact or not metric_keys:
         return None
-    if isinstance(value, Mapping):
-        direct = _extract_direct_metric_fact(value, metric_keys)
-        if direct and _dingtalk_fact_is_verified(
-            value,
-            *validation_context,
-            require_specialist_sender=_requires_dingtalk_specialist_sender(direct),
-        ):
-            return direct
-        next_context = (value, *validation_context)
-        for field in _DINGTALK_FACT_FIELDS:
-            extracted = _extract_dingtalk_metric_fact(value.get(field), metric_keys, next_context)
-            if extracted:
-                return extracted
-    if isinstance(value, list):
-        for item in value:
-            extracted = _extract_dingtalk_metric_fact(item, metric_keys, validation_context)
-            if extracted:
-                return extracted
-    return None
+    candidates = extract_daily_fact_update_candidates(
+        {
+            "id": item.evidence_id,
+            "trace_id": item.trace_id,
+            "recognized_text": item.text,
+            "payload": dict(item.payload),
+        }
+    )
+    result: dict[str, Any] = {}
+    for candidate in candidates:
+        field_name = str(candidate.get("field") or "").strip()
+        if field_name in metric_keys and _has_metric_value(candidate.get("value")):
+            result[field_name] = candidate.get("value")
+    return result or None
 
 
 def _extract_hub_metric_fact(payload: Mapping[str, Any], metric_keys: tuple[str, ...]) -> dict[str, Any] | None:
@@ -565,66 +562,6 @@ def _mes_record_metric_number(record: Any, metric_key: str) -> float | None:
             if number is not None:
                 return number
     return None
-
-
-def _dingtalk_fact_is_verified(
-    *values: Mapping[str, Any],
-    require_specialist_sender: bool = False,
-) -> bool:
-    scopes = [scope for value in values for scope in _iter_validation_scopes(value)]
-    return (
-        _validation_field_matches(scopes, _DINGTALK_AUTHORIZED_GROUP_FIELDS, _validation_truthy)
-        and (
-            not require_specialist_sender
-            or _validation_field_matches(scopes, _DINGTALK_SENDER_FIELDS, _validation_truthy)
-        )
-        and _content_type_verified(scopes)
-        and _validation_field_matches(scopes, _DINGTALK_TIME_FIELDS, _validation_truthy)
-    )
-
-
-def _requires_dingtalk_specialist_sender(fact: Mapping[str, Any]) -> bool:
-    return any(metric_key in _DINGTALK_SPECIALIST_METRIC_KEYS for metric_key in fact)
-
-
-def _iter_validation_scopes(value: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    scopes: list[Mapping[str, Any]] = [value]
-    for field in _VALIDATION_CONTAINER_FIELDS:
-        child = value.get(field)
-        if isinstance(child, Mapping):
-            scopes.extend(_iter_validation_scopes(child))
-        elif isinstance(child, list):
-            for item in child:
-                if isinstance(item, Mapping):
-                    scopes.extend(_iter_validation_scopes(item))
-    return scopes
-
-
-def _validation_field_matches(
-    scopes: list[Mapping[str, Any]],
-    fields: tuple[str, ...],
-    predicate: Callable[[Any], bool],
-) -> bool:
-    return any(field in scope and predicate(scope.get(field)) for scope in scopes for field in fields)
-
-
-def _content_type_verified(scopes: list[Mapping[str, Any]]) -> bool:
-    if _validation_field_matches(scopes, ("content_type_verified",), _validation_truthy):
-        return True
-    return _validation_field_matches(scopes, ("content_type",), _supported_dingtalk_content_type)
-
-
-def _validation_truthy(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return value != 0
-    text = str(value or "").strip().lower()
-    return text in _VALIDATION_TRUE_TEXT
-
-
-def _supported_dingtalk_content_type(value: Any) -> bool:
-    return str(value or "").strip().lower() in _DINGTALK_CONTENT_TYPES
 
 
 def _has_metric_value(value: Any) -> bool:

@@ -22,6 +22,7 @@ from app.services.contract_canonical_service import build_contract_projection
 from app.services.production_output_scope import counts_as_workshop_output, normalize_process_stage, pass_count
 from app.services.report._utils import _to_float
 from app.services.report import mes_factory_packaging_fact, mes_factory_production_fact, mes_home_packaging_fact
+from app.services.report.daily_report_fact_closure import build_persisted_daily_fact_surface
 from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
 
 
@@ -622,23 +623,13 @@ def _build_yield_rates(db: Session, target_date: date) -> dict:
             )
         except (OperationalError, ProgrammingError):
             return None
-        total_feeding = 0.0
-        total_in_stock = 0.0
-        fallback_rates = []
+        rates = []
         for row in rows:
-            feeding = _to_float(row.feeding_weight_tons)
-            in_stock = _to_float(row.in_stock_net_weight_tons)
-            if feeding > 0 and in_stock >= 0:
-                total_feeding += feeding
-                total_in_stock += in_stock
-                continue
             normalized = normalize_yield(row.yield_rate)
             if normalized is not None:
-                fallback_rates.append(normalized)
-        if total_feeding > 0:
-            return round(total_in_stock / total_feeding * 100, 2)
-        if fallback_rates:
-            return round(sum(fallback_rates) / len(fallback_rates), 2)
+                rates.append(normalized)
+        if rates:
+            return round(sum(rates) / len(rates), 2)
         return None
 
     today_data = _query_input_output_by_workshop(db, target_date, target_date)
@@ -1158,6 +1149,8 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     monthly_output_source = 'mes_packaging_output'
     daily_output_source = mes_sources_by_date.get(target_date, 'mes_packaging_output')
     business_window_start, business_window_end = production_business_window(target_date)
+    month_window_start, _month_window_end = production_business_window(month_start)
+    packaging_business_day = mes_home_fact.get('business_day') or {}
     source_table_by_key = {
         'mes_stock_header_records': 'WMS_InStock',
         'mes_stock_records': 'WMS_InStockDetail',
@@ -1188,8 +1181,14 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'projection_weight_field': 'output_weight_tons' if daily_output_source == 'mes_workshop_process_records' else None,
         'projection_date_field': 'business_date' if daily_output_source == 'mes_workshop_process_records' else None,
         'row_count': mes_row_counts_by_date.get(target_date, 0),
+        'month_row_count': int(packaging_business_day.get('month_row_count') or sum(mes_row_counts_by_date.values())),
+        'latest_row_id': packaging_business_day.get('latest_row_id'),
+        'month_latest_row_id': packaging_business_day.get('month_latest_row_id'),
+        'source_trace_id': packaging_business_day.get('trace_id'),
+        'source_month_trace_id': packaging_business_day.get('month_trace_id'),
         'business_window_start': business_window_start.isoformat(),
         'business_window_end': business_window_end.isoformat(),
+        'month_window_start': month_window_start.isoformat(),
         'monthly_output_source': monthly_output_source,
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),
@@ -1209,6 +1208,12 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'factory_feeding_daily_input': _round2(factory_production_fact.get('factory_feeding_daily_input')),
         'factory_feeding_month_to_date_input': _round2(factory_production_fact.get('factory_feeding_month_to_date_input')),
         'finished_inbound_output': _round2(finished_inbound_output),
+        'finished_inbound_row_count': int(finished_inbound_fact.get('daily_row_count') or 0),
+        'finished_inbound_month_row_count': int(finished_inbound_fact.get('month_row_count') or 0),
+        'finished_inbound_latest_row_id': finished_inbound_fact.get('daily_latest_row_id'),
+        'finished_inbound_month_latest_row_id': finished_inbound_fact.get('month_latest_row_id'),
+        'finished_inbound_trace_id': finished_inbound_fact.get('daily_trace_id'),
+        'finished_inbound_month_trace_id': finished_inbound_fact.get('month_trace_id'),
         'finished_inbound_monthly_output': _round2(finished_inbound_monthly_output),
         'finished_inbound_monthly_average': _round2(finished_inbound_monthly_output / days_elapsed),
         'finished_inbound_basis_label': '全厂入库产量',
@@ -1395,6 +1400,7 @@ def build_daily_production_overview(
          'delta_label': _fmt_delta_label(contracts['remaining_delta'])},
         {'key': 'energy_cost_per_ton', 'label': '综合能耗成本', 'value': plant_cost.get('cost_per_ton'), 'unit': '元/吨'},
     ]
+    fact_surface = build_persisted_daily_fact_surface(db, target_date=target_date)
 
     return {
         'target_date': target_date.isoformat(),
@@ -1412,4 +1418,5 @@ def build_daily_production_overview(
         'process_cost': process_cost,
         'attendance': None,
         'oil_consumption': None,
+        **fact_surface,
     }

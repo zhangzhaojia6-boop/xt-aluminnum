@@ -2,8 +2,15 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping
+from datetime import date
 from typing import Any
+from urllib.parse import quote
 
+from sqlalchemy import literal
+from sqlalchemy.orm import Session
+
+from app.domain.metric_contracts import daily_report_contract_for
+from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
 from app.services.report.daily_report_gap_analysis import (
     build_daily_report_gap_plan,
     classify_daily_report_field_gap,
@@ -19,72 +26,14 @@ CRITICAL_DAILY_FACT_FIELDS = (
 )
 
 BLOCKING_STATUSES = {"missing", "mismatch", "needs_evidence"}
-WEAK_SOURCE_TYPES = {
-    "data_hub_projection",
-    "yield_projection",
-    "contract_projection",
-    "rag",
-    "historical_report",
-    "output_skill",
-    "unknown",
-    "missing",
-}
-FIELD_ALLOWED_SOURCE_TYPES: dict[str, set[str]] = {
-    "total_output_daily": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "mes_packaging_output",
-        "mes_stock_header_records",
-    },
-    "finished_inbound_daily": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "finished_inbound_output",
-        "mes_stock_header_records",
-        "wms_direct",
-    },
-    "wip_total": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "mes_wip_distribution",
-        "mes_wip_total_snapshot",
-    },
-    "total_electricity_kwh": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "data_hub_manual",
-        "owner_daily",
-        "owner_or_energy_summary",
-        "manual_mobile_coil",
-        "energy_cost",
-    },
-    "daily_yield_rate": {
-        "dingtalk_supplement",
-        "root_owner_correction",
-        "datahub_final_daily_report",
-        "official_daily_report",
-        "daily_fact_bundle",
-        "computed",
-        "quality_yield_daily",
-    },
-}
+
+
 def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    reference_only = bool(bundle.get("reference_only"))
     facts = _mapping(bundle.get("facts"))
     sources = _mapping(bundle.get("sources"))
     alignment = _mapping(bundle.get("output_skill_alignment"))
-    mismatch_fields = _alignment_difference_fields(alignment)
+    mismatch_fields = _alignment_difference_fields(alignment) | _mismatch_conflict_fields(bundle.get("conflicts"))
     missing_fields = {
         field
         for field in CRITICAL_DAILY_FACT_FIELDS
@@ -97,34 +46,185 @@ def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]
     for field in CRITICAL_DAILY_FACT_FIELDS:
         fact = _mapping(facts.get(field))
         source_types = _source_types(fact, sources.get(field))
-        source = source_types[0] if source_types else None
+        source = _source_for_field(field, fact, sources.get(field))
         value = _value_for_field(bundle, fact, field)
-        status = _field_status(field, value, source_types, missing_fields, mismatch_fields)
+        unit = fact.get("unit")
+        business_window = _mapping(fact.get("source_detail")).get("business_window")
+        trace_id = _trace_id_for_field(fact, sources.get(field))
+        status = _field_status(
+            field,
+            value,
+            source_types,
+            unit,
+            business_window,
+            trace_id,
+            missing_fields,
+            mismatch_fields,
+            evidence_status=fact.get("evidence_status"),
+        )
         counts[status] += 1
         critical_fields.append(
             {
                 "field": field,
+                "value": value,
+                "unit": unit,
                 "status": status,
                 "source": source,
-                "trace_id": _trace_id_for_field(bundle, fact, sources.get(field)),
-                "value": value,
+                "business_window": business_window,
+                "trace_id": trace_id,
                 "action": action_by_field[field],
             }
         )
 
     return {
-        "status": "blocked" if any(item["status"] in BLOCKING_STATUSES for item in critical_fields) else "pass",
+        "status": "blocked" if reference_only or any(item["status"] in BLOCKING_STATUSES for item in critical_fields) else "pass",
+        "reference_only": reference_only,
         "critical_fields": critical_fields,
         "counts": {status: counts.get(status, 0) for status in ("confirmed", "mismatch", "missing", "needs_evidence")},
     }
+
+
+def build_persisted_daily_fact_surface(
+    db: Session | None,
+    *,
+    target_date: date,
+) -> dict[str, Any]:
+    snapshot = _latest_daily_fact_snapshot(db, target_date=target_date)
+    facts = _mapping(snapshot.facts) if snapshot is not None else {}
+    sources = _mapping(snapshot.sources) if snapshot is not None else {}
+    conflicts = snapshot.conflicts if snapshot is not None and isinstance(snapshot.conflicts, list) else []
+
+    closure_facts: dict[str, Any] = {}
+    for field in CRITICAL_DAILY_FACT_FIELDS:
+        raw_fact = facts.get(field)
+        if isinstance(raw_fact, Mapping):
+            closure_facts[field] = dict(raw_fact)
+        else:
+            closure_facts[field] = {
+                "value": None,
+                "unit": daily_report_contract_for(field).unit,
+            }
+
+    closure = build_daily_report_fact_closure(
+        {
+            "facts": closure_facts,
+            "sources": sources,
+            "conflicts": conflicts,
+        }
+    )
+    capability = {
+        "status": "available" if snapshot is not None else "missing",
+        "agent_failure_audit": "unavailable",
+    }
+    if snapshot is None:
+        return {
+            "fact_closure": closure,
+            "fact_closure_available": False,
+            "fact_closure_capability": capability,
+            "fact_conflicts": [],
+            "fact_missing": [],
+            "hermes_failures": [],
+            "dingtalk_inbound_failures": [],
+        }
+
+    fact_conflicts = _fact_conflict_alerts(conflicts, target_date=target_date)
+    fact_missing = _fact_missing_alerts(closure, target_date=target_date)
+    return {
+        "fact_closure": closure,
+        "fact_closure_available": True,
+        "fact_closure_capability": capability,
+        "fact_conflicts": fact_conflicts,
+        "fact_missing": fact_missing,
+        "hermes_failures": [],
+        "dingtalk_inbound_failures": [],
+    }
+
+
+def _latest_daily_fact_snapshot(
+    db: Session | None,
+    *,
+    target_date: date,
+) -> DailyFactBundleSnapshot | None:
+    if db is None:
+        return None
+    canonical_key = literal("scheduled_daily_closure:") + DailyFactBundleRun.run_key
+    return (
+        db.query(DailyFactBundleSnapshot)
+        .join(DailyFactBundleRun, DailyFactBundleRun.id == DailyFactBundleSnapshot.run_id)
+        .filter(
+            DailyFactBundleSnapshot.business_date == target_date,
+            DailyFactBundleRun.business_date == target_date,
+            DailyFactBundleSnapshot.snapshot_reason == "scheduled_daily_closure",
+            DailyFactBundleSnapshot.snapshot_key == canonical_key,
+        )
+        .order_by(DailyFactBundleSnapshot.created_at.desc(), DailyFactBundleSnapshot.id.desc())
+        .first()
+    )
+
+
+def _fact_conflict_alerts(conflicts: Any, *, target_date: date) -> list[dict[str, Any]]:
+    alerts: list[dict[str, Any]] = []
+    if not isinstance(conflicts, list):
+        return alerts
+    for index, raw in enumerate(conflicts):
+        if not isinstance(raw, Mapping):
+            continue
+        field = str(raw.get("field") or raw.get("field_name") or "unknown")
+        item = _redact_untrusted_source_values(dict(raw), field=field)
+        trace_id = _present_text(item.get("trace_id"))
+        item.setdefault("id", f"{field}:{index}")
+        item.setdefault("status", "mismatch")
+        item["trace_id"] = trace_id
+        item["target_date"] = target_date.isoformat()
+        item.setdefault("summary", f"{field} 事实冲突")
+        item["detail_route"] = _alerts_route(trace_id)
+        alerts.append(item)
+    return alerts
+
+
+def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> list[dict[str, Any]]:
+    alerts: list[dict[str, Any]] = []
+    for raw in closure.get("critical_fields", []):
+        if not isinstance(raw, Mapping) or raw.get("status") not in {"missing", "needs_evidence"}:
+            continue
+        field = str(raw.get("field") or "unknown")
+        trace_id = _present_text(raw.get("trace_id"))
+        alerts.append(
+            {
+                **dict(raw),
+                "id": f"{field}:{raw.get('status')}",
+                "trace_id": trace_id,
+                "target_date": target_date.isoformat(),
+                "summary": f"{field} 缺少可信事实",
+                "detail_route": _alerts_route(trace_id),
+            }
+        )
+    return alerts
+
+
+def _alerts_route(trace_id: str | None) -> str:
+    if trace_id is None:
+        return "/manage/alerts"
+    return f"/manage/alerts?trace_id={quote(trace_id, safe='')}"
+
+
+def _present_text(value: Any) -> str | None:
+    if not _has_value(value):
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _field_status(
     field: str,
     value: Any,
     source_types: list[str],
+    unit: Any,
+    business_window: Any,
+    trace_id: Any,
     missing_fields: set[str],
     mismatch_fields: set[str],
+    evidence_status: Any = None,
 ) -> str:
     if field in missing_fields:
         return "missing"
@@ -133,6 +233,10 @@ def _field_status(
     if not _has_value(value) or not source_types:
         return "missing"
     if not _is_allowed_source(field, source_types):
+        return "needs_evidence"
+    if evidence_status == "needs_evidence":
+        return "needs_evidence"
+    if not _has_value(unit) or not _has_value(business_window) or not _has_value(trace_id):
         return "needs_evidence"
     return "confirmed"
 
@@ -194,6 +298,22 @@ def _alignment_difference_fields(alignment: Mapping[str, Any]) -> set[str]:
     return fields
 
 
+def _mismatch_conflict_fields(raw_conflicts: Any) -> set[str]:
+    if not isinstance(raw_conflicts, list):
+        return set()
+    fields: set[str] = set()
+    for item in raw_conflicts:
+        if not isinstance(item, Mapping):
+            continue
+        status = str(item.get("status") or "").strip().lower()
+        if status not in {"mismatch", "conflict"}:
+            continue
+        field = item.get("field") or item.get("field_name")
+        if field:
+            fields.add(str(field))
+    return fields
+
+
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
@@ -206,11 +326,17 @@ def _value_for_field(bundle: Mapping[str, Any], fact: Mapping[str, Any], field: 
 
 def _source_types(fact: Mapping[str, Any], source_detail: Any) -> list[str]:
     source = _mapping(source_detail)
+    fact_detail = _mapping(fact.get("source_detail"))
+    nested_source = _mapping(source.get("source_detail"))
     values = (
         fact.get("source_type"),
         fact.get("source"),
+        fact_detail.get("source_type"),
+        fact_detail.get("source"),
         source.get("source_type"),
         source.get("source"),
+        nested_source.get("source_type"),
+        nested_source.get("source"),
     )
     normalized: list[str] = []
     seen: set[str] = set()
@@ -222,13 +348,82 @@ def _source_types(fact: Mapping[str, Any], source_detail: Any) -> list[str]:
     return normalized
 
 
+def _source_for_field(field: str, fact: Mapping[str, Any], source_detail: Any) -> Any:
+    source = _mapping(source_detail)
+    fact_detail = _mapping(fact.get("source_detail"))
+    nested_source = _mapping(source.get("source_detail"))
+    for value in (
+        fact.get("source"),
+        fact.get("source_type"),
+        fact_detail.get("source"),
+        fact_detail.get("source_type"),
+        source.get("source"),
+        source.get("source_type"),
+        nested_source.get("source"),
+        nested_source.get("source_type"),
+    ):
+        if _source_value_is_allowed(field, value):
+            return value
+    return None
+
+
+def _redact_untrusted_source_values(
+    value: Any,
+    *,
+    field: str,
+    source_context: bool = False,
+) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            key: _redact_untrusted_source_values(
+                item,
+                field=field,
+                source_context=_is_source_value_key(key),
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [
+            _redact_untrusted_source_values(
+                item,
+                field=field,
+                source_context=source_context,
+            )
+            for item in value
+        ]
+    if source_context and not _source_value_is_allowed(field, value):
+        return None
+    return value
+
+
+def _is_source_value_key(key: Any) -> bool:
+    normalized = str(key).strip().lower()
+    return (
+        normalized in {"source", "source_type", "sources"}
+        or normalized.endswith("_source")
+        or normalized.endswith("_source_type")
+        or (normalized.startswith("source_") and normalized != "source_detail")
+    )
+
+
+def _source_value_is_allowed(field: str, value: Any) -> bool:
+    source_type = _normalize_source_type(value)
+    if source_type is None:
+        return False
+    try:
+        allowed = daily_report_contract_for(field).allowed_source_types
+    except KeyError:
+        return False
+    return source_type in allowed
+
+
 def _trace_id_for_field(
-    bundle: Mapping[str, Any],
     fact: Mapping[str, Any],
     source_detail: Any,
 ) -> Any:
     source = _mapping(source_detail)
-    return fact.get("trace_id") or source.get("trace_id") or bundle.get("trace_id")
+    nested_source = _mapping(fact.get("source_detail"))
+    return fact.get("trace_id") or nested_source.get("trace_id") or source.get("trace_id")
 
 
 def _has_value(value: Any) -> bool:
@@ -250,7 +445,5 @@ def _normalize_source_type(value: Any) -> str | None:
 
 
 def _is_allowed_source(field: str, source_types: list[str]) -> bool:
-    if any(source_type in WEAK_SOURCE_TYPES for source_type in source_types):
-        return False
-    allowed = FIELD_ALLOWED_SOURCE_TYPES[field]
-    return any(source_type in allowed for source_type in source_types)
+    allowed = daily_report_contract_for(field).allowed_source_types
+    return bool(source_types) and all(source_type in allowed for source_type in source_types)

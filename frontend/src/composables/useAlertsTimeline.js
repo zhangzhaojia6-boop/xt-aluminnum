@@ -4,6 +4,7 @@ import {
   normalizeFactoryDirector,
   normalizeLiveMissingReports,
   normalizeMesFillGaps,
+  normalizeDailyFactAlerts,
   normalizeQuality,
   normalizeReconciliation,
   mergeAndSort
@@ -37,22 +38,39 @@ async function defaultFetchLive(params) {
   const { fetchLiveAggregation } = await import('../api/realtime.js')
   return fetchLiveAggregation(params)
 }
+async function defaultFetchDaily(params) {
+  const { fetchDailyProduction } = await import('../api/dashboard.js')
+  return fetchDailyProduction(params)
+}
 
-export function createAlertsTimeline({
-  fetchFactoryDashboard: fdImpl = defaultFetchFD,
-  fetchQualityIssues: qImpl = defaultFetchQ,
-  fetchReconciliationItems: rImpl = defaultFetchR,
-  fetchMesFillGaps: mImpl = defaultFetchM,
-  fetchLiveAggregation: liveImpl = defaultFetchLive,
-  now = new Date()
-} = {}) {
+export function createAlertsTimeline(options = {}) {
+  const {
+    fetchFactoryDashboard: fdImpl = defaultFetchFD,
+    fetchQualityIssues: qImpl = defaultFetchQ,
+    fetchReconciliationItems: rImpl = defaultFetchR,
+    fetchMesFillGaps: mImpl = defaultFetchM,
+    fetchLiveAggregation: liveImpl = defaultFetchLive,
+    now = new Date(),
+    traceId: initialTraceId = '',
+  } = options
+  const legacyFetchKeys = [
+    'fetchFactoryDashboard',
+    'fetchQualityIssues',
+    'fetchReconciliationItems',
+    'fetchMesFillGaps',
+    'fetchLiveAggregation',
+  ]
+  const hasCustomLegacyFetch = legacyFetchKeys.some((key) => Object.prototype.hasOwnProperty.call(options, key))
+  const dailyEnabled = Object.prototype.hasOwnProperty.call(options, 'fetchDailyProduction') || !hasCustomLegacyFetch
+  const dailyImpl = options.fetchDailyProduction || defaultFetchDaily
   const yesterday = dayjs(now).subtract(1, 'day').format('YYYY-MM-DD')
   const targetDate = ref(yesterday)
   const domains = ref([])
+  const traceId = ref(typeof initialTraceId === 'string' ? initialTraceId : '')
   const events = ref([])
   const loading = ref(false)
   const lastError = ref('')
-  const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false, mes: false, live: false })
+  const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false, mes: false, live: false, daily: false })
   let token = 0
   let inflight = Promise.resolve()
 
@@ -68,22 +86,37 @@ export function createAlertsTimeline({
     }
   }
 
+  function dailyFactFallbackCard() {
+    return {
+      id: 'reporting:daily-fact-fallback',
+      domain: 'reporting',
+      occurredAt: `${targetDate.value}T23:59:55`,
+      targetDate: targetDate.value,
+      summary: '日报事实加载失败',
+      detailRoute: '/manage/today?section=daily-report',
+      traceId: '',
+      status: null,
+      isFallback: true,
+    }
+  }
+
   function load() {
     loading.value = true
     const my = ++token
     inflight = (async () => {
       const date = targetDate.value
       try {
-        const [fd, q, r, m, live] = await Promise.allSettled([
+        const [fd, q, r, m, live, daily] = await Promise.allSettled([
           fdImpl({ target_date: date }),
           qImpl({ business_date: date }),
           rImpl({ business_date: date, status: 'open' }),
           mImpl({ business_date: date }),
-          liveImpl({ business_date: date })
+          liveImpl({ business_date: date }),
+          dailyEnabled ? dailyImpl({ target_date: date }) : Promise.resolve(null),
         ])
         if (my !== token) return
         const buckets = []
-        const fail = { factoryDirector: false, quality: false, reconciliation: false, mes: false, live: false }
+        const fail = { factoryDirector: false, quality: false, reconciliation: false, mes: false, live: false, daily: false }
         if (fd.status === 'fulfilled') {
           buckets.push(normalizeFactoryDirector(fd.value, date))
         } else {
@@ -114,10 +147,20 @@ export function createAlertsTimeline({
           fail.live = true
           buckets.push([fallbackCard('reporting')])
         }
+        if (dailyEnabled) {
+          if (daily.status === 'fulfilled') {
+            buckets.push(normalizeDailyFactAlerts(daily.value, date))
+          } else {
+            fail.daily = true
+            buckets.push([dailyFactFallbackCard()])
+          }
+        }
         endpointFailed.value = fail
         events.value = mergeAndSort(buckets)
-        const fails = (fail.factoryDirector ? 1 : 0) + (fail.quality ? 1 : 0) + (fail.reconciliation ? 1 : 0) + (fail.mes ? 1 : 0) + (fail.live ? 1 : 0)
-        lastError.value = fails >= 2 ? '部分数据加载失败，已切换占位卡' : ''
+        const fails = Object.values(fail).filter(Boolean).length
+        lastError.value = fail.daily
+          ? '日报事实加载失败'
+          : (fails >= 2 ? '部分数据加载失败' : '')
       } finally {
         if (my === token) loading.value = false
       }
@@ -129,6 +172,10 @@ export function createAlertsTimeline({
 
   function setDomains(next) {
     domains.value = Array.isArray(next) ? [...next] : []
+  }
+
+  function setTraceId(next) {
+    traceId.value = typeof next === 'string' ? next.trim() : ''
   }
 
   function stepDate(deltaDays) {
@@ -146,22 +193,25 @@ export function createAlertsTimeline({
   })
 
   const filteredEvents = computed(() => {
-    if (!domains.value.length) return events.value
-    return events.value.filter((e) => domains.value.includes(e.domain))
+    const traceFiltered = traceId.value
+      ? events.value.filter((event) => event.traceId === traceId.value)
+      : events.value
+    if (!domains.value.length) return traceFiltered
+    return traceFiltered.filter((e) => domains.value.includes(e.domain))
   })
 
   const freshnessStatus = computed(() => {
     const f = endpointFailed.value
-    const fails = (f.factoryDirector ? 1 : 0) + (f.quality ? 1 : 0) + (f.reconciliation ? 1 : 0) + (f.mes ? 1 : 0) + (f.live ? 1 : 0)
+    const fails = Object.values(f).filter(Boolean).length
     if (fails === 0) return 'green'
     if (fails >= 3) return 'red'
     return 'yellow'
   })
 
   return {
-    targetDate, domains, events, filteredEvents, domainCounts,
+    targetDate, domains, traceId, events, filteredEvents, domainCounts,
     loading, lastError, freshnessStatus,
-    load, stepDate, setDomains
+    load, stepDate, setDomains, setTraceId
   }
 }
 

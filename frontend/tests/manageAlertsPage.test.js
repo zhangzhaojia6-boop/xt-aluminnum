@@ -43,6 +43,7 @@ test('AlertsPage forbids placeholder copy', () => {
 test('AlertsPage uses computed openCount filtering by status open', () => {
   assert.match(SRC, /openCount/)
   assert.match(SRC, /status === 'open'|=== 'open'/)
+  assert.match(SRC, /businessEvents\.value/)
 })
 
 test('AlertsPage exposes actionable work queues before the timeline', () => {
@@ -50,4 +51,23 @@ test('AlertsPage exposes actionable work queues before the timeline', () => {
   assert.match(SRC, /异常处理队列/)
   assert.match(SRC, /workQueues/)
   assert.match(SRC, /xt-alerts__queue-grid/)
+})
+
+test('AlertsPage separates capability status from all business statistics', () => {
+  assert.match(SRC, /const businessEvents = computed/)
+  assert.match(SRC, /const capabilityEvents = computed/)
+  assert.match(SRC, /!event\.isFallback/)
+  assert.match(SRC, /event\.isFallback/)
+  assert.match(SRC, /:events="businessEvents"/)
+  assert.match(SRC, /:total-count="businessEvents\.length"/)
+  assert.match(SRC, /data-testid="manage-alerts-capability-status"/)
+  assert.match(SRC, /capabilityStatusText/)
+  assert.match(SRC, /timeline\.lastError\.value/)
+})
+
+test('AlertsPage removes fixed source claims', () => {
+  assert.doesNotMatch(SRC, /data-testid="second-pass-source-strip"/)
+  assert.doesNotMatch(SRC, />MES 外部数据</)
+  assert.doesNotMatch(SRC, />人工填报</)
+  assert.doesNotMatch(SRC, />算法数据</)
 })

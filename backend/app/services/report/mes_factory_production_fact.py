@@ -40,7 +40,6 @@ BUSINESS_DAY_POLICY = {
     '铸三': '10:00-10:00',
     '热轧': '10:00-10:00',
 }
-YIELD_RATE_SOURCE = 'mes_feeding_to_finished_inbound'
 MES_HOME_REFERENCE_SOURCE_UNAVAILABLE = 'unavailable'
 MES_READ_MODE = 'projection_cache_with_read_only_sqlserver_reconciliation'
 
@@ -226,6 +225,7 @@ def _sum_finished_inbound_rows(rows: list[MesStockRecord]) -> dict[str, Any]:
     total = 0.0
     row_count = 0
     latest_seen = None
+    latest_row_id = None
     by_source: dict[str, dict[str, Any]] = {}
     rows_by_date: dict[date | None, list[MesStockRecord]] = {}
     for row in rows:
@@ -240,6 +240,7 @@ def _sum_finished_inbound_rows(rows: list[MesStockRecord]) -> dict[str, Any]:
             continue
         total += weight
         row_count += 1
+        latest_row_id = max(latest_row_id or 0, int(row.id or 0))
         if row.last_seen_from_mes_at is not None and (
             latest_seen is None or row.last_seen_from_mes_at > latest_seen
         ):
@@ -252,6 +253,12 @@ def _sum_finished_inbound_rows(rows: list[MesStockRecord]) -> dict[str, Any]:
         'output': _round2(total),
         'row_count': row_count,
         'last_seen_from_mes_at': latest_seen.isoformat() if latest_seen is not None else None,
+        'latest_row_id': latest_row_id,
+        'trace_id': (
+            f'projection-read:mes_stock_records:{latest_row_id}:{row_count}'
+            if row_count > 0
+            else None
+        ),
         'by_source': [
             {
                 'source_path': item['source_path'],
@@ -311,12 +318,6 @@ def query_finished_inbound_output_by_date(db: Session, start: date, end: date) -
     return {business_date: _round2(total) for business_date, total in totals.items()}
 
 
-def calculate_yield_rate(finished_inbound: float, feeding_input: float) -> float | None:
-    if feeding_input <= 0:
-        return None
-    return round(finished_inbound / feeding_input * 100, 2)
-
-
 def build_factory_feeding_fact(db: Session, *, target_date: date) -> dict[str, Any]:
     month_start = target_date.replace(day=1)
     try:
@@ -363,8 +364,22 @@ def build_finished_inbound_fact(db: Session, *, target_date: date) -> dict[str, 
         daily = _sum_finished_inbound_rows(_finished_inbound_rows(db, target_date, target_date))
         monthly = _sum_finished_inbound_rows(_finished_inbound_rows(db, month_start, target_date))
     except (AttributeError, SQLAlchemyError):
-        daily = {'output': 0.0, 'row_count': 0, 'last_seen_from_mes_at': None, 'by_source': []}
-        monthly = {'output': 0.0, 'row_count': 0, 'last_seen_from_mes_at': None, 'by_source': []}
+        daily = {
+            'output': 0.0,
+            'row_count': 0,
+            'last_seen_from_mes_at': None,
+            'latest_row_id': None,
+            'trace_id': None,
+            'by_source': [],
+        }
+        monthly = {
+            'output': 0.0,
+            'row_count': 0,
+            'last_seen_from_mes_at': None,
+            'latest_row_id': None,
+            'trace_id': None,
+            'by_source': [],
+        }
     return {
         'target_date': target_date.isoformat(),
         'month_start': month_start.isoformat(),
@@ -380,6 +395,10 @@ def build_finished_inbound_fact(db: Session, *, target_date: date) -> dict[str, 
         'factory_finished_inbound_month_to_date_output': monthly['output'],
         'daily_row_count': daily['row_count'],
         'month_row_count': monthly['row_count'],
+        'daily_latest_row_id': daily['latest_row_id'],
+        'month_latest_row_id': monthly['latest_row_id'],
+        'daily_trace_id': daily['trace_id'],
+        'month_trace_id': monthly['trace_id'],
         'last_seen_from_mes_at': monthly['last_seen_from_mes_at'] or daily['last_seen_from_mes_at'],
         'by_source': daily['by_source'],
         'month_by_source': monthly['by_source'],
@@ -409,9 +428,9 @@ def build_factory_production_fact(db: Session, *, target_date: date) -> dict[str
         'factory_packaging_month_to_date_output': _to_float(packaging.get('factory_packaging_month_to_date_output')),
         'factory_finished_inbound_daily_output': daily_inbound,
         'factory_finished_inbound_month_to_date_output': month_inbound,
-        'daily_yield_rate': calculate_yield_rate(daily_inbound, daily_feeding),
-        'month_yield_rate': calculate_yield_rate(month_inbound, month_feeding),
-        'yield_rate_source': YIELD_RATE_SOURCE,
+        'daily_yield_rate': None,
+        'month_yield_rate': None,
+        'yield_rate_source': 'unavailable_requires_same_basis',
         'feeding_daily_delta': None,
         'feeding_month_to_date_delta': None,
         'source_table': FEEDING_SOURCE_TABLE,

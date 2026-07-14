@@ -116,6 +116,25 @@ class ChatInboxMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
+class DingTalkInboundReceipt(Base):
+    __tablename__ = 'dingtalk_inbound_receipts'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    dedupe_key: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    group_id: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    trace_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='evidence_pending', index=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 class AgentRun(Base):
     __tablename__ = 'agent_runs'
 

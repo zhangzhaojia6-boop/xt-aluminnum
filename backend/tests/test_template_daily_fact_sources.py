@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
 
+import sqlalchemy as sa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -331,24 +332,24 @@ def test_contract_projection_daily_input_fills_cold_roll_input(tmp_path, monkeyp
     assert facts.sources["cold_roll_input_daily"]["source_type"] == "contract_projection"
 
 
-def test_finished_inbound_becomes_template_total_output_when_packaging_diverges(tmp_path, monkeypatch) -> None:
+def test_total_output_stays_packaging_when_finished_inbound_diverges(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
     monkeypatch.setattr(
         template_daily_fact_sources.daily_overview_builder,
         "build_daily_production_overview",
         lambda *_args, **_kwargs: {
             "plant_output": {
-                "daily_output": 197.0,
+                "daily_output": 6.5,
                 "monthly_output": 372.0,
-                "yesterday_output": 175.0,
-                "finished_inbound_output": 222.4,
+                "yesterday_output": 5.0,
+                "finished_inbound_output": 53.24,
                 "finished_inbound_monthly_output": 405.0,
                 "finished_inbound_source": "mes_stock_header_records",
             },
             "contracts": {},
             "yield_rates": {},
             "energy": {},
-            "cost": {"total": 4.0, "cost_per_ton": 203.0, "basis_weight": 197.0},
+            "cost": {"total": 4.0, "cost_per_ton": 203.0, "basis_weight": 6.5},
             "wip_distribution": [],
         },
     )
@@ -366,14 +367,174 @@ def test_finished_inbound_becomes_template_total_output_when_packaging_diverges(
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["total_output_daily"] == 222.4
-    assert facts.values["total_output_month"] == 405.0
-    assert facts.values["total_output_delta"] == 44.8
-    assert facts.sources["total_output_daily"]["source_type"] == "mes_stock_header_records"
-    assert facts.sources["total_output_daily"]["basis"] == "finished_inbound_as_template_total_output"
-    assert facts.values["cost_basis_weight"] == 222.4
-    assert facts.values["cost_per_ton"] == 180.0
-    assert facts.sources["cost_basis_weight"]["source_type"] == "computed"
+    assert facts.values["total_output_daily"] == 6.5
+    assert facts.values["total_output_month"] == 372.0
+    assert facts.values["total_output_delta"] == 1.5
+    assert facts.sources["total_output_daily"]["source_type"] == "mes_packaging_output"
+    assert facts.values["finished_inbound_daily"] == 53.24
+    assert facts.sources["finished_inbound_daily"]["source_type"] == "mes_stock_header_records"
+    assert facts.values["cost_basis_weight"] == 6.5
+    assert facts.values["cost_per_ton"] == 203.0
+
+
+def test_opening_facts_do_not_publish_zero_from_empty_mes_projection(monkeypatch) -> None:
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {
+                "daily_output": 0.0,
+                "monthly_output": 0.0,
+                "row_count": 0,
+                "finished_inbound_output": 0.0,
+                "finished_inbound_monthly_output": 0.0,
+                "finished_inbound_row_count": 0,
+                "finished_inbound_source": "mes_stock_records_missing",
+            },
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+    template_daily_fact_sources.collect_opening_facts(object(), facts)
+
+    assert "total_output_daily" not in facts.values
+    assert "finished_inbound_daily" not in facts.values
+
+
+def test_opening_facts_preserve_real_mes_query_evidence(monkeypatch) -> None:
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {
+                "daily_output": 366.0,
+                "monthly_output": 366.0,
+                "row_count": 2,
+                "month_row_count": 8,
+                "source_table": "MES_ProductProcessRecord",
+                "projection_table": "mes_workshop_process_records",
+                "date_column": "EndDatetime",
+                "business_window_start": "2026-06-16T07:50:00+08:00",
+                "business_window_end": "2026-06-17T07:50:00+08:00",
+                "month_window_start": "2026-06-01T07:50:00+08:00",
+                "latest_row_id": 41,
+                "month_latest_row_id": 48,
+                "source_trace_id": "projection-read:mes_workshop_process_records:41:2",
+                "source_month_trace_id": "projection-read:mes_workshop_process_records:48:8",
+                "finished_inbound_output": 126.4,
+                "finished_inbound_monthly_output": 400.0,
+                "finished_inbound_source": "mes_stock_header_records",
+                "finished_inbound_row_count": 1,
+                "finished_inbound_month_row_count": 4,
+                "finished_inbound_latest_row_id": 9,
+                "finished_inbound_month_latest_row_id": 12,
+                "finished_inbound_trace_id": "projection-read:mes_stock_records:9:1",
+                "finished_inbound_month_trace_id": "projection-read:mes_stock_records:12:4",
+            },
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_wip_breakdown_from_total_snapshots", lambda *_args: {})
+
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+    template_daily_fact_sources.collect_opening_facts(object(), facts)
+
+    assert facts.sources["total_output_daily"] == {
+        "source_type": "mes_packaging_output",
+        "source_table": "MES_ProductProcessRecord",
+        "projection_table": "mes_workshop_process_records",
+        "date_column": "EndDatetime",
+        "source_ref": "mes_workshop_process_records",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 2,
+        "latest_row_id": 41,
+        "trace_id": "projection-read:mes_workshop_process_records:41:2",
+        "metric_contract_version": "2026-07-11",
+    }
+    assert facts.sources["finished_inbound_daily"] == {
+        "source_type": "mes_stock_header_records",
+        "source_table": "WMS_InStock",
+        "projection_table": "mes_stock_records",
+        "date_column": "InStockDate",
+        "source_ref": "mes_stock_records",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": 9,
+        "trace_id": "projection-read:mes_stock_records:9:1",
+        "metric_contract_version": "2026-07-11",
+    }
+    assert facts.sources["total_output_month"]["business_window"] == (
+        "2026-06-01T07:50:00+08:00/2026-06-17T07:50:00+08:00"
+    )
+    assert facts.sources["total_output_month"]["row_count"] == 8
+    assert facts.sources["total_output_month"]["source_ref"] == "mes_workshop_process_records"
+    assert facts.sources["total_output_month"]["latest_row_id"] == 48
+    assert facts.sources["total_output_month"]["trace_id"].endswith(":8")
+    assert facts.sources["finished_inbound_month"]["business_window"] == (
+        "2026-06-01T07:50:00+08:00/2026-06-17T07:50:00+08:00"
+    )
+    assert facts.sources["finished_inbound_month"]["row_count"] == 4
+    assert facts.sources["finished_inbound_month"]["source_ref"] == "mes_stock_records"
+    assert facts.sources["finished_inbound_month"]["latest_row_id"] == 12
+    assert facts.sources["finished_inbound_month"]["trace_id"].endswith(":4")
+
+
+def test_opening_facts_preserve_wms_detail_projection_evidence(monkeypatch) -> None:
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {
+                "row_count": 0,
+                "finished_inbound_output": 126.4,
+                "finished_inbound_monthly_output": 400.0,
+                "finished_inbound_source": "mes_stock_records",
+                "finished_inbound_row_count": 1,
+                "finished_inbound_month_row_count": 4,
+                "finished_inbound_latest_row_id": 9,
+                "finished_inbound_month_latest_row_id": 12,
+                "finished_inbound_trace_id": "projection-read:mes_stock_records:9:1",
+                "finished_inbound_month_trace_id": "projection-read:mes_stock_records:12:4",
+                "business_window_start": "2026-06-16T07:50:00+08:00",
+                "business_window_end": "2026-06-17T07:50:00+08:00",
+                "month_window_start": "2026-06-01T07:50:00+08:00",
+            },
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+    template_daily_fact_sources.collect_opening_facts(object(), facts)
+
+    assert facts.sources["finished_inbound_daily"] == {
+        "source_type": "mes_stock_records",
+        "source_table": "WMS_InStockDetail",
+        "projection_table": "mes_stock_records",
+        "date_column": "CreateDate",
+        "source_ref": "mes_stock_records",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": 9,
+        "trace_id": "projection-read:mes_stock_records:9:1",
+        "metric_contract_version": "2026-07-11",
+    }
 
 
 def test_total_output_delta_falls_back_to_previous_packaging_when_overview_yesterday_missing(tmp_path, monkeypatch) -> None:
@@ -414,10 +575,28 @@ def test_total_output_delta_falls_back_to_previous_packaging_when_overview_yeste
 
     assert facts.values["total_output_daily"] == 174.4
     assert facts.values["total_output_delta"] == -173.0
-    assert facts.sources["total_output_delta"]["source_type"] == "mes_packaging_output"
+    assert facts.sources["total_output_delta"] == {
+        "source_type": "computed",
+        "formula": "total_output_daily - previous_total_output_daily",
+        "components": [
+            {
+                "field": "total_output_daily",
+                "business_date": "2026-06-16",
+                "value": 174.4,
+                "source_type": "mes_packaging_output",
+            },
+            {
+                "field": "total_output_daily",
+                "business_date": "2026-06-15",
+                "value": 347.4,
+                "source_type": "mes_packaging_output",
+                "source_ref": "mes_workshop_process_records",
+            },
+        ],
+    }
 
 
-def test_total_output_delta_prefers_previous_inbound_when_current_day_has_inbound(tmp_path, monkeypatch) -> None:
+def test_total_output_delta_prefers_previous_packaging_when_current_day_has_inbound(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
     previous_date = REPORT_DATE - timedelta(days=1)
     monkeypatch.setattr(
@@ -458,7 +637,7 @@ def test_total_output_delta_prefers_previous_inbound_when_current_day_has_inboun
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["total_output_delta"] == -173.0
+    assert facts.values["total_output_delta"] == -111.2
 
 
 def test_owner_daily_keeps_priority_over_datahub_final_daily_report(tmp_path, monkeypatch) -> None:
@@ -586,9 +765,22 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
 
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+        hot_roll_row_id = db.query(MesMaterialRecord.id).filter(
+            MesMaterialRecord.source_id == "hot-in-window"
+        ).scalar()
 
     assert facts.values["hot_roll_daily"] == 70
-    assert facts.sources["hot_roll_daily"]["source_type"] == "mes_material_records"
+    assert facts.sources["hot_roll_daily"] == {
+        "source_type": "mes_material_records",
+        "source_ref": "mes_material_records",
+        "source_table": "MES_Material",
+        "business_window": "2026-06-16T10:00:00+08:00/2026-06-17T10:00:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": hot_roll_row_id,
+        "trace_id": f"projection-read:mes_material_records:{hot_roll_row_id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
 
 
 def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> None:
@@ -604,7 +796,13 @@ def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> N
             "energy": {},
             "cost": {},
             "wip_business_date": wip_date.isoformat() if wip_date else None,
-            "wip_distribution": [{"total_weight": 879.0}],
+            "wip_distribution": [
+                {
+                    "total_weight": 879.0,
+                    "source_basis": "mes_wip_total_snapshot",
+                    "snapshot_at": "2026-06-17T08:00:00+08:00",
+                }
+            ],
         }
 
     monkeypatch.setattr(
@@ -629,7 +827,17 @@ def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> N
 
     assert seen == {"target_date": date(2026, 6, 16), "wip_date": date(2026, 6, 17)}
     assert facts.values["wip_total"] == 879.0
-    assert facts.sources["wip_total"]["business_date"] == "2026-06-17"
+    assert facts.sources["wip_total"] == {
+        "source_type": "mes_wip_total_snapshot",
+        "source_ref": "mes_wip_total_snapshots",
+        "business_date": "2026-06-17",
+        "business_window": "2026-06-17T08:00:00+08:00/2026-06-17T08:00:00+08:00",
+        "snapshot_at": "2026-06-17T08:00:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "trace_id": "projection-read:mes_wip_total_snapshots:2026-06-17T08:00:00+08:00:1",
+        "metric_contract_version": "2026-07-11",
+    }
     assert facts.as_dict()["wip_date"] == "2026-06-17"
 
 
@@ -706,9 +914,18 @@ def test_opening_facts_fill_wip_breakdown_from_current_wip_total_snapshot(tmp_pa
         },
     )
 
+    statements: list[str] = []
+
+    def capture_sql(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+
+    sa.event.listen(engine, "before_cursor_execute", capture_sql)
     with SessionLocal() as db:
-        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
-        template_daily_fact_sources.collect_opening_facts(db, facts, wip_date=date(2026, 6, 17))
+        try:
+            facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+            template_daily_fact_sources.collect_opening_facts(db, facts, wip_date=date(2026, 6, 17))
+        finally:
+            sa.event.remove(engine, "before_cursor_execute", capture_sql)
 
     assert facts.values["wip_1650_2050_cold"] == 25.733
     assert facts.values["wip_1850_cold"] == 14.613
@@ -718,7 +935,24 @@ def test_opening_facts_fill_wip_breakdown_from_current_wip_total_snapshot(tmp_pa
     assert facts.values["wip_hot_plate_shearing"] == 1.206
     assert facts.values["wip_coating"] == 3.652
     assert facts.values["wip_total"] == 823.665
-    assert facts.sources["wip_total"]["business_date"] == "2026-06-17"
+    wip_selects = [
+        statement
+        for statement in statements
+        if statement.lstrip().upper().startswith("SELECT")
+        and "FROM mes_wip_total_snapshots" in statement
+    ]
+    assert len(wip_selects) <= 2
+    assert facts.sources["wip_total"] == {
+        "source_type": "mes_wip_total_snapshot",
+        "business_date": "2026-06-17",
+        "source_ref": "mes_wip_total_snapshots",
+        "business_window": "2026-06-17T08:00:00+08:00/2026-06-17T08:00:00+08:00",
+        "unit": "吨",
+        "row_count": 12,
+        "latest_row_id": 12,
+        "trace_id": "projection-read:mes_wip_total_snapshots:12:12",
+        "metric_contract_version": "2026-07-11",
+    }
 
 
 def test_opening_facts_prefer_daily_wip_snapshot_for_historical_breakdown(tmp_path, monkeypatch) -> None:
@@ -853,6 +1087,7 @@ def test_opening_facts_use_coil_snapshot_before_partial_wip_total(tmp_path, monk
                     current_workshop="1650车间",
                     current_process="冷轧",
                     material_weight=279_500.0,
+                    last_synced_at=datetime(2026, 6, 17, 8, 0, tzinfo=UTC),
                 ),
                 MesCoilSnapshot(
                     coil_id="MES:1850",
@@ -861,6 +1096,7 @@ def test_opening_facts_use_coil_snapshot_before_partial_wip_total(tmp_path, monk
                     current_workshop="1850车间",
                     current_process="冷轧",
                     material_weight=87_500.0,
+                    last_synced_at=datetime(2026, 6, 17, 8, 0, tzinfo=UTC),
                 ),
                 MesCoilSnapshot(
                     coil_id="MES:NORTH",
@@ -869,6 +1105,7 @@ def test_opening_facts_use_coil_snapshot_before_partial_wip_total(tmp_path, monk
                     current_workshop="新厂在线车间",
                     current_process="北线退火",
                     material_weight=201_000.0,
+                    last_synced_at=datetime(2026, 6, 17, 8, 0, tzinfo=UTC),
                 ),
                 MesCoilSnapshot(
                     coil_id="MES:STOCK",
@@ -878,6 +1115,7 @@ def test_opening_facts_use_coil_snapshot_before_partial_wip_total(tmp_path, monk
                     current_process="包装",
                     material_weight=999_000.0,
                     status_name="已入库",
+                    last_synced_at=datetime(2026, 6, 17, 8, 0, tzinfo=UTC),
                 ),
                 MesWipTotalSnapshot(
                     source_id="partial-total",
@@ -914,7 +1152,17 @@ def test_opening_facts_use_coil_snapshot_before_partial_wip_total(tmp_path, monk
     assert facts.values["wip_new_north"] == 201.0
     assert facts.values["wip_finishing"] == 0.0
     assert facts.values["wip_total"] == 568.0
-    assert facts.sources["wip_total"]["source_type"] == "mes_coil_snapshot_business_date"
+    assert facts.sources["wip_total"] == {
+        "source_type": "mes_coil_snapshot_business_date",
+        "business_date": "2026-06-17",
+        "source_ref": "mes_coil_snapshots",
+        "business_window": "2026-06-17T08:00:00+08:00/2026-06-17T08:00:00+08:00",
+        "unit": "吨",
+        "row_count": 3,
+        "latest_row_id": 3,
+        "trace_id": "projection-read:mes_coil_snapshots:3:3",
+        "metric_contract_version": "2026-07-11",
+    }
 
 
 def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> None:
@@ -922,14 +1170,40 @@ def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> N
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
         _seed_mes_process(db, source_id="1650-1", text="1650冷轧", output_tons=143.95, pass_count=55)
+        _seed_mes_process(db, source_id="foundry-1", text="熔铸车间", output_tons=88, pass_count=12)
         db.commit()
 
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+        process_row_id = db.query(MesWorkshopProcessRecord.id).filter_by(source_id="1650-1").scalar()
+        foundry_row_id = db.query(MesWorkshopProcessRecord.id).filter_by(source_id="foundry-1").scalar()
 
     assert facts.values["cold_1650_daily"] == 143.95
     assert facts.values["cold_1650_pass_daily"] == 55
-    assert facts.sources["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
+    assert facts.sources["cold_1650_daily"] == {
+        "source_type": "mes_workshop_process_records",
+        "source_table": "MES_ProductProcessRecord",
+        "source_ref": "mes_workshop_process_records",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": process_row_id,
+        "trace_id": f"projection-read:mes_workshop_process_records:{process_row_id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
+    assert facts.values["foundry_daily"] == 88
+    assert facts.values["foundry_month"] == 88
+    assert facts.sources["foundry_daily"] == {
+        "source_type": "mes_workshop_process_records",
+        "source_table": "MES_ProductProcessRecord",
+        "source_ref": "mes_workshop_process_records",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": foundry_row_id,
+        "trace_id": f"projection-read:mes_workshop_process_records:{foundry_row_id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
 
 
 def test_mes_report_mapping_uses_device_name_for_cold_roll_rows(tmp_path) -> None:
@@ -1090,6 +1364,28 @@ def test_owner_daily_payload_aliases_fill_template_fields(tmp_path) -> None:
     assert facts.values["daily_yield_rate"] == 84.86
     assert facts.values["hot_roll_furnace_gas_m3"] == 8194
     assert facts.values["cold_roll_input_daily"] == 197
+
+
+def test_template_daily_facts_keep_daily_yield_missing_without_independent_source(tmp_path, monkeypatch) -> None:
+    SessionLocal = _session(tmp_path)
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        lambda *_args, **_kwargs: {
+            "plant_output": {},
+            "contracts": {},
+            "yield_rates": {"daily": None, "owner_daily": None},
+            "energy": {},
+            "cost": {},
+            "wip_distribution": [],
+        },
+    )
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=["daily_yield_rate"])
+
+    assert "daily_yield_rate" not in facts.values
+    assert "daily_yield_rate" in facts.missing_fields
 
 
 def test_owner_recovery_weight_fills_daily_and_month_sum(tmp_path) -> None:

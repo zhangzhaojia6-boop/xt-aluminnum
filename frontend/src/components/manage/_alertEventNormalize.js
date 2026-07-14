@@ -4,6 +4,7 @@ import {
   formatReconciliationTypeLabel,
   formatShiftLabel
 } from '../../utils/display.js'
+import { safeFactSource } from '../../utils/manageDailyReportSurface.js'
 
 const FD_ROUTE = '/manage/alerts?surface=anomaly'
 const Q_ROUTE = '/manage/alerts?surface=quality'
@@ -282,11 +283,90 @@ export function normalizeLiveMissingReports(payload, targetDate) {
   return out
 }
 
+function traceRoute(traceId, detailRoute) {
+  if (typeof detailRoute === 'string' && detailRoute.trim()) return detailRoute
+  return traceId
+    ? `/manage/alerts?trace_id=${encodeURIComponent(traceId)}`
+    : '/manage/alerts'
+}
+
+function dailyOccurredAt(row, targetDate, fallbackTime) {
+  const eventDate = row.target_date || row.targetDate || targetDate
+  const raw = row.occurred_at || row.occurredAt || row.created_at || row.createdAt
+  const time = typeof raw === 'string' ? raw.match(/T(\d{2}:\d{2}:\d{2}(?:\.\d+)?)/)?.[1] : null
+  return `${eventDate}T${time || fallbackTime}`
+}
+
+function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
+  const eventDate = row.target_date || row.targetDate || targetDate
+  const traceId = typeof (row.trace_id ?? row.traceId) === 'string'
+    ? String(row.trace_id ?? row.traceId).trim()
+    : ''
+  const field = row.field || row.field_name || '关键事实'
+  const rawId = row.id ?? row.trace_id ?? row.traceId ?? row.field ?? row.field_name ?? idx
+  const labels = {
+    'fact-conflict': `${field} 事实冲突`,
+    'fact-missing': `${field} 缺少可信事实`,
+    'hermes-failure': `${row.agent_code || row.agentCode || 'Hermes'} 运行失败`,
+    'dingtalk-failure': `${row.agent_code || row.agentCode || '钉钉入站'} 运行失败`,
+  }
+  const factSource = safeFactSource(row.source ?? row.source_type, field)
+  const sourceLabel = kind.startsWith('fact-')
+    ? (factSource || '暂无可信来源')
+    : factSource
+  return {
+    id: `${kind}:${rawId}`,
+    domain: kind === 'fact-conflict'
+      ? 'reconciliation'
+      : (kind === 'hermes-failure' ? 'production' : 'reporting'),
+    occurredAt: dailyOccurredAt(row, eventDate, fallbackTime),
+    targetDate: eventDate,
+    summary: row.summary || labels[kind],
+    detail: joinNonEmpty([row.field || row.field_name, sourceLabel, row.channel, row.status], ' · '),
+    detailRoute: traceRoute(traceId, row.detail_route || row.detailRoute),
+    traceId,
+    factStatus: row.status || null,
+    status: row.status === 'resolved' ? 'resolved' : 'open',
+  }
+}
+
+export function normalizeDailyFactAlerts(payload, targetDate) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return []
+  const groups = [
+    ['fact-conflict', safeArray(payload.fact_conflicts), '23:59:59'],
+    ['fact-missing', safeArray(payload.fact_missing), '23:59:58'],
+    ['hermes-failure', safeArray(payload.hermes_failures), '23:59:57'],
+    ['dingtalk-failure', safeArray(payload.dingtalk_inbound_failures), '23:59:56'],
+  ]
+  const events = groups.flatMap(([kind, rows, fallbackTime]) => (
+    rows
+      .filter((row) => row && typeof row === 'object' && !Array.isArray(row))
+      .map((row, idx) => dailyFactEvent(kind, row, idx, targetDate, fallbackTime))
+  ))
+  const capabilityStatus = payload.fact_closure_capability?.status
+  if (payload.fact_closure_available === false || capabilityStatus === 'missing') {
+    events.push({
+      id: 'fact-closure-capability:missing',
+      domain: 'reporting',
+      occurredAt: `${targetDate}T23:59:55`,
+      targetDate,
+      summary: '当日事实闭包不可用',
+      detail: '可信日结快照缺失',
+      detailRoute: '/manage/today?section=daily-report',
+      traceId: '',
+      status: null,
+      isFallback: true,
+    })
+  }
+  return events
+}
+
 export function mergeAndSort(eventsArrays) {
   const merged = eventsArrays.flat()
   return merged.sort((a, b) => {
     if (a.occurredAt !== b.occurredAt) return a.occurredAt < b.occurredAt ? 1 : -1
-    return a.domain < b.domain ? -1 : a.domain > b.domain ? 1 : 0
+    if (a.domain !== b.domain) return a.domain < b.domain ? -1 : 1
+    return String(a.id).localeCompare(String(b.id))
   })
 }
 
@@ -312,7 +392,7 @@ const ALERT_WORK_QUEUE_DEFS = [
 
 export function buildAlertWorkQueues(events = []) {
   const buckets = Object.fromEntries(ALERT_WORK_QUEUE_DEFS.map((item) => [item.key, []]))
-  safeArray(events).forEach((event) => {
+  safeArray(events).filter((event) => !event?.isFallback).forEach((event) => {
     const key = queueKeyForEvent(event)
     buckets[key].push(event)
   })

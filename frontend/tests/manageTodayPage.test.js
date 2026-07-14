@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { buildTodayStitchSurface } from '../src/utils/stitchManageSurface.js'
 
 function source(rel) {
   return readFileSync(new URL(rel, import.meta.url), 'utf8')
@@ -65,6 +66,15 @@ test('TodayPage uses the Stitch industrial blue wall without expensive effects',
   assert.doesNotMatch(styleBlock, /backdrop-filter|filter:\s*blur/i)
 })
 
+test('TodayPage removes fixed source claims and relies on backend fact sources', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.doesNotMatch(src, /data-testid="second-pass-source-strip"/)
+  assert.doesNotMatch(src, />MES 外部数据</)
+  assert.doesNotMatch(src, />人工填报</)
+  assert.doesNotMatch(src, />算法数据</)
+  assert.match(src, /fact\.source/)
+})
+
 test('TodayPage keeps exception as an entrance without proactive prompts', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.equal(/KeyEventList/.test(src), false)
@@ -113,4 +123,64 @@ test('TodayPage keeps factory command data basis in the Stitch wall', () => {
   assert.match(src, /wipRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.wipDistribution/)
   assert.match(src, /productionFlowStages\s*=\s*computed/)
   assert.match(src, /shiftTiles\s*=\s*computed/)
+})
+
+test('Today surface replaces overview guesses with confirmed or missing closure facts', () => {
+  const surface = buildTodayStitchSurface({
+    targetDate: '2026-07-07',
+    snapshotData: {
+      daily_overview: {
+        plant_output: {
+          daily_output: 999,
+          finished_inbound_output: 888,
+          yield_rate: 77,
+        },
+        fact_closure: {
+          critical_fields: [
+            {
+              field: 'total_output_daily',
+              value: 62,
+              unit: '吨',
+              status: 'confirmed',
+              source: 'mes_packaging_output',
+            },
+            {
+              field: 'finished_inbound_daily',
+              value: null,
+              unit: '吨',
+              status: 'missing',
+              source: null,
+            },
+            {
+              field: 'daily_yield_rate',
+              value: 93.4,
+              unit: '%',
+              status: 'confirmed',
+              source: 'computed_same_basis',
+            },
+          ],
+        },
+      },
+    },
+  })
+
+  const byKey = Object.fromEntries(surface.kpiStrip.map((item) => [item.key, item]))
+  assert.equal(byKey['plant-output'].value, '62')
+  assert.equal(byKey['plant-output'].sourceLabel, 'mes_packaging_output')
+  assert.equal(byKey['finished-inbound'].value, '--')
+  assert.equal(byKey['finished-inbound'].status, 'missing')
+  assert.equal(byKey['finished-inbound'].sourceLabel, '暂无可信来源')
+  assert.equal(byKey['yield-rate'].value, '93.4')
+  assert.equal(byKey['yield-rate'].unit, '%')
+})
+
+test('TodayPage wires the persisted fact strip and trace drill-down to existing alerts', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /buildFactClosureSurface/)
+  assert.match(src, /dailyOverview\.value\.fact_closure/)
+  assert.match(src, /useRouter/)
+  assert.match(src, /openFactTrace/)
+  assert.match(src, /function\s+openTrace\s*\(/)
+  assert.match(src, /openFactTrace\(router,\s*traceId\)/)
+  assert.match(src, /data-testid="today-fact-closure"/)
 })

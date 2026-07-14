@@ -8,12 +8,14 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from app.core.business_time import resolve_production_business_date
 from app.models import (
     Base,
     ChatInboxMessage,
     HermesCorrectionAction,
     HermesDataAuditRun,
     MasterCodeAlias,
+    MultimodalEvidence,
     RagDocument,
     RagSourceIngestion,
     User,
@@ -34,6 +36,7 @@ def _db_session() -> Session:
         tables=[
             User.__table__,
             ChatInboxMessage.__table__,
+            MultimodalEvidence.__table__,
             HermesDataAuditRun.__table__,
             HermesCorrectionAction.__table__,
             MasterCodeAlias.__table__,
@@ -122,6 +125,26 @@ def _add_dingtalk_text_message(
     )
     db.add(message)
     db.flush()
+    db.add(
+        MultimodalEvidence(
+            evidence_type='text',
+            recognized_text=text,
+            confirmation_status='machine_only',
+            payload={
+                'source': 'dingtalk',
+                'channel': channel,
+                'group_id': group_id,
+                'trace_id': trace_id,
+                'dingtalk_sender_id': sender_external_id,
+                'business_date': resolve_production_business_date(created_at).isoformat(),
+                'message_text': text,
+                'parse_status': 'text_captured',
+                'event_time': (source_payload or {}).get('sent_at') or created_at.isoformat(),
+            },
+            created_at=created_at,
+        )
+    )
+    db.flush()
     return message
 
 
@@ -161,7 +184,53 @@ def _add_dingtalk_file_document(
     )
     db.add(ingestion)
     db.flush()
+    if ingestion_status == 'active' and source_type == 'dingtalk_file' and str(source_ref).startswith('dingtalk://'):
+        db.add(
+            MultimodalEvidence(
+                evidence_type='attachment',
+                file_uri=source_ref,
+                recognized_text=None,
+                confirmation_status='machine_only',
+                payload={
+                    'source': 'dingtalk',
+                    'business_date': resolve_production_business_date(created_at).isoformat(),
+                    'trace_id': f'trace-file-{document.id}',
+                    'conversationId': 'ding-group-file-001',
+                    'document_id': document.id,
+                    'file_name': filename,
+                    'source_name': source_name,
+                    'dingtalk_file_size': 2048,
+                    'parse_status': 'text_unavailable',
+                },
+                created_at=created_at,
+            )
+        )
+        db.flush()
     return document, ingestion
+
+
+def _add_dingtalk_multimodal_evidence(
+    db: Session,
+    *,
+    recognized_text: str | None,
+    confirmation_status: str,
+    payload: dict,
+    evidence_type: str = "text",
+    created_at: datetime | None = None,
+    file_uri: str | None = None,
+) -> MultimodalEvidence:
+    row = MultimodalEvidence(
+        evidence_type=evidence_type,
+        file_uri=file_uri,
+        recognized_text=recognized_text,
+        confirmation_status=confirmation_status,
+        payload=payload,
+        created_at=created_at or _dingtalk_created_at(),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 def _supported_action(
@@ -679,7 +748,7 @@ def test_create_run_keeps_original_completion_logic_when_no_dingtalk_evidence() 
         db.close()
 
 
-def test_create_run_records_dingtalk_read_failure_without_interrupting_comparison() -> None:
+def test_create_run_records_dingtalk_read_failure_without_interrupting_comparison(monkeypatch) -> None:
     db = _db_session()
     try:
         service = HermesDataAuditService(
@@ -694,8 +763,13 @@ def test_create_run_records_dingtalk_read_failure_without_interrupting_compariso
             'parsed': {'total_output': 100.0},
             'issues': [],
         }
-        service._read_dingtalk_text_evidence = lambda **kwargs: ([], 'failed', 'token=ding-secret unavailable')
-        service._read_dingtalk_file_evidence = lambda **kwargs: ([], 'empty', None)
+        def fail_dingtalk_query(*_args, **_kwargs):
+            raise RuntimeError('token=ding-secret unavailable')
+
+        monkeypatch.setattr(
+            'app.services.hermes_data_audit_service.query_dingtalk_evidence',
+            fail_dingtalk_query,
+        )
 
         run = service.create_run(
             business_date=date(2026, 6, 18),
@@ -703,11 +777,98 @@ def test_create_run_records_dingtalk_read_failure_without_interrupting_compariso
         )
 
         assert run.source_status['dingtalk_text'] == 'failed'
-        assert run.source_status['dingtalk_file'] == 'empty'
+        assert run.source_status['dingtalk_file'] == 'failed'
         assert run.source_errors['dingtalk_text'] == 'token=<redacted> unavailable'
+        assert run.source_errors['dingtalk_file'] == 'token=<redacted> unavailable'
         assert float(run.match_rate) == pytest.approx(1.0)
         assert run.diffs['total_output']['status'] == 'matched'
         assert run.status == 'completed'
+    finally:
+        db.close()
+
+
+def test_combined_dingtalk_audit_reads_unified_evidence_once(monkeypatch) -> None:
+    db = _db_session()
+    calls = []
+    try:
+        def read_once(*_args, **kwargs):
+            calls.append(kwargs)
+            return []
+
+        monkeypatch.setattr(
+            'app.services.hermes_data_audit_service.query_dingtalk_evidence',
+            read_once,
+        )
+        service = HermesDataAuditService(db, output_skill_root=None)
+
+        payload = service._read_dingtalk_evidence(business_date=date(2026, 6, 18))
+
+        assert len(calls) == 1
+        assert calls[0]['newest_first'] is True
+        assert payload['dingtalk_text']['status'] == 'empty'
+        assert payload['dingtalk_file']['status'] == 'empty'
+    finally:
+        db.close()
+
+
+def test_create_run_persists_multimodal_dingtalk_visibility_and_adoptable_flags() -> None:
+    db = _db_session()
+    try:
+        _add_dingtalk_multimodal_evidence(
+            db,
+            recognized_text="候选消息：大概 100 吨",
+            confirmation_status="machine_only",
+            payload={
+                "source": "dingtalk",
+                "business_date": "2026-06-18",
+                "trace_id": "trace-machine-only-audit",
+                "group_id": "cid-machine",
+                "dingtalk_sender_id": "user-machine",
+                "message_text": "候选消息：大概 100 吨",
+                "parse_status": "text_captured",
+            },
+        )
+        _add_dingtalk_multimodal_evidence(
+            db,
+            recognized_text="日报总产量 101 吨",
+            confirmation_status="specialist_sampled",
+            evidence_type="attachment",
+            file_uri="dingtalk://media/audit-1",
+            payload={
+                "source": "dingtalk",
+                "business_date": "2026-06-18",
+                "trace_id": "trace-adoptable-audit",
+                "conversationId": "cid-adoptable",
+                "dingtalk_sender_id": "user-adoptable",
+                "file_text": "日报总产量 101 吨",
+                "parse_status": "text_captured",
+            },
+        )
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=_MesReadServiceFake(_summary_payload()),
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [],
+        }
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        text_items = run.source_status['dingtalk_evidence']['dingtalk_text']['items']
+        file_items = run.source_status['dingtalk_evidence']['dingtalk_file']['items']
+        assert text_items[0]['visible_to_hermes'] is True
+        assert text_items[0]['adoptable_as_fact'] is False
+        assert file_items[0]['visible_to_hermes'] is True
+        assert file_items[0]['adoptable_as_fact'] is True
+        assert file_items[0]['content_kind'] == 'file_text'
     finally:
         db.close()
 
@@ -825,6 +986,7 @@ def test_read_dingtalk_file_evidence_requires_active_dingtalk_ingestion_and_caps
         assert inactive_document.id not in returned_ids
         assert metadata_only_document.id not in returned_ids
         assert returned_ids.issubset(set(valid_document_ids))
+        assert [item['document_id'] for item in items] == list(reversed(valid_document_ids[-5:]))
     finally:
         db.close()
 

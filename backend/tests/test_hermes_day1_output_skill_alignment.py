@@ -48,20 +48,23 @@ def test_build_output_skill_alignment_returns_100_with_fixture() -> None:
         FIXTURE_DATE,
     )
 
-    assert summary == {
+    assert summary | {"field_tolerances": None} == {
         'status': 'passed',
         'file_name': '2026-6-16_日报正文.txt',
         'field_match_rate': 100.0,
         'matched_fields': 130,
         'expected_fields': 130,
-        'numeric_tolerance': 20.0,
+        'numeric_tolerance': None,
         'tolerance_matched_fields': 0,
         'difference_count': 0,
         'differences': [],
         'char_match_rate': 100.0,
         'exact_match': True,
         'threshold': 95.0,
+        'field_tolerances': None,
     }
+    assert summary['field_tolerances']['total_output_daily'] == 20.0
+    assert summary['field_tolerances']['daily_yield_rate'] == 0.2
 
 
 def test_build_output_skill_alignment_returns_diff_summary_without_raw_text() -> None:
@@ -78,7 +81,7 @@ def test_build_output_skill_alignment_returns_diff_summary_without_raw_text() ->
     assert summary['file_name'] == '2026-6-16_日报正文.txt'
     assert summary['field_match_rate'] < 100.0
     assert summary['difference_count'] >= 1
-    assert all(set(item) == {'field', 'actual', 'expected', 'delta'} for item in summary['differences'])
+    assert all(set(item) == {'field', 'actual', 'expected', 'delta', 'tolerance'} for item in summary['differences'])
     assert '6月16日，车间总产量日合计328吨' not in str(summary)
     assert '当天在制料879吨' not in str(summary)
 
@@ -98,6 +101,9 @@ def test_build_output_skill_alignment_returns_missing_when_root_missing() -> Non
         'field_match_rate': None,
         'matched_fields': None,
         'expected_fields': None,
+        'numeric_tolerance': None,
+        'field_tolerances': {},
+        'tolerance_matched_fields': None,
         'difference_count': None,
         'differences': [],
         'char_match_rate': None,

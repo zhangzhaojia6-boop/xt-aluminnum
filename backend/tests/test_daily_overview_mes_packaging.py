@@ -186,6 +186,11 @@ def test_plant_output_uses_packaging_process_and_keeps_inbound_as_comparison(tmp
         {'workshop_name': '园区剪切', 'output': 272.0, 'row_count': 1}
     ]
     assert plant['row_count'] == 1
+    assert plant['latest_row_id'] == 1
+    assert plant['source_trace_id'] == 'projection-read:mes_workshop_process_records:1:1'
+    assert plant['finished_inbound_row_count'] == 1
+    assert plant['finished_inbound_latest_row_id'] == 1
+    assert plant['finished_inbound_trace_id'] == 'projection-read:mes_stock_records:1:1'
     assert plant['business_window_start'] == f'{BUSINESS_DATE.isoformat()}T07:50:00+08:00'
     assert plant['business_window_end'] == f'{(BUSINESS_DATE + timedelta(days=1)).isoformat()}T07:50:00+08:00'
 

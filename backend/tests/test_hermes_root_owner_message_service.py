@@ -92,6 +92,53 @@ def test_understands_energy_question_without_exact_sentence() -> None:
     assert plan.needs_clarification is False
 
 
+def test_understands_colloquial_output_quantity_patterns() -> None:
+    cases = (
+        ("昨天一共出了多少？", date(2026, 6, 26)),
+        ("前天总共做出来几吨", date(2026, 6, 25)),
+    )
+    for message, expected_date in cases:
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+        )
+
+        assert plan.domain == "production", message
+        assert plan.metric_keys == ("total_output_daily",), message
+        assert plan.business_date == expected_date, message
+        assert plan.needs_clarification is False, message
+        assert "semantic_quantity_pattern" in plan.recognition_reason, message
+
+
+def test_explicit_inventory_anchor_wins_over_previous_production_context() -> None:
+    plan = understand_root_owner_message(
+        "那入库呢？",
+        default_business_date=date(2026, 6, 27),
+        previous_domain="production",
+    )
+
+    assert plan.domain == "inventory"
+    assert "finished_inbound_daily" in plan.metric_keys
+    assert plan.needs_clarification is False
+    assert "explicit_domain_anchor" in plan.recognition_reason
+
+
+def test_understands_colloquial_electricity_quantity_patterns() -> None:
+    for message in (
+        "电用了多少度，和群文件对得上吗",
+        "昨天电总共用了几度",
+    ):
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+        )
+
+        assert plan.domain == "energy", message
+        assert plan.metric_keys == ("total_electricity_kwh",), message
+        assert plan.needs_clarification is False, message
+        assert "semantic_quantity_pattern" in plan.recognition_reason, message
+
+
 def test_does_not_route_ordinary_messages_from_single_character_terms() -> None:
     for message in ("电影咋样", "少说两句"):
         plan = understand_root_owner_message(
@@ -245,6 +292,50 @@ def test_date_only_follow_up_keeps_previous_domain_and_updates_date() -> None:
         assert plan.needs_clarification is False
         assert "context_follow_up" in plan.recognition_reason
         assert expected_reason in plan.recognition_reason
+
+
+def test_evidence_reference_followups_inherit_previous_concrete_metric() -> None:
+    cases = (
+        (
+            "接着上一个问题，把证据编号给我",
+            "production",
+            ("total_output_daily",),
+            date(2026, 6, 26),
+        ),
+        (
+            "继续刚才那条，把来源记录给我",
+            "energy",
+            ("total_electricity_kwh",),
+            date(2026, 6, 25),
+        ),
+    )
+    for message, previous_domain, previous_metric_keys, previous_business_date in cases:
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 6, 27),
+            previous_domain=previous_domain,
+            previous_metric_keys=previous_metric_keys,
+            previous_business_date=previous_business_date,
+        )
+
+        assert plan.domain == previous_domain, message
+        assert plan.metric_keys == previous_metric_keys, message
+        assert plan.business_date == previous_business_date, message
+        assert plan.intent == "evidence_follow_up", message
+        assert plan.needs_clarification is False, message
+        assert "context_follow_up" in plan.recognition_reason, message
+
+
+def test_evidence_reference_followup_does_not_expand_domain_without_previous_metrics() -> None:
+    plan = understand_root_owner_message(
+        "接着上一个问题，把证据编号给我",
+        default_business_date=date(2026, 6, 27),
+        previous_domain="production",
+    )
+
+    assert plan.domain == "general"
+    assert plan.metric_keys == ()
+    assert plan.needs_clarification is True
 
 
 def test_previous_domain_does_not_make_broad_followups_business_questions() -> None:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models import Base
 from app.models.agent_communication import MultimodalEvidence
+from app.services.hermes_dingtalk_evidence_service import query_dingtalk_evidence
 
 
 def _day1_service():
@@ -94,6 +95,37 @@ def test_record_day1_dingtalk_evidence_records_text_fact_payload() -> None:
         assert {'日报', '产量'}.issubset(set(evidence.payload['matched_keywords']))
         assert evidence.payload['metric_write_allowed'] is False
         assert db.query(MultimodalEvidence).count() == 1
+    finally:
+        db.close()
+
+
+def test_recorded_workshop_flows_into_unified_business_time_reader() -> None:
+    service = _day1_service()
+    db = _db_session()
+    try:
+        evidence = service.record_day1_dingtalk_evidence(
+            db,
+            payload={
+                'workshopName': '铸轧二车间',
+                'eventTime': '2026-06-03T09:00:00+08:00',
+                'parse_status': 'text_captured',
+            },
+            actor=None,
+            business_date=None,
+            channel='dingtalk_group',
+            group_id='group-001',
+            trace_id='trace-workshop-ingress',
+            recognized_text='今日总产量 61 吨',
+            confirmation_status='confirmed',
+        )
+
+        items = query_dingtalk_evidence(db, business_date=date(2026, 6, 2))
+
+        assert evidence.payload['workshop_name'] == '铸二'
+        assert len(items) == 1
+        assert items[0].workshop_name == '铸二'
+        assert items[0].business_date == date(2026, 6, 2)
+        assert items[0].adoptable_as_fact is True
     finally:
         db.close()
 

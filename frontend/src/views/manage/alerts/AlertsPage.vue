@@ -17,10 +17,15 @@
       </div>
     </header>
 
-    <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
-      <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
-      <span class="xt-second-pass-source-strip__item">人工填报</span>
-      <span class="xt-second-pass-source-strip__item">算法数据</span>
+    <div
+      v-if="capabilityStatusText"
+      class="xt-alerts__capability-status"
+      data-testid="manage-alerts-capability-status"
+      role="status"
+      aria-live="polite"
+    >
+      <span>系统状态</span>
+      <strong>{{ capabilityStatusText }}</strong>
     </div>
 
     <section class="xt-alerts__stats" data-testid="manage-alerts-stats">
@@ -84,12 +89,12 @@
         </div>
         <div class="xt-alerts__timeline-meta">
           <span>{{ timeline.targetDate.value }}</span>
-          <span>{{ timeline.filteredEvents.value.length }} 件</span>
+          <span>{{ businessEvents.length }} 件</span>
         </div>
       </div>
       <EventTimeline
-        :events="timeline.filteredEvents.value"
-        :total-count="timeline.filteredEvents.value.length"
+        :events="businessEvents"
+        :total-count="businessEvents.length"
         :open-count="openCount"
         :target-date="timeline.targetDate.value"
       />
@@ -123,6 +128,12 @@ function readDomainsFromRoute() {
   return []
 }
 
+function readTraceIdFromRoute() {
+  const value = route.query.trace_id
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : ''
+  return typeof value === 'string' ? value : ''
+}
+
 function syncRouteFromDomains(domains) {
   const next = { ...route.query }
   delete next.surface
@@ -138,17 +149,31 @@ function onDomainsChange(next) {
   syncRouteFromDomains(next)
 }
 
-const openCount = computed(
-  () => timeline.filteredEvents.value.filter((e) => e.status === 'open').length
+const businessEvents = computed(
+  () => timeline.filteredEvents.value.filter((event) => !event.isFallback)
 )
-const workQueues = computed(() => buildAlertWorkQueues(timeline.filteredEvents.value))
+const capabilityEvents = computed(
+  () => timeline.events.value.filter((event) => event.isFallback)
+)
+const capabilityStatusText = computed(() => {
+  const messages = capabilityEvents.value
+    .map((event) => event.summary)
+    .filter((message) => typeof message === 'string' && message.trim())
+  const lastError = timeline.lastError.value.trim()
+  if (lastError) messages.push(lastError)
+  return [...new Set(messages)].join(' · ')
+})
+const openCount = computed(
+  () => businessEvents.value.filter((event) => event.status === 'open').length
+)
+const workQueues = computed(() => buildAlertWorkQueues(businessEvents.value))
 const workQueueSummary = computed(() => {
   const total = workQueues.value.reduce((sum, item) => sum + item.count, 0)
   const open = workQueues.value.reduce((sum, item) => sum + item.openCount, 0)
   return open > 0 ? `${open} 件未结 / ${total} 件异常` : `${total} 件异常已纳入队列`
 })
 const alertStats = computed(() => {
-  const total = timeline.filteredEvents.value.length
+  const total = businessEvents.value.length
   return [
     { key: 'total', label: '全部异常', value: total, tone: 'cyan' },
     { key: 'open', label: '未结', value: openCount.value, tone: 'alert' },
@@ -159,6 +184,7 @@ const alertStats = computed(() => {
 
 onMounted(() => {
   timeline.setDomains(readDomainsFromRoute())
+  timeline.setTraceId(readTraceIdFromRoute())
   if (route.query.surface) syncRouteFromDomains(timeline.domains.value)
   timeline.load()
 })
@@ -175,6 +201,7 @@ watch(() => route.query, () => {
   if (!sameDomains(next, timeline.domains.value)) {
     timeline.setDomains(next)
   }
+  timeline.setTraceId(readTraceIdFromRoute())
 })
 </script>
 
@@ -292,6 +319,31 @@ watch(() => route.query, () => {
   border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
   border-radius: var(--xt-radius-xl);
   background: color-mix(in srgb, var(--xt-bg-ink) 72%, transparent);
+}
+
+.xt-alerts__capability-status {
+  display: flex;
+  align-items: center;
+  gap: var(--xt-space-3);
+  min-height: 38px;
+  padding: var(--xt-space-2) var(--xt-space-4);
+  border-block: 1px solid color-mix(in srgb, var(--xt-warning) 24%, var(--xt-border));
+  color: color-mix(in srgb, var(--xt-text-inverse) 68%, transparent);
+  font-size: var(--xt-text-xs);
+}
+
+.xt-alerts__capability-status span {
+  flex: 0 0 auto;
+  color: var(--xt-warning);
+  font-weight: 850;
+}
+
+.xt-alerts__capability-status strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .xt-alerts__stats {
@@ -554,6 +606,14 @@ watch(() => route.query, () => {
 
   .xt-alerts__queue-grid {
     grid-template-columns: 1fr;
+  }
+
+  .xt-alerts__capability-status {
+    align-items: flex-start;
+  }
+
+  .xt-alerts__capability-status strong {
+    white-space: normal;
   }
 }
 </style>

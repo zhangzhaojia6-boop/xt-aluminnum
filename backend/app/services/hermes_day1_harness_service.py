@@ -123,6 +123,7 @@ def build_output_skill_alignment(
         'matched_fields': reconciled.get('matched_fields'),
         'expected_fields': reconciled.get('expected_fields'),
         'numeric_tolerance': reconciled.get('numeric_tolerance'),
+        'field_tolerances': reconciled.get('field_tolerances') or {},
         'tolerance_matched_fields': reconciled.get('tolerance_matched_fields'),
         'difference_count': len(reconciled.get('differences') or []),
         'differences': [
@@ -131,6 +132,7 @@ def build_output_skill_alignment(
                 'actual': item.get('actual'),
                 'expected': item.get('expected'),
                 'delta': item.get('delta'),
+                'tolerance': item.get('tolerance'),
             }
             for item in reconciled.get('differences') or []
         ],
@@ -374,6 +376,9 @@ def _missing_alignment_summary(min_field_match_rate: float) -> dict[str, Any]:
         'field_match_rate': None,
         'matched_fields': None,
         'expected_fields': None,
+        'numeric_tolerance': None,
+        'field_tolerances': {},
+        'tolerance_matched_fields': None,
         'difference_count': None,
         'differences': [],
         'char_match_rate': None,

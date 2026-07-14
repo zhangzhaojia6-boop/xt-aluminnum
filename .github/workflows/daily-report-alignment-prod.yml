@@ -6,14 +6,6 @@ on:
       confirm:
         description: Type 'daily-align' to run production daily-report alignment
         required: true
-      days:
-        description: Recent business days to compare
-        required: true
-        default: '3'
-      reference_mode:
-        description: Use compare for pure real-source validation; adopt only for parser/rendering regression
-        required: true
-        default: 'compare'
 
 jobs:
   daily-report-alignment-prod:
@@ -29,47 +21,44 @@ jobs:
           SSH_USER: ${{ secrets.PROD_SSH_USER }}
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           OUTPUT_SKILL_ZIP_B64: ${{ secrets.DAILY_REPORT_OUTPUT_SKILL_ZIP_B64 }}
-          DAYS: ${{ github.event.inputs.days }}
-          REFERENCE_MODE: ${{ github.event.inputs.reference_mode }}
+          DAYS: '3'
+          REFERENCE_MODE: compare
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
           test -n "$SSH_HOST"
           test -n "$SSH_USER"
           test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
           test -n "$OUTPUT_SKILL_ZIP_B64"
-          if ! printf '%s' "$DAYS" | grep -Eq '^[1-9][0-9]?$'; then
-            echo "days must be 1-99"
-            exit 2
-          fi
-          case "$REFERENCE_MODE" in
-            compare|adopt) ;;
-            *)
-              echo "reference_mode must be compare or adopt"
-              exit 2
-              ;;
-          esac
+          test "$DAYS" = "3"
+          test "$REFERENCE_MODE" = "compare"
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
           bundle="output-skill-${RUN_ID}.zip"
           printf '%s' "$OUTPUT_SKILL_ZIP_B64" | base64 -d > "$bundle"
 
           remote_bundle="/tmp/xintai-output-skill-${RUN_ID}.zip"
-          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=no "$bundle" "$SSH_USER@$SSH_HOST:$remote_bundle"
+          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$bundle" "$SSH_USER@$SSH_HOST:$remote_bundle"
 
-          remote_artifact_dir="/srv/aluminum-bypass/docs/superpowers/reports/daily-report-fact-closure-production-${RUN_ID}"
+          remote_artifact_dir="/var/lib/aluminum-bypass/acceptance/daily-report-alignment-${RUN_ID}"
           set +e
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" \
             "REMOTE_BUNDLE='$remote_bundle' DAYS='$DAYS' REFERENCE_MODE='$REFERENCE_MODE' RUN_ID='$RUN_ID' ARTIFACT_DIR='$remote_artifact_dir' bash -s" <<'REMOTE'
           set -euo pipefail
           output_root="/tmp/xintai-output-skill-${RUN_ID}"
           artifact_dir="$ARTIFACT_DIR"
           rm -rf "$output_root"
-          mkdir -p "$output_root" "$artifact_dir"
+          mkdir -p "$output_root"
+          install -d -m 700 "$artifact_dir"
+          chmod 700 "$artifact_dir"
           python3 - "$REMOTE_BUNDLE" "$output_root" <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
@@ -94,6 +83,8 @@ jobs:
             --json
           status=$?
           set -e
+          find "$artifact_dir" -type d -exec chmod 700 {} +
+          find "$artifact_dir" -type f -exec chmod 600 {} +
           echo "ALIGNMENT_ARTIFACT_DIR=$artifact_dir"
           echo "ALIGNMENT_EXIT_CODE=$status"
           rm -rf "$output_root"
@@ -104,7 +95,7 @@ jobs:
 
           local_artifact_dir="daily-report-alignment-production-${RUN_ID}"
           mkdir -p "$local_artifact_dir"
-          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=no -r \
+          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -r \
             "$SSH_USER@$SSH_HOST:$remote_artifact_dir/." "$local_artifact_dir/" || true
           echo "artifact_dir=$remote_artifact_dir" >> "$GITHUB_OUTPUT"
           echo "local_artifact_dir=$local_artifact_dir" >> "$GITHUB_OUTPUT"

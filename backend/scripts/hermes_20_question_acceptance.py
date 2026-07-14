@@ -110,6 +110,8 @@ def build_daily_report_gate_payload(
         "domain": "factory_overview",
         "readonly": False,
         "business_date": business_date.isoformat(),
+        "reference_mode": "compare",
+        "reference_only": False,
         "output_skill_alignment": {},
         "fact_closure": {},
         "gap_plan": {},
@@ -130,7 +132,12 @@ def build_daily_report_gate_payload(
         payload["output_skill_root"] = str(output_root)
         try:
             with temporary_output_skill_root(output_root):
-                bundle = build_daily_fact_bundle(db, business_date=business_date, persist_run=False)
+                bundle = build_daily_fact_bundle(
+                    db,
+                    business_date=business_date,
+                    persist_run=False,
+                    allow_output_skill_reference_adoption=False,
+                )
         except Exception as exc:  # noqa: BLE001
             payload["status"] = "error"
             payload["failure_reason"] = "daily_report_gate_build_failed"
@@ -139,16 +146,24 @@ def build_daily_report_gate_payload(
                 error=redact_secret_text(f"{type(exc).__name__}: {exc}"),
             )
         else:
-            alignment = dict(bundle.get("output_skill_alignment") or {})
+            reference_only = bool(bundle.get("reference_only"))
+            alignment = {
+                **dict(bundle.get("output_skill_alignment") or {}),
+                "reference_mode": "compare",
+                "reference_only": reference_only,
+            }
             fact_closure = dict(bundle.get("fact_closure") or {})
             gap_plan = dict(bundle.get("gap_plan") or {})
+            payload["reference_only"] = reference_only
             payload["output_skill_alignment"] = alignment
             payload["fact_closure"] = fact_closure
             payload["gap_plan"] = gap_plan
             payload["missing_fields"] = list(bundle.get("missing_fields") or bundle.get("missing") or [])
             payload["status"] = (
                 "passed"
-                if alignment.get("status") == "passed" and fact_closure.get("status") == "pass"
+                if alignment.get("status") == "passed"
+                and fact_closure.get("status") == "pass"
+                and not reference_only
                 else "blocked"
             )
             row = _daily_report_gate_artifact_row(payload)

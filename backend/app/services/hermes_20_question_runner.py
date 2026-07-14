@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
-import hashlib
 from typing import Any, Sequence
 
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from app.services.hermes_20_question_acceptance import (
     AcceptanceSummary,
     AcceptanceTurnSnapshot,
     build_20_question_catalog,
+    confirmed_fact_failure_reason,
     evaluate_acceptance_summary,
 )
 from app.services.hermes_mes_read_service import HermesMesReadService
@@ -31,6 +33,9 @@ _ALLOWED_DELIVERY_CHANNEL_TYPES = frozenset(
 class DingTalkDeliveryTarget:
     channel_type: str
     channel_key: str
+    target_type: str = "acceptance_test"
+    target_key: str | None = None
+    name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,17 +61,29 @@ def run_20_question_acceptance(
     snapshots: list[AcceptanceTurnSnapshot] = []
     mes_reader = _build_mes_reader()
     for question in questions:
-        trace_id = f"hermes-20q-{business_date.isoformat()}-{question.question_id:02d}"
-        result = run_root_owner_production_turn(
-            db,
-            text=question.question,
-            current_user=current_user,
-            sender_external_id=sender_external_id,
-            trace_id=trace_id,
-            source_payload={"source": "hermes_20_question_acceptance", "question_id": question.question_id},
-            default_business_date=business_date,
-            mes_reader=mes_reader,
-        )
+        result = None
+        for utterance_index, utterance in enumerate(question.execution_utterances):
+            trace_suffix = "" if utterance_index == 0 else f"-follow-up-{utterance_index:02d}"
+            trace_id = (
+                f"hermes-20q-{business_date.isoformat()}-{question.question_id:02d}"
+                f"{trace_suffix}"
+            )
+            result = run_root_owner_production_turn(
+                db,
+                text=utterance,
+                current_user=current_user,
+                sender_external_id=sender_external_id,
+                trace_id=trace_id,
+                source_payload={
+                    "source": "hermes_20_question_acceptance",
+                    "question_id": question.question_id,
+                    "utterance_index": utterance_index,
+                },
+                default_business_date=business_date,
+                mes_reader=mes_reader,
+            )
+        if result is None:
+            continue
         target_results = _dispatch_approved_targets(
             db,
             answer=result.answer,
@@ -124,18 +141,226 @@ def build_snapshot_from_turn(
         .first()
     )
     payload = run.result_payload if run is not None and isinstance(run.result_payload, dict) else {}
+    recognition = dict(payload.get("recognition") or {})
+    evidence = dict(payload.get("evidence") or {})
     dispatch = _dispatch_payload(db, outbox_message_id, target_results=target_results or [])
     return AcceptanceTurnSnapshot(
         question_id=question_id,
         trace_id=trace_id,
         status=status,
         answer=answer,
-        recognition=dict(payload.get("recognition") or {}),
-        evidence=dict(payload.get("evidence") or {}),
+        recognition=recognition,
+        evidence=evidence,
         dispatch=dispatch,
         source_health=source_health,
         required_source_health=tuple(required_source_health or ()),
+        fact_answer=_build_fact_answer(
+            question_id=question_id,
+            turn_trace_id=trace_id,
+            recognition=recognition,
+            evidence=evidence,
+        ),
     )
+
+
+def _build_fact_answer(
+    *,
+    question_id: int,
+    turn_trace_id: str,
+    recognition: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    metric_keys = _string_list(recognition.get("metric_keys"))
+    primary_value = evidence.get("primary")
+    primary = primary_value if isinstance(primary_value, Mapping) else {}
+    primary_status = str(primary.get("status") or "").strip().lower()
+    trace_value = evidence.get("trace")
+    evidence_trace = trace_value if isinstance(trace_value, Mapping) else {}
+    records: list[dict[str, Any]] = []
+    for field_name in metric_keys:
+        field_fact, has_value = _primary_field_fact(primary.get("value"), field_name)
+        value = field_fact.get("value") if has_value else None
+        source_key = str(
+            _fact_metadata(field_fact, "source_key")
+            or primary.get("source_key")
+            or ""
+        ).strip()
+        source_type = str(
+            _fact_metadata(field_fact, "source_type")
+            or primary.get("source_type")
+            or ""
+        ).strip()
+        source_ref = field_fact.get("source_ref")
+        business_date = _fact_metadata(field_fact, "business_date")
+        business_window = _fact_metadata(field_fact, "business_window")
+        unit = _fact_metadata(field_fact, "unit")
+        metric_contract_version = _fact_metadata(field_fact, "metric_contract_version")
+        source_trace_id, fact_trace_id = _fact_trace_ids(primary=primary, field_fact=field_fact)
+        conflict = _conflict_for_field(evidence.get("conflicts"), field_name)
+        if not has_value:
+            status = "missing"
+        elif conflict is not None:
+            status = "conflict"
+        elif str(
+            field_fact.get("status")
+            or field_fact.get("evidence_status")
+            or primary_status
+        ).strip().lower() in {"ok", "ready", "confirmed", "passed"}:
+            status = "confirmed"
+        else:
+            status = str(
+                field_fact.get("status")
+                or field_fact.get("evidence_status")
+                or primary_status
+                or "missing"
+            ).strip().lower()
+        reason = _fact_reason(
+            status=status,
+            conflict=conflict,
+            missing_sources=evidence.get("missing_sources"),
+        )
+        record = {
+            "question_id": question_id,
+            "field": field_name,
+            "status": status,
+            "value": value,
+            "source": (source_key or None) if has_value else None,
+            "source_key": (source_key or None) if has_value else None,
+            "source_type": (source_type or None) if has_value else None,
+            "source_ref": source_ref if has_value else None,
+            "business_date": business_date if has_value else None,
+            "business_window": business_window if has_value else None,
+            "unit": unit if has_value else None,
+            "metric_contract_version": metric_contract_version if has_value else None,
+            "trace_id": fact_trace_id if has_value else None,
+            "source_trace_id": source_trace_id if has_value else None,
+            "reason": reason,
+            "action": _fact_action(recognition, evidence, evidence_trace, field_name),
+        }
+        if status == "confirmed":
+            validation_failure = confirmed_fact_failure_reason(record)
+            if validation_failure is not None:
+                record["status"] = "missing"
+                record["reason"] = validation_failure
+        records.append(record)
+    return records
+
+
+def _primary_field_fact(value: Any, field_name: str) -> tuple[dict[str, Any], bool]:
+    if not isinstance(value, Mapping):
+        return {}, False
+    if field_name in value:
+        field_value = value[field_name]
+        field_fact = dict(field_value) if isinstance(field_value, Mapping) else {"value": field_value}
+        raw_value = field_fact.get("value")
+        return field_fact, raw_value is not None and raw_value != ""
+    if value.get("metric_key") == field_name and "value" in value:
+        field_fact = dict(value)
+        raw_value = field_fact.get("value")
+        return field_fact, raw_value is not None and raw_value != ""
+    return {}, False
+
+
+def _fact_metadata(field_fact: Mapping[str, Any], key: str) -> Any:
+    direct = field_fact.get(key)
+    if direct not in (None, ""):
+        return direct
+    for container_key in ("source_detail", "source_ref"):
+        container = field_fact.get(container_key)
+        if isinstance(container, Mapping) and container.get(key) not in (None, ""):
+            return container.get(key)
+    return None
+
+
+def _fact_trace_ids(
+    *,
+    primary: Mapping[str, Any],
+    field_fact: Mapping[str, Any],
+) -> tuple[str | None, str | None]:
+    field_source_trace_id = str(_fact_metadata(field_fact, "source_trace_id") or "").strip() or None
+    field_trace_id = str(_fact_metadata(field_fact, "trace_id") or "").strip() or None
+    trace_ref_value = primary.get("trace_ref")
+    trace_ref = trace_ref_value if isinstance(trace_ref_value, Mapping) else {}
+    source_trace_id = field_source_trace_id or str(trace_ref.get("source_trace_id") or "").strip() or None
+    if field_trace_id:
+        return source_trace_id, field_trace_id
+    if source_trace_id:
+        return source_trace_id, source_trace_id
+    primary_trace_id = str(trace_ref.get("trace_id") or "").strip() or None
+    if primary_trace_id:
+        return None, primary_trace_id
+    return None, None
+
+
+def _conflict_for_field(value: Any, field_name: str) -> Mapping[str, Any] | None:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return None
+    for conflict in value:
+        if not isinstance(conflict, Mapping):
+            continue
+        conflict_field = str(conflict.get("field") or conflict.get("metric_key") or "").strip()
+        if not conflict_field or conflict_field == field_name:
+            return conflict
+    return None
+
+
+def _fact_reason(
+    *,
+    status: str,
+    conflict: Mapping[str, Any] | None,
+    missing_sources: Any,
+) -> str | None:
+    if status == "conflict" and conflict is not None:
+        return str(conflict.get("reason") or "").strip() or None
+    if status != "missing":
+        return None
+    missing = _string_list(missing_sources)
+    return f"missing_sources:{','.join(missing)}" if missing else None
+
+
+def _fact_action(
+    recognition: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    evidence_trace: Mapping[str, Any],
+    field_name: str,
+) -> str | None:
+    containers: list[Any] = []
+    for payload in (evidence, evidence_trace):
+        for key in ("actions", "pending_actions", "follow_up_actions"):
+            containers.append(payload.get(key))
+        gap_plan = payload.get("gap_plan")
+        if isinstance(gap_plan, Mapping):
+            containers.append(gap_plan.get("items"))
+    fallback: str | None = None
+    for container in containers:
+        items = [container] if isinstance(container, Mapping) else container
+        if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
+            continue
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            action = str(item.get("next_step") or item.get("action") or "").strip()
+            if not action:
+                continue
+            item_field = str(item.get("field") or item.get("metric_key") or "").strip()
+            if item_field == field_name:
+                return action
+            fallback = fallback or action
+    if fallback:
+        return fallback
+    if recognition.get("needs_clarification"):
+        return str(recognition.get("clarification_question") or "").strip() or None
+    return None
+
+
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, Sequence):
+        return [str(item) for item in value]
+    return [str(value)]
 
 
 def _dispatch_approved_targets(
@@ -166,9 +391,9 @@ def _dispatch_approved_targets(
                 db,
                 channel_type=target.channel_type,
                 channel_key=target.channel_key,
-                name=f"20问验收-{target.channel_type}",
-                target_type="acceptance_test",
-                target_key=_delivery_target_key(target),
+                name=target.name or f"20问验收-{target.channel_type}",
+                target_type=target.target_type,
+                target_key=target.target_key or _delivery_target_key(target),
                 dry_run=False,
                 metadata_payload={"managed_by": "hermes_20_question_acceptance"},
             )

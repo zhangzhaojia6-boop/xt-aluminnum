@@ -1,5 +1,9 @@
 name: Configure DingTalk Stream Production
 
+concurrency:
+  group: xintai-production-ops
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
     inputs:
@@ -7,23 +11,25 @@ on:
         description: Type 'prod-dingtalk-stream' to confirm production DingTalk Stream configuration
         required: true
       mode:
-        description: Check current production config, or apply Stream credentials
+        description: Check config, apply credentials, or verify fresh real text and file evidence
         required: true
         default: status
         type: choice
         options:
           - status
           - apply
+          - verify
       authorized_group_ids:
-        description: Optional comma-separated DingTalk openConversationId/conversationId allowlist. Use '*' for all groups in app scope. Existing production value is reused if blank.
+        description: DingTalk openConversationId/conversationId allowlist. Default '*' means all app-authorized conversations.
         required: false
+        default: '*'
 
 jobs:
   configure-dingtalk-stream-production:
     if: github.event.inputs.confirm == 'prod-dingtalk-stream'
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Configure production DingTalk Stream
         env:
@@ -31,6 +37,7 @@ jobs:
           SSH_USER: ${{ secrets.PROD_SSH_USER }}
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           MODE: ${{ github.event.inputs.mode }}
           AUTHORIZED_GROUP_IDS: ${{ github.event.inputs.authorized_group_ids }}
           STREAM_APP_KEY: ${{ secrets.PROD_DINGTALK_STREAM_APP_KEY }}
@@ -40,183 +47,464 @@ jobs:
           STREAM_APP_ID: ${{ secrets.PROD_DINGTALK_STREAM_APP_ID }}
         run: |
           set -euo pipefail
+
           test -n "$SSH_HOST"
           test -n "$SSH_USER"
           test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+
           case "$MODE" in
-            status|apply) ;;
-            *) echo "unsupported mode"; exit 2 ;;
+            status|apply|verify) ;;
+            *)
+              echo "unsupported mode: $MODE"
+              exit 2
+              ;;
           esac
 
           if [ "$MODE" = "apply" ]; then
             test -n "$STREAM_APP_KEY"
             test -n "$STREAM_APP_SECRET"
-            test -n "$STREAM_ROBOT_CODE"
           fi
 
           b64() {
             printf '%s' "$1" | base64 -w0
           }
 
-          AUTHORIZED_GROUP_IDS_B64="$(b64 "$AUTHORIZED_GROUP_IDS")"
-          STREAM_APP_KEY_B64="$(b64 "$STREAM_APP_KEY")"
-          STREAM_APP_SECRET_B64="$(b64 "$STREAM_APP_SECRET")"
-          STREAM_ROBOT_CODE_B64="$(b64 "$STREAM_ROBOT_CODE")"
-          STREAM_AGENT_ID_B64="$(b64 "$STREAM_AGENT_ID")"
-          STREAM_APP_ID_B64="$(b64 "$STREAM_APP_ID")"
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "MODE='$MODE' AUTHORIZED_GROUP_IDS_B64='$AUTHORIZED_GROUP_IDS_B64' STREAM_APP_KEY_B64='$STREAM_APP_KEY_B64' STREAM_APP_SECRET_B64='$STREAM_APP_SECRET_B64' STREAM_ROBOT_CODE_B64='$STREAM_ROBOT_CODE_B64' STREAM_AGENT_ID_B64='$STREAM_AGENT_ID_B64' STREAM_APP_ID_B64='$STREAM_APP_ID_B64' bash -s" <<'REMOTE'
+          REMOTE_PREAMBLE=""
+          append_remote_assignment MODE "$MODE"
+          append_remote_assignment AUTHORIZED_GROUP_IDS_B64 "$(b64 "$AUTHORIZED_GROUP_IDS")"
+          append_remote_assignment STREAM_APP_KEY_B64 "$(b64 "$STREAM_APP_KEY")"
+          append_remote_assignment STREAM_APP_SECRET_B64 "$(b64 "$STREAM_APP_SECRET")"
+          append_remote_assignment STREAM_ROBOT_CODE_B64 "$(b64 "$STREAM_ROBOT_CODE")"
+          append_remote_assignment STREAM_AGENT_ID_B64 "$(b64 "$STREAM_AGENT_ID")"
+          append_remote_assignment STREAM_APP_ID_B64 "$(b64 "$STREAM_APP_ID")"
+
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
           set -euo pipefail
-          repo="/srv/aluminum-bypass"
-          env_file="$repo/backend/.env"
-          cd "$repo"
+
+          DATAHUB_REPO="/srv/aluminum-bypass"
+          HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
+          DATAHUB_ENV_FILE="$DATAHUB_REPO/backend/.env"
+          MODE="${MODE:-status}"
+          datahub_env_backup=""
+          hermes_env_backup=""
 
           decode_b64() {
             printf '%s' "$1" | base64 -d
           }
 
-          read_env() {
-            if [ ! -f "$env_file" ]; then
+          read_env_value() {
+            local key="$1"
+            local file="$2"
+            [ -f "$file" ] || return 0
+            { grep -E "^${key}=" "$file" || true; } | tail -n 1 | cut -d= -f2- | tr -d '\r'
+          }
+
+          upsert_env_value() {
+            local file="$1"
+            local key="$2"
+            local value="$3"
+            python3 - "$file" "$key" "$value" <<'PY'
+          from pathlib import Path
+          import sys
+
+          path = Path(sys.argv[1])
+          key = sys.argv[2]
+          value = sys.argv[3]
+          lines = path.read_text(encoding='utf-8').splitlines() if path.exists() else []
+          output = []
+          seen = False
+          prefix = f"{key}="
+          for line in lines:
+              if line.startswith(prefix):
+                  output.append(f"{key}={value}")
+                  seen = True
+              else:
+                  output.append(line)
+          if not seen:
+              output.append(f"{key}={value}")
+          path.write_text("\n".join(output) + "\n", encoding='utf-8')
+          PY
+          }
+
+          backup_env_file() {
+            local file="$1"
+            if [ ! -f "$file" ]; then
               return 0
             fi
-            { grep -E "^$1=" "$env_file" || true; } | tail -n 1 | cut -d= -f2- | tr -d '\r'
+            local backup="${file}.backup-dingtalk-stream-$(date -u +%Y%m%dT%H%M%SZ)"
+            cp -p "$file" "$backup"
+            printf '%s' "$backup"
           }
 
-          show_state() {
-            stream_enabled="$(read_env DINGTALK_STREAM_ENABLED | tr '[:upper:]' '[:lower:]')"
-            mode_value="$(read_env HERMES_DINGTALK_MODE | tr '[:upper:]' '[:lower:]')"
-            app_key="$(read_env DINGTALK_APP_KEY)"
-            app_secret="$(read_env DINGTALK_APP_SECRET)"
-            robot_code="$(read_env DINGTALK_ROBOT_CODE)"
-            groups="$(read_env DINGTALK_AUTHORIZED_GROUP_IDS)"
-            IFS=',' read -r -a group_parts <<< "$groups"
-            group_count=0
-            group_scope="allowlist"
-            for item in "${group_parts[@]}"; do
-              clean_item="$(printf '%s' "$item" | xargs)"
-              if [ "$clean_item" = "*" ]; then
-                group_scope="all"
-              fi
-              if [ -n "$clean_item" ]; then
-                group_count=$((group_count + 1))
-              fi
-            done
-
-            echo "PROD_HEAD=$(git rev-parse HEAD)"
-            echo "DINGTALK_STREAM_ENABLED=${stream_enabled:-false}"
-            echo "HERMES_DINGTALK_MODE=${mode_value:-unset}"
-            echo "DINGTALK_APP_KEY_PRESENT=$([ -n "$app_key" ] && echo true || echo false)"
-            echo "DINGTALK_APP_SECRET_PRESENT=$([ -n "$app_secret" ] && echo true || echo false)"
-            echo "DINGTALK_ROBOT_CODE_PRESENT=$([ -n "$robot_code" ] && echo true || echo false)"
-            echo "DINGTALK_AUTHORIZED_GROUP_COUNT=$group_count"
-            echo "DINGTALK_GROUP_SCOPE=$group_scope"
+          restore_env_backup() {
+            local file="$1"
+            local backup="$2"
+            if [ -z "$backup" ]; then
+              return 0
+            fi
+            if [ ! -f "$backup" ]; then
+              return 1
+            fi
+            cp -pf "$backup" "$file"
           }
 
-          if [ ! -f "$env_file" ]; then
-            echo "PRODUCTION_ENV_FILE_MISSING=$env_file"
+          detect_hermes_home() {
+            local home
+            home="$(systemctl show -p Environment --value hermes-gateway 2>/dev/null | tr ' ' '\n' | sed -n 's/^HERMES_HOME=//p' | tail -n 1)"
+            if [ -n "$home" ]; then
+              printf '%s\n' "$home"
+            else
+              dirname "$HERMES_REPO"
+            fi
+          }
+
+          HERMES_HOME="$(detect_hermes_home)"
+          HERMES_ENV_FILE="$HERMES_HOME/.env"
+
+          reload_or_restart_nginx() {
+            if systemctl reload nginx; then
+              return 0
+            fi
+            systemctl restart nginx
+          }
+
+          rollback_on_apply_error() {
+            local exit_code="${1:-1}"
+            local rollback_failed=0
+            trap - EXIT ERR
+            echo "APPLY_FAILED_ROLLBACK_START"
+            if ! restore_env_backup "$DATAHUB_ENV_FILE" "$datahub_env_backup"; then
+              echo "ROLLBACK_FAILED_DATAHUB_ENV"
+              rollback_failed=1
+            fi
+            if ! restore_env_backup "$HERMES_ENV_FILE" "$hermes_env_backup"; then
+              echo "ROLLBACK_FAILED_HERMES_ENV"
+              rollback_failed=1
+            fi
+            if ! systemctl restart aluminum-bypass; then
+              echo "ROLLBACK_FAILED_ALUMINUM_BYPASS_SERVICE"
+              rollback_failed=1
+            fi
+            if ! systemctl restart hermes-gateway; then
+              echo "ROLLBACK_FAILED_HERMES_GATEWAY_SERVICE"
+              rollback_failed=1
+            fi
+            if ! reload_or_restart_nginx; then
+              echo "ROLLBACK_FAILED_NGINX_SERVICE"
+              rollback_failed=1
+            fi
+            if ! systemctl is-active aluminum-bypass hermes-gateway nginx >/tmp/configure-dingtalk-rollback-services.log; then
+              echo "ROLLBACK_FAILED_SERVICE_HEALTH"
+              rollback_failed=1
+            fi
+            if ! curl -fsS http://127.0.0.1:8000/readyz >/tmp/configure-dingtalk-rollback-readyz.json; then
+              echo "ROLLBACK_FAILED_READYZ"
+              rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              echo "APPLY_FAILED_ROLLBACK_DONE"
+              exit "$exit_code"
+            fi
+            echo "APPLY_FAILED_ROLLBACK_INCOMPLETE"
+            exit 98
+          }
+
+          query_stream_persistence() {
+            local raw_database_url
+            raw_database_url="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
+            DATABASE_URL="$raw_database_url" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          import json
+          import os
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          payload = {
+              "chat_inbox_count": 0,
+              "chat_inbox_latest_at": None,
+              "chat_inbox_latest_trace_id": None,
+              "multimodal_evidence_count": 0,
+              "multimodal_evidence_latest_at": None,
+              "multimodal_evidence_latest_trace_id": None,
+              "external_message_logs_latest_at": None,
+          }
+          with engine.connect() as conn:
+              inbox = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total,
+                             MAX(created_at) AS latest_at,
+                             (
+                               SELECT trace_id
+                               FROM chat_inbox
+                               WHERE source_payload->>'source_transport' = 'dingtalk_stream'
+                               ORDER BY created_at DESC, id DESC
+                               LIMIT 1
+                             ) AS latest_trace_id
+                      FROM chat_inbox
+                      WHERE source_payload->>'source_transport' = 'dingtalk_stream'
+                      """
+                  )
+              ).mappings().one()
+              evidence = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total,
+                             MAX(created_at) AS latest_at,
+                             (
+                               SELECT payload->>'trace_id'
+                               FROM multimodal_evidence
+                               WHERE payload IS NOT NULL
+                                 AND payload->>'source' = 'dingtalk'
+                                 AND payload->>'source_transport' = 'dingtalk_stream'
+                               ORDER BY created_at DESC, id DESC
+                               LIMIT 1
+                             ) AS latest_trace_id
+                      FROM multimodal_evidence
+                      WHERE payload IS NOT NULL
+                        AND payload->>'source' = 'dingtalk'
+                        AND payload->>'source_transport' = 'dingtalk_stream'
+                      """
+                  )
+              ).mappings().one()
+              external = conn.execute(
+                  text("SELECT MAX(created_at) AS latest_at FROM external_message_logs")
+              ).mappings().one()
+          payload["chat_inbox_count"] = int(inbox["total"] or 0)
+          payload["chat_inbox_latest_at"] = None if inbox["latest_at"] is None else str(inbox["latest_at"])
+          payload["chat_inbox_latest_trace_id"] = inbox["latest_trace_id"]
+          payload["multimodal_evidence_count"] = int(evidence["total"] or 0)
+          payload["multimodal_evidence_latest_at"] = None if evidence["latest_at"] is None else str(evidence["latest_at"])
+          payload["multimodal_evidence_latest_trace_id"] = evidence["latest_trace_id"]
+          payload["external_message_logs_latest_at"] = None if external["latest_at"] is None else str(external["latest_at"])
+          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+          PY
+          }
+
+          report_stream_connection() {
+            local require_connected="$1"
+            local active_since
+            local connected_line
+            active_since="$(systemctl show -p ActiveEnterTimestamp --value hermes-gateway)"
+            echo "HERMES_ACTIVE_ENTER_TIMESTAMP=$active_since"
+            connected_line="$(journalctl -u hermes-gateway --since "$active_since" --no-pager -o short-iso 2>/dev/null | grep -F 'Connected via Stream Mode' | tail -n 1 || true)"
+            if [ -n "$connected_line" ]; then
+              echo "HERMES_STREAM_CONNECTED=yes"
+              echo "HERMES_STREAM_CONNECTED_LINE=$connected_line"
+            else
+              echo "HERMES_STREAM_CONNECTED=no"
+              echo "HERMES_STREAM_CONNECTED_LINE=none"
+              if [ "$require_connected" = "yes" ]; then
+                return 1
+              fi
+            fi
+          }
+
+          verify_fresh_stream_evidence() {
+            local raw_database_url
+            local active_since
+            local active_since_epoch
+            raw_database_url="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
+            active_since="$(systemctl show -p ActiveEnterTimestamp --value hermes-gateway)"
+            active_since_epoch="$(date -d "$active_since" +%s)"
+            DATABASE_URL="$raw_database_url" ACTIVE_SINCE_EPOCH="$active_since_epoch" \
+              "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          from datetime import datetime, timezone
+          import json
+          import os
+
+          from sqlalchemy import create_engine, text
+
+          since = datetime.fromtimestamp(int(os.environ["ACTIVE_SINCE_EPOCH"]), tz=timezone.utc)
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with engine.connect() as conn:
+              row = conn.execute(
+                  text(
+                      """
+                      SELECT
+                        COUNT(*) FILTER (
+                          WHERE evidence_type = 'text'
+                            AND BTRIM(COALESCE(payload->>'message_text', '')) <> ''
+                        ) AS text_count,
+                        COUNT(*) FILTER (
+                          WHERE evidence_type = 'attachment'
+                            AND (
+                              BTRIM(COALESCE(payload->>'file_text', '')) <> ''
+                              OR BTRIM(COALESCE(payload->>'attachment_text', '')) <> ''
+                            )
+                        ) AS file_count,
+                        MAX(created_at) AS latest_at
+                      FROM multimodal_evidence
+                      WHERE created_at >= :since
+                        AND payload IS NOT NULL
+                        AND payload->>'source' = 'dingtalk'
+                        AND payload->>'source_transport' = 'dingtalk_stream'
+                      """
+                  ),
+                  {"since": since},
+              ).mappings().one()
+
+          result = {
+              "active_since": since.isoformat(),
+              "text_count": int(row["text_count"] or 0),
+              "file_count": int(row["file_count"] or 0),
+              "latest_at": None if row["latest_at"] is None else str(row["latest_at"]),
+          }
+          print("FRESH_STREAM_EVIDENCE=" + json.dumps(result, ensure_ascii=False, sort_keys=True))
+          if result["text_count"] < 1 or result["file_count"] < 1:
+              print("FRESH_STREAM_EVIDENCE_VERIFIED=no")
+              raise SystemExit(53)
+          print("FRESH_STREAM_EVIDENCE_VERIFIED=yes")
+          PY
+          }
+
+          ensure_no_second_stream_process() {
+            local matches
+            matches="$(pgrep -af 'hermes_dingtalk_stream_gateway.py' || true)"
+            if [ -n "$matches" ]; then
+              echo "SECOND_STREAM_PROCESS_DETECTED"
+              echo "$matches"
+              return 1
+            fi
+            echo "SECOND_STREAM_PROCESS_DETECTED=no"
+          }
+
+          tracked_state() {
+            local repo="$1"
+            if git -C "$repo" diff --quiet && git -C "$repo" diff --cached --quiet; then
+              echo clean
+            else
+              echo dirty
+            fi
+          }
+
+          report_state() {
+            local readyz_file="/tmp/configure-dingtalk-readyz.json"
+            echo "DATAHUB_HEAD=$(git -C "$DATAHUB_REPO" rev-parse HEAD)"
+            echo "HERMES_HEAD=$(git -C "$HERMES_REPO" rev-parse HEAD)"
+            echo "DATAHUB_TRACKED_STATE=$(tracked_state "$DATAHUB_REPO")"
+            echo "HERMES_TRACKED_STATE=$(tracked_state "$HERMES_REPO")"
+            echo "SERVICE_STATUS_START"
+            systemctl is-active aluminum-bypass hermes-gateway nginx
+            echo "SERVICE_STATUS_END"
+            curl -fsS http://127.0.0.1:8000/readyz > "$readyz_file"
+            echo "READYZ=$(python3 - "$readyz_file" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+          PY
+            )"
+            echo "DINGTALK_AUTHORIZED_GROUP_IDS=$(read_env_value DINGTALK_AUTHORIZED_GROUP_IDS "$DATAHUB_ENV_FILE")"
+            echo "DINGTALK_STREAM_ENABLED=$(read_env_value DINGTALK_STREAM_ENABLED "$DATAHUB_ENV_FILE")"
+            echo "HERMES_DINGTALK_MODE=$(read_env_value HERMES_DINGTALK_MODE "$DATAHUB_ENV_FILE")"
+            echo "DATAHUB_STREAM_RELAY_TOKEN_PRESENT=$([ -n "$(read_env_value HERMES_DINGTALK_STREAM_RELAY_TOKEN "$DATAHUB_ENV_FILE")" ] && echo true || echo false)"
+            echo "HERMES_DINGTALK_CLIENT_ID_PRESENT=$([ -n "$(read_env_value DINGTALK_CLIENT_ID "$HERMES_ENV_FILE")" ] && echo true || echo false)"
+            echo "HERMES_DINGTALK_CLIENT_SECRET_PRESENT=$([ -n "$(read_env_value DINGTALK_CLIENT_SECRET "$HERMES_ENV_FILE")" ] && echo true || echo false)"
+            echo "XINTAI_EVIDENCE_RELAY_ENABLED=$(read_env_value XINTAI_EVIDENCE_RELAY_ENABLED "$HERMES_ENV_FILE")"
+            echo "HERMES_LANGUAGE=$(read_env_value HERMES_LANGUAGE "$HERMES_ENV_FILE")"
+            echo "XINTAI_SOUL_SYNC_ENABLED=$(read_env_value XINTAI_SOUL_SYNC_ENABLED "$HERMES_ENV_FILE")"
+            echo "HERMES_STREAM_RELAY_TOKEN_PRESENT=$([ -n "$(read_env_value XINTAI_DINGTALK_STREAM_RELAY_TOKEN "$HERMES_ENV_FILE")" ] && echo true || echo false)"
+            echo "XINTAI_DATAHUB_BASE_URL=$(read_env_value XINTAI_DATAHUB_BASE_URL "$HERMES_ENV_FILE")"
+            report_stream_connection "no" || true
+            ensure_no_second_stream_process
+            echo "STREAM_PERSISTENCE=$(query_stream_persistence)"
+          }
+
+          if [ ! -f "$DATAHUB_ENV_FILE" ]; then
+            echo "DATAHUB_ENV_FILE_MISSING=$DATAHUB_ENV_FILE"
             exit 40
           fi
 
-          show_state
-
-          if [ "$MODE" = "apply" ]; then
-            incoming_groups="$(decode_b64 "$AUTHORIZED_GROUP_IDS_B64")"
-            existing_groups="$(read_env DINGTALK_AUTHORIZED_GROUP_IDS)"
-            final_groups="${incoming_groups:-$existing_groups}"
-            if [ -z "$(printf '%s' "$final_groups" | xargs)" ]; then
-              echo "DINGTALK_AUTHORIZED_GROUP_IDS_REQUIRED"
-              exit 41
-            fi
-
-            cp -p "$env_file" "$env_file.backup-dingtalk-stream-$(date +%Y%m%d%H%M%S)"
-
-            export ENV_FILE="$env_file"
-            export DINGTALK_STREAM_ENABLED_VALUE="true"
-            export HERMES_DINGTALK_MODE_VALUE="stream"
-            export DINGTALK_APP_KEY_VALUE="$(decode_b64 "$STREAM_APP_KEY_B64")"
-            export DINGTALK_APP_SECRET_VALUE="$(decode_b64 "$STREAM_APP_SECRET_B64")"
-            export DINGTALK_ROBOT_CODE_VALUE="$(decode_b64 "$STREAM_ROBOT_CODE_B64")"
-            export DINGTALK_AUTHORIZED_GROUP_IDS_VALUE="$final_groups"
-            export DINGTALK_AGENT_ID_VALUE="$(decode_b64 "$STREAM_AGENT_ID_B64")"
-            export DINGTALK_APP_ID_VALUE="$(decode_b64 "$STREAM_APP_ID_B64")"
-
-            python3 - <<'PY'
-          from pathlib import Path
-          import os
-
-          path = Path(os.environ["ENV_FILE"])
-          updates = {
-              "DINGTALK_STREAM_ENABLED": os.environ["DINGTALK_STREAM_ENABLED_VALUE"],
-              "HERMES_DINGTALK_MODE": os.environ["HERMES_DINGTALK_MODE_VALUE"],
-              "DINGTALK_APP_KEY": os.environ["DINGTALK_APP_KEY_VALUE"],
-              "DINGTALK_APP_SECRET": os.environ["DINGTALK_APP_SECRET_VALUE"],
-              "DINGTALK_ROBOT_CODE": os.environ["DINGTALK_ROBOT_CODE_VALUE"],
-              "DINGTALK_AUTHORIZED_GROUP_IDS": os.environ["DINGTALK_AUTHORIZED_GROUP_IDS_VALUE"],
-          }
-          optional_updates = {
-              "DINGTALK_AGENT_ID": os.environ.get("DINGTALK_AGENT_ID_VALUE", ""),
-              "DINGTALK_APP_ID": os.environ.get("DINGTALK_APP_ID_VALUE", ""),
-          }
-          for key, value in optional_updates.items():
-              if value:
-                  updates[key] = value
-
-          lines = path.read_text(encoding="utf-8").splitlines()
-          seen: set[str] = set()
-          output: list[str] = []
-          for line in lines:
-              if "=" not in line or line.lstrip().startswith("#"):
-                  output.append(line)
-                  continue
-              key = line.split("=", 1)[0]
-              if key in updates:
-                  output.append(f"{key}={updates[key]}")
-                  seen.add(key)
-              else:
-                  output.append(line)
-          for key, value in updates.items():
-              if key not in seen:
-                  output.append(f"{key}={value}")
-          path.write_text("\n".join(output) + "\n", encoding="utf-8")
-          PY
-
-            echo "UPDATED_PRODUCTION_DINGTALK_STREAM_ENV"
-            show_state
-            echo "HERMES_GATEWAY_HEALTH_BEFORE_RESTART"
-            (cd backend && . .venv/bin/activate && python scripts/hermes_dingtalk_stream_gateway.py --health)
-            echo "RESTART_HERMES_GATEWAY"
-            systemctl restart hermes-gateway
-            sleep 8
+          if [ "$MODE" = "status" ]; then
+            report_state
+            exit 0
           fi
 
-          echo "HERMES_GATEWAY_SERVICE_STATUS"
-          systemctl is-active hermes-gateway
-          echo "HERMES_GATEWAY_HEALTH"
-          (cd backend && . .venv/bin/activate && python scripts/hermes_dingtalk_stream_gateway.py --health)
-          echo "READYZ"
-          curl -fsS http://127.0.0.1:8000/readyz >/tmp/readyz.json
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
+          if [ ! -f "$HERMES_ENV_FILE" ]; then
+            echo "HERMES_ENV_FILE_MISSING=$HERMES_ENV_FILE"
+            exit 41
+          fi
 
-          payload = json.loads(Path("/tmp/readyz.json").read_text())
-          if not isinstance(payload, dict):
-              print(json.dumps({"status": payload}, ensure_ascii=False))
-              raise SystemExit(0)
-          checks = payload.get("checks")
-          if not isinstance(checks, dict):
-              checks = {}
-          print(json.dumps({
-              "status": payload.get("status"),
-              "environment": payload.get("environment"),
-              "database": checks.get("database", {}).get("status") if isinstance(checks.get("database"), dict) else None,
-              "mes_sync": checks.get("mes_sync", {}).get("status") if isinstance(checks.get("mes_sync"), dict) else None,
-              "iot_energy_sync": checks.get("iot_energy_sync", {}).get("status") if isinstance(checks.get("iot_energy_sync"), dict) else None,
-          }, ensure_ascii=False))
-          PY
+          if [ "$MODE" = "verify" ]; then
+            report_stream_connection "yes"
+            ensure_no_second_stream_process
+            verify_fresh_stream_evidence
+            report_state
+            exit 0
+          fi
+
+          final_groups="$(decode_b64 "$AUTHORIZED_GROUP_IDS_B64")"
+          if [ -z "$(printf '%s' "$final_groups" | xargs)" ]; then
+            final_groups="*"
+          fi
+
+          stream_app_key="$(decode_b64 "$STREAM_APP_KEY_B64")"
+          stream_app_secret="$(decode_b64 "$STREAM_APP_SECRET_B64")"
+          stream_robot_code="$(decode_b64 "$STREAM_ROBOT_CODE_B64")"
+          stream_agent_id="$(decode_b64 "$STREAM_AGENT_ID_B64")"
+          stream_app_id="$(decode_b64 "$STREAM_APP_ID_B64")"
+
+          stream_relay_token="$(read_env_value HERMES_DINGTALK_STREAM_RELAY_TOKEN "$DATAHUB_ENV_FILE")"
+          if [ -z "$stream_relay_token" ]; then
+            stream_relay_token="$(openssl rand -hex 32)"
+          fi
+
+          datahub_env_backup="$(backup_env_file "$DATAHUB_ENV_FILE")"
+          hermes_env_backup="$(backup_env_file "$HERMES_ENV_FILE")"
+          echo "DATAHUB_ENV_BACKUP=$datahub_env_backup"
+          echo "HERMES_ENV_BACKUP=$hermes_env_backup"
+
+          trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_apply_error "$rc"; fi' EXIT
+
+          upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"
+          upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_DINGTALK_MODE" "stream"
+          upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_KEY" "$stream_app_key"
+          upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_SECRET" "$stream_app_secret"
+          upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AUTHORIZED_GROUP_IDS" "$final_groups"
+          upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
+          if [ -n "$stream_robot_code" ]; then
+            upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_ROBOT_CODE" "$stream_robot_code"
+          fi
+          if [ -n "$stream_agent_id" ]; then
+            upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AGENT_ID" "$stream_agent_id"
+          fi
+          if [ -n "$stream_app_id" ]; then
+            upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_ID" "$stream_app_id"
+          fi
+
+          upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_ID" "$stream_app_key"
+          upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"
+          upsert_env_value "$HERMES_ENV_FILE" "HERMES_LANGUAGE" "zh"
+          upsert_env_value "$HERMES_ENV_FILE" "XINTAI_SOUL_SYNC_ENABLED" "true"
+          upsert_env_value "$HERMES_ENV_FILE" "XINTAI_EVIDENCE_RELAY_ENABLED" "true"
+          upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DATAHUB_BASE_URL" "http://127.0.0.1:8000"
+          upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
+
+          systemctl restart aluminum-bypass
+          systemctl restart hermes-gateway
+          reload_or_restart_nginx
+          sleep 8
+
+          report_stream_connection "yes"
+          ensure_no_second_stream_process
+          report_state
+          trap - EXIT
           REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"

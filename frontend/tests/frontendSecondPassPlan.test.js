@@ -28,18 +28,23 @@ const CORE_PAGES = [
 const SECONDARY_PAGES = [
   ['fill-details', fillDetails],
   ['energy', energy],
-  ['alerts', alerts],
   ['workshop-dashboard', workshopDashboard],
 ]
 
 test('second pass core management pages declare the same visual pass and data-source strip', () => {
   for (const [name, src] of CORE_PAGES) {
     assert.match(src, /data-visual-pass="stitch-image2-second-pass"/, `${name} missing second-pass marker`)
+  }
+  for (const [name, src] of [['live', live], ['production', production]]) {
     assert.match(src, /data-testid="second-pass-source-strip"/, `${name} missing source strip`)
     assert.match(src, /MES 外部数据/, `${name} missing MES source label`)
     assert.match(src, /人工填报/, `${name} missing manual source label`)
     assert.match(src, /算法数据/, `${name} missing algorithm source label`)
   }
+  assert.doesNotMatch(today, /data-testid="second-pass-source-strip"/)
+  assert.doesNotMatch(today, />MES 外部数据</)
+  assert.doesNotMatch(today, />人工填报</)
+  assert.doesNotMatch(today, />算法数据</)
 })
 
 test('second pass secondary management pages keep the same visual pass and source contract', () => {
@@ -50,6 +55,11 @@ test('second pass secondary management pages keep the same visual pass and sourc
     assert.match(src, /人工填报/, `${name} missing manual source label`)
     assert.match(src, /算法数据/, `${name} missing algorithm source label`)
   }
+  assert.match(alerts, /data-visual-pass="stitch-image2-second-pass"/)
+  assert.doesNotMatch(alerts, /data-testid="second-pass-source-strip"/)
+  assert.doesNotMatch(alerts, />MES 外部数据</)
+  assert.doesNotMatch(alerts, />人工填报</)
+  assert.doesNotMatch(alerts, />算法数据</)
 })
 
 test('system settings exposes the thirteen-workshop and MES mapping cockpit in the same visual language', () => {

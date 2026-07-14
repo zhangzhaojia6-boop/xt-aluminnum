@@ -6,19 +6,23 @@ from decimal import Decimal
 import hashlib
 import json
 import os
-import re
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import resolve_production_business_date
+from app.core.business_time import local_now
 from app.core.redaction import filter_sensitive_mapping
-from app.models.agent_communication import MultimodalEvidence
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
+from app.services.hermes_dingtalk_evidence_service import (
+    DingTalkEvidenceItem,
+    dingtalk_evidence_adoption_reason,
+    query_dingtalk_evidence,
+)
 from app.services.hermes_day1_harness_service import build_output_skill_alignment, load_output_skill_daily_reference
+from app.services.report.daily_fact_evidence_contracts import DailyFactEvidenceVerifier
 from app.services.report.daily_report_fact_closure import build_daily_report_fact_closure
 from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
 from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
@@ -50,7 +54,6 @@ SOURCE_PRIORITY = {
     "rag": 30,
     "output_skill": 20,
 }
-DINGTALK_CONFIRMED_STATUSES = ("confirmed", "human_confirmed", "specialist_sampled")
 MIN_DINGTALK_DAILY_REPORT_FIELDS = 3
 DINGTALK_STRUCTURED_FACT_KEYS = ("fact_updates", "daily_facts", "facts", "extracted_facts", "fields")
 DINGTALK_TEXT_KEYS = (
@@ -91,8 +94,12 @@ FIELD_UNITS = {
     "verified_cost_total": "万元",
     "cost_per_ton": "元/吨",
 }
-
-
+DIRECT_MES_WMS_SOURCE_TYPES = {
+    "finished_inbound_output",
+    "mes_verified",
+    "wms",
+    "wms_direct",
+}
 def build_daily_fact_bundle(
     db: Session,
     *,
@@ -101,18 +108,28 @@ def build_daily_fact_bundle(
     trace_id: str | None = None,
     persist_run: bool = False,
     snapshot_reason: str | None = None,
+    allow_output_skill_reference_adoption: bool = True,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
+    effective_now = local_now(now)
     template_facts = template_daily_report.build_template_daily_report_facts(db, target_date=business_date)
-    facts_payload = _facts_from_template(template_facts, business_date=business_date)
+    facts_payload = _facts_from_template(
+        db,
+        template_facts,
+        business_date=business_date,
+        now=effective_now,
+    )
     bundle = _bundle_from_facts(
         business_date=business_date,
         facts_payload=facts_payload,
         template_facts=template_facts,
         trace_id=trace_id,
     )
+    reference_only = allow_output_skill_reference_adoption and _should_adopt_output_skill_reference()
+    bundle["reference_only"] = reference_only
     bundle = _apply_dingtalk_supplements(db, bundle=bundle, business_date=business_date)
     output_skill_root = _output_skill_root()
-    if _should_adopt_output_skill_reference():
+    if reference_only:
         bundle = _apply_output_skill_reference(
             bundle,
             output_skill_root=output_skill_root,
@@ -131,6 +148,9 @@ def build_daily_fact_bundle(
         sources=bundle.get("sources") or {},
     )
     bundle["fact_closure"] = build_daily_report_fact_closure(bundle)
+    bundle["real_source_gate_passed"] = (
+        not reference_only and bundle["fact_closure"].get("status") == "pass"
+    )
     if persist_run or snapshot_reason:
         _persist_bundle(
             db,
@@ -165,15 +185,27 @@ def persist_daily_fact_bundle_snapshot(
     return run, snapshot
 
 
-def _facts_from_template(template_facts: Mapping[str, Any], *, business_date: date) -> dict[str, Any]:
+def _facts_from_template(
+    db: Session,
+    template_facts: Mapping[str, Any],
+    *,
+    business_date: date,
+    now: datetime,
+) -> dict[str, Any]:
     values = dict(template_facts.get("values") or {})
     sources = dict(template_facts.get("sources") or {})
+    evidence_verifier = DailyFactEvidenceVerifier(db, business_date=business_date)
     result: dict[str, Any] = {}
     for field_name, value in values.items():
+        normalized_field_name = str(field_name)
         source_name, source_detail = _source_from_template(sources.get(field_name))
-        result[str(field_name)] = _fact_item(
+        unit = FIELD_UNITS.get(normalized_field_name)
+        is_direct_source = _is_direct_mes_wms_source(source_name)
+        if is_direct_source and source_detail.get("unit") not in (None, ""):
+            unit = str(source_detail["unit"])
+        fact = _fact_item(
             value=value,
-            unit=FIELD_UNITS.get(str(field_name)),
+            unit=unit,
             source=source_name,
             source_type=source_name,
             priority=_source_priority(source_name),
@@ -183,6 +215,20 @@ def _facts_from_template(template_facts: Mapping[str, Any], *, business_date: da
             source_detail=source_detail,
             source_ref={"business_date": business_date.isoformat(), **source_detail},
         )
+        if is_direct_source:
+            evidence_gaps = _direct_source_evidence_gaps(
+                db,
+                field_name=normalized_field_name,
+                business_date=business_date,
+                fact_value=value,
+                source_type=source_name,
+                source_detail=source_detail,
+                now=now,
+                verifier=evidence_verifier,
+            )
+            fact["evidence_status"] = "confirmed" if not evidence_gaps else "needs_evidence"
+            fact["evidence_gaps"] = evidence_gaps
+        result[normalized_field_name] = fact
     return result
 
 
@@ -265,6 +311,88 @@ def _source_confidence(source: str) -> float:
     return 0.5
 
 
+def _is_direct_mes_wms_source(source_type: str) -> bool:
+    return (
+        source_type in DIRECT_MES_WMS_SOURCE_TYPES
+        or source_type.startswith("mes_")
+        or source_type.startswith("wms_")
+    )
+
+
+def _direct_source_evidence_gaps(
+    db: Session,
+    *,
+    field_name: str,
+    business_date: date,
+    fact_value: Any,
+    source_type: str,
+    source_detail: Mapping[str, Any],
+    now: datetime,
+    verifier: DailyFactEvidenceVerifier,
+) -> list[str]:
+    if verifier.db is not db or verifier.business_date != business_date:
+        raise ValueError("daily_fact_evidence_verifier_scope_mismatch")
+    gaps: list[str] = []
+    source_ref = next(
+        (
+            source_detail.get(key)
+            for key in ("source_ref", "source_table", "projection_table", "adapter")
+            if source_detail.get(key) not in (None, "")
+        ),
+        None,
+    )
+    if source_ref is None:
+        gaps.append("missing_source_ref")
+    for key in ("business_window", "unit", "trace_id", "metric_contract_version"):
+        if source_detail.get(key) in (None, ""):
+            gaps.append(f"missing_{key}")
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+    business_window = str(source_detail.get("business_window") or "")
+    if business_window:
+        try:
+            window_start, window_end = (
+                datetime.fromisoformat(item)
+                for item in business_window.split("/", 1)
+            )
+        except (TypeError, ValueError):
+            gaps.append("invalid_business_window")
+        else:
+            if window_start.tzinfo is None or window_end.tzinfo is None or window_end < window_start:
+                gaps.append("invalid_business_window")
+            elif window_end > now.astimezone(window_end.tzinfo):
+                gaps.append("business_window_not_closed")
+    row_count = source_detail.get("row_count")
+    sync_run_id = source_detail.get("sync_run_id")
+    try:
+        has_rows = int(row_count or 0) > 0
+    except (TypeError, ValueError):
+        has_rows = False
+    has_projection_read = has_rows and verifier.verify_projection(
+        field_name=field_name,
+        source_type=source_type,
+        fact_value=fact_value,
+        source_detail=source_detail,
+    )
+    has_sync_metadata = any(
+        source_detail.get(key) not in (None, "")
+        for key in ("sync_run_id", "cursor_key", "sync_trace_id")
+    ) or str(source_detail.get("trace_id") or "").startswith("mes-sync-run:")
+    has_valid_sync = not has_sync_metadata or verifier.verify_sync(
+        field_name=field_name,
+        source_type=source_type,
+        source_ref=str(source_ref or ""),
+        sync_run_id=sync_run_id,
+        cursor_key=source_detail.get("cursor_key"),
+        trace_id=source_detail.get("sync_trace_id") or source_detail.get("trace_id"),
+        window_start=window_start,
+        window_end=window_end,
+    )
+    if not has_projection_read or not has_valid_sync:
+        gaps.append("missing_read_evidence")
+    return gaps
+
+
 def _persist_bundle(
     db: Session,
     *,
@@ -275,7 +403,8 @@ def _persist_bundle(
     snapshot_reason: str | None,
 ) -> tuple[DailyFactBundleRun, DailyFactBundleSnapshot | None]:
     run_key = _run_key(business_date=business_date, trace_id=trace_id)
-    run = db.query(DailyFactBundleRun).filter(DailyFactBundleRun.run_key == run_key).one_or_none()
+    run_query = db.query(DailyFactBundleRun).filter(DailyFactBundleRun.run_key == run_key)
+    run = run_query.with_for_update().one_or_none()
     if run is None:
         try:
             with db.begin_nested():
@@ -288,7 +417,7 @@ def _persist_bundle(
                 db.add(run)
                 db.flush()
         except IntegrityError:
-            run = db.query(DailyFactBundleRun).filter(DailyFactBundleRun.run_key == run_key).one_or_none()
+            run = run_query.with_for_update().one_or_none()
             if run is None:
                 raise
     run.status = str(bundle.get("status") or "partial")
@@ -300,22 +429,59 @@ def _persist_bundle(
 
     snapshot = None
     if snapshot_reason is not None:
-        snapshot = DailyFactBundleSnapshot(
-            run_id=run.id,
-            business_date=business_date,
-            snapshot_reason=snapshot_reason,
-            facts=_json_safe(bundle.get("facts") or {}),
-            sources=_json_safe(bundle.get("sources") or {}),
-            conflicts=_json_safe(bundle.get("conflicts") or []),
-            adopted_values=_adopted_values(bundle),
-            correction_refs=_json_safe(bundle.get("correction_refs") or []),
-            dingtalk_refs=_json_safe(bundle.get("dingtalk_refs") or []),
-            output_skill_alignment=_json_safe(bundle.get("output_skill_alignment") or {}),
-            payload_hash=_payload_hash(bundle),
-            created_by_id=getattr(requested_by, "id", None),
-            trace_id=trace_id,
+        snapshot_values = {
+            "facts": _json_safe(bundle.get("facts") or {}),
+            "sources": _json_safe(bundle.get("sources") or {}),
+            "conflicts": _json_safe(bundle.get("conflicts") or []),
+            "adopted_values": _adopted_values(bundle),
+            "correction_refs": _json_safe(bundle.get("correction_refs") or []),
+            "dingtalk_refs": _json_safe(bundle.get("dingtalk_refs") or []),
+            "output_skill_alignment": _json_safe(bundle.get("output_skill_alignment") or {}),
+            "payload_hash": _payload_hash(bundle),
+            "created_by_id": getattr(requested_by, "id", None),
+            "trace_id": trace_id,
+        }
+        snapshot_key = (
+            f"scheduled_daily_closure:{run.run_key}"
+            if snapshot_reason == "scheduled_daily_closure"
+            else None
         )
-        db.add(snapshot)
+        snapshot = None
+        if snapshot_key is not None:
+            snapshot = (
+                db.query(DailyFactBundleSnapshot)
+                .filter(DailyFactBundleSnapshot.snapshot_key == snapshot_key)
+                .with_for_update()
+                .one_or_none()
+            )
+        if snapshot is None:
+            candidate = DailyFactBundleSnapshot(
+                run_id=run.id,
+                snapshot_key=snapshot_key,
+                business_date=business_date,
+                snapshot_reason=snapshot_reason,
+                **snapshot_values,
+            )
+            if snapshot_key is None:
+                db.add(candidate)
+                snapshot = candidate
+            else:
+                try:
+                    with db.begin_nested():
+                        db.add(candidate)
+                        db.flush()
+                    snapshot = candidate
+                except IntegrityError:
+                    snapshot = (
+                        db.query(DailyFactBundleSnapshot)
+                        .filter(DailyFactBundleSnapshot.snapshot_key == snapshot_key)
+                        .with_for_update()
+                        .one_or_none()
+                    )
+                    if snapshot is None:
+                        raise
+        for field_name, value in snapshot_values.items():
+            setattr(snapshot, field_name, value)
         db.flush()
     return run, snapshot
 
@@ -501,159 +667,137 @@ def _apply_dingtalk_supplements(
     bundle: dict[str, Any],
     business_date: date,
 ) -> dict[str, Any]:
-    rows = (
-        db.query(MultimodalEvidence)
-        .filter(MultimodalEvidence.payload.is_not(None))
-        .filter(MultimodalEvidence.confirmation_status.in_(DINGTALK_CONFIRMED_STATUSES))
-        .order_by(MultimodalEvidence.created_at.asc(), MultimodalEvidence.id.asc())
-        .all()
+    items = query_dingtalk_evidence(
+        db,
+        business_date=business_date,
+        include_outside_business_context=True,
     )
-    if not rows:
+    if not items:
         return bundle
 
     facts = dict(bundle.get("facts") or {})
     conflicts = list(bundle.get("conflicts") or [])
     dingtalk_refs = list(bundle.get("dingtalk_refs") or [])
-    business_date_text = business_date.isoformat()
     applied_field_names: set[str] = set()
 
-    for row in rows:
-        base_payload = row.payload if isinstance(row.payload, Mapping) else {}
-        for payload in _iter_dingtalk_fact_payloads(base_payload):
-            payload_is_daily_fact = _is_dingtalk_daily_fact_payload(payload)
-            structured_updates = _dingtalk_structured_fact_updates(payload)
-            if "fact_updates" in payload and structured_updates is None:
+    for item in items:
+        payload = dict(item.payload)
+        structured_updates = _dingtalk_structured_fact_updates(payload)
+        if "fact_updates" in payload and structured_updates is None:
+            continue
+
+        has_structured_updates = structured_updates is not None
+        if has_structured_updates:
+            update_items = _iter_fact_updates(structured_updates)
+        else:
+            candidates = _dingtalk_daily_report_candidates(item, payload)
+            if not candidates:
+                candidates = extract_daily_fact_update_candidates(
+                    {
+                        "id": item.evidence_id,
+                        "trace_id": item.trace_id,
+                        "recognized_text": item.text,
+                        "payload": payload,
+                    }
+                )
+            if not candidates:
                 continue
-            has_structured_updates = structured_updates is not None
-            if not payload_is_daily_fact and not _has_parseable_dingtalk_daily_report(row, payload):
-                continue
+            update_items = [
+                (str(candidate.get("field") or "").strip(), candidate)
+                for candidate in candidates
+                if str(candidate.get("field") or "").strip()
+            ]
 
-            if has_structured_updates:
-                update_items = _iter_fact_updates(structured_updates)
-                if not _payload_business_date_matches(payload, business_date_text):
-                    for field_name, item in update_items:
-                        if _has_fact_value(item.get("value")):
-                            _append_unapplied_dingtalk_candidate(
-                                conflicts,
-                                row=row,
-                                candidate={
-                                    "field": field_name,
-                                    "value": item.get("value"),
-                                    "trace_id": _payload_trace_id(payload, row),
-                                },
-                            )
-                    continue
-            else:
-                candidates = _dingtalk_daily_report_candidates(row, payload)
-                if not candidates and payload_is_daily_fact:
-                    candidates = extract_daily_fact_update_candidates(
-                        {
-                            "id": row.id,
-                            "recognized_text": row.recognized_text,
-                            "payload": payload,
-                        }
-                    )
-                if not candidates:
-                    continue
-                if not _candidate_business_date_matches(
-                    payload,
-                    row=row,
-                    candidates=candidates,
-                    business_date=business_date,
-                ):
-                    for candidate in candidates:
-                        _append_unapplied_dingtalk_candidate(conflicts, row=row, candidate=candidate)
-                    continue
-                update_items = [
-                    (str(candidate.get("field") or "").strip(), candidate)
-                    for candidate in candidates
-                    if str(candidate.get("field") or "").strip()
-                ]
-
-            applied_fields: list[str] = []
-            for field_name, item in update_items:
-                old_fact = facts.get(field_name)
-                old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
-                old_source = None
-                old_unit = FIELD_UNITS.get(field_name)
-                old_priority = 0
-                if isinstance(old_fact, Mapping):
-                    old_source = old_fact.get("source_type") or old_fact.get("source")
-                    old_unit = old_fact.get("unit") or old_unit
-                    old_priority = int(old_fact.get("priority") or 0)
-
-                new_value = item.get("value")
-                if not _has_fact_value(new_value):
-                    continue
-                new_unit = item.get("unit") or old_unit
-                reason = str(item.get("reason") or "钉钉补充事实")
-                new_priority = SOURCE_PRIORITY["dingtalk_supplement"]
-                if old_priority > new_priority:
+        if not item.adoptable_as_fact:
+            reason = dingtalk_evidence_adoption_reason(item, business_date=business_date)
+            for field_name, candidate in update_items:
+                if _has_fact_value(candidate.get("value")):
                     _append_unapplied_dingtalk_candidate(
                         conflicts,
-                        row=row,
-                        candidate={**dict(item), "field": field_name},
-                        reason="higher_priority_fact_exists",
+                        evidence=item,
+                        candidate={**dict(candidate), "field": field_name},
+                        reason=reason,
                     )
-                    continue
-                if old_priority == new_priority:
-                    if _json_safe(old_value) != _json_safe(new_value):
-                        _append_unapplied_dingtalk_candidate(
-                            conflicts,
-                            row=row,
-                            candidate={**dict(item), "field": field_name},
-                            reason="same_priority_fact_exists",
-                        )
-                    continue
-                source_detail = {
-                    "source": "dingtalk_supplement",
-                    "evidence_id": row.id,
-                    "source_user_id": row.source_user_id,
-                    "file_uri": row.file_uri,
-                    "evidence_type": row.evidence_type,
-                    "source_key": _dingtalk_source_key(row, payload),
-                    "recognized_text": _dingtalk_evidence_text(row, payload) or row.recognized_text,
-                    "business_date": business_date_text,
-                }
-                if not has_structured_updates:
-                    source_detail["recognized_text"] = item.get("raw_text") or row.recognized_text
-                    trace_id = item.get("trace_id")
-                    if trace_id:
-                        source_detail["trace_id"] = trace_id
-                else:
-                    trace_id = item.get("trace_id") or _payload_explicit_trace_id(payload)
-                    if trace_id:
-                        source_detail["trace_id"] = trace_id
-                facts[field_name] = _fact_item(
-                    value=new_value,
-                    unit=new_unit,
-                    source="dingtalk_supplement",
-                    source_type="dingtalk_supplement",
-                    priority=new_priority,
-                    freshness="supplemented",
-                    confidence=0.95 if has_structured_updates else _candidate_confidence(item),
-                    adoption_reason=reason,
-                    source_detail=source_detail,
-                    source_ref=source_detail,
-                )
-                applied_fields.append(field_name)
-                applied_field_names.add(field_name)
-                if old_value != new_value:
-                    conflicts.append(
-                        {
-                            "field": field_name,
-                            "type": "dingtalk_supplement",
-                            "previous_source": old_source,
-                            "previous_value": old_value,
-                            "adopted_source": "dingtalk_supplement",
-                            "adopted_value": new_value,
-                            "reason": reason,
-                        }
-                    )
+            continue
 
-            if applied_fields:
-                dingtalk_refs.append({"id": row.id, "field_names": applied_fields})
-                break
+        applied_fields: list[str] = []
+        for field_name, candidate in update_items:
+            old_fact = facts.get(field_name)
+            old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
+            old_source = None
+            old_unit = FIELD_UNITS.get(field_name)
+            old_priority = 0
+            if isinstance(old_fact, Mapping):
+                old_source = old_fact.get("source_type") or old_fact.get("source")
+                old_unit = old_fact.get("unit") or old_unit
+                old_priority = int(old_fact.get("priority") or 0)
+
+            new_value = candidate.get("value")
+            if not _has_fact_value(new_value):
+                continue
+            new_unit = candidate.get("unit") or old_unit
+            reason = str(candidate.get("reason") or "钉钉补充事实")
+            new_priority = SOURCE_PRIORITY["dingtalk_supplement"]
+            if old_priority > new_priority:
+                _append_unapplied_dingtalk_candidate(
+                    conflicts,
+                    evidence=item,
+                    candidate={**dict(candidate), "field": field_name},
+                    reason="higher_priority_fact_exists",
+                )
+                continue
+            if old_priority == new_priority:
+                if _json_safe(old_value) != _json_safe(new_value):
+                    _append_unapplied_dingtalk_candidate(
+                        conflicts,
+                        evidence=item,
+                        candidate={**dict(candidate), "field": field_name},
+                        reason="same_priority_fact_exists",
+                    )
+                continue
+
+            source_detail = {
+                "source": "dingtalk_supplement",
+                "evidence_id": item.evidence_id,
+                "source_user_id": item.source_user_id,
+                "file_uri": item.file_uri,
+                "evidence_type": item.evidence_type,
+                "source_key": item.source_key,
+                "recognized_text": candidate.get("raw_text") or _dingtalk_evidence_text(item, payload),
+                "business_date": business_date.isoformat(),
+            }
+            trace_id = str(candidate.get("trace_id") or item.trace_id or "").strip()
+            if trace_id:
+                source_detail["trace_id"] = trace_id
+            facts[field_name] = _fact_item(
+                value=new_value,
+                unit=new_unit,
+                source="dingtalk_supplement",
+                source_type="dingtalk_supplement",
+                priority=new_priority,
+                freshness="supplemented",
+                confidence=0.95 if has_structured_updates else _candidate_confidence(candidate),
+                adoption_reason=reason,
+                source_detail=source_detail,
+                source_ref=source_detail,
+            )
+            applied_fields.append(field_name)
+            applied_field_names.add(field_name)
+            if old_value != new_value:
+                conflicts.append(
+                    {
+                        "field": field_name,
+                        "type": "dingtalk_supplement",
+                        "previous_source": old_source,
+                        "previous_value": old_value,
+                        "adopted_source": "dingtalk_supplement",
+                        "adopted_value": new_value,
+                        "reason": reason,
+                    }
+                )
+
+        if applied_fields:
+            dingtalk_refs.append({"id": item.evidence_id, "field_names": applied_fields})
 
     bundle["facts"] = facts
     bundle["conflicts"] = conflicts
@@ -661,21 +805,6 @@ def _apply_dingtalk_supplements(
     if applied_field_names:
         _remove_applied_missing_fields(bundle, applied_field_names)
     return _refresh_bundle_metadata(bundle)
-
-
-def _iter_dingtalk_fact_payloads(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    confirm_result = payload.get("confirm_result")
-    if not isinstance(confirm_result, Mapping):
-        return [payload]
-    merged = dict(payload)
-    merged.update(confirm_result)
-    return [merged, payload]
-
-
-def _is_dingtalk_daily_fact_payload(payload: Mapping[str, Any]) -> bool:
-    if _dingtalk_structured_fact_updates(payload) is not None:
-        return True
-    return payload.get("include_in_daily_sample") is True and str(payload.get("evidence_kind") or "") == "fact"
 
 
 def _dingtalk_structured_fact_updates(payload: Mapping[str, Any]) -> Any | None:
@@ -688,15 +817,11 @@ def _dingtalk_structured_fact_updates(payload: Mapping[str, Any]) -> Any | None:
     return None
 
 
-def _has_parseable_dingtalk_daily_report(row: MultimodalEvidence, payload: Mapping[str, Any]) -> bool:
-    return bool(_dingtalk_daily_report_candidates(row, payload))
-
-
 def _dingtalk_daily_report_candidates(
-    row: MultimodalEvidence,
+    evidence: DingTalkEvidenceItem,
     payload: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    raw_text = _dingtalk_evidence_text(row, payload)
+    raw_text = _dingtalk_evidence_text(evidence, payload)
     parsed_values = parse_output_skill_daily_report(raw_text)
     candidates = [
         {
@@ -705,7 +830,7 @@ def _dingtalk_daily_report_candidates(
             "unit": _field_unit(str(field_name)),
             "confidence": 0.95,
             "source": "dingtalk_supplement",
-            "trace_id": _payload_trace_id(payload, row),
+            "trace_id": str(evidence.trace_id or ""),
             "raw_text": raw_text,
             "reason": "钉钉日报正文解析",
         }
@@ -717,10 +842,10 @@ def _dingtalk_daily_report_candidates(
     return candidates
 
 
-def _dingtalk_evidence_text(row: MultimodalEvidence, payload: Mapping[str, Any]) -> str:
+def _dingtalk_evidence_text(evidence: DingTalkEvidenceItem, payload: Mapping[str, Any]) -> str:
     parts: list[str] = []
     seen: set[str] = set()
-    _append_dingtalk_text_part(row.recognized_text, parts=parts, seen=seen)
+    _append_dingtalk_text_part(evidence.text, parts=parts, seen=seen)
     _collect_dingtalk_payload_text(payload, parts=parts, seen=seen)
     return "\n".join(parts)
 
@@ -757,81 +882,10 @@ def _append_dingtalk_text_part(value: Any, *, parts: list[str], seen: set[str]) 
         seen.add(text)
 
 
-def _dingtalk_source_key(row: MultimodalEvidence, payload: Mapping[str, Any]) -> str:
-    evidence_type = str(row.evidence_type or "").strip().lower()
-    if evidence_type in {"file", "attachment", "dingtalk_file"} or row.file_uri:
-        return "dingtalk_group_file"
-    if payload.get("file_name") or payload.get("dingtalk_media_id"):
-        return "dingtalk_group_file"
-    return "dingtalk_group_content"
-
-
-def _payload_business_date_matches(payload: Mapping[str, Any], business_date_text: str) -> bool:
-    for key in ("business_date", "target_date", "date"):
-        if str(payload.get(key) or "") == business_date_text:
-            return True
-    return False
-
-
-def _candidate_business_date_matches(
-    payload: Mapping[str, Any],
-    *,
-    row: MultimodalEvidence,
-    candidates: list[Mapping[str, Any]],
-    business_date: date,
-) -> bool:
-    business_date_text = business_date.isoformat()
-    if _payload_business_date_matches(payload, business_date_text):
-        return True
-    if _payload_has_business_date(payload):
-        return False
-    raw_text = " ".join(
-        str(text or "")
-        for text in [
-            row.recognized_text,
-            *(candidate.get("raw_text") for candidate in candidates),
-        ]
-    )
-    return _recognized_text_matches_business_date(raw_text, business_date, row.created_at)
-
-
-def _payload_has_business_date(payload: Mapping[str, Any]) -> bool:
-    return any(payload.get(key) not in (None, "") for key in ("business_date", "target_date", "date"))
-
-
-def _recognized_text_matches_business_date(text: str, business_date: date, created_at: Any = None) -> bool:
-    clean = str(text or "")
-    month = business_date.month
-    day = business_date.day
-    month_day_patterns = (
-        rf"(?<!\d)0?{month}\s*月\s*0?{day}\s*日",
-        rf"{business_date.year}\s*年\s*0?{month}\s*月\s*0?{day}\s*日",
-        re.escape(business_date.isoformat()),
-    )
-    if any(re.search(pattern, clean) for pattern in month_day_patterns):
-        return True
-    if "今日" in clean or "今天" in clean:
-        return _created_at_business_date(created_at) == business_date
-    return False
-
-
-def _created_at_business_date(value: Any) -> date | None:
-    if isinstance(value, datetime):
-        return resolve_production_business_date(value)
-    if isinstance(value, date):
-        return value
-    if isinstance(value, str):
-        try:
-            return resolve_production_business_date(datetime.fromisoformat(value))
-        except ValueError:
-            return None
-    return None
-
-
 def _append_unapplied_dingtalk_candidate(
     conflicts: list[Any],
     *,
-    row: MultimodalEvidence,
+    evidence: DingTalkEvidenceItem,
     candidate: Mapping[str, Any],
     reason: str = "payload_business_date_missing_or_mismatch",
 ) -> None:
@@ -844,25 +898,10 @@ def _append_unapplied_dingtalk_candidate(
             "type": "dingtalk_candidate_not_applied",
             "candidate_value": candidate.get("value"),
             "reason": reason,
-            "trace_id": candidate.get("trace_id") or "",
-            "evidence_id": row.id,
+            "trace_id": candidate.get("trace_id") or evidence.trace_id or "",
+            "evidence_id": evidence.evidence_id,
         }
     )
-
-
-def _payload_trace_id(payload: Mapping[str, Any], row: MultimodalEvidence) -> str:
-    trace_id = _payload_explicit_trace_id(payload)
-    if trace_id:
-        return trace_id
-    return str(row.id or "")
-
-
-def _payload_explicit_trace_id(payload: Mapping[str, Any]) -> str:
-    for key in ("trace_id", "id"):
-        value = payload.get(key)
-        if value is not None and value != "":
-            return str(value)
-    return ""
 
 
 def _candidate_confidence(candidate: Mapping[str, Any]) -> float:

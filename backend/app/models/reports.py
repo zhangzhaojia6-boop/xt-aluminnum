@@ -63,6 +63,7 @@ class DailyFactBundleSnapshot(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     run_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('daily_fact_bundle_runs.id'), nullable=True, index=True)
+    snapshot_key: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True, index=True)
     business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     snapshot_reason: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     facts: Mapped[dict] = mapped_column(json_object_type, nullable=False, default=dict)

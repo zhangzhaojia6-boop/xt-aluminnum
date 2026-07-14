@@ -2,6 +2,70 @@ import { filterActiveWorkshopRows, isRetiredWorkshopName } from './activeWorksho
 
 export const MISSING_DAILY_VALUE = '暂无可信数据'
 
+const TRUSTED_FACT_SOURCES = {
+  total_output_daily: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'mes_packaging_output',
+    'mes_verified',
+  ]),
+  finished_inbound_daily: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'finished_inbound_output',
+    'wms_direct',
+    'mes_stock_header_records',
+    'mes_stock_records',
+  ]),
+  wip_total: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'mes_wip_distribution',
+    'mes_coil_snapshot_business_date',
+    'mes_daily_wip_snapshot',
+    'mes_wip_total_snapshot',
+  ]),
+  total_electricity_kwh: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'iot_energy',
+    'owner_daily',
+    'owner_or_energy_summary',
+    'data_hub_manual',
+  ]),
+  daily_yield_rate: new Set([
+    'dingtalk_supplement',
+    'root_owner_correction',
+    'owner_daily',
+    'quality_yield_daily',
+    'computed_same_basis',
+  ]),
+}
+
+function normalizeFactSource(value) {
+  if (typeof value !== 'string' || !value.trim()) return ''
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[ /-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
+export function safeFactSource(value, field) {
+  const normalized = normalizeFactSource(value)
+  const allowed = TRUSTED_FACT_SOURCES[field]
+  if (!normalized || !allowed?.has(normalized)) return null
+  return value.trim()
+}
+
+export function openFactTrace(router, traceId) {
+  const trace = typeof traceId === 'string' ? traceId.trim() : ''
+  if (!trace || typeof router?.push !== 'function') return false
+  router.push({ path: '/manage/alerts', query: { trace_id: trace } })
+  return true
+}
+
 function toNumber(value) {
   if (value === null || value === undefined || value === '') return null
   const numeric = Number(value)
@@ -69,7 +133,7 @@ function filterVisibleWipRows(rows = []) {
   })
 }
 
-export function buildDailySettlementCards(overview = {}) {
+export function buildDailySettlementCards(overview = {}, factClosure) {
   const plantOutput = overview.plant_output || {}
   const contracts = overview.contracts || {}
   const energy = overview.energy || {}
@@ -77,7 +141,7 @@ export function buildDailySettlementCards(overview = {}) {
   const hasEnergy = isEnergyAvailable(energy)
   const processThroughput = sumWorkshopOutput(overview.workshop_output || [])
 
-  return [
+  const cards = [
     {
       key: 'feeding-input',
       label: '投料量',
@@ -90,7 +154,6 @@ export function buildDailySettlementCards(overview = {}) {
     {
       key: 'plant-output',
       label: '包装产量',
-      sourceLabel: '包装工序',
       value: formatPlainMetric(plantOutput.daily_output),
       unit: '吨',
       deltaText: plantOutput.yesterday_output == null ? null : `比昨日 ${formatPlainMetric((toNumber(plantOutput.daily_output) || 0) - (toNumber(plantOutput.yesterday_output) || 0))} 吨`,
@@ -99,7 +162,6 @@ export function buildDailySettlementCards(overview = {}) {
     {
       key: 'finished-inbound',
       label: '全厂入库产量',
-      sourceLabel: '成品入库',
       value: formatPlainMetric(plantOutput.finished_inbound_output),
       unit: plantOutput.finished_inbound_output == null ? '' : '吨',
       tone: plantOutput.finished_inbound_output == null ? 'muted' : 'success',
@@ -131,12 +193,43 @@ export function buildDailySettlementCards(overview = {}) {
     {
       key: 'yield-rate',
       label: '全厂成品率',
-      sourceLabel: '投料入库',
       value: formatPlainMetric(plantOutput.yield_rate ?? yieldRates.daily),
       unit: (plantOutput.yield_rate ?? yieldRates.daily) == null ? '' : '%',
       tone: 'primary',
     },
   ]
+
+  if (arguments.length < 2) return cards
+
+  const facts = new Map(
+    buildFactClosureSurface(factClosure).criticalFields.map((field) => [field.key, field])
+  )
+  const fieldByCard = {
+    'plant-output': 'total_output_daily',
+    'finished-inbound': 'finished_inbound_daily',
+    'yield-rate': 'daily_yield_rate',
+  }
+  return cards.map((card) => {
+    const fieldName = fieldByCard[card.key]
+    if (!fieldName) return card
+    const fact = facts.get(fieldName) || {
+      value: null,
+      unit: null,
+      status: 'missing',
+      source: '暂无可信来源',
+    }
+    const numeric = toNumber(fact.value)
+    const confirmed = fact.status === 'confirmed' && numeric !== null
+    const { deltaText: _deltaText, deltaTone: _deltaTone, ...baseCard } = card
+    return {
+      ...baseCard,
+      value: confirmed ? formatPlainMetric(numeric) : '--',
+      unit: fact.unit || '',
+      status: confirmed ? 'confirmed' : (fact.status === 'confirmed' ? 'missing' : fact.status || 'missing'),
+      sourceLabel: fact.source || '暂无可信来源',
+      tone: confirmed ? card.tone : 'muted',
+    }
+  })
 }
 
 export function buildDailyComparisonCards(overview = {}) {
@@ -206,17 +299,26 @@ export function buildFactClosureSurface(factClosure) {
   const fields = Array.isArray(factClosure?.critical_fields)
     ? factClosure.critical_fields
     : []
-  const validFields = fields.filter((field) => field && typeof field === 'object' && !Array.isArray(field))
+  const validFields = fields.filter((field) => (
+    field
+    && typeof field === 'object'
+    && !Array.isArray(field)
+    && typeof field.field === 'string'
+    && field.field.trim()
+  ))
 
   return {
     status: factClosure?.status || 'unknown',
     blockedCount: validFields.filter((field) => field.status !== 'confirmed').length,
     criticalFields: validFields.map((field) => ({
       key: field.field,
-      status: field.status,
-      source: field.source || '暂无可信来源',
-      action: field.action || '等待鑫泰铝业智能大脑追踪',
-      traceId: field.trace_id || '',
+      value: Object.prototype.hasOwnProperty.call(field, 'value') ? field.value : null,
+      unit: typeof field.unit === 'string' ? field.unit : null,
+      status: typeof field.status === 'string' && field.status ? field.status : 'missing',
+      source: safeFactSource(field.source, field.field) || '暂无可信来源',
+      businessWindow: typeof field.business_window === 'string' ? field.business_window : null,
+      action: typeof field.action === 'string' && field.action ? field.action : '等待鑫泰铝业智能大脑追踪',
+      traceId: typeof field.trace_id === 'string' ? field.trace_id : '',
     })),
   }
 }
