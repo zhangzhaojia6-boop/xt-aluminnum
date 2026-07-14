@@ -355,6 +355,20 @@ def test_production_sync_status_builds_reversible_isolated_hermes_runtime() -> N
     assert capture_index < prepare_index < backup_index < trap_index < stop_index < checkout_index < switch_index < restart_index
 
 
+def test_production_status_reports_managed_uv_state_without_secret_material() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    report_body = _extract_shell_function(source, 'report_status')
+    uv_report_body = _extract_shell_function(source, 'report_managed_uv_state')
+
+    assert 'report_managed_uv_state' in report_body
+    assert 'HERMES_MANAGED_UV_STATE=' in uv_report_body
+    assert 'HERMES_MANAGED_UV_VERSION=' in uv_report_body
+    assert 'HERMES_UV_ARCHIVE_RESIDUE_COUNT=' in uv_report_body
+    assert 'HERMES_UV_EXTRACT_RESIDUE_COUNT=' in uv_report_body
+    assert 'cat ' not in uv_report_body
+    assert 'systemctl show -p Environment' not in uv_report_body
+
+
 def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
     source = _read('.github/workflows/production-sync-status.yml')
     capture_body = _extract_shell_function(source, 'capture_hermes_gateway_command_contract')

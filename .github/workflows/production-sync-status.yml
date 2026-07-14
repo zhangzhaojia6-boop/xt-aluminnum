@@ -466,6 +466,42 @@ jobs:
             echo "HERMES_MANAGED_UV_VERSION=$HERMES_UV_VERSION"
           }
 
+          report_managed_uv_state() {
+            local actual_version=""
+            local archive_count
+            local extract_count
+            archive_count="$(find /tmp -maxdepth 1 -type f -name 'hermes-uv.*.tar.gz' -print 2>/dev/null | wc -l | tr -d ' ')"
+            extract_count="$(find /tmp -maxdepth 1 -type d -name 'hermes-uv-extract.*' -print 2>/dev/null | wc -l | tr -d ' ')"
+            echo "HERMES_UV_ARCHIVE_RESIDUE_COUNT=$archive_count"
+            echo "HERMES_UV_EXTRACT_RESIDUE_COUNT=$extract_count"
+            if [ ! -e "$HERMES_MANAGED_UV" ]; then
+              echo "HERMES_MANAGED_UV_STATE=missing"
+              echo "HERMES_MANAGED_UV_VERSION=missing"
+              return 0
+            fi
+            if [ ! -x "$HERMES_MANAGED_UV" ]; then
+              echo "HERMES_MANAGED_UV_STATE=not_executable"
+              echo "HERMES_MANAGED_UV_VERSION=unavailable"
+              return 0
+            fi
+            if ! actual_version="$("$HERMES_MANAGED_UV" --version 2>/dev/null)"; then
+              echo "HERMES_MANAGED_UV_STATE=execution_failed"
+              echo "HERMES_MANAGED_UV_VERSION=unavailable"
+              return 0
+            fi
+            if ! printf '%s' "$actual_version" | grep -Eq '^uv [0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "HERMES_MANAGED_UV_STATE=version_unreadable"
+              echo "HERMES_MANAGED_UV_VERSION=redacted"
+              return 0
+            fi
+            echo "HERMES_MANAGED_UV_VERSION=${actual_version#uv }"
+            if [ "$actual_version" = "uv $HERMES_UV_VERSION" ]; then
+              echo "HERMES_MANAGED_UV_STATE=ready"
+            else
+              echo "HERMES_MANAGED_UV_STATE=version_mismatch"
+            fi
+          }
+
           verify_hermes_runtime_env() {
             local runtime_env="$1"
             "$runtime_env/bin/python" - <<'PY'
@@ -929,6 +965,7 @@ jobs:
               report_http_json "VERSIONZ" "http://127.0.0.1:8000/versionz" /tmp/versionz.json || true
             fi
 
+            report_managed_uv_state
             report_hermes_runtime
             if capture_hermes_gateway_command_contract; then
               echo "HERMES_GATEWAY_DEPLOY_CONTRACT=ready"
