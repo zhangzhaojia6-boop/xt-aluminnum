@@ -360,6 +360,11 @@ def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
     assert 'command_args[:3] == ["-m", "hermes_cli.main", "-p"]' in capture_body
     assert 'command_args[4:] == ["gateway", "run"]' in capture_body
     assert 're.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3])' in capture_body
+    assert 'def classify_service_arg(value: str) -> str:' in capture_body
+    assert '"hermes_module"' in capture_body
+    assert '"safe_name"' in capture_body
+    assert 'unexpected Hermes gateway command shape:service_argc=' in capture_body
+    assert ':service_classes=' in capture_body
     assert 'systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"' in capture_body
     assert 'systemctl", "show", "-p", "MainPID", "--value", "hermes-gateway"' in capture_body
     assert 'Hermes gateway MainPID changed during verification' in capture_body
@@ -399,7 +404,7 @@ def test_hermes_gateway_command_contract_retries_transient_pid_and_rejects_persi
                 'python3() {',
                 '  cat >/dev/null',
                 '  if [ "$SCENARIO" = "verifier" ]; then',
-                '    printf "%s\\n" "unexpected Hermes gateway command shape" >&2',
+                '    printf "%s\\n" "unexpected Hermes gateway command shape:service_argc=2:service_classes=option,opaque" >&2',
                 '    return 1',
                 '  fi',
                 '  printf "%s\\n" "-m hermes_cli.main gateway run"',
@@ -433,7 +438,7 @@ def test_hermes_gateway_command_contract_retries_transient_pid_and_rejects_persi
                 'set -e',
                 '[ "$verifier_rc" -ne 0 ]',
                 'grep -Fq "HERMES_GATEWAY_COMMAND_ATTEMPT=1/1:rejected" verifier.out',
-                'grep -Fq "HERMES_GATEWAY_COMMAND_ERROR=unexpected Hermes gateway command shape" verifier.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ERROR=unexpected Hermes gateway command shape:service_argc=2:service_classes=option,opaque" verifier.out',
                 'grep -Fq "HERMES_GATEWAY_COMMAND_CONTRACT=rejected" verifier.out',
                 '',
             ]

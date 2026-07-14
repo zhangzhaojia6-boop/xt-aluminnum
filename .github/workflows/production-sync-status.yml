@@ -244,6 +244,24 @@ jobs:
               raise SystemExit("Hermes systemd executable mismatch")
           service_runtime_args = service_args[1:]
           command_args = service_runtime_args[1:] if service_runtime_args[:1] == ["-P"] else service_runtime_args
+
+          def classify_service_arg(value: str) -> str:
+              known = {
+                  "-P": "safe_path_flag",
+                  "-m": "module_flag",
+                  "hermes_cli.main": "hermes_module",
+                  "-p": "profile_flag",
+                  "gateway": "gateway_command",
+                  "run": "run_command",
+              }
+              if value in known:
+                  return known[value]
+              if value.startswith("-"):
+                  return "option"
+              if re.fullmatch(r"[A-Za-z0-9_.-]+", value) is not None:
+                  return "safe_name"
+              return "opaque"
+
           valid = command_args == ["-m", "hermes_cli.main", "gateway", "run"]
           if not valid:
               valid = (
@@ -253,7 +271,12 @@ jobs:
                   and command_args[4:] == ["gateway", "run"]
               )
           if not valid:
-              raise SystemExit("unexpected Hermes gateway command shape")
+              classes = ",".join(classify_service_arg(value) for value in service_runtime_args)
+              raise SystemExit(
+                  "unexpected Hermes gateway command shape:"
+                  f"service_argc={len(service_runtime_args)}:"
+                  f"service_classes={classes or 'none'}"
+              )
           if service_path != Path(f"/proc/{runtime_pid}/exe").resolve():
               raise SystemExit("Hermes systemd wrapper commands are unsupported")
           raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
@@ -282,7 +305,7 @@ jobs:
             rm -f "$verifier_error_file"
             case "$last_error" in
               main_pid_unavailable|verification_error|\
-              "unexpected Hermes gateway command shape"|\
+              "unexpected Hermes gateway command shape:service_argc="*":service_classes="*|\
               "unexpected Hermes systemd ExecStart count"|\
               "unexpected Hermes systemd ExecStart shape"|\
               "Hermes gateway MainPID changed during verification"|\
