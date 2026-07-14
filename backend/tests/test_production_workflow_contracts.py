@@ -252,6 +252,24 @@ def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contra
     assert 'report_stream_connection "yes" 40 3' in source
 
 
+def test_production_sync_status_reports_hermes_runtime_without_exposing_process_arguments() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    report_body = _extract_shell_function(source, 'report_hermes_runtime')
+
+    assert 'systemctl show -p MainPID --value hermes-gateway' in report_body
+    assert 'readlink -f "/proc/$runtime_pid/exe"' in report_body
+    assert 'HERMES_RUNTIME_PYTHON=' in report_body
+    assert 'HERMES_RUNTIME_PYTHON_VERSION=' in report_body
+    assert 'HERMES_RUNTIME_PREFIX=' in report_body
+    assert 'HERMES_RUNTIME_BASE_PREFIX=' in report_body
+    assert 'HERMES_RUNTIME_IS_VENV=' in report_body
+    assert 'HERMES_RUNTIME_PACKAGE_VERSION=' in report_body
+    assert 'HERMES_RUNTIME_DINGTALK_STREAM_VERSION=' in report_body
+    assert '/proc/$runtime_pid/cmdline' not in report_body
+    report_status_body = _extract_shell_function(source, 'report_status')
+    assert 'report_hermes_runtime' in report_status_body
+
+
 def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract() -> None:
     payload = _load('.github/workflows/configure-dingtalk-stream-prod.yml')
     source = _read('.github/workflows/configure-dingtalk-stream-prod.yml')

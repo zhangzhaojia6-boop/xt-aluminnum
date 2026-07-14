@@ -427,6 +427,47 @@ jobs:
           PY
           }
 
+          report_hermes_runtime() {
+            local runtime_pid
+            local runtime_python
+            runtime_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null || true)"
+            if ! printf '%s' "$runtime_pid" | grep -Eq '^[1-9][0-9]*$'; then
+              echo "HERMES_RUNTIME_PYTHON=unavailable"
+              echo "HERMES_RUNTIME_INSPECTION=main_pid_unavailable"
+              return 0
+            fi
+            runtime_python="$(readlink -f "/proc/$runtime_pid/exe" 2>/dev/null || true)"
+            echo "HERMES_RUNTIME_PYTHON=${runtime_python:-unavailable}"
+            if [ -z "$runtime_python" ] || [ ! -x "$runtime_python" ]; then
+              echo "HERMES_RUNTIME_INSPECTION=executable_unavailable"
+              return 0
+            fi
+            case "$runtime_python" in
+              */python|*/python[0-9]|*/python[0-9].*) ;;
+              *)
+                echo "HERMES_RUNTIME_INSPECTION=main_process_is_not_python"
+                return 0
+                ;;
+            esac
+            "$runtime_python" - <<'PY'
+          from importlib import metadata
+          import sys
+
+          def package_version(name: str) -> str:
+              try:
+                  return metadata.version(name)
+              except metadata.PackageNotFoundError:
+                  return "missing"
+
+          print("HERMES_RUNTIME_PYTHON_VERSION=" + ".".join(str(part) for part in sys.version_info[:3]))
+          print(f"HERMES_RUNTIME_PREFIX={sys.prefix}")
+          print(f"HERMES_RUNTIME_BASE_PREFIX={sys.base_prefix}")
+          print(f"HERMES_RUNTIME_IS_VENV={str(sys.prefix != sys.base_prefix).lower()}")
+          print(f"HERMES_RUNTIME_PACKAGE_VERSION={package_version('hermes-agent')}")
+          print(f"HERMES_RUNTIME_DINGTALK_STREAM_VERSION={package_version('dingtalk-stream')}")
+          PY
+          }
+
           report_stream_connection() {
             local require_connected="$1"
             local attempts="${2:-1}"
@@ -483,6 +524,7 @@ jobs:
               report_http_json "VERSIONZ" "http://127.0.0.1:8000/versionz" /tmp/versionz.json || true
             fi
 
+            report_hermes_runtime
             report_stream_connection "no" || true
             echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
           }
