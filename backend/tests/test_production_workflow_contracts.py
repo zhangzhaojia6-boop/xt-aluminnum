@@ -212,6 +212,11 @@ def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contra
     assert 'journalctl -u hermes-gateway' in source
     assert 'Connected via Stream Mode' in source
     assert 'systemctl show -p ActiveEnterTimestamp' in source
+    assert 'local attempts="${2:-1}"' in source
+    assert 'local delay_seconds="${3:-0}"' in source
+    assert 'for attempt in $(seq 1 "$attempts")' in source
+    assert 'sleep "$delay_seconds"' in source
+    assert 'report_stream_connection "yes" 40 3' in source
 
 
 def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract() -> None:
@@ -261,7 +266,7 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert "payload->>'file_text'" in source
     assert "payload->>'attachment_text'" in source
     assert 'WHERE created_at >= :since' in source
-    assert 'report_stream_connection "yes"' in source
+    assert 'report_stream_connection "yes" 40 3' in source
     assert 'DATAHUB_STREAM_RELAY_TOKEN_PRESENT=' in source
     assert 'HERMES_STREAM_RELAY_TOKEN_PRESENT=' in source
     rollback_body = _extract_shell_function(source, 'rollback_on_apply_error')

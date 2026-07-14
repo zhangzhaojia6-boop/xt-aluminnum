@@ -424,11 +424,27 @@ jobs:
 
           report_stream_connection() {
             local require_connected="$1"
+            local attempts="${2:-1}"
+            local delay_seconds="${3:-0}"
             local active_since
             local connected_line
+            local attempt
             active_since="$(systemctl show -p ActiveEnterTimestamp --value hermes-gateway)"
             echo "HERMES_ACTIVE_ENTER_TIMESTAMP=$active_since"
-            connected_line="$(journalctl -u hermes-gateway --since "$active_since" --no-pager -o short-iso 2>/dev/null | grep -F 'Connected via Stream Mode' | tail -n 1 || true)"
+            connected_line=""
+            for attempt in $(seq 1 "$attempts"); do
+              connected_line="$(journalctl -u hermes-gateway --since "$active_since" --no-pager -o short-iso 2>/dev/null | grep -F 'Connected via Stream Mode' | tail -n 1 || true)"
+              if [ -n "$connected_line" ]; then
+                break
+              fi
+              if ! systemctl is-active --quiet hermes-gateway; then
+                echo "HERMES_GATEWAY_INACTIVE_DURING_STREAM_WAIT"
+                break
+              fi
+              if [ "$attempt" -lt "$attempts" ]; then
+                sleep "$delay_seconds"
+              fi
+            done
             if [ -n "$connected_line" ]; then
               echo "HERMES_STREAM_CONNECTED=yes"
               echo "HERMES_STREAM_CONNECTED_LINE=$connected_line"
@@ -754,7 +770,7 @@ jobs:
           echo "SMOKE_TRACE_ID=$smoke_trace"
           echo "SMOKE_PERSISTENCE=$(verify_smoke_trace_persisted "$RAW_DATABASE_URL" "$smoke_trace")"
 
-          report_stream_connection "yes"
+          report_stream_connection "yes" 40 3
           echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
 
           report_status "yes"
