@@ -199,6 +199,60 @@ jobs:
           HERMES_RUNTIME_DROPIN_BACKUP=""
           HERMES_RUNTIME_DROPIN_EXISTED=0
           HERMES_TARGET_RUNTIME_ENV=""
+          HERMES_GATEWAY_ARGS=""
+
+          capture_hermes_gateway_command_contract() {
+            local runtime_pid
+            runtime_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null || true)"
+            if ! printf '%s' "$runtime_pid" | grep -Eq '^[1-9][0-9]*$'; then
+              echo "HERMES_GATEWAY_COMMAND_CONTRACT=main_pid_unavailable"
+              return 1
+            fi
+            HERMES_GATEWAY_ARGS="$(python3 - "$runtime_pid" <<'PY'
+          from pathlib import Path
+          import re
+          import shlex
+          import subprocess
+          import sys
+
+          runtime_pid = sys.argv[1]
+          raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
+          argv = [item.decode("utf-8", errors="strict") for item in raw_args if item]
+          args = argv[1:]
+          command_args = args[1:] if args[:1] == ["-P"] else args
+          valid = command_args == ["-m", "hermes_cli.main", "gateway", "run"]
+          if not valid:
+              valid = (
+                  len(command_args) == 6
+                  and command_args[:3] == ["-m", "hermes_cli.main", "-p"]
+                  and re.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3]) is not None
+                  and command_args[4:] == ["gateway", "run"]
+              )
+          if not valid:
+              raise SystemExit("unexpected Hermes gateway command shape")
+          service_exec = subprocess.check_output(
+              ["systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"],
+              text=True,
+          ).strip()
+          if service_exec.count("argv[]=") != 1:
+              raise SystemExit("unexpected Hermes systemd ExecStart count")
+          match = re.search(r"path=(\S+)\s*;\s*argv\[\]=(.*?)\s*;", service_exec)
+          if match is None:
+              raise SystemExit("unexpected Hermes systemd ExecStart shape")
+          service_path = Path(match.group(1)).resolve()
+          service_args = shlex.split(match.group(2))
+          if not service_args or service_path != Path(service_args[0]).resolve():
+              raise SystemExit("Hermes systemd executable mismatch")
+          if service_path != Path(f"/proc/{runtime_pid}/exe").resolve():
+              raise SystemExit("Hermes systemd wrapper commands are unsupported")
+          if service_args[1:] != args:
+              raise SystemExit("Hermes systemd arguments differ from the running process")
+          print(" ".join(command_args))
+          PY
+          )"
+            test -n "$HERMES_GATEWAY_ARGS"
+            echo "HERMES_GATEWAY_COMMAND_CONTRACT=accepted"
+          }
 
           backup_hermes_runtime_dropin() {
             if [ -f "$HERMES_RUNTIME_DROPIN_FILE" ]; then
@@ -245,15 +299,17 @@ jobs:
               echo "HERMES_RUNTIME_PYTHON_MISSING=$runtime_python"
               return 1
             fi
+            if [ -z "$HERMES_GATEWAY_ARGS" ]; then
+              echo "HERMES_GATEWAY_COMMAND_CONTRACT=missing"
+              return 1
+            fi
             service_path="$(systemctl show -p Environment --value hermes-gateway 2>/dev/null | tr ' ' '\n' | sed -n 's/^PATH=//p' | tail -n 1)"
             service_path="${service_path:-/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
             dropin_tmp="$(mktemp /tmp/hermes-runtime-dropin-new.XXXXXX)"
             cat > "$dropin_tmp" <<EOF
           [Service]
           ExecStart=
-          ExecStart=$runtime_python -m hermes_cli.main gateway run
-          ExecStopPost=
-          ExecStopPost=-$runtime_python -m gateway.cgroup_cleanup
+          ExecStart=$runtime_python -P $HERMES_GATEWAY_ARGS
           Environment="VIRTUAL_ENV=$runtime_env"
           Environment="PATH=$runtime_env/bin:$service_path"
           EOF
@@ -327,14 +383,20 @@ jobs:
             local runtime_env="$1"
             "$runtime_env/bin/python" - <<'PY'
           from importlib import metadata, util
+          from pathlib import Path
           import sys
 
           if not ((3, 11) <= sys.version_info[:2] < (3, 14)):
               raise SystemExit("unsupported Hermes Python runtime")
-          if util.find_spec("hermes_cli.main") is None:
+          hermes_spec = util.find_spec("hermes_cli.main")
+          if hermes_spec is None or hermes_spec.origin is None:
               raise SystemExit("hermes_cli.main is unavailable")
           if util.find_spec("dingtalk_stream") is None:
               raise SystemExit("dingtalk_stream is unavailable")
+          runtime_root = Path(sys.prefix).resolve()
+          package_origin = Path(hermes_spec.origin).resolve()
+          if runtime_root != package_origin and runtime_root not in package_origin.parents:
+              raise SystemExit("HERMES_TARGET_PACKAGE_OUTSIDE_RUNTIME")
           print("HERMES_TARGET_PYTHON_VERSION=" + ".".join(str(part) for part in sys.version_info[:3]))
           print(f"HERMES_TARGET_PACKAGE_VERSION={metadata.version('hermes-agent')}")
           print(f"HERMES_TARGET_DINGTALK_STREAM_VERSION={metadata.version('dingtalk-stream')}")
@@ -343,6 +405,7 @@ jobs:
 
           prepare_hermes_runtime() {
             local target_sha="$1"
+            local build_source=""
             local release_env
             local runtime_created=0
             local service_user
@@ -369,19 +432,27 @@ jobs:
                 return 1
               fi
               runtime_created=1
+              build_source="$(mktemp -d "/tmp/hermes-build.${target_sha}.XXXXXX")"
+              if ! git -C "$HERMES_REPO" archive "$target_sha" | tar -x -C "$build_source"; then
+                rm -rf -- "$build_source"
+                rm -rf -- "$release_env"
+                return 1
+              fi
               if ! (
-                cd "$HERMES_REPO" &&
+                cd "$build_source" &&
                 UV_NO_CONFIG=1 \
                 UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
                 UV_PYTHON_BIN_DIR=/usr/local/share/uv/bin \
                 UV_PROJECT_ENVIRONMENT="$release_env" \
                 UV_PYTHON="$release_env/bin/python" \
                 VIRTUAL_ENV="$release_env" \
-                "$HERMES_MANAGED_UV" sync --locked --extra dingtalk
+                "$HERMES_MANAGED_UV" sync --locked --extra dingtalk --no-editable
               ); then
+                rm -rf -- "$build_source"
                 rm -rf -- "$release_env"
                 return 1
               fi
+              rm -rf -- "$build_source"
               if ! verify_hermes_runtime_env "$release_env"; then
                 if [ "$runtime_created" = "1" ]; then
                   rm -rf -- "$release_env"
@@ -772,6 +843,11 @@ jobs:
             fi
 
             report_hermes_runtime
+            if capture_hermes_gateway_command_contract; then
+              echo "HERMES_GATEWAY_DEPLOY_CONTRACT=ready"
+            else
+              echo "HERMES_GATEWAY_DEPLOY_CONTRACT=rejected"
+            fi
             report_stream_connection "no" || true
             echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
           }
@@ -957,6 +1033,9 @@ jobs:
             require_trusted_head "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES
           fi
 
+          capture_hermes_gateway_command_contract
+          prepare_hermes_runtime "$HERMES_SHA"
+
           mkdir -p "$BACKUP_DIR"
           timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
           DB_BACKUP="$BACKUP_DIR/pre-task10-deploy-${timestamp}.dump"
@@ -1012,7 +1091,6 @@ jobs:
           systemctl stop hermes-gateway
           git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"
           HERMES_CHECKOUT_DONE=1
-          prepare_hermes_runtime "$HERMES_SHA"
           write_hermes_runtime_dropin "$HERMES_TARGET_RUNTIME_ENV"
           echo "HERMES_DEPENDENCY_SYNC=locked_dingtalk_runtime"
 

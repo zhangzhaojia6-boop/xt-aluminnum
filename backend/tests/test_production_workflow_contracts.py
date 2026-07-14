@@ -290,6 +290,9 @@ def test_production_sync_status_reports_hermes_runtime_without_exposing_process_
     assert 'HERMES_RUNTIME_ARGV' not in report_body
     report_status_body = _extract_shell_function(source, 'report_status')
     assert 'report_hermes_runtime' in report_status_body
+    assert 'capture_hermes_gateway_command_contract' in report_status_body
+    assert 'HERMES_GATEWAY_DEPLOY_CONTRACT=ready' in report_status_body
+    assert 'HERMES_GATEWAY_DEPLOY_CONTRACT=rejected' in report_status_body
 
 
 def test_production_sync_status_builds_reversible_isolated_hermes_runtime() -> None:
@@ -315,22 +318,46 @@ def test_production_sync_status_builds_reversible_isolated_hermes_runtime() -> N
     assert 'python install 3.11' in source
     assert 'venv "$release_env" --python 3.11' in source
     assert 'UV_PROJECT_ENVIRONMENT="$release_env"' in source
-    assert 'sync --locked --extra dingtalk' in source
+    assert 'sync --locked --extra dingtalk --no-editable' in source
+    assert 'git -C "$HERMES_REPO" archive "$target_sha"' in source
+    assert 'cd "$build_source"' in source
     assert 'HERMES_RUNTIME_ENV_ROOT="$HERMES_HOME/runtime-envs"' in source
     assert 'release_env="$HERMES_RUNTIME_ENV_ROOT/$target_sha"' in source
-    assert 'ExecStart=$runtime_python -m hermes_cli.main gateway run' in source
-    assert 'ExecStopPost=-$runtime_python -m gateway.cgroup_cleanup' in source
+    assert 'capture_hermes_gateway_command_contract()' in source
+    assert 'ExecStart=$runtime_python -P $HERMES_GATEWAY_ARGS' in source
+    writer_body = _extract_shell_function(source, 'write_hermes_runtime_dropin')
+    assert 'ExecStopPost' not in writer_body
+    assert 'WorkingDirectory=' not in writer_body
+    assert 'HERMES_TARGET_PACKAGE_OUTSIDE_RUNTIME' in source
     assert 'HERMES_DEPENDENCY_SYNC_SKIPPED' not in source
 
-    trap_index = deployment.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT")
+    capture_index = deployment.find('capture_hermes_gateway_command_contract')
+    prepare_index = deployment.find('prepare_hermes_runtime "$HERMES_SHA"')
     backup_index = deployment.find('backup_hermes_runtime_dropin')
+    trap_index = deployment.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT")
     stop_index = deployment.find('systemctl stop hermes-gateway')
     checkout_index = deployment.find('git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"')
-    prepare_index = deployment.find('prepare_hermes_runtime "$HERMES_SHA"')
     switch_index = deployment.find('write_hermes_runtime_dropin "$HERMES_TARGET_RUNTIME_ENV"')
     restart_index = deployment.find('systemctl restart hermes-gateway')
-    assert -1 not in (trap_index, backup_index, stop_index, checkout_index, prepare_index, switch_index, restart_index)
-    assert backup_index < trap_index < stop_index < checkout_index < prepare_index < switch_index < restart_index
+    assert -1 not in (capture_index, prepare_index, trap_index, backup_index, stop_index, checkout_index, switch_index, restart_index)
+    assert capture_index < prepare_index < backup_index < trap_index < stop_index < checkout_index < switch_index < restart_index
+
+
+def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    capture_body = _extract_shell_function(source, 'capture_hermes_gateway_command_contract')
+
+    assert 'command_args == ["-m", "hermes_cli.main", "gateway", "run"]' in capture_body
+    assert 'command_args[:3] == ["-m", "hermes_cli.main", "-p"]' in capture_body
+    assert 'command_args[4:] == ["gateway", "run"]' in capture_body
+    assert 're.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3])' in capture_body
+    assert 'systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"' in capture_body
+    assert 'service_exec.count("argv[]=") != 1' in capture_body
+    assert 'service_args[1:] != args' in capture_body
+    assert 'service_path != Path(f"/proc/{runtime_pid}/exe").resolve()' in capture_body
+    assert 'command_args = args[1:] if args[:1] == ["-P"] else args' in capture_body
+    assert 'unexpected Hermes gateway command shape' in capture_body
+    assert 'HERMES_GATEWAY_ARGS=' in capture_body
 
 
 def test_hermes_runtime_dropin_switch_and_restore_preserve_previous_service_command() -> None:
@@ -359,11 +386,12 @@ def test_hermes_runtime_dropin_switch_and_restore_preserve_previous_service_comm
                     'HERMES_RUNTIME_DROPIN_FILE="$HERMES_RUNTIME_DROPIN_DIR/10-xintai-runtime.conf"',
                     'HERMES_RUNTIME_DROPIN_BACKUP=',
                     'HERMES_RUNTIME_DROPIN_EXISTED=0',
+                    'HERMES_GATEWAY_ARGS="-m hermes_cli.main gateway run"',
                     f'release_env="$HERMES_RUNTIME_ENV_ROOT/{target_sha}"',
                     'mkdir -p "$release_env/bin" "$HERMES_RUNTIME_DROPIN_DIR"',
                     'printf "#!/usr/bin/env bash\\n" > "$release_env/bin/python"',
                     'chmod +x "$release_env/bin/python"',
-                    'printf "[Service]\\nExecStart=/usr/bin/python3.10 -m hermes_cli.main gateway run\\n" > "$HERMES_RUNTIME_DROPIN_FILE"',
+                    'printf "[Service]\\nExecStart=/usr/bin/python3.10 -m hermes_cli.main gateway run\\nExecStopPost=-/bin/true\\nEnvironment=KEEP_ME=yes\\n" > "$HERMES_RUNTIME_DROPIN_FILE"',
                     'systemctl() { printf "systemctl:%s\\n" "$*"; }',
                     *function_bodies,
                     'backup_hermes_runtime_dropin',
@@ -393,9 +421,9 @@ def test_hermes_runtime_dropin_switch_and_restore_preserve_previous_service_comm
 
     assert result.returncode == 0, result.stderr
     normalized_switched = switched.replace('\\', '/')
-    assert f'/runtime-envs/{target_sha}/bin/python -m hermes_cli.main gateway run' in normalized_switched
-    assert f'/runtime-envs/{target_sha}/bin/python -m gateway.cgroup_cleanup' in normalized_switched
-    assert restored == '[Service]\nExecStart=/usr/bin/python3.10 -m hermes_cli.main gateway run\n'
+    assert f'/runtime-envs/{target_sha}/bin/python -P -m hermes_cli.main gateway run' in normalized_switched
+    assert 'ExecStopPost' not in switched
+    assert restored == '[Service]\nExecStart=/usr/bin/python3.10 -m hermes_cli.main gateway run\nExecStopPost=-/bin/true\nEnvironment=KEEP_ME=yes\n'
     assert result.stdout.count('systemctl:daemon-reload') == 2
 
 
