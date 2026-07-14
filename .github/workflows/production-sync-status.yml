@@ -428,8 +428,28 @@ jobs:
           }
 
           report_hermes_runtime() {
+            local host_os_id="unknown"
+            local host_os_version_id="unknown"
+            local host_python_311
+            local host_python_312
+            local host_uv
             local runtime_pid
             local runtime_python
+            if [ -r /etc/os-release ]; then
+              host_os_id="$(. /etc/os-release; printf '%s' "${ID:-unknown}")"
+              host_os_version_id="$(. /etc/os-release; printf '%s' "${VERSION_ID:-unknown}")"
+            fi
+            host_uv="$(command -v uv 2>/dev/null || true)"
+            host_python_311="$(command -v python3.11 2>/dev/null || true)"
+            host_python_312="$(command -v python3.12 2>/dev/null || true)"
+            echo "HERMES_SERVICE_FRAGMENT_PATH=$(systemctl show -p FragmentPath --value hermes-gateway 2>/dev/null || true)"
+            echo "HERMES_SERVICE_USER=$(systemctl show -p User --value hermes-gateway 2>/dev/null || true)"
+            echo "HERMES_SERVICE_WORKING_DIRECTORY=$(systemctl show -p WorkingDirectory --value hermes-gateway 2>/dev/null || true)"
+            echo "HERMES_HOST_OS_ID=$host_os_id"
+            echo "HERMES_HOST_OS_VERSION_ID=$host_os_version_id"
+            echo "HERMES_HOST_UV=${host_uv:-missing}"
+            echo "HERMES_HOST_PYTHON_3_11=${host_python_311:-missing}"
+            echo "HERMES_HOST_PYTHON_3_12=${host_python_312:-missing}"
             runtime_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null || true)"
             if ! printf '%s' "$runtime_pid" | grep -Eq '^[1-9][0-9]*$'; then
               echo "HERMES_RUNTIME_PYTHON=unavailable"
@@ -438,6 +458,7 @@ jobs:
             fi
             runtime_python="$(readlink -f "/proc/$runtime_pid/exe" 2>/dev/null || true)"
             echo "HERMES_RUNTIME_PYTHON=${runtime_python:-unavailable}"
+            echo "HERMES_RUNTIME_CWD=$(readlink -f "/proc/$runtime_pid/cwd" 2>/dev/null || true)"
             if [ -z "$runtime_python" ] || [ ! -x "$runtime_python" ]; then
               echo "HERMES_RUNTIME_INSPECTION=executable_unavailable"
               return 0
@@ -449,8 +470,10 @@ jobs:
                 return 0
                 ;;
             esac
-            "$runtime_python" - <<'PY'
+            "$runtime_python" - "$runtime_pid" <<'PY'
           from importlib import metadata
+          from pathlib import Path
+          import re
           import sys
 
           def package_version(name: str) -> str:
@@ -459,12 +482,29 @@ jobs:
               except metadata.PackageNotFoundError:
                   return "missing"
 
+          def safe_entrypoint(value: str) -> str:
+              if len(value) > 300 or not re.fullmatch(r"[A-Za-z0-9_./:-]+", value):
+                  return "redacted"
+              if re.search(r"secret|token|password|credential|app[_-]?key", value, re.IGNORECASE):
+                  return "redacted"
+              return value
+
+          runtime_pid = sys.argv[1]
+          raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
+          args = [item.decode("utf-8", errors="replace") for item in raw_args if item]
+          entrypoint = "unavailable"
+          if len(args) >= 3 and args[1] == "-m":
+              entrypoint = "module:" + safe_entrypoint(args[2])
+          elif len(args) >= 2:
+              entrypoint = "script:" + safe_entrypoint(args[1])
+
           print("HERMES_RUNTIME_PYTHON_VERSION=" + ".".join(str(part) for part in sys.version_info[:3]))
           print(f"HERMES_RUNTIME_PREFIX={sys.prefix}")
           print(f"HERMES_RUNTIME_BASE_PREFIX={sys.base_prefix}")
           print(f"HERMES_RUNTIME_IS_VENV={str(sys.prefix != sys.base_prefix).lower()}")
           print(f"HERMES_RUNTIME_PACKAGE_VERSION={package_version('hermes-agent')}")
           print(f"HERMES_RUNTIME_DINGTALK_STREAM_VERSION={package_version('dingtalk-stream')}")
+          print(f"HERMES_RUNTIME_ENTRYPOINT={entrypoint}")
           PY
           }
 

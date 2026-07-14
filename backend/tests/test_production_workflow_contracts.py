@@ -265,7 +265,18 @@ def test_production_sync_status_reports_hermes_runtime_without_exposing_process_
     assert 'HERMES_RUNTIME_IS_VENV=' in report_body
     assert 'HERMES_RUNTIME_PACKAGE_VERSION=' in report_body
     assert 'HERMES_RUNTIME_DINGTALK_STREAM_VERSION=' in report_body
-    assert '/proc/$runtime_pid/cmdline' not in report_body
+    assert 'HERMES_RUNTIME_ENTRYPOINT=' in report_body
+    assert 'HERMES_RUNTIME_CWD=' in report_body
+    assert 'HERMES_SERVICE_FRAGMENT_PATH=' in report_body
+    assert 'HERMES_SERVICE_USER=' in report_body
+    assert 'HERMES_SERVICE_WORKING_DIRECTORY=' in report_body
+    assert 'HERMES_HOST_OS_ID=' in report_body
+    assert 'HERMES_HOST_OS_VERSION_ID=' in report_body
+    assert 'HERMES_HOST_UV=' in report_body
+    assert 'HERMES_HOST_PYTHON_3_11=' in report_body
+    assert 'HERMES_HOST_PYTHON_3_12=' in report_body
+    assert '/proc/{runtime_pid}/cmdline' in report_body
+    assert 'HERMES_RUNTIME_ARGV' not in report_body
     report_status_body = _extract_shell_function(source, 'report_status')
     assert 'report_hermes_runtime' in report_status_body
 
