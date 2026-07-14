@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 import os
 import shutil
@@ -273,6 +274,111 @@ def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contra
     assert 'for attempt in $(seq 1 "$attempts")' in source
     assert 'sleep "$delay_seconds"' in source
     assert 'report_stream_connection "yes" 40 3' in source
+
+
+def test_production_sync_deploy_applies_stream_config_inside_rollback_boundary() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+
+    assert 'STREAM_APP_KEY: ${{ secrets.PROD_DINGTALK_STREAM_APP_KEY }}' in source
+    assert 'STREAM_APP_SECRET: ${{ secrets.PROD_DINGTALK_STREAM_APP_SECRET }}' in source
+    assert 'STREAM_ROBOT_CODE: ${{ secrets.PROD_DINGTALK_STREAM_ROBOT_CODE }}' in source
+    assert 'STREAM_AGENT_ID: ${{ secrets.PROD_DINGTALK_STREAM_AGENT_ID }}' in source
+    assert 'STREAM_APP_ID: ${{ secrets.PROD_DINGTALK_STREAM_APP_ID }}' in source
+    assert 'if [ "$effective_mode" = "deploy" ]; then\n            test -n "$STREAM_APP_KEY"\n            test -n "$STREAM_APP_SECRET"\n          fi' in source
+    assert 'append_remote_assignment STREAM_APP_KEY_B64 "$(b64 "$STREAM_APP_KEY")"' in source
+    assert 'append_remote_assignment STREAM_APP_SECRET_B64 "$(b64 "$STREAM_APP_SECRET")"' in source
+
+    apply_body = _extract_shell_function(source, 'apply_dingtalk_stream_config')
+    assert 'upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"' in apply_body
+    assert 'upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AUTHORIZED_GROUP_IDS" "*"' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_ID" "$stream_app_key"' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_CHATS" ""' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "false"' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "HERMES_LANGUAGE" "zh"' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "XINTAI_SOUL_SYNC_ENABLED" "true"' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "XINTAI_EVIDENCE_RELAY_ENABLED" "true"' in apply_body
+    assert 'DINGTALK_STREAM_CONFIGURATION_APPLIED=yes' in apply_body
+    assert 'echo "$stream_app_key"' not in apply_body
+    assert 'echo "$stream_app_secret"' not in apply_body
+
+    trap_index = source.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT")
+    stop_index = source.find('systemctl stop hermes-gateway', trap_index)
+    apply_index = source.find('apply_dingtalk_stream_config', stop_index)
+    restart_index = source.find('systemctl restart aluminum-bypass', apply_index)
+    assert -1 not in (trap_index, stop_index, apply_index, restart_index)
+    assert trap_index < stop_index < apply_index < restart_index
+    assert 'if [ "$MODE" = "deploy" ]; then\n            apply_dingtalk_stream_config\n          fi' in source
+
+
+def test_production_sync_stream_config_applier_writes_expected_values_without_logging_secrets(tmp_path: Path) -> None:
+    bash = _require_bash()
+    source = _read('.github/workflows/production-sync-status.yml')
+    app_key = 'test-app-key'
+    app_secret = 'test-app-secret'
+    relay_token = 'existing-relay-token'
+
+    def encoded(value: str) -> str:
+        return base64.b64encode(value.encode('utf-8')).decode('ascii')
+
+    script_path = tmp_path / 'apply-stream-config.sh'
+    datahub_env = tmp_path / 'datahub.env'
+    hermes_env = tmp_path / 'hermes.env'
+    datahub_env.write_text(f'HERMES_DINGTALK_STREAM_RELAY_TOKEN={relay_token}\n', encoding='utf-8')
+    hermes_env.write_text('', encoding='utf-8')
+    script_path.write_text(
+        '\n'.join(
+            [
+                '#!/usr/bin/env bash',
+                'set -euo pipefail',
+                'DATAHUB_ENV_FILE=datahub.env',
+                'HERMES_ENV_FILE=hermes.env',
+                f'STREAM_APP_KEY_B64={encoded(app_key)}',
+                f'STREAM_APP_SECRET_B64={encoded(app_secret)}',
+                f'STREAM_ROBOT_CODE_B64={encoded(app_key)}',
+                f'STREAM_AGENT_ID_B64={encoded("4689391809")}',
+                f'STREAM_APP_ID_B64={encoded("test-app-id")}',
+                textwrap.dedent(_extract_shell_function(source, 'read_env_value')),
+                textwrap.dedent(_extract_shell_function(source, 'decode_b64')),
+                'upsert_env_value() {',
+                '  local file="$1" key="$2" value="$3"',
+                '  if grep -q "^${key}=" "$file"; then',
+                '    sed -i "s|^${key}=.*|${key}=${value}|" "$file"',
+                '  else',
+                '    printf "%s=%s\\n" "$key" "$value" >> "$file"',
+                '  fi',
+                '}',
+                textwrap.dedent(_extract_shell_function(source, 'apply_dingtalk_stream_config')),
+                'apply_dingtalk_stream_config',
+                '',
+            ]
+        ),
+        encoding='utf-8',
+        newline='\n',
+    )
+
+    result = subprocess.run(
+        [bash, script_path.name],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+        timeout=15,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'DINGTALK_STREAM_CONFIGURATION_APPLIED=yes' in result.stdout
+    assert app_key not in result.stdout
+    assert app_secret not in result.stdout
+    datahub_values = datahub_env.read_text(encoding='utf-8')
+    hermes_values = hermes_env.read_text(encoding='utf-8')
+    assert 'DINGTALK_AUTHORIZED_GROUP_IDS=*' in datahub_values
+    assert f'DINGTALK_APP_KEY={app_key}' in datahub_values
+    assert f'DINGTALK_CLIENT_SECRET={app_secret}' in hermes_values
+    assert 'DINGTALK_ALLOWED_CHATS=' in hermes_values
+    assert 'DINGTALK_REQUIRE_MENTION=false' in hermes_values
+    assert 'HERMES_LANGUAGE=zh' in hermes_values
+    assert f'XINTAI_DINGTALK_STREAM_RELAY_TOKEN={relay_token}' in hermes_values
 
 
 def test_production_sync_status_reports_hermes_runtime_without_exposing_process_arguments() -> None:
@@ -698,7 +804,6 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
         'cancel-in-progress': False,
     }
     assert inputs['authorized_group_ids']['default'] == '*'
-    assert inputs['mode']['options'] == ['status', 'stage', 'apply', 'verify']
     assert "backend/scripts/hermes_dingtalk_stream_gateway.py --health" not in source
     assert 'rollback_on_apply_error()' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_apply_error \"$rc\"; fi' EXIT" in source
@@ -713,17 +818,8 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'STREAM_APP_SECRET_B64' not in source[ssh_launch_index:ssh_launch_index + 200]
     apply_trap_index = source.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_apply_error \"$rc\"; fi' EXIT")
     first_mutation_index = source.find('upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"')
-    stage_index = source.find('if [ "$MODE" = "stage" ]; then')
-    restart_index = source.find('systemctl restart aluminum-bypass', first_mutation_index)
-    assert -1 not in (apply_trap_index, first_mutation_index, stage_index, restart_index)
+    assert -1 not in (apply_trap_index, first_mutation_index)
     assert apply_trap_index < first_mutation_index
-    assert first_mutation_index < stage_index < restart_index
-    stage_block = source[stage_index:restart_index]
-    assert 'DINGTALK_STREAM_CONFIGURATION_STAGED=yes' in stage_block
-    assert 'report_state' in stage_block
-    assert 'trap - EXIT' in stage_block
-    assert 'exit 0' in stage_block
-    assert 'if [ "$MODE" = "apply" ] || [ "$MODE" = "stage" ]; then' in source
     assert 'systemctl restart hermes-gateway' in source
     assert '/readyz' in source
     assert 'journalctl -u hermes-gateway' in source

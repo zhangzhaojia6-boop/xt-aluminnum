@@ -47,6 +47,11 @@ jobs:
           DATAHUB_SHA: ${{ github.event.inputs.datahub_sha }}
           HERMES_SHA: ${{ github.event.inputs.hermes_sha }}
           ROLLBACK_CONFIRM: ${{ github.event.inputs.rollback_confirm }}
+          STREAM_APP_KEY: ${{ secrets.PROD_DINGTALK_STREAM_APP_KEY }}
+          STREAM_APP_SECRET: ${{ secrets.PROD_DINGTALK_STREAM_APP_SECRET }}
+          STREAM_ROBOT_CODE: ${{ secrets.PROD_DINGTALK_STREAM_ROBOT_CODE }}
+          STREAM_AGENT_ID: ${{ secrets.PROD_DINGTALK_STREAM_AGENT_ID }}
+          STREAM_APP_ID: ${{ secrets.PROD_DINGTALK_STREAM_APP_ID }}
         run: |
           set -euo pipefail
 
@@ -75,6 +80,10 @@ jobs:
           if [ "$effective_mode" = "rollback" ]; then
             test "$ROLLBACK_CONFIRM" = "rollback-to-merged-sha"
           fi
+          if [ "$effective_mode" = "deploy" ]; then
+            test -n "$STREAM_APP_KEY"
+            test -n "$STREAM_APP_SECRET"
+          fi
           if [ "$effective_mode" = "status" ]; then
             DATAHUB_SHA=""
             HERMES_SHA=""
@@ -92,10 +101,21 @@ jobs:
             printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
           }
 
+          b64() {
+            printf '%s' "$1" | base64 -w0
+          }
+
           REMOTE_PREAMBLE=""
           append_remote_assignment MODE "$effective_mode"
           append_remote_assignment DATAHUB_SHA "$DATAHUB_SHA"
           append_remote_assignment HERMES_SHA "$HERMES_SHA"
+          if [ "$effective_mode" = "deploy" ]; then
+            append_remote_assignment STREAM_APP_KEY_B64 "$(b64 "$STREAM_APP_KEY")"
+            append_remote_assignment STREAM_APP_SECRET_B64 "$(b64 "$STREAM_APP_SECRET")"
+            append_remote_assignment STREAM_ROBOT_CODE_B64 "$(b64 "$STREAM_ROBOT_CODE")"
+            append_remote_assignment STREAM_AGENT_ID_B64 "$(b64 "$STREAM_AGENT_ID")"
+            append_remote_assignment STREAM_APP_ID_B64 "$(b64 "$STREAM_APP_ID")"
+          fi
 
           {
             printf '%s' "$REMOTE_PREAMBLE"
@@ -113,6 +133,11 @@ jobs:
           MODE="${MODE:-status}"
           DATAHUB_SHA="${DATAHUB_SHA:-}"
           HERMES_SHA="${HERMES_SHA:-}"
+          STREAM_APP_KEY_B64="${STREAM_APP_KEY_B64:-}"
+          STREAM_APP_SECRET_B64="${STREAM_APP_SECRET_B64:-}"
+          STREAM_ROBOT_CODE_B64="${STREAM_ROBOT_CODE_B64:-}"
+          STREAM_AGENT_ID_B64="${STREAM_AGENT_ID_B64:-}"
+          STREAM_APP_ID_B64="${STREAM_APP_ID_B64:-}"
           DATAHUB_CHECKOUT_DONE=0
           HERMES_CHECKOUT_DONE=0
           NEEDS_DB_RESTORE=0
@@ -128,6 +153,10 @@ jobs:
             local file="$2"
             [ -f "$file" ] || return 0
             { grep -E "^${key}=" "$file" || true; } | tail -n 1 | cut -d= -f2- | tr -d '\r'
+          }
+
+          decode_b64() {
+            printf '%s' "$1" | base64 -d
           }
 
           upsert_env_value() {
@@ -1022,6 +1051,58 @@ jobs:
             systemctl restart nginx
           }
 
+          apply_dingtalk_stream_config() {
+            local stream_app_key
+            local stream_app_secret
+            local stream_robot_code
+            local stream_agent_id
+            local stream_app_id
+            local stream_relay_token
+
+            stream_app_key="$(decode_b64 "$STREAM_APP_KEY_B64")"
+            stream_app_secret="$(decode_b64 "$STREAM_APP_SECRET_B64")"
+            stream_robot_code="$(decode_b64 "$STREAM_ROBOT_CODE_B64")"
+            stream_agent_id="$(decode_b64 "$STREAM_AGENT_ID_B64")"
+            stream_app_id="$(decode_b64 "$STREAM_APP_ID_B64")"
+            if [ -z "$stream_app_key" ] || [ -z "$stream_app_secret" ]; then
+              echo "DINGTALK_STREAM_DEPLOY_CREDENTIALS_MISSING"
+              return 1
+            fi
+
+            stream_relay_token="$(read_env_value HERMES_DINGTALK_STREAM_RELAY_TOKEN "$DATAHUB_ENV_FILE")"
+            if [ -z "$stream_relay_token" ]; then
+              stream_relay_token="$(openssl rand -hex 32)"
+            fi
+
+            upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"
+            upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_DINGTALK_MODE" "stream"
+            upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_KEY" "$stream_app_key"
+            upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_SECRET" "$stream_app_secret"
+            upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AUTHORIZED_GROUP_IDS" "*"
+            upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
+            if [ -n "$stream_robot_code" ]; then
+              upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_ROBOT_CODE" "$stream_robot_code"
+              upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ROBOT_CODE" "$stream_robot_code"
+            fi
+            if [ -n "$stream_agent_id" ]; then
+              upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AGENT_ID" "$stream_agent_id"
+            fi
+            if [ -n "$stream_app_id" ]; then
+              upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_ID" "$stream_app_id"
+            fi
+
+            upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_ID" "$stream_app_key"
+            upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"
+            upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_CHATS" ""
+            upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "false"
+            upsert_env_value "$HERMES_ENV_FILE" "HERMES_LANGUAGE" "zh"
+            upsert_env_value "$HERMES_ENV_FILE" "XINTAI_SOUL_SYNC_ENABLED" "true"
+            upsert_env_value "$HERMES_ENV_FILE" "XINTAI_EVIDENCE_RELAY_ENABLED" "true"
+            upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DATAHUB_BASE_URL" "http://127.0.0.1:8000"
+            upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
+            echo "DINGTALK_STREAM_CONFIGURATION_APPLIED=yes"
+          }
+
           rollback_on_error() {
             local exit_code="${1:-1}"
             local rollback_failed=0
@@ -1256,6 +1337,10 @@ jobs:
           HERMES_CHECKOUT_DONE=1
           write_hermes_runtime_dropin "$HERMES_TARGET_RUNTIME_ENV"
           echo "HERMES_DEPENDENCY_SYNC=locked_dingtalk_runtime"
+
+          if [ "$MODE" = "deploy" ]; then
+            apply_dingtalk_stream_config
+          fi
 
           upsert_env_value "$DATAHUB_ENV_FILE" "BUILD_SHA" "$DATAHUB_SHA"
           upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_BUILD_SHA" "$HERMES_SHA"
