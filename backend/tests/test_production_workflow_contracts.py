@@ -134,6 +134,18 @@ def _extract_shell_function(source: str, name: str) -> str:
     return '\n'.join(collected)
 
 
+def _extract_hermes_gateway_verifier(source: str) -> str:
+    capture_body = _extract_shell_function(source, 'capture_hermes_gateway_command_contract')
+    start_marker = "<<'PY'\n"
+    end_marker = '\n          PY'
+    start = capture_body.find(start_marker)
+    assert start >= 0, 'Hermes gateway verifier heredoc start not found'
+    start += len(start_marker)
+    end = capture_body.find(end_marker, start)
+    assert end >= 0, 'Hermes gateway verifier heredoc end not found'
+    return textwrap.dedent(capture_body[start:end])
+
+
 def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_contract() -> None:
     payload = _load('.github/workflows/production-sync-status.yml')
     source = _read('.github/workflows/production-sync-status.yml')
@@ -352,19 +364,92 @@ def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
     assert 'for attempt in $(seq 1 "$attempts")' in capture_body
     assert 'HERMES_GATEWAY_COMMAND_ATTEMPT=' in capture_body
     assert 'sleep "$delay_seconds"' in capture_body
+    assert (
+        'command_args = service_runtime_args[1:] if service_runtime_args[:1] == ["-P"] else service_runtime_args'
+        in capture_body
+    )
+    assert 'if command_args[-1:] == ["--replace"]:' in capture_body
+    assert 'command_args = command_args[:-1]' in capture_body
     assert 'command_args == ["-m", "hermes_cli.main", "gateway", "run"]' in capture_body
     assert 'command_args[:3] == ["-m", "hermes_cli.main", "-p"]' in capture_body
     assert 'command_args[4:] == ["gateway", "run"]' in capture_body
     assert 're.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3])' in capture_body
+    assert 'def classify_service_arg(value: str) -> str:' in capture_body
+    assert '"hermes_module"' in capture_body
+    assert '"--replace": "legacy_replace_flag"' in capture_body
+    assert '"safe_name"' in capture_body
+    assert 'unexpected Hermes gateway command shape:service_argc=' in capture_body
+    assert ':service_classes=' in capture_body
     assert 'systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"' in capture_body
     assert 'systemctl", "show", "-p", "MainPID", "--value", "hermes-gateway"' in capture_body
     assert 'Hermes gateway MainPID changed during verification' in capture_body
     assert 'service_exec.count("argv[]=") != 1' in capture_body
-    assert 'service_args[1:] != args' in capture_body
-    assert 'service_path != Path(f"/proc/{runtime_pid}/exe").resolve()' in capture_body
-    assert 'command_args = args[1:] if args[:1] == ["-P"] else args' in capture_body
+    assert 'runtime_argv not in (service_args, ["hermes"])' in capture_body
+    assert 'Hermes running process has an unexpected title' in capture_body
+    assert 'service_args[1:] != args' not in capture_body
+    assert 'service_path != Path(runtime_executable).resolve()' in capture_body
+    assert 'runtime_executable = str(Path(f"/proc/{runtime_pid}/exe").resolve())' in capture_body
+    assert 'command_args = args[1:] if args[:1] == ["-P"] else args' not in capture_body
     assert 'unexpected Hermes gateway command shape' in capture_body
     assert 'HERMES_GATEWAY_ARGS=' in capture_body
+
+
+def test_hermes_gateway_verifier_executes_title_command_and_redaction_contracts() -> None:
+    verifier_source = _extract_hermes_gateway_verifier(
+        _read('.github/workflows/production-sync-status.yml')
+    )
+    namespace = {'__name__': 'hermes_gateway_verifier_test'}
+    exec(compile(verifier_source, '<hermes-gateway-verifier>', 'exec'), namespace)
+    verify = namespace['verify_gateway_command_contract']
+
+    executable = '/opt/hermes/python3.11'
+
+    def service_exec(*args: str) -> str:
+        joined = ' '.join((executable, *args))
+        return f'path={executable} ; argv[]={joined} ; ignore_errors=no ;'
+
+    canonical = ('-m', 'hermes_cli.main', 'gateway', 'run')
+    full_argv = [executable, *canonical]
+    assert verify('4242', service_exec(*canonical), '4242', executable, full_argv) == ' '.join(canonical)
+
+    legacy = (*canonical, '--replace')
+    assert verify('4242', service_exec(*legacy), '4242', executable, ['hermes']) == ' '.join(canonical)
+
+    profiled = ('-P', '-m', 'hermes_cli.main', '-p', 'factory', 'gateway', 'run', '--replace')
+    assert verify('4242', service_exec(*profiled), '4242', executable, ['hermes']) == (
+        '-m hermes_cli.main -p factory gateway run'
+    )
+
+    with pytest.raises(SystemExit, match='Hermes running process has an unexpected title'):
+        verify('4242', service_exec(*canonical), '4242', executable, ['hermes', 'gateway'])
+
+    sensitive_option = '--api-token=must-not-leak'
+    with pytest.raises(SystemExit) as command_error:
+        verify(
+            '4242',
+            service_exec(*canonical, sensitive_option),
+            '4242',
+            executable,
+            ['hermes'],
+        )
+    assert 'unexpected Hermes gateway command shape' in str(command_error.value)
+    assert sensitive_option not in str(command_error.value)
+
+    bad_profile = 'factory:secret'
+    with pytest.raises(SystemExit) as profile_error:
+        verify(
+            '4242',
+            service_exec('-m', 'hermes_cli.main', '-p', bad_profile, 'gateway', 'run'),
+            '4242',
+            executable,
+            ['hermes'],
+        )
+    assert bad_profile not in str(profile_error.value)
+
+    with pytest.raises(SystemExit, match='MainPID changed'):
+        verify('4242', service_exec(*canonical), '4343', executable, ['hermes'])
+    with pytest.raises(SystemExit, match='wrapper commands are unsupported'):
+        verify('4242', service_exec(*canonical), '4242', '/opt/hermes/other-python', ['hermes'])
 
 
 def test_hermes_gateway_command_contract_retries_transient_pid_and_rejects_persistent_failure(tmp_path: Path) -> None:
@@ -393,7 +478,7 @@ def test_hermes_gateway_command_contract_retries_transient_pid_and_rejects_persi
                 'python3() {',
                 '  cat >/dev/null',
                 '  if [ "$SCENARIO" = "verifier" ]; then',
-                '    printf "%s\\n" "unexpected Hermes gateway command shape" >&2',
+                '    printf "%s\\n" "unexpected Hermes gateway command shape:service_argc=2:service_classes=option,opaque" >&2',
                 '    return 1',
                 '  fi',
                 '  printf "%s\\n" "-m hermes_cli.main gateway run"',
@@ -427,7 +512,7 @@ def test_hermes_gateway_command_contract_retries_transient_pid_and_rejects_persi
                 'set -e',
                 '[ "$verifier_rc" -ne 0 ]',
                 'grep -Fq "HERMES_GATEWAY_COMMAND_ATTEMPT=1/1:rejected" verifier.out',
-                'grep -Fq "HERMES_GATEWAY_COMMAND_ERROR=unexpected Hermes gateway command shape" verifier.out',
+                'grep -Fq "HERMES_GATEWAY_COMMAND_ERROR=unexpected Hermes gateway command shape:service_argc=2:service_classes=option,opaque" verifier.out',
                 'grep -Fq "HERMES_GATEWAY_COMMAND_CONTRACT=rejected" verifier.out',
                 '',
             ]
