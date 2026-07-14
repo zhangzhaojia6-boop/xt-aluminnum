@@ -223,20 +223,6 @@ jobs:
           import sys
 
           runtime_pid = sys.argv[1]
-          raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
-          argv = [item.decode("utf-8", errors="strict") for item in raw_args if item]
-          args = argv[1:]
-          command_args = args[1:] if args[:1] == ["-P"] else args
-          valid = command_args == ["-m", "hermes_cli.main", "gateway", "run"]
-          if not valid:
-              valid = (
-                  len(command_args) == 6
-                  and command_args[:3] == ["-m", "hermes_cli.main", "-p"]
-                  and re.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3]) is not None
-                  and command_args[4:] == ["gateway", "run"]
-              )
-          if not valid:
-              raise SystemExit("unexpected Hermes gateway command shape")
           service_exec = subprocess.check_output(
               ["systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"],
               text=True,
@@ -256,10 +242,24 @@ jobs:
           service_args = shlex.split(match.group(2))
           if not service_args or service_path != Path(service_args[0]).resolve():
               raise SystemExit("Hermes systemd executable mismatch")
+          service_runtime_args = service_args[1:]
+          command_args = service_runtime_args[1:] if service_runtime_args[:1] == ["-P"] else service_runtime_args
+          valid = command_args == ["-m", "hermes_cli.main", "gateway", "run"]
+          if not valid:
+              valid = (
+                  len(command_args) == 6
+                  and command_args[:3] == ["-m", "hermes_cli.main", "-p"]
+                  and re.fullmatch(r"[A-Za-z0-9_.-]+", command_args[3]) is not None
+                  and command_args[4:] == ["gateway", "run"]
+              )
+          if not valid:
+              raise SystemExit("unexpected Hermes gateway command shape")
           if service_path != Path(f"/proc/{runtime_pid}/exe").resolve():
               raise SystemExit("Hermes systemd wrapper commands are unsupported")
-          if service_args[1:] != args:
-              raise SystemExit("Hermes systemd arguments differ from the running process")
+          raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
+          runtime_argv = [item.decode("utf-8", errors="strict") for item in raw_args if item]
+          if runtime_argv not in (service_args, ["hermes"]):
+              raise SystemExit("Hermes running process has an unexpected title")
           print(" ".join(command_args))
           PY
                 )" && [ -n "$candidate_args" ]; then
@@ -288,7 +288,7 @@ jobs:
               "Hermes gateway MainPID changed during verification"|\
               "Hermes systemd executable mismatch"|\
               "Hermes systemd wrapper commands are unsupported"|\
-              "Hermes systemd arguments differ from the running process") ;;
+              "Hermes running process has an unexpected title") ;;
               *) last_error="verification_error" ;;
             esac
             echo "HERMES_GATEWAY_COMMAND_ERROR=$last_error"

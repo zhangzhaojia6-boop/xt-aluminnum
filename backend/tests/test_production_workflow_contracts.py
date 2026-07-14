@@ -352,6 +352,10 @@ def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
     assert 'for attempt in $(seq 1 "$attempts")' in capture_body
     assert 'HERMES_GATEWAY_COMMAND_ATTEMPT=' in capture_body
     assert 'sleep "$delay_seconds"' in capture_body
+    assert (
+        'command_args = service_runtime_args[1:] if service_runtime_args[:1] == ["-P"] else service_runtime_args'
+        in capture_body
+    )
     assert 'command_args == ["-m", "hermes_cli.main", "gateway", "run"]' in capture_body
     assert 'command_args[:3] == ["-m", "hermes_cli.main", "-p"]' in capture_body
     assert 'command_args[4:] == ["gateway", "run"]' in capture_body
@@ -360,9 +364,11 @@ def test_hermes_runtime_switch_rejects_unknown_gateway_command_shapes() -> None:
     assert 'systemctl", "show", "-p", "MainPID", "--value", "hermes-gateway"' in capture_body
     assert 'Hermes gateway MainPID changed during verification' in capture_body
     assert 'service_exec.count("argv[]=") != 1' in capture_body
-    assert 'service_args[1:] != args' in capture_body
+    assert 'runtime_argv not in (service_args, ["hermes"])' in capture_body
+    assert 'Hermes running process has an unexpected title' in capture_body
+    assert 'service_args[1:] != args' not in capture_body
     assert 'service_path != Path(f"/proc/{runtime_pid}/exe").resolve()' in capture_body
-    assert 'command_args = args[1:] if args[:1] == ["-P"] else args' in capture_body
+    assert 'command_args = args[1:] if args[:1] == ["-P"] else args' not in capture_body
     assert 'unexpected Hermes gateway command shape' in capture_body
     assert 'HERMES_GATEWAY_ARGS=' in capture_body
 
