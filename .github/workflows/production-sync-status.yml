@@ -191,6 +191,213 @@ jobs:
 
           HERMES_HOME="$(detect_hermes_home)"
           HERMES_ENV_FILE="$HERMES_HOME/.env"
+          HERMES_MANAGED_UV="$HERMES_HOME/bin/uv"
+          HERMES_UV_VERSION="0.11.28"
+          HERMES_RUNTIME_ENV_ROOT="$HERMES_HOME/runtime-envs"
+          HERMES_RUNTIME_DROPIN_DIR="/etc/systemd/system/hermes-gateway.service.d"
+          HERMES_RUNTIME_DROPIN_FILE="$HERMES_RUNTIME_DROPIN_DIR/10-xintai-runtime.conf"
+          HERMES_RUNTIME_DROPIN_BACKUP=""
+          HERMES_RUNTIME_DROPIN_EXISTED=0
+          HERMES_TARGET_RUNTIME_ENV=""
+
+          backup_hermes_runtime_dropin() {
+            if [ -f "$HERMES_RUNTIME_DROPIN_FILE" ]; then
+              HERMES_RUNTIME_DROPIN_BACKUP="$(mktemp /tmp/hermes-runtime-dropin.XXXXXX)"
+              cp -p "$HERMES_RUNTIME_DROPIN_FILE" "$HERMES_RUNTIME_DROPIN_BACKUP"
+              HERMES_RUNTIME_DROPIN_EXISTED=1
+            else
+              HERMES_RUNTIME_DROPIN_BACKUP=""
+              HERMES_RUNTIME_DROPIN_EXISTED=0
+            fi
+            echo "HERMES_RUNTIME_DROPIN_EXISTED=$HERMES_RUNTIME_DROPIN_EXISTED"
+          }
+
+          restore_hermes_runtime_dropin() {
+            if [ "${HERMES_RUNTIME_DROPIN_EXISTED:-0}" = "1" ]; then
+              if [ -z "${HERMES_RUNTIME_DROPIN_BACKUP:-}" ] || [ ! -f "$HERMES_RUNTIME_DROPIN_BACKUP" ]; then
+                return 1
+              fi
+              install -d -m 755 "$HERMES_RUNTIME_DROPIN_DIR"
+              install -m 644 "$HERMES_RUNTIME_DROPIN_BACKUP" "$HERMES_RUNTIME_DROPIN_FILE"
+            else
+              rm -f "$HERMES_RUNTIME_DROPIN_FILE"
+            fi
+            systemctl daemon-reload
+            if [ -n "${HERMES_RUNTIME_DROPIN_BACKUP:-}" ]; then
+              rm -f "$HERMES_RUNTIME_DROPIN_BACKUP"
+              HERMES_RUNTIME_DROPIN_BACKUP=""
+            fi
+          }
+
+          write_hermes_runtime_dropin() {
+            local runtime_env="$1"
+            local runtime_python="$runtime_env/bin/python"
+            local dropin_tmp
+            local service_path
+            case "$runtime_env" in
+              "$HERMES_RUNTIME_ENV_ROOT"/[0-9a-f][0-9a-f]*) ;;
+              *)
+                echo "HERMES_RUNTIME_ENV_PATH_REJECTED"
+                return 1
+                ;;
+            esac
+            if [ ! -x "$runtime_python" ]; then
+              echo "HERMES_RUNTIME_PYTHON_MISSING=$runtime_python"
+              return 1
+            fi
+            service_path="$(systemctl show -p Environment --value hermes-gateway 2>/dev/null | tr ' ' '\n' | sed -n 's/^PATH=//p' | tail -n 1)"
+            service_path="${service_path:-/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
+            dropin_tmp="$(mktemp /tmp/hermes-runtime-dropin-new.XXXXXX)"
+            cat > "$dropin_tmp" <<EOF
+          [Service]
+          ExecStart=
+          ExecStart=$runtime_python -m hermes_cli.main gateway run
+          ExecStopPost=
+          ExecStopPost=-$runtime_python -m gateway.cgroup_cleanup
+          Environment="VIRTUAL_ENV=$runtime_env"
+          Environment="PATH=$runtime_env/bin:$service_path"
+          EOF
+            install -d -m 755 "$HERMES_RUNTIME_DROPIN_DIR"
+            install -m 644 "$dropin_tmp" "$HERMES_RUNTIME_DROPIN_FILE"
+            rm -f "$dropin_tmp"
+            systemctl daemon-reload
+            echo "HERMES_RUNTIME_DROPIN_INSTALLED=$HERMES_RUNTIME_DROPIN_FILE"
+          }
+
+          install_managed_uv() {
+            local uv_arch
+            local uv_archive
+            local uv_asset
+            local uv_binary
+            local uv_extract_dir
+            local uv_sha256
+            if [ -x "$HERMES_MANAGED_UV" ]; then
+              test "$("$HERMES_MANAGED_UV" --version)" = "uv $HERMES_UV_VERSION"
+              echo "HERMES_MANAGED_UV_VERSION=$HERMES_UV_VERSION"
+              return
+            fi
+            uv_arch="$(uname -m)"
+            case "$uv_arch" in
+              x86_64)
+                uv_asset="uv-x86_64-unknown-linux-gnu.tar.gz"
+                uv_sha256="e490a6464492183c5d4534a5527fb4440f7f2bb2f228162ad7e4afe076dc0224"
+                ;;
+              aarch64|arm64)
+                uv_asset="uv-aarch64-unknown-linux-gnu.tar.gz"
+                uv_sha256="03e9fe0a81b0718d0bc84625de3885df6cc3f89a8b6af6121d6b9f6113fb6533"
+                ;;
+              *)
+                echo "HERMES_UV_UNSUPPORTED_ARCH=$uv_arch"
+                return 1
+                ;;
+            esac
+            uv_archive="$(mktemp /tmp/hermes-uv.XXXXXX.tar.gz)"
+            uv_extract_dir="$(mktemp -d /tmp/hermes-uv-extract.XXXXXX)"
+            if ! curl -LsSf "https://github.com/astral-sh/uv/releases/download/$HERMES_UV_VERSION/$uv_asset" -o "$uv_archive"; then
+              rm -f "$uv_archive"
+              rm -rf -- "$uv_extract_dir"
+              return 1
+            fi
+            if ! printf '%s  %s\n' "$uv_sha256" "$uv_archive" | sha256sum -c -; then
+              rm -f "$uv_archive"
+              rm -rf -- "$uv_extract_dir"
+              return 1
+            fi
+            if ! tar -xzf "$uv_archive" -C "$uv_extract_dir"; then
+              rm -f "$uv_archive"
+              rm -rf -- "$uv_extract_dir"
+              return 1
+            fi
+            uv_binary="$(find "$uv_extract_dir" -type f -name uv -print -quit)"
+            if [ -z "$uv_binary" ] || [ ! -x "$uv_binary" ]; then
+              rm -f "$uv_archive"
+              rm -rf -- "$uv_extract_dir"
+              return 1
+            fi
+            install -d -m 755 "$HERMES_HOME/bin"
+            install -m 755 "$uv_binary" "$HERMES_MANAGED_UV"
+            rm -f "$uv_archive"
+            rm -rf -- "$uv_extract_dir"
+            test -x "$HERMES_MANAGED_UV"
+            test "$("$HERMES_MANAGED_UV" --version)" = "uv $HERMES_UV_VERSION"
+            echo "HERMES_MANAGED_UV_VERSION=$HERMES_UV_VERSION"
+          }
+
+          verify_hermes_runtime_env() {
+            local runtime_env="$1"
+            "$runtime_env/bin/python" - <<'PY'
+          from importlib import metadata, util
+          import sys
+
+          if not ((3, 11) <= sys.version_info[:2] < (3, 14)):
+              raise SystemExit("unsupported Hermes Python runtime")
+          if util.find_spec("hermes_cli.main") is None:
+              raise SystemExit("hermes_cli.main is unavailable")
+          if util.find_spec("dingtalk_stream") is None:
+              raise SystemExit("dingtalk_stream is unavailable")
+          print("HERMES_TARGET_PYTHON_VERSION=" + ".".join(str(part) for part in sys.version_info[:3]))
+          print(f"HERMES_TARGET_PACKAGE_VERSION={metadata.version('hermes-agent')}")
+          print(f"HERMES_TARGET_DINGTALK_STREAM_VERSION={metadata.version('dingtalk-stream')}")
+          PY
+          }
+
+          prepare_hermes_runtime() {
+            local target_sha="$1"
+            local release_env
+            local runtime_created=0
+            local service_user
+            printf '%s' "$target_sha" | grep -Eq '^[0-9a-f]{40}$'
+            release_env="$HERMES_RUNTIME_ENV_ROOT/$target_sha"
+            install -d -m 755 "$HERMES_RUNTIME_ENV_ROOT"
+            if [ -e "$release_env" ]; then
+              if ! verify_hermes_runtime_env "$release_env"; then
+                echo "HERMES_RUNTIME_ENV_INVALID=$release_env"
+                return 1
+              fi
+              echo "HERMES_RUNTIME_ENV_REUSED=$release_env"
+            else
+              install_managed_uv
+              UV_NO_CONFIG=1 \
+                UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+                UV_PYTHON_BIN_DIR=/usr/local/share/uv/bin \
+                "$HERMES_MANAGED_UV" python install 3.11
+              if ! UV_NO_CONFIG=1 \
+                UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+                UV_PYTHON_BIN_DIR=/usr/local/share/uv/bin \
+                "$HERMES_MANAGED_UV" venv "$release_env" --python 3.11; then
+                rm -rf -- "$release_env"
+                return 1
+              fi
+              runtime_created=1
+              if ! (
+                cd "$HERMES_REPO" &&
+                UV_NO_CONFIG=1 \
+                UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+                UV_PYTHON_BIN_DIR=/usr/local/share/uv/bin \
+                UV_PROJECT_ENVIRONMENT="$release_env" \
+                UV_PYTHON="$release_env/bin/python" \
+                VIRTUAL_ENV="$release_env" \
+                "$HERMES_MANAGED_UV" sync --locked --extra dingtalk
+              ); then
+                rm -rf -- "$release_env"
+                return 1
+              fi
+              if ! verify_hermes_runtime_env "$release_env"; then
+                if [ "$runtime_created" = "1" ]; then
+                  rm -rf -- "$release_env"
+                fi
+                return 1
+              fi
+              echo "HERMES_RUNTIME_ENV_CREATED=$release_env"
+            fi
+            service_user="$(systemctl show -p User --value hermes-gateway 2>/dev/null || true)"
+            service_user="${service_user:-root}"
+            if [ "$service_user" != "root" ]; then
+              runuser -u "$service_user" -- "$release_env/bin/python" -c \
+                'from importlib import util; assert util.find_spec("hermes_cli.main"); assert util.find_spec("dingtalk_stream")'
+            fi
+            HERMES_TARGET_RUNTIME_ENV="$release_env"
+          }
 
           git_tracked_clean() {
             local repo="$1"
@@ -675,12 +882,17 @@ jobs:
               echo "ROLLBACK_FAILED_FRONTEND_BUILD"
               rollback_failed=1
             fi
+            if ! restore_hermes_runtime_dropin; then
+              echo "ROLLBACK_FAILED_HERMES_RUNTIME_DROPIN"
+              rollback_failed=1
+            else
+              echo "ROLLBACK_HERMES_RUNTIME_RESTORED"
+            fi
             if [ "$rollback_failed" -ne 0 ]; then
               echo "DEPLOY_FAILED_ROLLBACK_BUILD_RESTORE_INCOMPLETE"
               echo "DEPLOY_FAILED_ROLLBACK_INCOMPLETE"
               exit 97
             fi
-            echo "ROLLBACK_HERMES_DEPENDENCY_SYNC_SKIPPED=deploy_did_not_mutate_hermes_dependencies"
             if ! systemctl restart aluminum-bypass; then
               echo "ROLLBACK_FAILED_ALUMINUM_BYPASS_SERVICE"
               rollback_failed=1
@@ -753,13 +965,12 @@ jobs:
 
           DATAHUB_ENV_BACKUP="$(backup_env_file "$DATAHUB_ENV_FILE")"
           HERMES_ENV_BACKUP="$(backup_env_file "$HERMES_ENV_FILE")"
+          backup_hermes_runtime_dropin
 
           trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_error "$rc"; fi' EXIT
 
           git -C "$DATAHUB_REPO" checkout --detach "$DATAHUB_SHA"
           DATAHUB_CHECKOUT_DONE=1
-          git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"
-          HERMES_CHECKOUT_DONE=1
 
           if [ ! -x "$DATAHUB_REPO/backend/.venv/bin/python" ]; then
             echo "BACKEND_VENV_MISSING"
@@ -797,7 +1008,13 @@ jobs:
             npm ci --no-audit --no-fund &&
             npm run build
           )
-          echo "HERMES_DEPENDENCY_SYNC_SKIPPED=deploy_did_not_mutate_hermes_dependencies"
+
+          systemctl stop hermes-gateway
+          git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"
+          HERMES_CHECKOUT_DONE=1
+          prepare_hermes_runtime "$HERMES_SHA"
+          write_hermes_runtime_dropin "$HERMES_TARGET_RUNTIME_ENV"
+          echo "HERMES_DEPENDENCY_SYNC=locked_dingtalk_runtime"
 
           upsert_env_value "$DATAHUB_ENV_FILE" "BUILD_SHA" "$DATAHUB_SHA"
           upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_BUILD_SHA" "$HERMES_SHA"
@@ -910,6 +1127,9 @@ jobs:
           echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
 
           report_status "yes"
+          if [ -n "$HERMES_RUNTIME_DROPIN_BACKUP" ]; then
+            rm -f "$HERMES_RUNTIME_DROPIN_BACKUP"
+          fi
           trap - EXIT
           REMOTE
           } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"
