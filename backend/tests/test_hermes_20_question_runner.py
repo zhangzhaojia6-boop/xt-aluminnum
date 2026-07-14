@@ -736,6 +736,10 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
         return SimpleNamespace(code=kwargs["code"])
 
     def fake_register_channel(*args, **kwargs):
+        if kwargs["channel_key"] == "factory-group":
+            assert kwargs["target_type"] == "production_acceptance"
+            assert kwargs["target_key"] == "production-group"
+            assert kwargs["name"] == "生产验收群"
         if kwargs["channel_type"] == "dingtalk_custom_robot":
             assert "https://example.test/robot" not in kwargs["name"]
             assert kwargs["target_key"] == "hermes_20_question_acceptance"
@@ -783,7 +787,13 @@ def test_runner_dispatches_delivery_targets_via_agent_communication_service(monk
         business_date=date(2026, 6, 27),
         limit=1,
         delivery_targets=[
-            DingTalkDeliveryTarget(channel_type="dingtalk_group", channel_key="factory-group"),
+            DingTalkDeliveryTarget(
+                channel_type="dingtalk_group",
+                channel_key="factory-group",
+                target_type="production_acceptance",
+                target_key="production-group",
+                name="生产验收群",
+            ),
             DingTalkDeliveryTarget(channel_type="dingtalk_work_notice", channel_key="dt-user-001"),
             DingTalkDeliveryTarget(channel_type="dingtalk_custom_robot", channel_key="https://example.test/robot"),
         ],

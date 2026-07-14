@@ -41,7 +41,7 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0053_daily_fact_snapshot_key' in current.stdout
+    assert '0054_dingtalk_inbound_receipts' in current.stdout
 
 
 @pytest.mark.parametrize("legacy_snapshot_count", [1, 3])

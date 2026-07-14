@@ -8,7 +8,18 @@ from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 
 
-DINGTALK_EPHEMERAL_KEYS = {'downloadcode', 'download_code'}
+DINGTALK_EPHEMERAL_KEYS = {
+    'downloadcode',
+    'download_code',
+    'filecontentbase64',
+    'file_content_base64',
+    'filebytesbase64',
+    'file_bytes_base64',
+    'contentbase64',
+    'filebytes',
+    'file_bytes',
+    'downloadedfilebytes',
+}
 DINGTALK_EPHEMERAL_QUERY_KEYS = {'downloadcode', 'download_code', 'access_token', 'signature', 'sign', 'sig'}
 RAW_METADATA_MAX_STRING_LENGTH = 512
 RAW_METADATA_MAX_ITEMS = 25

@@ -503,8 +503,8 @@ def evaluate_acceptance_summary(snapshots: Sequence[AcceptanceTurnSnapshot]) -> 
         core_passed=has_complete_coverage and core_pass_count == total,
         delivery_passed=has_complete_coverage
         and core_pass_count == total
-        and delivery_success_count + environment_failure_count >= total
-        and environment_failure_count <= 2,
+        and delivery_success_count == total
+        and environment_failure_count == 0,
         core_pass_count=core_pass_count,
         delivery_success_count=delivery_success_count,
         environment_failure_count=environment_failure_count,

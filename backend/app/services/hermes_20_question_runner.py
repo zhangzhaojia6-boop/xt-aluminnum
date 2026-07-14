@@ -33,6 +33,9 @@ _ALLOWED_DELIVERY_CHANNEL_TYPES = frozenset(
 class DingTalkDeliveryTarget:
     channel_type: str
     channel_key: str
+    target_type: str = "acceptance_test"
+    target_key: str | None = None
+    name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -388,9 +391,9 @@ def _dispatch_approved_targets(
                 db,
                 channel_type=target.channel_type,
                 channel_key=target.channel_key,
-                name=f"20问验收-{target.channel_type}",
-                target_type="acceptance_test",
-                target_key=_delivery_target_key(target),
+                name=target.name or f"20问验收-{target.channel_type}",
+                target_type=target.target_type,
+                target_key=target.target_key or _delivery_target_key(target),
                 dry_run=False,
                 metadata_payload={"managed_by": "hermes_20_question_acceptance"},
             )

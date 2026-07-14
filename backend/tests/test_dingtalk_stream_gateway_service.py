@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import base64
 from hashlib import sha256
 from io import BytesIO
 import json
@@ -94,6 +95,7 @@ def test_authorized_text_event_writes_message_text(monkeypatch) -> None:
         assert evidence.payload['business_date'] == '2026-06-28'
         assert evidence.payload['group_id'] == 'group-001'
         assert evidence.payload['trace_id'] == 'msg-001'
+        assert evidence.payload['source_transport'] == 'dingtalk_stream'
     finally:
         db.close()
 
@@ -145,6 +147,32 @@ def test_authorized_file_event_writes_file_text(monkeypatch) -> None:
         assert evidence.payload['download_status'] == 'downloaded'
         assert evidence.payload['download_url_host'] == 'files.dingtalk.com'
         assert 'download-code-001' not in str(evidence.payload)
+    finally:
+        db.close()
+
+
+def test_inline_non_energy_attachment_text_is_captured(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    content = '设备点检正常，轧机温度 36 度。'.encode('utf-8')
+    db = _db_session()
+    try:
+        result = gateway.ingest_dingtalk_stream_event(
+            db,
+            _file_payload(
+                content={'fileName': '点检说明.txt', 'fileId': 'inline-text-001'},
+                fileContentBase64=base64.b64encode(content).decode('ascii'),
+            ),
+            dingtalk_service=FakeDingTalkService(error=AssertionError('inline content must not download')),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert result['file_text'] is True
+        assert result.get('energy_ingest') is None
+        assert evidence.recognized_text == '设备点检正常，轧机温度 36 度。'
+        assert evidence.payload['file_text'] == '设备点检正常，轧机温度 36 度。'
+        assert evidence.payload['download_url_host'] == 'inline-payload'
+        assert 'fileContentBase64' not in evidence.payload['raw_metadata']
+        assert base64.b64encode(content).decode('ascii') not in str(evidence.payload)
     finally:
         db.close()
 

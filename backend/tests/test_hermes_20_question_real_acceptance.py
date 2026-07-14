@@ -980,7 +980,7 @@ def test_delivery_gate_allows_environment_failure_but_not_core_failure() -> None
     assert result.delivery_environment_failure is True
 
 
-def test_summary_requires_20_core_passes_and_allows_two_environment_delivery_failures() -> None:
+def test_summary_requires_all_20_real_deliveries_even_for_environment_failures() -> None:
     catalog = build_20_question_catalog()
     snapshots = [_passing_snapshot(item.question_id) for item in catalog]
     for snapshot in snapshots[:2]:
@@ -991,7 +991,7 @@ def test_summary_requires_20_core_passes_and_allows_two_environment_delivery_fai
     summary = evaluate_acceptance_summary(snapshots)
 
     assert summary.core_passed is True
-    assert summary.delivery_passed is True
+    assert summary.delivery_passed is False
     assert summary.core_pass_count == 20
     assert summary.delivery_success_count == 18
     assert summary.environment_failure_count == 2

@@ -111,9 +111,11 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     }
     assert 'status' in mode_options
     assert 'deploy' in mode_options
+    assert 'rollback' in mode_options
     assert 'sync' not in mode_options
     assert 'datahub_sha' in inputs
     assert 'hermes_sha' in inputs
+    assert 'rollback_confirm' in inputs
     assert "git merge --ff-only origin/main" not in source
     assert "backend/scripts/hermes_dingtalk_stream_gateway.py --health" not in source
     assert "^[0-9a-f]{40}$" in source
@@ -122,16 +124,24 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert 'pg_restore -l "$DB_BACKUP"' in source or 'pg_restore -l "$db_backup"' in source
     assert 'DATAHUB_TRUSTED_REF="origin/main"' in source
     assert 'HERMES_TRUSTED_REMOTE_URL="https://github.com/zhangzhaojia6-boop/hermes-agent.git"' in source
-    assert 'HERMES_TRUSTED_BRANCH="refs/heads/feature/xintai-single-ingress-fact-closure"' in source
-    assert 'HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/feature/xintai-single-ingress-fact-closure"' in source
-    assert 'merge-base --is-ancestor "$sha" "$trusted_ref"' in source
+    assert 'HERMES_TRUSTED_BRANCH="refs/heads/main"' in source
+    assert 'HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/main"' in source
+    assert 'trusted_head="$(git -C "$repo" rev-parse "$trusted_ref")"' in source
+    assert 'if [ "$sha" != "$trusted_head" ]; then' in source
     assert 'fetch --prune "$HERMES_TRUSTED_REMOTE_URL" "+$HERMES_TRUSTED_BRANCH:$HERMES_TRUSTED_REF"' in source
     assert 'HERMES_TRUSTED_REF_UNAVAILABLE' in source
     assert 'require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"' in source
     assert 'update_trusted_refs' in source
     assert 'require_commit_exists "$HERMES_REPO" "$HERMES_SHA"' in source
+    assert 'require_trusted_head "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB' in source
+    assert 'require_trusted_head "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES' in source
     assert 'require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB' in source
     assert 'require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES' in source
+    assert 'test "$ROLLBACK_CONFIRM" = "rollback-to-merged-sha"' in source
+    assert 'append_remote_assignment()' in source
+    assert 'printf -v REMOTE_PREAMBLE' in source
+    assert 'MODE=\'$effective_mode\' DATAHUB_SHA=\'$DATAHUB_SHA\'' not in source
+    assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT" in source
     assert 'trap rollback_on_error ERR' not in source
     assert 'get_alembic_revisions()' in source
@@ -146,14 +156,14 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     datahub_exists_index = source.find('require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"')
     trusted_fetch_index = source.find('\n          update_trusted_refs\n')
     hermes_exists_index = source.find('require_commit_exists "$HERMES_REPO" "$HERMES_SHA"')
-    trusted_ancestor_index = source.find('require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES')
+    trusted_head_index = source.find('require_trusted_head "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES')
     pre_index = source.find('if PRE_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"; then')
     set_restore_index = source.find('NEEDS_DB_RESTORE=1')
     alembic_index = source.find('alembic upgrade head')
     post_index = source.find('if POST_MIGRATION_REVISIONS="$(get_alembic_revisions "$RAW_DATABASE_URL")"; then')
     reset_restore_index = source.find('NEEDS_DB_RESTORE=0', post_index)
-    assert -1 not in (datahub_exists_index, trusted_fetch_index, hermes_exists_index, trusted_ancestor_index, pre_index, set_restore_index, alembic_index, post_index, reset_restore_index)
-    assert datahub_exists_index < trusted_fetch_index < hermes_exists_index < trusted_ancestor_index < set_restore_index
+    assert -1 not in (datahub_exists_index, trusted_fetch_index, hermes_exists_index, trusted_head_index, pre_index, set_restore_index, alembic_index, post_index, reset_restore_index)
+    assert datahub_exists_index < trusted_fetch_index < hermes_exists_index < trusted_head_index < set_restore_index
     assert set_restore_index < pre_index < alembic_index < post_index < reset_restore_index
     rollback_body = _extract_shell_function(source, 'rollback_on_error')
     assert 'systemctl stop aluminum-bypass hermes-gateway' in rollback_body
@@ -186,10 +196,19 @@ def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contra
     source = _read('.github/workflows/production-sync-status.yml')
 
     assert '/api/v1/dingtalk/agent-inbound' in source
-    assert 'x-dingtalk-inbound-token' in source
+    assert 'x-dingtalk-inbound-signature' in source
+    assert 'x-dingtalk-inbound-timestamp' in source
+    assert 'x-dingtalk-inbound-nonce' in source
+    assert 'x-dingtalk-inbound-kind' in source
+    assert '-H "x-dingtalk-inbound-token:' not in source
+    assert 'smoke_kind="task10_smoke"' in source
+    assert 'xintaiSourceTransport' not in source
     assert 'smoke-trace' in source
     assert 'multimodal_evidence' in source
     assert 'chat_inbox' in source
+    assert "source_payload->>'source_transport' = 'dingtalk_stream'" in source
+    assert "payload->>'source_transport' = 'dingtalk_stream'" in source
+    assert "LIKE 'dingtalk-stream-sha256:%'" not in source
     assert 'journalctl -u hermes-gateway' in source
     assert 'Connected via Stream Mode' in source
     assert 'systemctl show -p ActiveEnterTimestamp' in source
@@ -212,9 +231,9 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'trap - EXIT' in source
     assert 'append_remote_assignment()' in source
     assert 'printf -v REMOTE_PREAMBLE' in source
-    assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "bash -s"' in source
+    assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"' in source
     assert """MODE='$MODE'""" not in source
-    ssh_launch_index = source.find('} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "bash -s"')
+    ssh_launch_index = source.find('} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"')
     assert ssh_launch_index != -1
     assert 'STREAM_APP_KEY_B64' not in source[ssh_launch_index:ssh_launch_index + 200]
     assert 'STREAM_APP_SECRET_B64' not in source[ssh_launch_index:ssh_launch_index + 200]
@@ -230,6 +249,21 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'multimodal_evidence' in source
     assert 'chat_inbox' in source
     assert 'external_message_logs' in source
+    assert "source_payload->>'source_transport' = 'dingtalk_stream'" in source
+    assert "payload->>'source_transport' = 'dingtalk_stream'" in source
+    assert "LIKE 'dingtalk-stream-sha256:%'" not in source
+    assert "- verify" in source
+    assert 'verify_fresh_stream_evidence()' in source
+    assert 'FRESH_STREAM_EVIDENCE_VERIFIED=yes' in source
+    assert "evidence_type = 'text'" in source
+    assert "evidence_type = 'attachment'" in source
+    assert "payload->>'message_text'" in source
+    assert "payload->>'file_text'" in source
+    assert "payload->>'attachment_text'" in source
+    assert 'WHERE created_at >= :since' in source
+    assert 'report_stream_connection "yes"' in source
+    assert 'DATAHUB_STREAM_RELAY_TOKEN_PRESENT=' in source
+    assert 'HERMES_STREAM_RELAY_TOKEN_PRESENT=' in source
     rollback_body = _extract_shell_function(source, 'rollback_on_apply_error')
     assert 'APPLY_FAILED_ROLLBACK_START' in rollback_body
     assert 'APPLY_FAILED_ROLLBACK_DONE' in rollback_body
@@ -244,7 +278,12 @@ def test_daily_report_alignment_prod_keeps_artifacts_outside_repo_and_preserves_
     source = _read('.github/workflows/daily-report-alignment-prod.yml')
     inputs = _workflow_inputs(payload)
 
-    assert inputs['reference_mode']['default'] == 'compare'
+    assert 'days' not in inputs
+    assert 'reference_mode' not in inputs
+    assert "DAYS: '3'" in source
+    assert 'REFERENCE_MODE: compare' in source
+    assert 'test "$DAYS" = "3"' in source
+    assert 'test "$REFERENCE_MODE" = "compare"' in source
     assert "/srv/aluminum-bypass/docs/superpowers/reports" not in source
     assert '/var/lib/aluminum-bypass/acceptance/daily-report-alignment-${RUN_ID}' in source
     assert 'install -d -m 700 "$artifact_dir"' in source
@@ -253,7 +292,7 @@ def test_daily_report_alignment_prod_keeps_artifacts_outside_repo_and_preserves_
     assert 'find "$artifact_dir" -type d -exec chmod 700 {} +' in source
     assert 'uses: actions/upload-artifact@v4' in source
     assert 'if: always()' in source
-    assert 'scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=no -r \\' in source
+    assert 'scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -r \\' in source
     assert 'echo "exit_code=$remote_status" >> "$GITHUB_OUTPUT"' in source
     assert 'exit 0' in source
     assert 'official_daily_report' not in source
@@ -266,7 +305,8 @@ def test_hermes_acceptance_prod_fails_closed_without_real_owner_and_keeps_artifa
     source = _read('.github/workflows/hermes-acceptance-prod.yml')
     inputs = _workflow_inputs(payload)
 
-    assert inputs['mode']['default'] == 'preflight'
+    assert 'mode' not in inputs
+    assert 'limit' not in inputs
     assert "/srv/aluminum-bypass/docs/superpowers/reports" not in source
     assert '/var/lib/aluminum-bypass/acceptance/hermes-20q-${RUN_ID}' in source
     assert 'install -d -m 700 "$artifact_dir"' in source
@@ -286,21 +326,27 @@ def test_hermes_acceptance_prod_fails_closed_without_real_owner_and_keeps_artifa
     assert '.first()' in source
     assert '.filter(User.dingtalk_user_id.is_not(None))\n                  .order_by(User.id.asc())\n                  .first()' not in source
     assert 'status=no_admin_user' in source
+    assert 'test -n "$DINGTALK_ACCEPTANCE_GROUP_KEY"' in source
+    assert 'target_type="production_acceptance"' in source
+    assert 'target_key="hermes_20_question_production_acceptance"' in source
+    assert 'limit=None' in source
+    assert 'if len(outcome.snapshots) != 20:' in source
+    assert 'HERMES_20Q_INCOMPLETE=' in source
 
 
-def test_hermes_acceptance_preflight_does_not_register_channel_or_write_db() -> None:
+def test_hermes_acceptance_always_registers_explicit_real_group_and_runs_full_gate() -> None:
     source = _read('.github/workflows/hermes-acceptance-prod.yml')
 
-    preflight_index = source.find('if mode == "preflight":')
     register_index = source.find('register_channel(')
-    run_mode_index = source.find('if mode == "run" and explicit_group_key:')
-    assert preflight_index != -1
-    assert run_mode_index != -1
     assert register_index != -1
-    assert preflight_index < run_mode_index < register_index
-    assert 'AMBIGUOUS_DINGTALK_GROUP_CANDIDATE' in source
-    assert 'NO_APPROVED_DINGTALK_GROUP_CANDIDATE' in source
     assert 'EXPLICIT_GROUP_SECRET_REQUIRED_FOR_RUN_REGISTRATION' in source
+    assert 'mode == "preflight"' not in source
+    assert 'AMBIGUOUS_DINGTALK_GROUP_CANDIDATE' not in source
+    assert 'NO_APPROVED_DINGTALK_GROUP_CANDIDATE' not in source
+    assert 'acceptance_test' not in source
+    assert 'append_remote_assignment DINGTALK_ACCEPTANCE_GROUP_KEY "$DINGTALK_ACCEPTANCE_GROUP_KEY"' in source
+    assert "DINGTALK_ACCEPTANCE_GROUP_KEY='$DINGTALK_ACCEPTANCE_GROUP_KEY'" not in source
+    assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"' in source
 
 
 def test_archive_prod_untracked_checks_runtime_references_before_any_move() -> None:
@@ -324,8 +370,45 @@ def test_archive_prod_untracked_checks_runtime_references_before_any_move() -> N
     assert 'chmod 600 "$archive_dir/manifest.tsv"' in source
     assert 'curl -fsS http://127.0.0.1:8000/readyz' in source
     assert 'git status --short --branch' in source
+    assert 'git fetch origin main' not in source
+    assert 'git checkout main' not in source
+    assert 'git pull --ff-only origin main' not in source
+    assert 'head_before="$(git rev-parse HEAD)"' in source
+    assert 'head_after="$(git rev-parse HEAD)"' in source
+    assert 'ARCHIVE_CHANGED_HEAD' in source
+    assert 'ARCHIVE_HEAD_UNCHANGED' in source
 
-def test_production_sync_status_trusted_ancestor_probe_blocks_unmerged_targets() -> None:
+
+def test_production_workflows_pin_ssh_host_keys() -> None:
+    paths = (
+        '.github/workflows/production-sync-status.yml',
+        '.github/workflows/configure-dingtalk-stream-prod.yml',
+        '.github/workflows/hermes-acceptance-prod.yml',
+        '.github/workflows/daily-report-alignment-prod.yml',
+        '.github/workflows/archive-prod-untracked.yml',
+    )
+
+    for path in paths:
+        source = _read(path)
+        assert 'SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}' in source
+        assert 'test -n "$SSH_KNOWN_HOSTS"' in source
+        assert 'printf \'%s\\n\' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts' in source
+        assert 'chmod 600 ~/.ssh/known_hosts' in source
+        assert 'StrictHostKeyChecking=yes' in source
+        assert 'UserKnownHostsFile=~/.ssh/known_hosts' in source
+        assert 'StrictHostKeyChecking=no' not in source
+
+
+def test_configure_stream_uses_separate_relay_secret_for_real_stream_events() -> None:
+    source = _read('.github/workflows/configure-dingtalk-stream-prod.yml')
+
+    assert 'HERMES_DINGTALK_STREAM_RELAY_TOKEN' in source
+    assert 'XINTAI_DINGTALK_STREAM_RELAY_TOKEN' in source
+    assert 'openssl rand -hex 32' in source
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DINGTALK_INBOUND_TOKEN"' not in source
+    assert 'DATAHUB_INBOUND_TOKEN_MISSING' not in source
+
+def test_production_sync_status_trusted_head_probe_blocks_unmerged_targets() -> None:
     bash = _require_bash()
     tmp_dir = tempfile.mkdtemp(dir=REPO_ROOT)
     tmp_path = Path(tmp_dir)
@@ -337,14 +420,16 @@ def test_production_sync_status_trusted_ancestor_probe_blocks_unmerged_targets()
                     '#!/usr/bin/env bash',
                     'set -euo pipefail',
                     'DATAHUB_TRUSTED_REF="origin/main"',
-                    'HERMES_TRUSTED_REF="refs/heads/feature/xintai-single-ingress-fact-closure"',
-                    'require_trusted_ancestor() {',
+                    'HERMES_TRUSTED_REF="refs/heads/main"',
+                    'require_trusted_head() {',
                     '  local repo="$1"',
                     '  local sha="$2"',
                     '  local trusted_ref="$3"',
                     '  local label="$4"',
-                    '  if ! git -C "$repo" merge-base --is-ancestor "$sha" "$trusted_ref"; then',
-                    '    echo "${label}_SHA_NOT_TRUSTED"',
+                    '  local trusted_head',
+                    '  trusted_head="$(git -C "$repo" rev-parse "$trusted_ref")"',
+                    '  if [ "$sha" != "$trusted_head" ]; then',
+                    '    echo "${label}_SHA_NOT_TRUSTED_HEAD"',
                     '    exit 91',
                     '  fi',
                     '}',
@@ -365,8 +450,8 @@ def test_production_sync_status_trusted_ancestor_probe_blocks_unmerged_targets()
                     'git -C "$repo" commit -qam side',
                     'untrusted_sha="$(git -C "$repo" rev-parse HEAD)"',
                     'git -C "$repo" checkout -q "$trusted_sha"',
-                    'require_trusted_ancestor "$repo" "$trusted_sha" "$DATAHUB_TRUSTED_REF" DATAHUB',
-                    'if require_trusted_ancestor "$repo" "$untrusted_sha" "$DATAHUB_TRUSTED_REF" DATAHUB; then',
+                    'require_trusted_head "$repo" "$trusted_sha" "$DATAHUB_TRUSTED_REF" DATAHUB',
+                    'if require_trusted_head "$repo" "$untrusted_sha" "$DATAHUB_TRUSTED_REF" DATAHUB; then',
                     '  exit 92',
                     'fi',
                     '',
@@ -395,8 +480,8 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
                     '#!/usr/bin/env bash',
                     'set -euo pipefail',
                     'HERMES_TRUSTED_REMOTE_URL="$PWD/cloud.git"',
-                    'HERMES_TRUSTED_BRANCH="refs/heads/feature/xintai-single-ingress-fact-closure"',
-                    'HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/feature/xintai-single-ingress-fact-closure"',
+                    'HERMES_TRUSTED_BRANCH="refs/heads/main"',
+                    'HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/main"',
                     'update_trusted_refs() {',
                     '  local repo="$1"',
                     '  if ! git -C "$repo" fetch --prune "$HERMES_TRUSTED_REMOTE_URL" "+$HERMES_TRUSTED_BRANCH:$HERMES_TRUSTED_REF"; then',
@@ -404,13 +489,15 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
                     '    exit 90',
                     '  fi',
                     '}',
-                    'require_trusted_ancestor() {',
+                    'require_trusted_head() {',
                     '  local repo="$1"',
                     '  local sha="$2"',
                     '  local trusted_ref="$3"',
                     '  local label="$4"',
-                    '  if ! git -C "$repo" merge-base --is-ancestor "$sha" "$trusted_ref"; then',
-                    '    echo "${label}_SHA_NOT_TRUSTED"',
+                    '  local trusted_head',
+                    '  trusted_head="$(git -C "$repo" rev-parse "$trusted_ref")"',
+                    '  if [ "$sha" != "$trusted_head" ]; then',
+                    '    echo "${label}_SHA_NOT_TRUSTED_HEAD"',
                     '    exit 91',
                     '  fi',
                     '}',
@@ -428,11 +515,6 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
                     'git -C "$seed" branch -M main',
                     'git -C "$seed" remote add origin "$cloud"',
                     'git -C "$seed" push -q origin main',
-                    'git -C "$seed" checkout -q -b feature/xintai-single-ingress-fact-closure',
-                    'printf "trusted\n" >> "$seed/file.txt"',
-                    'git -C "$seed" commit -qam trusted',
-                    'trusted_sha="$(git -C "$seed" rev-parse HEAD)"',
-                    'git -C "$seed" push -q origin feature/xintai-single-ingress-fact-closure',
                     'mkdir "$work"',
                     'git -C "$work" init -q',
                     'git -C "$work" config user.email test@example.com',
@@ -444,7 +526,10 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
                     'printf "evil\n" >> "$work/file.txt"',
                     'git -C "$work" commit -qam evil',
                     'evil_local_sha="$(git -C "$work" rev-parse HEAD)"',
-                    'git -C "$work" checkout -q feature/xintai-single-ingress-fact-closure',
+                    'printf "trusted\n" >> "$seed/file.txt"',
+                    'git -C "$seed" commit -qam trusted',
+                    'trusted_sha="$(git -C "$seed" rev-parse HEAD)"',
+                    'git -C "$seed" push -q origin main',
                     'if git -C "$work" cat-file -e "${trusted_sha}^{commit}" 2>/dev/null; then',
                     '  exit 93',
                     'fi',
@@ -452,12 +537,12 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
                     'fetched_ref_sha="$(git -C "$work" rev-parse "$HERMES_TRUSTED_REF")"',
                     'checked_out_after_fetch="$(git -C "$work" branch --show-current)"',
                     'git -C "$work" cat-file -e "${trusted_sha}^{commit}"',
-                    'if ( require_trusted_ancestor "$work" "$trusted_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
+                    'if ( require_trusted_head "$work" "$trusted_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
                     '  trusted_rc=0',
                     'else',
                     '  trusted_rc="$?"',
                     'fi',
-                    'if ( require_trusted_ancestor "$work" "$evil_local_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
+                    'if ( require_trusted_head "$work" "$evil_local_sha" "$HERMES_TRUSTED_REF" HERMES ); then',
                     '  evil_rc=0',
                     '  exit 92',
                     'else',

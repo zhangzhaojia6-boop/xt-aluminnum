@@ -6,20 +6,8 @@ on:
       confirm:
         description: Type 'hermes-20q' to confirm production Hermes acceptance
         required: true
-      mode:
-        description: Run preflight only, or send the real 20-question gate
-        required: true
-        default: preflight
-        type: choice
-        options:
-          - preflight
-          - run
       business_date:
         description: Business date in YYYY-MM-DD; empty uses production current date
-        required: false
-        default: ''
-      limit:
-        description: Optional question limit for controlled smoke; empty means all 20
         required: false
         default: ''
 
@@ -39,9 +27,8 @@ jobs:
           SSH_USER: ${{ secrets.PROD_SSH_USER }}
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
-          ACCEPTANCE_MODE: ${{ github.event.inputs.mode }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           BUSINESS_DATE: ${{ github.event.inputs.business_date }}
-          LIMIT: ${{ github.event.inputs.limit }}
           DINGTALK_ACCEPTANCE_GROUP_KEY: ${{ secrets.DINGTALK_ACCEPTANCE_GROUP_KEY }}
           RUN_ID: ${{ github.run_id }}
         run: |
@@ -49,27 +36,36 @@ jobs:
           test -n "$SSH_HOST"
           test -n "$SSH_USER"
           test -n "$SSH_KEY"
-          case "$ACCEPTANCE_MODE" in
-            preflight|run) ;;
-            *) echo "unsupported mode"; exit 2 ;;
-          esac
+          test -n "$SSH_KNOWN_HOSTS"
+          test -n "$DINGTALK_ACCEPTANCE_GROUP_KEY"
           if [ -n "$BUSINESS_DATE" ] && ! printf '%s' "$BUSINESS_DATE" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
             echo "business_date must be YYYY-MM-DD"
-            exit 2
-          fi
-          if [ -n "$LIMIT" ] && ! printf '%s' "$LIMIT" | grep -Eq '^[0-9]+$'; then
-            echo "limit must be an integer"
             exit 2
           fi
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
           remote_artifact_dir="/var/lib/aluminum-bypass/acceptance/hermes-20q-${RUN_ID}"
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+
+          REMOTE_PREAMBLE=""
+          append_remote_assignment BUSINESS_DATE "$BUSINESS_DATE"
+          append_remote_assignment RUN_ID "$RUN_ID"
+          append_remote_assignment ARTIFACT_DIR "$remote_artifact_dir"
+          append_remote_assignment DINGTALK_ACCEPTANCE_GROUP_KEY "$DINGTALK_ACCEPTANCE_GROUP_KEY"
+
           set +e
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "ACCEPTANCE_MODE='$ACCEPTANCE_MODE' BUSINESS_DATE='$BUSINESS_DATE' LIMIT='$LIMIT' RUN_ID='$RUN_ID' ARTIFACT_DIR='$remote_artifact_dir' DINGTALK_ACCEPTANCE_GROUP_KEY='$DINGTALK_ACCEPTANCE_GROUP_KEY' bash -s" <<'REMOTE'
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
           set -euo pipefail
           cd /srv/aluminum-bypass/backend
           . .venv/bin/activate
@@ -88,7 +84,6 @@ jobs:
 
           from app.config import settings
           from app.database import get_sessionmaker
-          from app.models.agent_communication import CommunicationChannel
           from app.models.system import User
           from app.services.external_readonly_source_registry import (
               build_external_readonly_sources,
@@ -119,33 +114,6 @@ jobs:
               path = artifact_dir / name
               path.write_text(content, encoding="utf-8")
               os.chmod(path, 0o600)
-
-
-          def channel_score(channel: CommunicationChannel) -> int:
-              meta = channel.metadata_payload if isinstance(channel.metadata_payload, dict) else {}
-              text = " ".join(
-                  [
-                      str(channel.name or ""),
-                      str(channel.target_type or ""),
-                      str(channel.target_key or ""),
-                      str(meta.get("managed_by") or ""),
-                      str(meta.get("owner_name") or ""),
-                  ]
-              ).lower()
-              score = 0
-              if channel.target_type == "acceptance_test":
-                  score += 100
-              if "hermes_20_question_acceptance" in text:
-                  score += 90
-              for token in ("测试", "验收", "调试", "debug", "test", "20问", "20 question"):
-                  if token in text:
-                      score += 40
-              for token in ("生产群", "管理群", "全厂", "工作通知"):
-                  if token in text:
-                      score -= 80
-              if not channel.dry_run:
-                  score += 10
-              return score
 
 
           def acceptance_channel_type(channel_key: str) -> str:
@@ -183,11 +151,8 @@ jobs:
               return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
 
 
-          mode = str(os.environ.get("ACCEPTANCE_MODE") or "preflight").strip()
-          limit_raw = str(os.environ.get("LIMIT") or "").strip()
-          limit = int(limit_raw) if limit_raw else None
           explicit_group_key = str(os.environ.get("DINGTALK_ACCEPTANCE_GROUP_KEY") or "").strip()
-          run_label = f"{business_date_value()}-{mode}"
+          run_label = f"{business_date_value()}-run"
           session_factory = get_sessionmaker()
 
           with session_factory() as db:
@@ -202,114 +167,26 @@ jobs:
                   )
                   sys.exit(23)
 
-              channels = (
-                  db.query(CommunicationChannel)
-                  .filter(CommunicationChannel.channel_type.in_(("dingtalk_group", "dingtalk_custom_robot")))
-                  .filter(CommunicationChannel.is_active.is_(True))
-                  .order_by(CommunicationChannel.id.asc())
-                  .all()
-              )
-              ranked = sorted(
-                  [(channel_score(channel), channel) for channel in channels],
-                  key=lambda item: (item[0], not item[1].dry_run, -item[1].id),
-                  reverse=True,
-              )
               print("DINGTALK_NOTIFY_DRY_RUN=", bool(getattr(settings, "DINGTALK_NOTIFY_DRY_RUN", True)))
               print("OWNER_ID_MASKED=", mask(owner_id))
               print("GROUP_SECRET_PRESENT=", bool(explicit_group_key))
-              print("GROUP_CHANNELS_MASKED")
-              for score, channel in ranked:
-                  print(
-                      {
-                          "id": channel.id,
-                          "score": score,
-                          "name": channel.name,
-                          "key": mask(channel.channel_key),
-                          "target_type": channel.target_type,
-                          "target_key": mask(channel.target_key),
-                          "dry_run": channel.dry_run,
-                      }
-                  )
+              if not explicit_group_key:
+                  print("EXPLICIT_GROUP_SECRET_REQUIRED_FOR_RUN_REGISTRATION")
+                  sys.exit(24)
+              selected_group_masked = mask(explicit_group_key)
+              print("SELECTED_GROUP_MASKED=", selected_group_masked, "explicit_production_acceptance_group")
+              from app.services import agent_communication_service
 
-              selected_group_masked = ""
-              selected_group_name = ""
-              selected_channel_type = ""
-              selected_channel_key = ""
-
-              if explicit_group_key:
-                  selected_group_masked = mask(explicit_group_key)
-                  selected_group_name = "explicit_group_secret"
-                  selected_channel_type = acceptance_channel_type(explicit_group_key)
-                  selected_channel_key = explicit_group_key
-              else:
-                  candidates = [(score, channel) for score, channel in ranked if score >= 40]
-                  if not candidates:
-                      if mode == "run":
-                          print("EXPLICIT_GROUP_SECRET_REQUIRED_FOR_RUN_REGISTRATION")
-                      print("NO_APPROVED_DINGTALK_GROUP_CANDIDATE")
-                      write_artifact(
-                          f"{run_label}-preflight.txt",
-                          "status=no_approved_dingtalk_group_candidate\nowner_id_masked="
-                          + mask(owner_id)
-                          + "\ngroup_secret_present="
-                          + str(bool(explicit_group_key))
-                          + "\n",
-                      )
-                      sys.exit(20)
-                  if len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
-                      print("AMBIGUOUS_DINGTALK_GROUP_CANDIDATE")
-                      write_artifact(
-                          f"{run_label}-preflight.txt",
-                          "status=ambiguous_dingtalk_group_candidate\nowner_id_masked="
-                          + mask(owner_id)
-                          + "\ngroup_secret_present="
-                          + str(bool(explicit_group_key))
-                          + "\n",
-                      )
-                      sys.exit(21)
-                  selected_group_masked = mask(candidates[0][1].channel_key)
-                  selected_group_name = str(candidates[0][1].name or "")
-                  selected_channel_type = str(candidates[0][1].channel_type or "")
-                  selected_channel_key = str(candidates[0][1].channel_key or "")
-
-              print("SELECTED_GROUP_MASKED=", selected_group_masked, selected_group_name)
-              if mode == "preflight":
-                  write_artifact(
-                      f"{run_label}-preflight.txt",
-                      "status=preflight_ok\nowner_id_masked="
-                      + mask(owner_id)
-                      + "\nselected_group_masked="
-                      + selected_group_masked
-                      + "\nselected_group_name="
-                      + selected_group_name
-                      + "\ngroup_secret_present="
-                      + str(bool(explicit_group_key))
-                      + "\n",
-                  )
-                  sys.exit(0)
-
-              if mode == "run" and explicit_group_key:
-                  from app.services import agent_communication_service
-
-                  group = agent_communication_service.register_channel(
-                      db,
-                      channel_type=selected_channel_type,
-                      channel_key=selected_channel_key,
-                      name="Hermes 20 问验收测试群",
-                      target_type="acceptance_test",
-                      target_key="hermes_20_question_acceptance",
-                      dry_run=False,
-                      metadata_payload={"managed_by": "hermes_20_question_acceptance"},
-                  )
-              else:
-                  if not selected_channel_key:
-                      print("EXPLICIT_GROUP_SECRET_REQUIRED_FOR_RUN_REGISTRATION")
-                      sys.exit(24)
-                  group = next(
-                      channel
-                      for score, channel in ranked
-                      if channel.channel_key == selected_channel_key and channel.channel_type == selected_channel_type
-                  )
+              group = agent_communication_service.register_channel(
+                  db,
+                  channel_type=acceptance_channel_type(explicit_group_key),
+                  channel_key=explicit_group_key,
+                  name="Hermes 20 问真实验收群",
+                  target_type="production_acceptance",
+                  target_key="hermes_20_question_production_acceptance",
+                  dry_run=False,
+                  metadata_payload={"managed_by": "hermes_20_question_production_acceptance"},
+              )
 
               current_user = db.get(User, 1) or db.query(User).filter(User.role == "admin").order_by(User.id.asc()).first()
               if current_user is None:
@@ -339,10 +216,17 @@ jobs:
                       DingTalkDeliveryTarget(
                           channel_type=group.channel_type,
                           channel_key=group.channel_key,
+                          target_type="production_acceptance",
+                          target_key="hermes_20_question_production_acceptance",
+                          name="Hermes 20 问真实验收群",
                       ),
                   ),
-                  limit=limit,
+                  limit=None,
               )
+
+              if len(outcome.snapshots) != 20:
+                  print("HERMES_20Q_INCOMPLETE=", len(outcome.snapshots))
+                  sys.exit(25)
 
           report = render_acceptance_report(outcome.summary)
           report_path = artifact_dir / f"{business_date_value()}-hermes-20-question-real-acceptance-production.md"
@@ -358,12 +242,13 @@ jobs:
           find "$artifact_dir" -type f -exec chmod 600 {} +
           exit "$status"
           REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"
           remote_status=$?
           set -e
 
           local_artifact_dir="hermes-20q-production-${RUN_ID}"
           mkdir -p "$local_artifact_dir"
-          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=no -r \
+          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -r \
             "$SSH_USER@$SSH_HOST:$remote_artifact_dir/." "$local_artifact_dir/" || true
           echo "artifact_dir=$remote_artifact_dir" >> "$GITHUB_OUTPUT"
           echo "local_artifact_dir=$local_artifact_dir" >> "$GITHUB_OUTPUT"

@@ -11,18 +11,22 @@ on:
         description: Type 'prod-sync' to confirm production status or exact-SHA deploy
         required: true
       mode:
-        description: Read-only production status, or deploy exact requested SHAs
+        description: Read-only status, deploy current main heads, or roll back to merged ancestors
         required: true
         default: status
         type: choice
         options:
           - status
           - deploy
+          - rollback
       datahub_sha:
         description: Full 40-character Data Hub commit SHA. Required for deploy mode.
         required: false
       hermes_sha:
         description: Full 40-character Hermes commit SHA. Required for deploy mode.
+        required: false
+      rollback_confirm:
+        description: Type 'rollback-to-merged-sha' only when rollback mode is selected.
         required: false
 
 jobs:
@@ -38,19 +42,22 @@ jobs:
           SSH_USER: ${{ secrets.PROD_SSH_USER }}
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           MODE: ${{ github.event.inputs.mode }}
           DATAHUB_SHA: ${{ github.event.inputs.datahub_sha }}
           HERMES_SHA: ${{ github.event.inputs.hermes_sha }}
+          ROLLBACK_CONFIRM: ${{ github.event.inputs.rollback_confirm }}
         run: |
           set -euo pipefail
 
           test -n "$SSH_HOST"
           test -n "$SSH_USER"
           test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
 
           effective_mode="$MODE"
           case "$effective_mode" in
-            status|deploy|sync) ;;
+            status|deploy|rollback|sync) ;;
             *)
               echo "unsupported mode: $effective_mode"
               exit 2
@@ -61,25 +68,46 @@ jobs:
             effective_mode="deploy"
           fi
 
-          if [ "$effective_mode" = "deploy" ]; then
+          if [ "$effective_mode" = "deploy" ] || [ "$effective_mode" = "rollback" ]; then
             printf '%s' "$DATAHUB_SHA" | grep -Eq '^[0-9a-f]{40}$'
             printf '%s' "$HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          fi
+          if [ "$effective_mode" = "rollback" ]; then
+            test "$ROLLBACK_CONFIRM" = "rollback-to-merged-sha"
+          fi
+          if [ "$effective_mode" = "status" ]; then
+            DATAHUB_SHA=""
+            HERMES_SHA=""
           fi
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            "MODE='$effective_mode' DATAHUB_SHA='$DATAHUB_SHA' HERMES_SHA='$HERMES_SHA' bash -s" <<'REMOTE'
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+
+          REMOTE_PREAMBLE=""
+          append_remote_assignment MODE "$effective_mode"
+          append_remote_assignment DATAHUB_SHA "$DATAHUB_SHA"
+          append_remote_assignment HERMES_SHA "$HERMES_SHA"
+
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
           set -euo pipefail
 
           DATAHUB_REPO="/srv/aluminum-bypass"
           HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
           DATAHUB_TRUSTED_REF="origin/main"
           HERMES_TRUSTED_REMOTE_URL="https://github.com/zhangzhaojia6-boop/hermes-agent.git"
-          HERMES_TRUSTED_BRANCH="refs/heads/feature/xintai-single-ingress-fact-closure"
-          HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/feature/xintai-single-ingress-fact-closure"
+          HERMES_TRUSTED_BRANCH="refs/heads/main"
+          HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/main"
           DATAHUB_ENV_FILE="$DATAHUB_REPO/backend/.env"
           BACKUP_DIR="$DATAHUB_REPO/backups"
           MODE="${MODE:-status}"
@@ -209,14 +237,27 @@ jobs:
             fi
           }
 
+          require_trusted_head() {
+            local repo="$1"
+            local sha="$2"
+            local trusted_ref="$3"
+            local label="$4"
+            local trusted_head
+            trusted_head="$(git -C "$repo" rev-parse "$trusted_ref")"
+            if [ "$sha" != "$trusted_head" ]; then
+              echo "${label}_SHA_NOT_TRUSTED_HEAD requested=$sha trusted=$trusted_head"
+              exit 91
+            fi
+          }
+
           require_trusted_ancestor() {
             local repo="$1"
             local sha="$2"
             local trusted_ref="$3"
             local label="$4"
             if ! git -C "$repo" merge-base --is-ancestor "$sha" "$trusted_ref"; then
-              echo "${label}_SHA_NOT_TRUSTED"
-              exit 91
+              echo "${label}_SHA_NOT_MERGED requested=$sha trusted_ref=$trusted_ref"
+              exit 92
             fi
           }
 
@@ -295,12 +336,12 @@ jobs:
                              (
                                SELECT trace_id
                                FROM chat_inbox
-                               WHERE trace_id LIKE 'dingtalk-stream-sha256:%'
+                               WHERE source_payload->>'source_transport' = 'dingtalk_stream'
                                ORDER BY created_at DESC, id DESC
                                LIMIT 1
                              ) AS latest_trace_id
                       FROM chat_inbox
-                      WHERE trace_id LIKE 'dingtalk-stream-sha256:%'
+                      WHERE source_payload->>'source_transport' = 'dingtalk_stream'
                       """
                   )
               ).mappings().one()
@@ -314,14 +355,14 @@ jobs:
                                FROM multimodal_evidence
                                WHERE payload IS NOT NULL
                                  AND payload->>'source' = 'dingtalk'
-                                 AND payload->>'trace_id' LIKE 'dingtalk-stream-sha256:%'
+                                 AND payload->>'source_transport' = 'dingtalk_stream'
                                ORDER BY created_at DESC, id DESC
                                LIMIT 1
                              ) AS latest_trace_id
                       FROM multimodal_evidence
                       WHERE payload IS NOT NULL
                         AND payload->>'source' = 'dingtalk'
-                        AND payload->>'trace_id' LIKE 'dingtalk-stream-sha256:%'
+                        AND payload->>'source_transport' = 'dingtalk_stream'
                       """
                   )
               ).mappings().one()
@@ -544,8 +585,13 @@ jobs:
           require_commit_exists "$DATAHUB_REPO" "$DATAHUB_SHA"
           update_trusted_refs
           require_commit_exists "$HERMES_REPO" "$HERMES_SHA"
-          require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB
-          require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES
+          if [ "$MODE" = "rollback" ]; then
+            require_trusted_ancestor "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB
+            require_trusted_ancestor "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES
+          else
+            require_trusted_head "$DATAHUB_REPO" "$DATAHUB_SHA" "$DATAHUB_TRUSTED_REF" DATAHUB
+            require_trusted_head "$HERMES_REPO" "$HERMES_SHA" "$HERMES_TRUSTED_REF" HERMES
+          fi
 
           mkdir -p "$BACKUP_DIR"
           timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -670,9 +716,37 @@ jobs:
               payload["senderUnionId"] = sys.argv[2]
           print(json.dumps(payload, ensure_ascii=False))
           PY
+          smoke_timestamp="$(date +%s)"
+          smoke_nonce="smoke-${smoke_trace}"
+          smoke_kind="task10_smoke"
+          smoke_signature="$(python3 - "$smoke_token" "$smoke_timestamp" "$smoke_nonce" "$smoke_kind" /tmp/task10-smoke-payload.json <<'PY'
+          import hashlib
+          import hmac
+          import json
+          import sys
+
+          secret, timestamp, nonce, kind, payload_path = sys.argv[1:]
+          with open(payload_path, encoding="utf-8") as handle:
+              payload = json.load(handle)
+          canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+          signed = (
+              timestamp.encode("ascii")
+              + b"."
+              + nonce.encode("ascii")
+              + b"."
+              + kind.encode("ascii")
+              + b"."
+              + canonical
+          )
+          print(hmac.new(secret.encode("utf-8"), signed, hashlib.sha256).hexdigest())
+          PY
+          )"
           curl -fsS \
             -H "content-type: application/json" \
-            -H "x-dingtalk-inbound-token: $smoke_token" \
+            -H "x-dingtalk-inbound-timestamp: $smoke_timestamp" \
+            -H "x-dingtalk-inbound-nonce: $smoke_nonce" \
+            -H "x-dingtalk-inbound-kind: $smoke_kind" \
+            -H "x-dingtalk-inbound-signature: sha256=$smoke_signature" \
             --data @/tmp/task10-smoke-payload.json \
             http://127.0.0.1:8000/api/v1/dingtalk/agent-inbound >/tmp/task10-smoke-response.json
           cat /tmp/task10-smoke-response.json
@@ -686,3 +760,4 @@ jobs:
           report_status "yes"
           trap - EXIT
           REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"

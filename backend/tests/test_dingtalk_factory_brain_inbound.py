@@ -13,6 +13,7 @@ from app.models.agent_communication import (
     AgentRun,
     ChatInboxMessage,
     CommunicationChannel,
+    DingTalkInboundReceipt,
     MultimodalEvidence,
 )
 from app.models.master import Workshop
@@ -26,6 +27,7 @@ FACTORY_BRAIN_INBOUND_TABLES = [
     CommunicationChannel.__table__,
     AgentChannelBinding.__table__,
     ChatInboxMessage.__table__,
+    DingTalkInboundReceipt.__table__,
     AgentRun.__table__,
     MultimodalEvidence.__table__,
 ]

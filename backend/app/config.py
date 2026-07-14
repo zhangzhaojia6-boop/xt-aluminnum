@@ -170,6 +170,7 @@ class Settings(BaseSettings):
     HERMES_DINGTALK_CLIENT_ID: str | None = None
     HERMES_DINGTALK_CLIENT_SECRET: str | None = None
     HERMES_DINGTALK_INBOUND_TOKEN: str | None = None
+    HERMES_DINGTALK_STREAM_RELAY_TOKEN: str | None = None
     HERMES_DINGTALK_MODE: str = 'callback'
     HERMES_FACTORY_BRAIN_ENABLED: bool = False
     HERMES_FACTORY_BRAIN_MODEL_PROVIDER: str = 'codex_token'

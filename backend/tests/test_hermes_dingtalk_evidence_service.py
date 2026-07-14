@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import cast
 
 import pytest
@@ -12,6 +12,18 @@ from app.database import Base
 from app.models.agent_communication import MultimodalEvidence
 from app.services import hermes_dingtalk_evidence_service as evidence_service
 from app.services.hermes_dingtalk_evidence_service import query_dingtalk_evidence
+
+
+def test_coerce_datetime_accepts_dingtalk_epoch_milliseconds() -> None:
+    assert evidence_service._coerce_datetime("1720688400000") == datetime.fromtimestamp(
+        1720688400,
+        tz=timezone.utc,
+    )
+
+
+def test_parse_business_date_returns_date_for_epoch_milliseconds() -> None:
+    assert evidence_service._parse_business_date("1720656000000") == date(2024, 7, 11)
+    assert type(evidence_service._parse_business_date("1720656000000")) is date
 
 
 def _db_session() -> Session:

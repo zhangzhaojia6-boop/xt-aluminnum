@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import re
 from typing import Any, Mapping
 
@@ -350,6 +350,17 @@ def _parse_business_date(value: Any) -> date | None:
     if not text:
         return None
     try:
+        numeric = float(text)
+    except ValueError:
+        numeric = None
+    if numeric is not None:
+        if abs(numeric) >= 10**11:
+            numeric /= 1000.0
+        try:
+            return datetime.fromtimestamp(numeric, tz=timezone.utc).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+    try:
         return date.fromisoformat(text[:10])
     except ValueError:
         return None
@@ -399,6 +410,17 @@ def _coerce_datetime(value: Any) -> datetime | None:
     text = str(value or "").strip()
     if not text:
         return None
+    try:
+        epoch_value = float(text)
+    except ValueError:
+        pass
+    else:
+        if abs(epoch_value) >= 100_000_000_000:
+            epoch_value /= 1000
+        try:
+            return datetime.fromtimestamp(epoch_value, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
     try:
         return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:

@@ -6,11 +6,15 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 from typing import Any
 
 import json
 import logging
-from datetime import datetime, timezone
+import re
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib import request as urllib_request
 from uuid import uuid4
@@ -18,6 +22,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -28,8 +33,10 @@ from app.database import get_db
 from app.models.agent_communication import (
     AgentChannelBinding,
     AgentProfile,
+    AgentRateLimit,
     ChatInboxMessage,
     CommunicationChannel,
+    DingTalkInboundReceipt,
     MultimodalEvidence,
 )
 from app.models.master import Workshop
@@ -47,6 +54,7 @@ from app.services.dingtalk_energy_ingest_service import (
 from app.services.dingtalk_file_text_extractor import extract_dingtalk_file_text
 from app.services.dingtalk_secret_sanitizer import sanitize_dingtalk_payload_for_storage
 from app.services.dingtalk_stream_event_service import normalize_dingtalk_stream_event
+from app.services.dingtalk_stream_gateway_service import ingest_dingtalk_stream_event
 from app.services.hermes_day1_evidence_service import Day1EvidenceError, record_day1_dingtalk_evidence
 from app.services.hermes_day1_intent_service import (
     Day1CommandParseError,
@@ -63,6 +71,7 @@ from app.services.hermes_root_owner_production_orchestrator import (
 from app.services.hermes_root_owner_message_service import understand_root_owner_message
 
 logger = logging.getLogger(__name__)
+INBOUND_AGENT_PROCESSING_LEASE_SECONDS = 120
 
 router = APIRouter(tags=["dingtalk"])
 
@@ -583,12 +592,14 @@ def _find_duplicate_inbound_evidence(
     channel: str,
     group_id: str | None,
     trace_id: str,
+    source_transport: str | None = None,
 ) -> MultimodalEvidence | None:
     clean_trace_id = _clean_text(trace_id)
     if not clean_trace_id:
         return None
     clean_channel = _clean_text(channel)
     clean_group_id = _clean_text(group_id)
+    clean_source_transport = _clean_text(source_transport)
     rows = (
         db.query(MultimodalEvidence)
         .filter(MultimodalEvidence.payload.isnot(None))
@@ -604,6 +615,8 @@ def _find_duplicate_inbound_evidence(
         if _clean_text(payload.get('channel')) != clean_channel:
             continue
         if _clean_text(payload.get('group_id')) != clean_group_id:
+            continue
+        if clean_source_transport and _clean_text(payload.get('source_transport')) != clean_source_transport:
             continue
         return row
     return None
@@ -626,13 +639,109 @@ def _ensure_inbound_token(header_token: str | None) -> None:
         raise HTTPException(status_code=401, detail='dingtalk_inbound_token_invalid')
 
 
-def _resolve_inbound_user(db: Session, payload: dict[str, Any]) -> User:
+def _ensure_inbound_request_auth(
+    payload: dict[str, Any],
+    *,
+    header_token: str | None,
+    signature: str | None,
+    timestamp: str | None,
+    nonce: str | None,
+    kind: str | None,
+) -> tuple[str, str, str | None]:
+    if not signature and not timestamp and not nonce and not settings.is_production_like:
+        _ensure_inbound_token(header_token)
+        return 'dingtalk_signed_inbound', 'legacy_token', None
+
+    clean_kind = _clean_text(kind) or 'signed_inbound'
+    if re.fullmatch(r'[a-z0-9_-]{1,64}', clean_kind) is None:
+        raise HTTPException(status_code=401, detail='dingtalk_inbound_kind_invalid')
+    if clean_kind == 'dingtalk_stream':
+        accepted_secrets = tuple(
+            secret
+            for secret in (
+                _clean_text(getattr(settings, 'HERMES_DINGTALK_STREAM_RELAY_TOKEN', None)),
+            )
+            if secret
+        )
+        source_transport = 'dingtalk_stream'
+    else:
+        accepted_secrets = tuple(
+            secret
+            for secret in (
+                _clean_text(getattr(settings, 'DINGTALK_INBOUND_TOKEN', None)),
+                _clean_text(getattr(settings, 'HERMES_DINGTALK_INBOUND_TOKEN', None)),
+            )
+            if secret
+        )
+        source_transport = 'dingtalk_signed_inbound'
+    if not accepted_secrets:
+        raise HTTPException(status_code=503, detail='dingtalk_inbound_signature_secret_required')
+    try:
+        request_time = int(_clean_text(timestamp))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=401, detail='dingtalk_inbound_timestamp_invalid') from exc
+    if abs(int(time.time()) - request_time) > 300:
+        raise HTTPException(status_code=401, detail='dingtalk_inbound_timestamp_expired')
+    clean_nonce = _clean_text(nonce)
+    if not clean_nonce or len(clean_nonce) > 128:
+        raise HTTPException(status_code=401, detail='dingtalk_inbound_nonce_invalid')
+    try:
+        clean_nonce.encode('ascii')
+    except UnicodeEncodeError as exc:
+        raise HTTPException(status_code=401, detail='dingtalk_inbound_nonce_invalid') from exc
+    supplied_signature = _clean_text(signature)
+    if supplied_signature.startswith('sha256='):
+        supplied_signature = supplied_signature[7:]
+    if len(supplied_signature) != 64:
+        raise HTTPException(status_code=401, detail='dingtalk_inbound_signature_invalid')
+
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    signed = (
+        str(request_time).encode('ascii')
+        + b'.'
+        + clean_nonce.encode('ascii')
+        + b'.'
+        + clean_kind.encode('ascii')
+        + b'.'
+        + canonical
+    )
+    if not any(
+        hmac.compare_digest(
+            supplied_signature,
+            hmac.new(secret.encode('utf-8'), signed, hashlib.sha256).hexdigest(),
+        )
+        for secret in accepted_secrets
+    ):
+        raise HTTPException(status_code=401, detail='dingtalk_inbound_signature_invalid')
+    return source_transport, clean_kind, clean_nonce
+
+
+def _consume_inbound_nonce(db: Session, *, kind: str, nonce: str) -> None:
+    now = datetime.now(timezone.utc)
+    nonce_hash = hashlib.sha256(f'{kind}\x1f{nonce}'.encode('utf-8')).hexdigest()
+    db.add(
+        AgentRateLimit(
+            scope_key='dingtalk_inbound_nonce',
+            event_key=nonce_hash,
+            window_started_at=now,
+            window_expires_at=now + timedelta(minutes=10),
+            hit_count=1,
+        )
+    )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail='dingtalk_inbound_replay_detected') from exc
+
+
+def _resolve_inbound_user(db: Session, payload: dict[str, Any]) -> User | None:
     sender_user_id = _clean_text(
         _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
     )
     sender_union_id = _clean_text(_first_payload_value(payload, 'senderUnionId', 'unionId'))
     if not sender_user_id and not sender_union_id:
-        raise HTTPException(status_code=401, detail='dingtalk_sender_required')
+        return None
 
     try:
         user = dingtalk_service.resolve_unique_dingtalk_user(
@@ -643,12 +752,121 @@ def _resolve_inbound_user(db: Session, payload: dict[str, Any]) -> User:
     except dingtalk_service.DingTalkUserAmbiguous as exc:
         raise HTTPException(status_code=409, detail='dingtalk_user_ambiguous') from exc
     if not user:
-        raise HTTPException(status_code=403, detail='dingtalk_user_not_bound')
-
-    scope = build_scope_summary(user)
-    if not (scope.is_admin or scope.is_manager or scope.is_reviewer):
-        raise HTTPException(status_code=403, detail='dingtalk_agent_access_denied')
+        return None
     return user
+
+
+def _has_inbound_agent_access(user: User | None) -> bool:
+    if user is None:
+        return False
+    scope = build_scope_summary(user)
+    return bool(scope.is_admin or scope.is_manager or scope.is_reviewer)
+
+
+def _claim_inbound_receipt(
+    db: Session,
+    *,
+    channel: str,
+    group_id: str,
+    trace_id: str,
+    source_transport: str,
+) -> tuple[DingTalkInboundReceipt, bool]:
+    raw_key = '\x1f'.join((source_transport, channel, group_id, trace_id))
+    receipt = DingTalkInboundReceipt(
+        dedupe_key=hashlib.sha256(raw_key.encode('utf-8')).hexdigest(),
+        channel=channel,
+        group_id=group_id or None,
+        trace_id=trace_id,
+    )
+    db.add(receipt)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        existing = (
+            db.query(DingTalkInboundReceipt)
+            .filter(DingTalkInboundReceipt.dedupe_key == receipt.dedupe_key)
+            .one()
+        )
+        return existing, False
+    return receipt, True
+
+
+def _set_inbound_receipt_status(
+    db: Session,
+    receipt_id: int,
+    status: str,
+    *,
+    commit: bool,
+) -> None:
+    db.query(DingTalkInboundReceipt).filter(DingTalkInboundReceipt.id == receipt_id).update(
+        {
+            DingTalkInboundReceipt.status: status,
+            DingTalkInboundReceipt.updated_at: datetime.now(timezone.utc),
+        },
+        synchronize_session=False,
+    )
+    if commit:
+        db.commit()
+
+
+def _claim_inbound_agent_attempt(db: Session, receipt_id: int) -> bool:
+    stale_before = datetime.now(timezone.utc) - timedelta(seconds=INBOUND_AGENT_PROCESSING_LEASE_SECONDS)
+    updated = (
+        db.query(DingTalkInboundReceipt)
+        .filter(DingTalkInboundReceipt.id == receipt_id)
+        .filter(
+            or_(
+                DingTalkInboundReceipt.status.in_(('evidence_recorded', 'agent_failed')),
+                and_(
+                    DingTalkInboundReceipt.status == 'agent_processing',
+                    DingTalkInboundReceipt.updated_at < stale_before,
+                ),
+            )
+        )
+        .update(
+            {
+                DingTalkInboundReceipt.status: 'agent_processing',
+                DingTalkInboundReceipt.attempt_count: DingTalkInboundReceipt.attempt_count + 1,
+                DingTalkInboundReceipt.updated_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    return updated == 1
+
+
+def _duplicate_inbound_response(
+    db: Session,
+    *,
+    channel: str,
+    group_id: str,
+    trace_id: str,
+    source_transport: str,
+) -> dict[str, Any]:
+    inbox = _find_duplicate_inbound_message(db, channel=channel, group_id=group_id, trace_id=trace_id)
+    evidence = _find_duplicate_inbound_evidence(
+        db,
+        channel=channel,
+        group_id=group_id or None,
+        trace_id=trace_id,
+        source_transport=source_transport,
+    )
+    return {
+        'errcode': 0,
+        'errmsg': 'ok',
+        'action': 'dingtalk-duplicate' if inbox is not None else 'dingtalk-evidence-duplicate',
+        'status': 'duplicate',
+        'trace_id': trace_id,
+        'answer': '',
+        'messages': [],
+        'should_reply': False,
+        'evidence_id': evidence.id if evidence is not None else None,
+        'chat_inbox_id': inbox.id if inbox is not None else None,
+        'agent_run_id': None,
+        'report_id': None,
+    }
 
 
 @router.post('/agent-inbound')
@@ -656,23 +874,112 @@ def dingtalk_agent_inbound(
     payload: dict[str, Any],
     db: Session = Depends(get_db),
     inbound_token: str | None = Header(default=None, alias='x-dingtalk-inbound-token'),
+    inbound_signature: str | None = Header(default=None, alias='x-dingtalk-inbound-signature'),
+    inbound_timestamp: str | None = Header(default=None, alias='x-dingtalk-inbound-timestamp'),
+    inbound_nonce: str | None = Header(default=None, alias='x-dingtalk-inbound-nonce'),
+    inbound_kind: str | None = Header(default=None, alias='x-dingtalk-inbound-kind'),
 ) -> dict[str, Any]:
-    _ensure_inbound_token(inbound_token)
-    text = _extract_agent_text(payload)
-    evidence_only = not text and _has_inbound_evidence_payload(payload)
-    if not text and not evidence_only:
-        raise HTTPException(status_code=400, detail='command_text_required')
-
-    user = _resolve_inbound_user(db, payload)
+    source_transport, auth_kind, auth_nonce = _ensure_inbound_request_auth(
+        payload,
+        header_token=inbound_token,
+        signature=inbound_signature,
+        timestamp=inbound_timestamp,
+        nonce=inbound_nonce,
+        kind=inbound_kind,
+    )
+    if auth_nonce is not None:
+        _consume_inbound_nonce(db, kind=auth_kind, nonce=auth_nonce)
     group_id = _clean_text(_first_payload_value(payload, 'conversationId', 'conversation_id', 'chatId', 'openConversationId'))
     channel = _resolve_inbound_channel_type(payload, group_id=group_id)
+    trace_id = _resolve_inbound_trace_id(payload)
+    text = _extract_agent_text(payload)
+    agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
+    scoped_group_id = group_id if channel == 'dingtalk_group' else ''
+    user: User | None = None
+    channel_scope: dict[str, Any] | None = None
+    if source_transport != 'dingtalk_stream':
+        user = _resolve_inbound_user(db, payload)
+        if not _has_inbound_agent_access(user):
+            raise HTTPException(status_code=403, detail='dingtalk_agent_access_denied')
+        assert user is not None
+        channel_scope = _resolve_inbound_channel_scope(db, group_id=scoped_group_id, payload=payload)
+        _ensure_inbound_channel_scope_access(user, channel_scope)
+
+    receipt, receipt_created = _claim_inbound_receipt(
+        db,
+        channel=channel,
+        group_id=group_id,
+        trace_id=trace_id,
+        source_transport=source_transport,
+    )
+    receipt_id = int(receipt.id)
+    if not receipt_created and receipt.status not in (
+        'evidence_pending',
+        'evidence_recorded',
+        'agent_processing',
+        'agent_failed',
+    ):
+        return _duplicate_inbound_response(
+            db,
+            channel=channel,
+            group_id=group_id,
+            trace_id=trace_id,
+            source_transport=source_transport,
+        )
+    if receipt_created:
+        stream_result = ingest_dingtalk_stream_event(
+            db,
+            payload,
+            dingtalk_service=dingtalk_service.service,
+            require_authorized_group=False,
+            source_transport=source_transport,
+        )
+        _set_inbound_receipt_status(db, receipt_id, 'evidence_recorded', commit=True)
+    else:
+        existing_evidence = _find_duplicate_inbound_evidence(
+            db,
+            channel=channel,
+            group_id=group_id or None,
+            trace_id=trace_id,
+            source_transport=source_transport,
+        )
+        if receipt.status == 'evidence_pending':
+            if existing_evidence is None:
+                raise HTTPException(status_code=503, detail='dingtalk_inbound_evidence_pending')
+            _set_inbound_receipt_status(db, receipt_id, 'evidence_recorded', commit=True)
+        stream_result = {
+            'accepted': existing_evidence is not None,
+            'duplicate': True,
+            'trace_id': trace_id,
+            'evidence_id': existing_evidence.id if existing_evidence is not None else None,
+        }
+    if source_transport == 'dingtalk_stream':
+        user = _resolve_inbound_user(db, payload)
+    if not text or not _has_inbound_agent_access(user):
+        _set_inbound_receipt_status(db, receipt_id, 'completed_evidence', commit=True)
+        return {
+            'errcode': 0,
+            'errmsg': 'ok',
+            'action': 'dingtalk-evidence-duplicate' if stream_result.get('duplicate') else 'dingtalk-evidence-recorded',
+            'status': 'duplicate' if stream_result.get('duplicate') else 'recorded',
+            'trace_id': stream_result.get('trace_id') or _resolve_inbound_trace_id(payload),
+            'answer': '',
+            'messages': [],
+            'should_reply': False,
+            'evidence_id': stream_result.get('evidence_id'),
+            'energy_ingest': stream_result.get('energy_ingest'),
+            'chat_inbox_id': None,
+            'agent_run_id': None,
+            'report_id': None,
+        }
+    assert user is not None
     sender_external_id = _clean_text(
         _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
     )
     has_inbound_evidence = _has_inbound_evidence_payload(payload)
-    trace_id = _resolve_inbound_trace_id(payload)
     duplicate = _find_duplicate_inbound_message(db, channel=channel, group_id=group_id, trace_id=trace_id)
     if duplicate is not None:
+        _set_inbound_receipt_status(db, receipt_id, 'completed', commit=True)
         return {
             'errcode': 0,
             'errmsg': 'ok',
@@ -686,90 +993,28 @@ def dingtalk_agent_inbound(
             'agent_run_id': None,
             'report_id': None,
         }
-    agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
-    scoped_group_id = group_id if channel == 'dingtalk_group' else ''
-    queue_outbox_value = _first_payload_value(payload, 'queueOutbox', 'queue_outbox')
-    queue_outbox = (
-        _has_bound_inbound_outbox_channel(db, group_id=scoped_group_id, agent_code=agent_code)
-        if queue_outbox_value is None
-        else _parse_inbound_bool(queue_outbox_value)
-    )
-    channel_scope = _resolve_inbound_channel_scope(db, group_id=scoped_group_id, payload=payload)
-    _ensure_inbound_channel_scope_access(user, channel_scope)
-    source_payload = _sanitize_inbound_payload(payload)
-    if evidence_only:
-        evidence_duplicate = _find_duplicate_inbound_evidence(
+    queue_outbox = _has_bound_inbound_outbox_channel(db, group_id=scoped_group_id, agent_code=agent_code)
+    if channel_scope is None:
+        channel_scope = _resolve_inbound_channel_scope(db, group_id=scoped_group_id, payload=payload)
+        try:
+            _ensure_inbound_channel_scope_access(user, channel_scope)
+        except HTTPException:
+            _set_inbound_receipt_status(db, receipt_id, 'completed_evidence', commit=True)
+            raise
+    if not _claim_inbound_agent_attempt(db, receipt_id):
+        if receipt.status == 'agent_processing':
+            raise HTTPException(status_code=503, detail='dingtalk_inbound_agent_processing')
+        return _duplicate_inbound_response(
             db,
             channel=channel,
-            group_id=group_id or None,
+            group_id=group_id,
             trace_id=trace_id,
+            source_transport=source_transport,
         )
-        if evidence_duplicate is not None:
-            return {
-                'errcode': 0,
-                'errmsg': 'ok',
-                'action': 'dingtalk-evidence-duplicate',
-                'status': 'duplicate',
-                'trace_id': trace_id,
-                'answer': '',
-                'messages': [],
-                'should_reply': False,
-                'evidence_id': evidence_duplicate.id,
-                'chat_inbox_id': None,
-                'agent_run_id': None,
-                'report_id': None,
-            }
-        attachment_text = ''
-        attachment_payload_updates: dict[str, Any] = {}
-        attachment_processing_payload = dict(payload)
-        if has_inbound_evidence:
-            attachment_text, attachment_payload_updates, attachment_processing_payload = _prepare_attachment_processing_payload(
-                payload
-            )
-            if attachment_payload_updates:
-                source_payload = {**source_payload, **attachment_payload_updates}
-        try:
-            evidence_business_date = resolve_dingtalk_energy_business_date(
-                source_payload,
-                file_name=_clean_text(_first_payload_value(source_payload, 'fileName', 'file_name', 'name')),
-            )
-            evidence = record_day1_dingtalk_evidence(
-                db,
-                payload=source_payload,
-                actor=user,
-                business_date=evidence_business_date,
-                channel=channel,
-                group_id=group_id or None,
-                trace_id=trace_id,
-                recognized_text=attachment_text,
-            )
-            db.commit()
-        except Day1EvidenceError as exc:
-            db.rollback()
-            raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
-
-        energy_ingest = (
-            ingest_dingtalk_energy_file(db, payload=attachment_processing_payload, evidence=evidence, trace_id=trace_id)
-            if evidence is not None
-            else None
-        )
-
-        return {
-            'errcode': 0,
-            'errmsg': 'ok',
-            'action': 'dingtalk-evidence-recorded',
-            'status': 'recorded',
-            'trace_id': trace_id,
-            'answer': '',
-            'messages': [],
-            'should_reply': False,
-            'evidence_id': evidence.id if evidence is not None else None,
-            'energy_ingest': energy_ingest,
-            'chat_inbox_id': None,
-            'agent_run_id': None,
-            'report_id': None,
-        }
-
+    source_payload = {
+        **_sanitize_inbound_payload(payload),
+        'source_transport': source_transport,
+    }
     day1_parse_error: Day1CommandParseError | None = None
     try:
         day1_command = None
@@ -783,7 +1028,13 @@ def dingtalk_agent_inbound(
         channel=channel,
         group_id=group_id or None,
         trace_id=trace_id,
+        source_transport=source_transport,
     )
+    if evidence_duplicate is not None and day1_command is not None:
+        duplicate_payload = dict(evidence_duplicate.payload or {})
+        duplicate_payload['business_date'] = day1_command.business_date.isoformat()
+        evidence_duplicate.payload = duplicate_payload
+        db.add(evidence_duplicate)
     if evidence_duplicate is None:
         if has_inbound_evidence:
             _, attachment_payload_updates, _ = _prepare_attachment_processing_payload(payload)
@@ -802,6 +1053,7 @@ def dingtalk_agent_inbound(
             )
         except Day1EvidenceError as exc:
             db.rollback()
+            _set_inbound_receipt_status(db, receipt_id, 'rejected', commit=True)
             raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
 
     if day1_command is not None:
@@ -815,10 +1067,12 @@ def dingtalk_agent_inbound(
         try:
             require_root_owner_for_day1_report(decision)
         except PermissionError as exc:
+            _set_inbound_receipt_status(db, receipt_id, 'rejected', commit=False)
             db.commit()
             raise HTTPException(status_code=403, detail=str(exc)) from exc
 
         if not settings.HERMES_DAY1_ENABLED:
+            _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)
             db.commit()
             answer = 'Hermes Day-1 当前未开启，已关闭完整版日报生成。'
             return {
@@ -859,12 +1113,15 @@ def dingtalk_agent_inbound(
                 trace_id=trace_id,
                 chat_inbox=chat_inbox,
             )
+            _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)
             db.commit()
         except Day1EvidenceError as exc:
             db.rollback()
+            _set_inbound_receipt_status(db, receipt_id, 'rejected', commit=True)
             raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
         except Exception:
             db.rollback()
+            _set_inbound_receipt_status(db, receipt_id, 'agent_failed', commit=True)
             raise
 
         return {
@@ -906,9 +1163,11 @@ def dingtalk_agent_inbound(
                     **({'day1_parse_error': day1_parse_error.code} if day1_parse_error is not None else {}),
                 },
             )
+            _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)
             db.commit()
         except Exception:
             db.rollback()
+            _set_inbound_receipt_status(db, receipt_id, 'agent_failed', commit=True)
             raise
         return {
             'errcode': 0,
@@ -927,6 +1186,7 @@ def dingtalk_agent_inbound(
         }
 
     if day1_parse_error is not None:
+        _set_inbound_receipt_status(db, receipt_id, 'rejected', commit=True)
         raise HTTPException(status_code=400, detail=day1_parse_error.code) from day1_parse_error
 
     factory_brain_intent = _get_factory_brain_route_intent(text)
@@ -943,6 +1203,7 @@ def dingtalk_agent_inbound(
                 group_id=group_id,
             )
         except PermissionError as exc:
+            _set_inbound_receipt_status(db, receipt_id, 'rejected', commit=True)
             raise HTTPException(status_code=403, detail=str(exc)) from exc
 
         try:
@@ -956,9 +1217,11 @@ def dingtalk_agent_inbound(
                 trace_id=trace_id or None,
                 source_payload=source_payload,
             )
+            _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)
             db.commit()
         except Exception:
             db.rollback()
+            _set_inbound_receipt_status(db, receipt_id, 'agent_failed', commit=True)
             raise
         return {
             'errcode': 0,
@@ -986,12 +1249,15 @@ def dingtalk_agent_inbound(
             source_payload=source_payload,
             current_user=user,
         )
+        _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)
         db.commit()
     except AgentCommandError as exc:
         db.rollback()
+        _set_inbound_receipt_status(db, receipt_id, 'rejected', commit=True)
         raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
     except Exception:
         db.rollback()
+        _set_inbound_receipt_status(db, receipt_id, 'agent_failed', commit=True)
         raise
 
     return {

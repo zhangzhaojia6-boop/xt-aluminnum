@@ -18,8 +18,20 @@ def hermes_dingtalk_inbound(
     payload: dict[str, Any],
     db: Session = Depends(get_db),
     inbound_token: str | None = Header(default=None, alias='x-dingtalk-inbound-token'),
+    inbound_signature: str | None = Header(default=None, alias='x-dingtalk-inbound-signature'),
+    inbound_timestamp: str | None = Header(default=None, alias='x-dingtalk-inbound-timestamp'),
+    inbound_nonce: str | None = Header(default=None, alias='x-dingtalk-inbound-nonce'),
+    inbound_kind: str | None = Header(default=None, alias='x-dingtalk-inbound-kind'),
 ) -> dict[str, Any]:
-    return dingtalk.dingtalk_agent_inbound(payload=payload, db=db, inbound_token=inbound_token)
+    return dingtalk.dingtalk_agent_inbound(
+        payload=payload,
+        db=db,
+        inbound_token=inbound_token,
+        inbound_signature=inbound_signature,
+        inbound_timestamp=inbound_timestamp,
+        inbound_nonce=inbound_nonce,
+        inbound_kind=inbound_kind,
+    )
 
 
 @router.get('/factory-brain/status')

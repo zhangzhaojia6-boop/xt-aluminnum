@@ -1,13 +1,18 @@
 ﻿from __future__ import annotations
 
 import base64
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+import hashlib
+import hmac
 import json
 from pathlib import Path
+import time
 
 from fastapi.testclient import TestClient
 import pandas as pd
+import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -18,9 +23,11 @@ from app.models.agent_communication import (
     AgentChannelBinding,
     AgentOutboxMessage,
     AgentProfile,
+    AgentRateLimit,
     AgentRun,
     ChatInboxMessage,
     CommunicationChannel,
+    DingTalkInboundReceipt,
     MultimodalEvidence,
 )
 from app.models.energy import EnergyImportRecord
@@ -45,7 +52,9 @@ DINGTALK_AGENT_TABLES = [
     CommunicationChannel.__table__,
     AgentChannelBinding.__table__,
     AgentOutboxMessage.__table__,
+    AgentRateLimit.__table__,
     ChatInboxMessage.__table__,
+    DingTalkInboundReceipt.__table__,
     AgentRun.__table__,
     MultimodalEvidence.__table__,
     ImportBatch.__table__,
@@ -89,6 +98,34 @@ def _write_dingtalk_energy_workbook(path: Path) -> None:
     )
     with pd.ExcelWriter(path, engine='openpyxl') as writer:
         frame.to_excel(writer, index=False, header=False, sheet_name='用量')
+
+
+def test_dingtalk_inbound_receipt_dedupe_key_is_database_unique() -> None:
+    db, previous_overrides = _install_db_override()
+    try:
+        db.add(
+            DingTalkInboundReceipt(
+                dedupe_key='a' * 64,
+                channel='dingtalk_group',
+                group_id='cid-unique-001',
+                trace_id='trace-unique-001',
+            )
+        )
+        db.commit()
+        db.add(
+            DingTalkInboundReceipt(
+                dedupe_key='a' * 64,
+                channel='dingtalk_group',
+                group_id='cid-unique-001',
+                trace_id='trace-unique-001',
+            )
+        )
+
+        with pytest.raises(IntegrityError):
+            db.commit()
+    finally:
+        db.rollback()
+        _restore_db_override(previous_overrides, db)
 
 
 def test_dingtalk_agent_inbound_forwards_bound_manager_message_to_agent(monkeypatch) -> None:
@@ -297,6 +334,7 @@ def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent
         assert evidence.file_uri == 'dingtalk://media/media-energy-20260705'
         assert evidence.payload['channel'] == 'dingtalk_group'
         assert evidence.payload['group_id'] == 'cid-energy-files'
+        assert evidence.payload['source_transport'] == 'dingtalk_signed_inbound'
         assert evidence.payload['file_name'] == '7月5日抄表.xlsx'
         assert evidence.payload['evidence_kind'] == 'fact'
         assert evidence.payload['metric_write_allowed'] is False
@@ -306,7 +344,7 @@ def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent
         _restore_db_override(previous_overrides, db)
 
 
-def test_dingtalk_agent_inbound_promotes_inline_energy_workbook(monkeypatch, tmp_path: Path) -> None:
+def test_dingtalk_agent_inbound_stages_inline_energy_workbook_without_promoting(monkeypatch, tmp_path: Path) -> None:
     db, previous_overrides = _install_db_override()
     db.add(
         User(
@@ -356,18 +394,14 @@ def test_dingtalk_agent_inbound_promotes_inline_energy_workbook(monkeypatch, tmp
         assert response.status_code == 200
         payload = response.json()
         assert payload['action'] == 'dingtalk-evidence-recorded'
-        assert payload['energy_ingest']['status'] == 'promoted'
+        assert payload['energy_ingest']['status'] == 'staged'
         assert payload['energy_ingest']['business_date'] == '2026-07-04'
-        assert payload['energy_ingest']['record_rows_written'] == 2
+        assert payload['energy_ingest']['batch_id']
 
-        records = db.query(EnergyImportRecord).order_by(EnergyImportRecord.workshop_code.asc()).all()
-        assert [(row.workshop_code, row.energy_type, float(row.energy_value)) for row in records] == [
-            ('RZ', 'electricity', 40.0),
-            ('ZD', 'electricity', 400.0),
-        ]
+        assert db.query(EnergyImportRecord).count() == 0
         evidence = db.query(MultimodalEvidence).one()
         assert evidence.payload['business_date'] == '2026-07-04'
-        assert evidence.payload['energy_ingest']['status'] == 'promoted'
+        assert evidence.payload['energy_ingest']['status'] == 'staged'
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -788,7 +822,7 @@ def test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop(monkeypatc
         _restore_db_override(previous_overrides, db)
 
 
-def test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop_before_file_download(monkeypatch) -> None:
+def test_dingtalk_agent_inbound_keeps_out_of_scope_file_as_candidate_without_running_agent(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add_all([
         User(
@@ -822,9 +856,15 @@ def test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop_before_fil
 
     def _fake_download_robot_message_file(*, download_code: str):
         download_calls.append(download_code)
-        raise AssertionError('scope rejection should happen before attachment download')
+        raise RuntimeError('download unavailable')
 
-    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    stream_secret = 'stream-relay-test-secret'
+    monkeypatch.setattr('app.routers.dingtalk.settings.APP_ENV', 'production', raising=False)
+    monkeypatch.setattr(
+        'app.routers.dingtalk.settings.HERMES_DINGTALK_STREAM_RELAY_TOKEN',
+        stream_secret,
+        raising=False,
+    )
     monkeypatch.setattr(
         'app.routers.dingtalk.dingtalk_service.service.download_robot_message_file',
         _fake_download_robot_message_file,
@@ -832,26 +872,29 @@ def test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop_before_fil
 
     try:
         client = TestClient(app)
+        inbound_payload = {
+            'conversationId': 'cid-hot-roll-file',
+            'conversationType': 'group',
+            'senderStaffId': 'dt-cold-director-file-denied-001',
+            'senderUnionId': 'union-cold-director-file-denied-001',
+            'msgtype': 'file',
+            'fileName': '7月9日产量.csv',
+            'fileId': 'file-scope-denied-001',
+            'downloadCode': 'download-scope-denied-001',
+            'traceId': 'trace-dingtalk-file-scope-denied-001',
+        }
         response = client.post(
             '/api/v1/dingtalk/agent-inbound',
-            headers={'x-dingtalk-inbound-token': 'inbound-test'},
-            json={
-                'conversationId': 'cid-hot-roll-file',
-                'conversationType': 'group',
-                'senderStaffId': 'dt-cold-director-file-denied-001',
-                'senderUnionId': 'union-cold-director-file-denied-001',
-                'msgtype': 'file',
-                'fileName': '7月9日产量.csv',
-                'fileId': 'file-scope-denied-001',
-                'downloadCode': 'download-scope-denied-001',
-                'traceId': 'trace-dingtalk-file-scope-denied-001',
-            },
+            headers=_signed_inbound_headers(inbound_payload, stream_secret, kind='dingtalk_stream'),
+            json=inbound_payload,
         )
 
-        assert response.status_code == 403
-        assert response.json()['detail'] == 'dingtalk_channel_scope_denied'
-        assert download_calls == []
-        assert db.query(MultimodalEvidence).count() == 0
+        assert response.status_code == 200
+        assert response.json()['should_reply'] is False
+        assert download_calls == ['download-scope-denied-001']
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.confirmation_status == 'machine_only'
+        assert evidence.payload['parse_status'] == 'download_failed'
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -1209,14 +1252,11 @@ def test_dingtalk_agent_inbound_day1_root_owner_calls_orchestrator_without_forci
         assert inbox.channel == 'dingtalk_private'
         assert inbox.group_id is None
         assert seen == {
-            'evidence_channel': 'dingtalk_private',
-            'evidence_group_id': None,
-            'recognized_text': '生成 6月19日正式日报',
             'business_date': '2026-06-19',
             'actor_id': 13,
             'chat_inbox_id': payload['chat_inbox_id'],
         }
-        assert db.query(MultimodalEvidence).count() == 0
+        assert db.query(MultimodalEvidence).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -1426,9 +1466,9 @@ def test_dingtalk_agent_inbound_day1_non_root_owner_dedupes_evidence_only_trace_
         )
 
         assert first.status_code == 403
-        assert second.status_code == 403
+        assert second.status_code == 200
         assert first.json()['detail'] == 'owner_required'
-        assert second.json()['detail'] == 'owner_required'
+        assert second.json()['action'] == 'dingtalk-evidence-duplicate'
         assert db.query(MultimodalEvidence).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
@@ -1478,7 +1518,7 @@ def test_dingtalk_agent_inbound_day1_disabled_dedupes_evidence_only_trace_id(mon
         assert first.status_code == 200
         assert second.status_code == 200
         assert first.json()['code'] == 'hermes_day1_disabled'
-        assert second.json()['code'] == 'hermes_day1_disabled'
+        assert second.json()['action'] == 'dingtalk-evidence-duplicate'
         assert db.query(MultimodalEvidence).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
@@ -1621,7 +1661,7 @@ def test_dingtalk_agent_inbound_authorized_noise_message_skips_evidence_and_call
         _restore_db_override(previous_overrides, db)
 
 
-def test_dingtalk_agent_inbound_treats_string_false_as_no_outbox(monkeypatch) -> None:
+def test_dingtalk_agent_inbound_ignores_payload_outbox_override_without_bound_channel(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add(
         User(
@@ -1674,7 +1714,7 @@ def test_dingtalk_agent_inbound_treats_string_false_as_no_outbox(monkeypatch) ->
                 'text': {'content': '@鑫泰助手 今日产量'},
                 'agentCode': 'factory_dispatch',
                 'traceId': 'trace-dingtalk-inbound-002',
-                'queueOutbox': 'false',
+                'queueOutbox': 'true',
             },
         )
 
@@ -2350,5 +2390,430 @@ def test_dingtalk_agent_inbound_root_owner_private_joke_uses_legacy_fallback(mon
         assert payload["intent"] == "general_chat"
         assert payload["answer"] == "旧闲聊 fallback"
         assert seen["text"] == "给我讲个轻松的笑话"
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def _signed_inbound_headers(
+    payload: dict,
+    secret: str,
+    *,
+    timestamp: int | None = None,
+    kind: str = 'signed_inbound',
+    nonce: str = 'test-nonce-001',
+) -> dict[str, str]:
+    request_time = int(time.time()) if timestamp is None else timestamp
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    signed = (
+        str(request_time).encode('ascii')
+        + b'.'
+        + nonce.encode('ascii')
+        + b'.'
+        + kind.encode('ascii')
+        + b'.'
+        + canonical
+    )
+    signature = hmac.new(secret.encode('utf-8'), signed, hashlib.sha256).hexdigest()
+    return {
+        'x-dingtalk-inbound-timestamp': str(request_time),
+        'x-dingtalk-inbound-nonce': nonce,
+        'x-dingtalk-inbound-kind': kind,
+        'x-dingtalk-inbound-signature': f'sha256={signature}',
+    }
+
+
+def test_production_inbound_signature_accepts_unknown_metadata_and_rejects_tampering(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    secret = 'stream-relay-test-secret'
+    payload = {
+        'conversationId': 'cid-unknown-event-001',
+        'conversationType': 'group',
+        'senderStaffId': 'unbound-staff-001',
+        'msgtype': 'custom_unknown',
+        'traceId': 'trace-unknown-event-001',
+        'rawNote': '未知事件也必须留元数据',
+    }
+    monkeypatch.setattr(dingtalk_router.settings, 'APP_ENV', 'production', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'DINGTALK_INBOUND_TOKEN', 'generic-secret', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DINGTALK_INBOUND_TOKEN', '', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DINGTALK_STREAM_RELAY_TOKEN', secret, raising=False)
+
+    try:
+        client = TestClient(app)
+        accepted = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers=_signed_inbound_headers(payload, secret, kind='dingtalk_stream'),
+            json=payload,
+        )
+        tampered_payload = {**payload, 'rawNote': '被篡改'}
+        tampered = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers=_signed_inbound_headers(payload, secret, kind='dingtalk_stream'),
+            json=tampered_payload,
+        )
+
+        assert accepted.status_code == 200
+        assert accepted.json()['should_reply'] is False
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.confirmation_status == 'machine_only'
+        assert evidence.payload['source_transport'] == 'dingtalk_stream'
+        assert evidence.payload['raw_metadata']['rawNote'] == '未知事件也必须留元数据'
+        assert tampered.status_code == 401
+        assert tampered.json()['detail'] == 'dingtalk_inbound_signature_invalid'
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_production_inbound_signature_rejects_expired_timestamp(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    secret = 'signed-inbound-test-secret'
+    payload = {'traceId': 'trace-expired-001', 'msgtype': 'custom_unknown'}
+    monkeypatch.setattr(dingtalk_router.settings, 'APP_ENV', 'production', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'DINGTALK_INBOUND_TOKEN', secret, raising=False)
+
+    try:
+        response = TestClient(app).post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers=_signed_inbound_headers(payload, secret, timestamp=int(time.time()) - 301),
+            json=payload,
+        )
+
+        assert response.status_code == 401
+        assert response.json()['detail'] == 'dingtalk_inbound_timestamp_expired'
+        assert db.query(MultimodalEvidence).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_production_inbound_signature_rejects_exact_nonce_replay(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    secret = 'stream-replay-test-secret'
+    payload = {
+        'traceId': 'trace-replay-001',
+        'msgtype': 'custom_unknown',
+        'rawNote': '仅首次可接收',
+    }
+    headers = _signed_inbound_headers(
+        payload,
+        secret,
+        kind='dingtalk_stream',
+        nonce='nonce-replay-001',
+    )
+    monkeypatch.setattr(dingtalk_router.settings, 'APP_ENV', 'production', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_DINGTALK_STREAM_RELAY_TOKEN', secret, raising=False)
+
+    try:
+        client = TestClient(app)
+        first = client.post('/api/v1/dingtalk/agent-inbound', headers=headers, json=payload)
+        replay = client.post('/api/v1/dingtalk/agent-inbound', headers=headers, json=payload)
+
+        assert first.status_code == 200
+        assert replay.status_code == 409
+        assert replay.json()['detail'] == 'dingtalk_inbound_replay_detected'
+        assert db.query(AgentRateLimit).count() == 1
+        assert db.query(MultimodalEvidence).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_generic_inbound_secret_cannot_claim_stream_transport(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    generic_secret = 'generic-inbound-secret'
+    payload = {'traceId': 'trace-fake-stream-001', 'msgtype': 'custom_unknown'}
+    monkeypatch.setattr(dingtalk_router.settings, 'APP_ENV', 'production', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'DINGTALK_INBOUND_TOKEN', generic_secret, raising=False)
+    monkeypatch.setattr(
+        dingtalk_router.settings,
+        'HERMES_DINGTALK_STREAM_RELAY_TOKEN',
+        'different-stream-secret',
+        raising=False,
+    )
+
+    try:
+        response = TestClient(app).post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers=_signed_inbound_headers(payload, generic_secret, kind='dingtalk_stream'),
+            json=payload,
+        )
+
+        assert response.status_code == 401
+        assert response.json()['detail'] == 'dingtalk_inbound_signature_invalid'
+        assert db.query(MultimodalEvidence).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_unprivileged_bound_user_message_is_retained_without_agent_side_effects(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=999,
+            username='operator-candidate-only',
+            password_hash='x',
+            name='一线员工',
+            role='operator',
+            is_active=True,
+            dingtalk_user_id='dt-operator-candidate-001',
+        )
+    )
+    db.commit()
+    stream_secret = 'stream-relay-operator-secret'
+    monkeypatch.setattr(dingtalk_router.settings, 'APP_ENV', 'production', raising=False)
+    monkeypatch.setattr(
+        dingtalk_router.settings,
+        'HERMES_DINGTALK_STREAM_RELAY_TOKEN',
+        stream_secret,
+        raising=False,
+    )
+
+    try:
+        inbound_payload = {
+            'senderStaffId': 'dt-operator-candidate-001',
+            'text': {'content': '本班出现一卷表面划伤，先留证'},
+            'traceId': 'trace-operator-candidate-001',
+        }
+        response = TestClient(app).post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers=_signed_inbound_headers(inbound_payload, stream_secret, kind='dingtalk_stream'),
+            json=inbound_payload,
+        )
+
+        assert response.status_code == 200
+        assert response.json()['should_reply'] is False
+        assert db.query(MultimodalEvidence).count() == 1
+        assert db.query(ChatInboxMessage).count() == 0
+        assert db.query(AgentRun).count() == 0
+        assert db.query(AgentOutboxMessage).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_failed_agent_processing_can_retry_without_duplicate_evidence(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=1001,
+            username='retry-manager',
+            password_hash='x',
+            name='重试管理员',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-retry-manager-001',
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(dingtalk_router.settings, 'DINGTALK_INBOUND_TOKEN', 'retry-secret', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_FACTORY_BRAIN_ENABLED', False, raising=False)
+    calls = 0
+
+    def flaky_handle(*_args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError('temporary agent failure')
+        return type(
+            'RetryResult',
+            (),
+            {
+                'trace_id': kwargs['trace_id'],
+                'status_color': 'green',
+                'intent': 'help',
+                'answer': '重试后已恢复',
+                'chat_inbox_id': 2001,
+                'agent_run_id': 2002,
+                'outbox_message_id': None,
+            },
+        )()
+
+    monkeypatch.setattr(dingtalk_router, 'handle_agent_command', flaky_handle)
+    inbound_payload = {
+        'senderStaffId': 'dt-retry-manager-001',
+        'text': {'content': '/commands'},
+        'traceId': 'trace-agent-retry-001',
+    }
+
+    try:
+        client = TestClient(app, raise_server_exceptions=False)
+        first = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'retry-secret'},
+            json=inbound_payload,
+        )
+        second = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'retry-secret'},
+            json=inbound_payload,
+        )
+
+        assert first.status_code == 500
+        assert second.status_code == 200
+        assert second.json()['answer'] == '重试后已恢复'
+        assert calls == 2
+        assert db.query(MultimodalEvidence).count() == 1
+        receipt = db.query(DingTalkInboundReceipt).one()
+        assert receipt.status == 'completed'
+        assert receipt.attempt_count == 2
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def _install_processing_recovery_fixture(db: Session, monkeypatch, *, status: str, updated_at: datetime):
+    db.add(
+        User(
+            id=1002,
+            username='processing-recovery-manager',
+            password_hash='x',
+            name='恢复管理员',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-processing-recovery-001',
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(dingtalk_router.settings, 'DINGTALK_INBOUND_TOKEN', 'recovery-secret', raising=False)
+    monkeypatch.setattr(dingtalk_router.settings, 'HERMES_FACTORY_BRAIN_ENABLED', False, raising=False)
+    payload = {
+        'senderStaffId': 'dt-processing-recovery-001',
+        'text': {'content': '/commands'},
+        'traceId': 'trace-processing-recovery-001',
+    }
+    receipt, created = dingtalk_router._claim_inbound_receipt(
+        db,
+        channel='dingtalk_private',
+        group_id='',
+        trace_id=payload['traceId'],
+        source_transport='dingtalk_signed_inbound',
+    )
+    assert created is True
+    dingtalk_router.ingest_dingtalk_stream_event(
+        db,
+        payload,
+        require_authorized_group=False,
+        source_transport='dingtalk_signed_inbound',
+    )
+    receipt.status = status
+    receipt.attempt_count = 1
+    receipt.updated_at = updated_at
+    db.commit()
+    return payload, receipt
+
+
+def test_evidence_pending_receipt_recovers_from_committed_evidence(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    calls = 0
+
+    def recovered_handle(*_args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return type(
+            'RecoveryResult',
+            (),
+            {
+                'trace_id': kwargs['trace_id'],
+                'status_color': 'green',
+                'intent': 'help',
+                'answer': '证据恢复后继续处理',
+                'chat_inbox_id': 3001,
+                'agent_run_id': 3002,
+                'outbox_message_id': None,
+            },
+        )()
+
+    try:
+        payload, _receipt = _install_processing_recovery_fixture(
+            db,
+            monkeypatch,
+            status='evidence_pending',
+            updated_at=datetime.now(timezone.utc),
+        )
+        monkeypatch.setattr(dingtalk_router, 'handle_agent_command', recovered_handle)
+
+        response = TestClient(app).post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'recovery-secret'},
+            json=payload,
+        )
+
+        assert response.status_code == 200
+        assert response.json()['answer'] == '证据恢复后继续处理'
+        assert calls == 1
+        receipt = db.query(DingTalkInboundReceipt).one()
+        assert receipt.status == 'completed'
+        assert receipt.attempt_count == 2
+        assert db.query(MultimodalEvidence).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_stale_agent_processing_receipt_can_be_reclaimed(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    calls = 0
+
+    def recovered_handle(*_args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return type(
+            'RecoveryResult',
+            (),
+            {
+                'trace_id': kwargs['trace_id'],
+                'status_color': 'green',
+                'intent': 'help',
+                'answer': '超时任务已接管',
+                'chat_inbox_id': 3003,
+                'agent_run_id': 3004,
+                'outbox_message_id': None,
+            },
+        )()
+
+    try:
+        payload, _receipt = _install_processing_recovery_fixture(
+            db,
+            monkeypatch,
+            status='agent_processing',
+            updated_at=datetime.now(timezone.utc)
+            - timedelta(seconds=dingtalk_router.INBOUND_AGENT_PROCESSING_LEASE_SECONDS + 1),
+        )
+        monkeypatch.setattr(dingtalk_router, 'handle_agent_command', recovered_handle)
+
+        response = TestClient(app).post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'recovery-secret'},
+            json=payload,
+        )
+
+        assert response.status_code == 200
+        assert response.json()['answer'] == '超时任务已接管'
+        assert calls == 1
+        receipt = db.query(DingTalkInboundReceipt).one()
+        assert receipt.status == 'completed'
+        assert receipt.attempt_count == 2
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_fresh_agent_processing_receipt_returns_retryable_error(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    try:
+        payload, _receipt = _install_processing_recovery_fixture(
+            db,
+            monkeypatch,
+            status='agent_processing',
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        response = TestClient(app).post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'recovery-secret'},
+            json=payload,
+        )
+
+        assert response.status_code == 503
+        assert response.json()['detail'] == 'dingtalk_inbound_agent_processing'
+        receipt = db.query(DingTalkInboundReceipt).one()
+        assert receipt.status == 'agent_processing'
+        assert receipt.attempt_count == 1
     finally:
         _restore_db_override(previous_overrides, db)

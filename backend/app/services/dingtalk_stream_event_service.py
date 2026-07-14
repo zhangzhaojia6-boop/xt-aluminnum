@@ -40,6 +40,8 @@ def normalize_dingtalk_stream_event(payload: Mapping[str, Any]) -> NormalizedDin
             event_payload.get('msgId'),
             event_payload.get('message_id'),
             event_payload.get('messageid'),
+            event_payload.get('traceId'),
+            event_payload.get('trace_id'),
         ),
         sender_staff_id=_first_text(
             event_payload.get('senderStaffId'),

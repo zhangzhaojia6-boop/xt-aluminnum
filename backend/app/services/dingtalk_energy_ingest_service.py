@@ -191,18 +191,4 @@ def ingest_dingtalk_energy_file(
     }
     if not batch_id:
         return _attach_ingest_result(db, evidence, result)
-
-    try:
-        promoted = module.promote_daily_energy_batch(db, batch_id=int(batch_id), commit=True)
-    except Exception as exc:  # noqa: BLE001
-        db.rollback()
-        result.update({'status': 'blocked', 'reason': 'energy_promote_failed', 'detail': redact_secret_text(str(exc))})
-        return _attach_ingest_result(db, evidence, result)
-    result.update(
-        {
-            'status': 'promoted' if promoted.get('committed') else 'blocked',
-            'record_rows_written': promoted.get('record_rows_written', 0),
-            'blocking_issues': promoted.get('blocking_issues') or [],
-        }
-    )
     return _attach_ingest_result(db, evidence, result)
