@@ -1035,6 +1035,16 @@ jobs:
                   line,
               )
               line = re.sub(
+                  r"(?i)([?&](?:access[_-]?token|ticket|client[_-]?id|app[_-]?key|robot(?:[_-]?code)?)=)[^&\s\"']+",
+                  r"\1[REDACTED]",
+                  line,
+              )
+              line = re.sub(
+                  r"(?i)([\"']?(?:access[_-]?token|ticket|client[_-]?id|app[_-]?key|robot(?:[_-]?code)?)[\"']?\s*[:=]\s*[\"']?)[^&\s,\"'\x7d]+",
+                  r"\1[REDACTED]",
+                  line,
+              )
+              line = re.sub(
                   r"(?i)((?:client|app)[_-]?secret\s*[:=]\s*)[^\s,;]+",
                   r"\1[REDACTED]",
                   line,
@@ -1053,19 +1063,88 @@ jobs:
             echo "HERMES_STREAM_DIAGNOSTICS_END"
           }
 
+          stream_runtime_state_is_connected() {
+            local active_since_epoch="$1"
+            local main_pid
+            local main_start_time
+            main_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null)"
+            main_start_time=""
+            if [[ "$main_pid" =~ ^[1-9][0-9]*$ ]] && [ -r "/proc/$main_pid/stat" ]; then
+              main_start_time="$(python3 -c 'from pathlib import Path; import sys; print(Path(f"/proc/{int(sys.argv[1])}/stat").read_text(encoding="utf-8").split()[21])' "$main_pid" 2>/dev/null || true)"
+            fi
+            python3 - "$HERMES_HOME/gateway_state.json" "$main_pid" "$main_start_time" "$active_since_epoch" <<'PY'
+          from datetime import datetime, timezone
+          import json
+          from pathlib import Path
+          import sys
+
+          state_path = Path(sys.argv[1])
+          expected_pid = sys.argv[2]
+          expected_start_time = sys.argv[3]
+          active_since_epoch = int(sys.argv[4])
+
+          try:
+              payload = json.loads(state_path.read_text(encoding="utf-8"))
+              if not isinstance(payload, dict):
+                  raise ValueError("runtime state is not an object")
+          except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+              print("HERMES_STREAM_STATE_FILE=unavailable")
+              raise SystemExit(1)
+
+          platforms = payload.get("platforms")
+          platform = platforms.get("dingtalk", {}) if isinstance(platforms, dict) else {}
+          state_pid = str(payload.get("pid", ""))
+          state_start_time = str(payload.get("start_time", ""))
+          gateway_state = payload.get("gateway_state")
+          dingtalk_state = platform.get("state") if isinstance(platform, dict) else None
+          updated_at = platform.get("updated_at") if isinstance(platform, dict) else None
+          pid_match = expected_pid.isdigit() and int(expected_pid) > 0 and state_pid == expected_pid
+          start_match = expected_start_time.isdigit() and state_start_time == expected_start_time
+
+          updated_epoch = None
+          if isinstance(updated_at, str):
+              try:
+                  normalized = updated_at[:-1] + "+00:00" if updated_at.endswith("Z") else updated_at
+                  parsed = datetime.fromisoformat(normalized)
+                  if parsed.tzinfo is None:
+                      parsed = parsed.replace(tzinfo=timezone.utc)
+                  updated_epoch = parsed.timestamp()
+              except ValueError:
+                  pass
+          fresh = updated_epoch is not None and updated_epoch > active_since_epoch
+
+          safe_gateway_state = gateway_state if gateway_state in {"starting", "running", "draining", "stopping", "stopped", "startup_failed"} else "invalid"
+          safe_dingtalk_state = dingtalk_state if dingtalk_state in {"connected", "disconnected", "fatal"} else "invalid"
+          print(f"HERMES_STREAM_STATE_PID_MATCH={'yes' if pid_match else 'no'}")
+          print(f"HERMES_STREAM_STATE_START_MATCH={'yes' if start_match else 'no'}")
+          print(f"HERMES_STREAM_STATE_GATEWAY={safe_gateway_state}")
+          print(f"HERMES_STREAM_STATE_DINGTALK={safe_dingtalk_state}")
+          print(f"HERMES_STREAM_STATE_FRESH={'yes' if fresh else 'no'}")
+          healthy = pid_match and start_match and gateway_state == "running" and dingtalk_state == "connected" and fresh
+          raise SystemExit(0 if healthy else 1)
+          PY
+          }
+
           report_stream_connection() {
             local require_connected="$1"
             local attempts="${2:-1}"
             local delay_seconds="${3:-0}"
             local active_since
-            local connected_line
+            local active_since_epoch
             local attempt
+            local connected
+            local state_output
             active_since="$(systemctl show -p ActiveEnterTimestamp --value hermes-gateway)"
             echo "HERMES_ACTIVE_ENTER_TIMESTAMP=$active_since"
-            connected_line=""
+            if ! active_since_epoch="$(date -d "$active_since" +%s 2>/dev/null)"; then
+              echo "HERMES_ACTIVE_ENTER_TIMESTAMP_INVALID"
+              active_since_epoch=9223372036854775807
+            fi
+            connected="no"
+            state_output=""
             for attempt in $(seq 1 "$attempts"); do
-              connected_line="$(journalctl -u hermes-gateway --since "$active_since" --no-pager -o short-iso 2>/dev/null | grep -F 'Connected via Stream Mode' | tail -n 1 || true)"
-              if [ -n "$connected_line" ]; then
+              if state_output="$(stream_runtime_state_is_connected "$active_since_epoch" 2>&1)"; then
+                connected="yes"
                 break
               fi
               if ! systemctl is-active --quiet hermes-gateway; then
@@ -1076,9 +1155,12 @@ jobs:
                 sleep "$delay_seconds"
               fi
             done
-            if [ -n "$connected_line" ]; then
+            if [ -n "$state_output" ]; then
+              printf '%s\n' "$state_output"
+            fi
+            if [ "$connected" = "yes" ]; then
               echo "HERMES_STREAM_CONNECTED=yes"
-              echo "HERMES_STREAM_CONNECTED_LINE=$connected_line"
+              echo "HERMES_STREAM_CONNECTED_LINE=runtime_state"
             else
               echo "HERMES_STREAM_CONNECTED=no"
               echo "HERMES_STREAM_CONNECTED_LINE=none"

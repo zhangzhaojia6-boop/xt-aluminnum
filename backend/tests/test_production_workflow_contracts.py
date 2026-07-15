@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from pathlib import Path
 import os
 import shutil
@@ -268,8 +269,14 @@ def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contra
     assert "payload->>'source_transport' = 'dingtalk_stream'" in source
     assert "LIKE 'dingtalk-stream-sha256:%'" not in source
     assert 'journalctl -u hermes-gateway' in source
-    assert 'Connected via Stream Mode' in source
     assert 'systemctl show -p ActiveEnterTimestamp' in source
+    assert 'systemctl show -p MainPID' in source
+    assert 'gateway_state.json' in source
+    assert 'stream_runtime_state_is_connected' in source
+    assert 'HERMES_STREAM_STATE_PID_MATCH=' in source
+    assert 'HERMES_STREAM_STATE_START_MATCH=' in source
+    assert 'HERMES_STREAM_STATE_DINGTALK=' in source
+    assert "grep -F 'Connected via Stream Mode'" not in source
     assert 'local attempts="${2:-1}"' in source
     assert 'local delay_seconds="${3:-0}"' in source
     assert 'for attempt in $(seq 1 "$attempts")' in source
@@ -290,6 +297,9 @@ def test_production_stream_gate_emits_redacted_failure_diagnostics_before_rollba
     assert '[REDACTED]' in diagnostic_body
     assert 'access[_-]?token' in diagnostic_body
     assert '(?:client|app)[_-]?secret' in diagnostic_body
+    assert '[?&](?:access[_-]?token|ticket|client[_-]?id' in diagnostic_body
+    assert 'app[_-]?key' in diagnostic_body
+    assert 'robot(?:[_-]?code)?' in diagnostic_body
 
     connection_body = _extract_shell_function(source, 'report_stream_connection')
     disconnected_index = connection_body.index('HERMES_STREAM_CONNECTED=no')
@@ -312,6 +322,10 @@ def test_production_stream_gate_emits_redacted_failure_diagnostics_before_rollba
                     '[dingtalk] Failed to connect '
                     f'client_id={client_id} app_secret={client_secret} '
                     f'robot={robot_code} access_token=fake-access-token '
+                    'ticket=fake-ticket '
+                    'client_id=legacy-client-id robot_code=legacy-robot-code app_key=legacy-app-key '
+                    'endpoint=wss://api.dingtalk.com/v1.0/gateway/connections/open?ticket=fake-query-ticket '
+                    'response={"ticket":"fake-json-ticket"} '
                     'authorization=Bearer fake-bearer-token '
                     'text="private-text" content=private-content '
                     'payload={"message":"private-message"}'
@@ -335,6 +349,12 @@ def test_production_stream_gate_emits_redacted_failure_diagnostics_before_rollba
     assert client_secret not in result.stdout
     assert robot_code not in result.stdout
     assert 'fake-access-token' not in result.stdout
+    assert 'fake-ticket' not in result.stdout
+    assert 'fake-query-ticket' not in result.stdout
+    assert 'fake-json-ticket' not in result.stdout
+    assert 'legacy-client-id' not in result.stdout
+    assert 'legacy-robot-code' not in result.stdout
+    assert 'legacy-app-key' not in result.stdout
     assert 'fake-bearer-token' not in result.stdout
     assert 'private-text' not in result.stdout
     assert 'private-content' not in result.stdout
@@ -381,6 +401,75 @@ def test_stream_diagnostic_failure_preserves_original_gate_exit_code(tmp_path: P
         timeout=15,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    'workflow_path',
+    (
+        '.github/workflows/production-sync-status.yml',
+        '.github/workflows/configure-dingtalk-stream-prod.yml',
+    ),
+)
+def test_stream_runtime_gate_requires_current_service_pid_and_fresh_real_connection(
+    workflow_path: str,
+    tmp_path: Path,
+) -> None:
+    source = _read(workflow_path)
+    assert 'active_since_epoch=9223372036854775807' in source
+    assert 'active_since_epoch=0' not in source
+    verifier_body = _extract_shell_function(source, 'stream_runtime_state_is_connected')
+    heredoc_start = verifier_body.index("<<'PY'\n") + len("<<'PY'\n")
+    heredoc_end = verifier_body.index('\n          PY', heredoc_start)
+    verifier = textwrap.dedent(verifier_body[heredoc_start:heredoc_end])
+    state_path = tmp_path / 'gateway_state.json'
+    active_since_epoch = 1_752_537_600  # 2025-07-15T00:00:00Z
+
+    def run_verifier(payload: dict) -> subprocess.CompletedProcess[str]:
+        state_path.write_text(json.dumps(payload), encoding='utf-8')
+        return subprocess.run(
+            [sys.executable, '-', str(state_path), '4242', '777', str(active_since_epoch)],
+            input=verifier,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    healthy = {
+        'pid': 4242,
+        'start_time': 777,
+        'gateway_state': 'running',
+        'platforms': {
+            'dingtalk': {
+                'state': 'connected',
+                'updated_at': '2025-07-15T00:00:05+00:00',
+            },
+        },
+    }
+    result = run_verifier(healthy)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'HERMES_STREAM_STATE_PID_MATCH=yes' in result.stdout
+    assert 'HERMES_STREAM_STATE_START_MATCH=yes' in result.stdout
+    assert 'HERMES_STREAM_STATE_GATEWAY=running' in result.stdout
+    assert 'HERMES_STREAM_STATE_DINGTALK=connected' in result.stdout
+    assert 'HERMES_STREAM_STATE_FRESH=yes' in result.stdout
+
+    for invalid in (
+        {**healthy, 'pid': 9999},
+        {**healthy, 'start_time': 666, 'platforms': {'dingtalk': {'state': 'connected', 'updated_at': '2025-07-15T00:00:00.100+00:00'}}},
+        {**healthy, 'gateway_state': 'starting'},
+        {**healthy, 'platforms': None},
+        {
+            **healthy,
+            'platforms': {'dingtalk': {'state': 'disconnected', 'updated_at': '2025-07-15T00:00:05+00:00'}},
+        },
+        {
+            **healthy,
+            'platforms': {'dingtalk': {'state': 'connected', 'updated_at': '2025-07-14T23:59:59+00:00'}},
+        },
+    ):
+        result = run_verifier(invalid)
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert 'Traceback' not in result.stderr
 
 
 def test_production_sync_deploy_applies_stream_config_inside_rollback_boundary() -> None:
@@ -929,9 +1018,11 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert apply_trap_index < first_mutation_index
     assert 'systemctl restart hermes-gateway' in source
     assert '/readyz' in source
-    assert 'journalctl -u hermes-gateway' in source
-    assert 'Connected via Stream Mode' in source
     assert 'systemctl show -p ActiveEnterTimestamp' in source
+    assert 'systemctl show -p MainPID' in source
+    assert 'gateway_state.json' in source
+    assert 'stream_runtime_state_is_connected' in source
+    assert "grep -F 'Connected via Stream Mode'" not in source
     assert 'multimodal_evidence' in source
     assert 'chat_inbox' in source
     assert 'external_message_logs' in source
