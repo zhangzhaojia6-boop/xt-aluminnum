@@ -56,6 +56,9 @@ SOURCE_PRIORITY = {
 }
 MIN_DINGTALK_DAILY_REPORT_FIELDS = 3
 DINGTALK_STRUCTURED_FACT_KEYS = ("fact_updates", "daily_facts", "facts", "extracted_facts", "fields")
+DINGTALK_TEMPLATE_FIELD_ALIASES = {
+    "daily_input_weight": ("cold_roll_input_daily",),
+}
 DINGTALK_TEXT_KEYS = (
     "recognized_text",
     "recognized",
@@ -707,6 +710,7 @@ def _apply_dingtalk_supplements(
                 for candidate in candidates
                 if str(candidate.get("field") or "").strip()
             ]
+        update_items = _expand_dingtalk_template_field_aliases(update_items)
 
         if not item.adoptable_as_fact:
             reason = dingtalk_evidence_adoption_reason(item, business_date=business_date)
@@ -818,6 +822,20 @@ def _dingtalk_structured_fact_updates(payload: Mapping[str, Any]) -> Any | None:
         if _iter_fact_updates(value):
             return value
     return None
+
+
+def _expand_dingtalk_template_field_aliases(
+    update_items: list[tuple[str, Mapping[str, Any]]],
+) -> list[tuple[str, Mapping[str, Any]]]:
+    expanded = list(update_items)
+    seen_fields = {field_name for field_name, _candidate in update_items}
+    for field_name, candidate in update_items:
+        for alias in DINGTALK_TEMPLATE_FIELD_ALIASES.get(field_name, ()):
+            if alias in seen_fields:
+                continue
+            expanded.append((alias, candidate))
+            seen_fields.add(alias)
+    return expanded
 
 
 def _dingtalk_daily_report_candidates(
