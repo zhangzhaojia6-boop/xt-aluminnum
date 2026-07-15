@@ -46,7 +46,11 @@ def ingest_dingtalk_stream_event(
     dingtalk_service: DingTalkService | None = None,
     require_authorized_group: bool = True,
     source_transport: str = 'dingtalk_stream',
+    commit: bool = True,
+    process_energy: bool = True,
 ) -> dict[str, Any]:
+    if not commit and process_energy:
+        raise ValueError('deferred_commit_requires_energy_processing_disabled')
     event = normalize_dingtalk_stream_event(payload)
     if require_authorized_group:
         try:
@@ -81,8 +85,10 @@ def ingest_dingtalk_stream_event(
             event,
             dingtalk_service=dingtalk_service or DingTalkService(),
             source_transport=source_transport,
+            commit=commit,
+            process_energy=process_energy,
         )
-    return _ingest_text_event(db, event, source_transport=source_transport)
+    return _ingest_text_event(db, event, source_transport=source_transport, commit=commit)
 
 
 def _ingest_text_event(
@@ -90,6 +96,7 @@ def _ingest_text_event(
     event: NormalizedDingTalkEvent,
     *,
     source_transport: str,
+    commit: bool,
 ) -> dict[str, Any]:
     text = str(event.message_text or '').strip()
     parse_status = 'text_captured' if text else 'text_unavailable'
@@ -111,7 +118,7 @@ def _ingest_text_event(
         confirmation_status='machine_only',
     )
     _merge_stream_payload(evidence, evidence_payload)
-    _commit_evidence(db, evidence)
+    _commit_evidence(db, evidence, commit=commit)
     return _result(
         event,
         accepted=True,
@@ -128,6 +135,8 @@ def _ingest_file_event(
     *,
     dingtalk_service: DingTalkService,
     source_transport: str,
+    commit: bool,
+    process_energy: bool,
 ) -> dict[str, Any]:
     file_payload = _base_evidence_payload(
         event,
@@ -205,9 +214,9 @@ def _ingest_file_event(
         confirmation_status='machine_only',
     )
     _merge_stream_payload(evidence, file_payload)
-    _commit_evidence(db, evidence)
+    _commit_evidence(db, evidence, commit=commit)
 
-    energy_result = _maybe_ingest_energy_file(db, file_payload, evidence, event, downloaded)
+    energy_result = _maybe_ingest_energy_file(db, file_payload, evidence, event, downloaded) if process_energy else None
     return _result(
         event,
         accepted=True,
@@ -293,6 +302,9 @@ def _base_evidence_payload(
         'parse_status': parse_status,
         'senderStaffId': event.sender_staff_id,
         'senderUnionId': event.sender_union_id,
+        'senderIdentityType': event.raw_payload.get('senderIdentityType'),
+        'sender_identity_type': event.raw_payload.get('sender_identity_type')
+        or event.raw_payload.get('senderIdentityType'),
         'eventTime': event.event_time,
         'event_time': event.event_time,
         'messageTime': event.event_time,
@@ -389,10 +401,13 @@ def _redacted_raw_metadata(value: Any, *, depth: int = 0) -> Any:
     return sanitize_dingtalk_payload_for_storage(value, depth=depth)
 
 
-def _commit_evidence(db: Session, evidence: MultimodalEvidence | None) -> None:
-    db.commit()
-    if evidence is not None:
-        db.refresh(evidence)
+def _commit_evidence(db: Session, evidence: MultimodalEvidence | None, *, commit: bool) -> None:
+    if commit:
+        db.commit()
+        if evidence is not None:
+            db.refresh(evidence)
+        return
+    db.flush()
 
 
 def _merge_stream_payload(evidence: MultimodalEvidence | None, stream_payload: Mapping[str, Any]) -> None:

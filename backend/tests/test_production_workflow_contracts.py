@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATHS = (
     '.github/workflows/production-sync-status.yml',
     '.github/workflows/configure-dingtalk-stream-prod.yml',
+    '.github/workflows/import-dingtalk-history-prod.yml',
     '.github/workflows/daily-report-alignment-prod.yml',
     '.github/workflows/hermes-acceptance-prod.yml',
     '.github/workflows/archive-prod-untracked.yml',
@@ -1085,6 +1086,34 @@ def test_daily_report_alignment_prod_keeps_artifacts_outside_repo_and_preserves_
     assert 'OUTPUT_SKILL_BUNDLE_INVALID_BASE64' in source
 
 
+def test_import_dingtalk_history_prod_requires_owner_confirmation_and_secret_bundle() -> None:
+    payload = _load('.github/workflows/import-dingtalk-history-prod.yml')
+    source = _read('.github/workflows/import-dingtalk-history-prod.yml')
+    inputs = _workflow_inputs(payload)
+    concurrency = _workflow_concurrency(payload)
+
+    assert concurrency == {
+        'group': 'xintai-production-ops',
+        'cancel-in-progress': False,
+    }
+    assert inputs['confirm']['required'] is True
+    assert "github.event.inputs.confirm == 'import-owner-verified-dingtalk-history'" in source
+    assert 'DINGTALK_HISTORY_IMPORT_BUNDLE_B64: ${{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64 }}' in source
+    assert 'bundle_sha256' in inputs
+    assert 'expected_rows' in inputs
+    assert 'DINGTALK_HISTORY_IMPORT_BUNDLE_B64' not in source[source.find('} | ssh'):]
+    assert 'safe_extract_zip' in source
+    assert 'local_file_path_outside_files_root' not in source
+    assert '--confirmation-mode owner-verified-dws-history' in source
+    assert '--confirmation-run-id "github-actions:${RUN_ID}"' in source
+    assert "int(payload.get('committed', 0)) != 1" in source
+    assert '/var/lib/aluminum-bypass/acceptance/dingtalk-history-${RUN_ID}' in source
+    assert '/srv/aluminum-bypass/docs/' not in source
+    assert 'rm -rf "$remote_work_dir"' in source
+    assert 'uses: actions/upload-artifact@v4' in source
+    assert 'StrictHostKeyChecking=no' not in source
+
+
 def test_hermes_acceptance_prod_fails_closed_without_real_owner_and_keeps_artifacts_outside_repo() -> None:
     payload = _load('.github/workflows/hermes-acceptance-prod.yml')
     source = _read('.github/workflows/hermes-acceptance-prod.yml')
@@ -1197,6 +1226,7 @@ def test_production_workflows_pin_ssh_host_keys() -> None:
     paths = (
         '.github/workflows/production-sync-status.yml',
         '.github/workflows/configure-dingtalk-stream-prod.yml',
+        '.github/workflows/import-dingtalk-history-prod.yml',
         '.github/workflows/hermes-acceptance-prod.yml',
         '.github/workflows/daily-report-alignment-prod.yml',
         '.github/workflows/archive-prod-untracked.yml',
