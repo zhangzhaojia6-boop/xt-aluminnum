@@ -13,7 +13,7 @@ def _read(path: str) -> str:
 def test_backend_completion_ci_cd_artifacts_exist() -> None:
     assert (REPO_ROOT / '.github/workflows/ci.yml').exists()
     assert (REPO_ROOT / '.github/workflows/deploy-staging.yml').exists()
-    assert (REPO_ROOT / '.github/workflows/deploy-prod.yml').exists()
+    assert (REPO_ROOT / '.github/workflows/production-sync-status.yml').exists()
     assert (REPO_ROOT / 'backend/Dockerfile').exists()
 
 
@@ -27,14 +27,20 @@ def test_ci_workflow_runs_backend_tests_and_frontend_build() -> None:
     assert 'npm run build' in source
 
 
-def test_deploy_prod_requires_manual_confirm_and_builds_images() -> None:
-    source = _read('.github/workflows/deploy-prod.yml')
+def test_production_sync_requires_manual_confirm_and_exact_sha_deploy() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
 
     assert 'workflow_dispatch:' in source
-    assert "github.event.inputs.confirm == 'deploy'" in source
-    assert 'docker build -t xintai-backend:prod ./backend' in source
-    assert 'docker build -f frontend/Dockerfile -t xintai-frontend:prod .' in source
+    assert "github.event.inputs.confirm == 'prod-sync'" in source
+    assert 'datahub_sha:' in source
+    assert 'hermes_sha:' in source
     assert 'PROD_SSH_HOST' in source
+    assert 'DATAHUB_REPO="/srv/aluminum-bypass"' in source
+    assert 'require_trusted_head' in source
+    assert 'checkout --detach "$DATAHUB_SHA"' in source
+    assert 'systemctl restart aluminum-bypass' in source
+    assert 'curl -fsS http://127.0.0.1:8000/readyz' in source
+    assert 'DEPLOY_FAILED_ROLLBACK_START' in source
 
 
 def test_deploy_staging_builds_images_and_has_optional_ssh_deploy() -> None:

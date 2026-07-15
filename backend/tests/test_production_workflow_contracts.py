@@ -1243,6 +1243,15 @@ def test_production_workflows_pin_ssh_host_keys() -> None:
         assert 'StrictHostKeyChecking=no' not in source
 
 
+def test_legacy_deploy_production_workflow_is_removed_in_favor_of_exact_sha_gate() -> None:
+    assert not (REPO_ROOT / '.github/workflows/deploy-prod.yml').exists()
+    source = _read('.github/workflows/production-sync-status.yml')
+
+    assert 'DATAHUB_REPO="/srv/aluminum-bypass"' in source
+    assert 'require_trusted_head "$DATAHUB_REPO" "$DATAHUB_SHA"' in source
+    assert 'git -C "$DATAHUB_REPO" checkout --detach "$DATAHUB_SHA"' in source
+
+
 def test_configure_stream_uses_separate_relay_secret_for_real_stream_events() -> None:
     source = _read('.github/workflows/configure-dingtalk-stream-prod.yml')
 
