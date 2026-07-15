@@ -1925,6 +1925,83 @@ def test_dingtalk_structured_list_field_key_target_date_applies_with_trace(
     assert closure_field["trace_id"] == "trace-structured"
 
 
+def test_dingtalk_daily_input_updates_canonical_and_template_alias(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    rendered_values: dict[str, Any] = {}
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {"cold_roll_input_daily": 463},
+            "sources": {"cold_roll_input_daily": "contract_projection"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    def fake_render(payload):
+        rendered_values.update(payload["values"])
+        return "rendered"
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "render_template_daily_report",
+        fake_render,
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            recognized_text="投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨",
+            confirmation_status="confirmed",
+            payload={
+                "business_date": "2026-07-11",
+                "trace_id": "trace-plan-contract",
+                "parse_status": "text_captured",
+                "fact_updates": {
+                    "daily_input_weight": {
+                        "value": 525,
+                        "unit": "吨",
+                        "reason": "钉钉计划科合同消息确定性分项求和",
+                        "source_ref": {
+                            "parser": "plan_contract_message_v1",
+                            "business_date": "2026-07-11",
+                            "content_sha256": "a" * 64,
+                        },
+                    }
+                },
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 11),
+        allow_output_skill_reference_adoption=False,
+    )
+
+    for field_name in ("daily_input_weight", "cold_roll_input_daily"):
+        fact = bundle["facts"][field_name]
+        assert fact["value"] == 525
+        assert fact["source"] == "dingtalk_supplement"
+        assert fact["source_ref"]["field_source_ref"]["content_sha256"] == "a" * 64
+    assert rendered_values["daily_input_weight"] == 525
+    assert rendered_values["cold_roll_input_daily"] == 525
+    assert bundle["dingtalk_refs"] == [
+        {
+            "id": 1,
+            "field_names": ["daily_input_weight", "cold_roll_input_daily"],
+        }
+    ]
+
+
 def test_human_confirmed_dingtalk_confirm_result_stays_candidate_only(
     monkeypatch,
     db_session: Session,
