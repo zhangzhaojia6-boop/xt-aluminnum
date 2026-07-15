@@ -10,6 +10,7 @@ from app.domain.metric_contracts import (
     metric_unit_failure_reason,
     metric_value_failure_reason,
 )
+from app.services.hermes_fact_source_map_service import find_fact_source
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +161,7 @@ _DISALLOWED_SOURCE_MARKERS = (
 _SOURCE_FAILURE_STATUSES = frozenset(
     {"", "failed", "error", "missing", "empty", "disabled", "unavailable", "unknown"}
 )
+_SOURCE_HEALTHY_STATUSES = frozenset({"ok", "ready", "pass", "passed", "confirmed"})
 _NON_LANGUAGE_TOKENS = (
     "鑫泰铝业智能大脑",
     "来源",
@@ -584,15 +586,22 @@ def _source_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSna
         supporting_evidence=trace.get("supporting_evidence"),
     ):
         return LayerGateResult("source", False, "dingtalk_source_not_usable")
-    if question.requires_mes and not _required_source_is_usable(
-        source_status,
-        required_source="mes_readonly",
-        source_aliases=frozenset({"mes_readonly"}),
-        primary_source=primary_source,
-        candidate_sources=candidate_sources,
-        supporting_evidence=trace.get("supporting_evidence"),
-    ):
-        return LayerGateResult("source", False, "mes_readonly_source_not_usable")
+    if question.requires_mes:
+        mes_current_fact_is_usable = _required_source_is_usable(
+            source_status,
+            required_source="mes_readonly",
+            source_aliases=frozenset({"mes_readonly"}),
+            primary_source=primary_source,
+            candidate_sources=candidate_sources,
+            supporting_evidence=trace.get("supporting_evidence"),
+        )
+        priority_dingtalk_fact_is_usable = (
+            _mes_was_checked_without_current_fact(source_status)
+            and _healthy_dingtalk_source_was_checked(source_status)
+            and _has_confirmed_priority_dingtalk_fact(question, snapshot)
+        )
+        if not mes_current_fact_is_usable and not priority_dingtalk_fact_is_usable:
+            return LayerGateResult("source", False, "mes_readonly_source_not_usable")
     if not source_order and not source_status:
         return LayerGateResult("source", False, "no_real_source_trace")
     required_source_health_gate = _required_source_health_gate(snapshot)
@@ -638,6 +647,59 @@ def _required_source_is_usable(
         and str(item.get("status") or "").strip().lower() not in _SOURCE_FAILURE_STATUSES
         for item in supporting_evidence
     )
+
+
+def _healthy_source_was_checked(source_status: Mapping[str, Any], source_key: str) -> bool:
+    payload = source_status.get(source_key)
+    if not isinstance(payload, Mapping):
+        return False
+    status = str(payload.get("status") or "").strip().lower()
+    return status in _SOURCE_HEALTHY_STATUSES
+
+
+def _mes_was_checked_without_current_fact(source_status: Mapping[str, Any]) -> bool:
+    payload = source_status.get("mes_readonly")
+    if not isinstance(payload, Mapping):
+        return False
+    status = str(payload.get("status") or "").strip().lower()
+    reason = str(payload.get("reason") or "").strip().lower()
+    return status == "ok" and reason == "no_current_metric_fact"
+
+
+def _healthy_dingtalk_source_was_checked(source_status: Mapping[str, Any]) -> bool:
+    return any(
+        _healthy_source_was_checked(source_status, source_key)
+        for source_key in _DINGTALK_FACT_SOURCES
+    )
+
+
+def _has_confirmed_priority_dingtalk_fact(
+    question: HermesAcceptanceQuestion,
+    snapshot: AcceptanceTurnSnapshot,
+) -> bool:
+    confirmed_answers = [
+        answer
+        for answer in snapshot.fact_answer or []
+        if isinstance(answer, Mapping)
+        and str(answer.get("field") or "") in question.metric_keys
+        and _confirmed_failure_reason(answer) is None
+    ]
+    if not confirmed_answers:
+        return False
+    for answer in confirmed_answers:
+        field_name = str(answer.get("field") or "")
+        try:
+            priority_sources = find_fact_source(field_name)["priority_sources"]
+        except KeyError:
+            return False
+        if (
+            not priority_sources
+            or _normalized_source(priority_sources[0]) != "dingtalk_group_content"
+            or _normalized_source(answer.get("source_key") or answer.get("source"))
+            not in _DINGTALK_SOURCE_SET
+        ):
+            return False
+    return True
 
 
 def _answer_gate(snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:

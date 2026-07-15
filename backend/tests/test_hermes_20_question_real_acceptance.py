@@ -1064,6 +1064,194 @@ def test_required_mes_source_needs_healthy_candidate_evidence() -> None:
     assert "mes_readonly_source_not_usable" in result.failed_reasons
 
 
+def test_priority_dingtalk_fact_passes_when_mes_was_checked_but_has_no_current_metric() -> None:
+    question = build_20_question_catalog()[7]
+    snapshot = _passing_snapshot(8)
+    snapshot.evidence["primary_source"] = "dingtalk_group_file"
+    snapshot.evidence["candidate_sources"] = ["dingtalk_group_file", "data_hub_projection"]
+    snapshot.evidence["trace"]["source_order"] = [
+        "dingtalk_group_file",
+        "data_hub_projection",
+    ]
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "ok",
+        "reason": "no_current_metric_fact",
+        "record_count": 1000,
+    }
+    snapshot.fact_answer = [
+        {
+            **_canonical_dingtalk_fact("daily_yield_rate", 86.71, unit="%"),
+            "question_id": 8,
+            "source_key": "dingtalk_group_file",
+            "source_ref": {
+                "source_key": "dingtalk_group_file",
+                "evidence_id": 13,
+                "trace_id": "dingtalk-fact-daily_yield_rate-13",
+                "business_date": "2026-06-27",
+            },
+            "trace_id": "dingtalk-fact-daily_yield_rate-13",
+        }
+    ]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is True
+    assert "source" not in result.failed_gate_names
+
+
+def test_priority_dingtalk_fact_does_not_hide_failed_mes_readonly_link() -> None:
+    question = build_20_question_catalog()[7]
+    snapshot = _passing_snapshot(8)
+    snapshot.evidence["primary_source"] = "dingtalk_group_file"
+    snapshot.evidence["candidate_sources"] = ["dingtalk_group_file"]
+    snapshot.evidence["trace"]["source_order"] = ["dingtalk_group_file"]
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "failed",
+        "reason": "connection_failed",
+    }
+    snapshot.fact_answer = [
+        {
+            **_canonical_dingtalk_fact("daily_yield_rate", 86.71, unit="%"),
+            "question_id": 8,
+        }
+    ]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "mes_readonly_source_not_usable" in result.failed_reasons
+
+
+def test_supporting_only_dingtalk_evidence_does_not_replace_required_mes_fact() -> None:
+    question = build_20_question_catalog()[7]
+    snapshot = _passing_snapshot(8)
+    snapshot.evidence["primary_source"] = "dingtalk_group_file"
+    snapshot.evidence["candidate_sources"] = ["dingtalk_group_file"]
+    snapshot.evidence["trace"]["source_order"] = ["dingtalk_group_file"]
+    snapshot.evidence["trace"]["source_status"]["dingtalk_group_content"] = {
+        "status": "supporting_only",
+        "supporting_count": 1,
+    }
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "ok",
+        "reason": "no_current_metric_fact",
+    }
+    snapshot.fact_answer = [
+        {
+            **_canonical_dingtalk_fact("daily_yield_rate", 86.71, unit="%"),
+            "question_id": 8,
+            "source_key": "dingtalk_group_file",
+            "source_ref": {
+                "source_key": "dingtalk_group_file",
+                "evidence_id": 13,
+                "trace_id": "dingtalk-fact-daily_yield_rate-13",
+                "business_date": "2026-06-27",
+            },
+            "trace_id": "dingtalk-fact-daily_yield_rate-13",
+        }
+    ]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "mes_readonly_source_not_usable" in result.failed_reasons
+
+
+def test_mes_contract_problem_cannot_use_priority_dingtalk_exception() -> None:
+    question = build_20_question_catalog()[7]
+    snapshot = _passing_snapshot(8)
+    snapshot.evidence["primary_source"] = "dingtalk_group_file"
+    snapshot.evidence["candidate_sources"] = ["dingtalk_group_file"]
+    snapshot.evidence["trace"]["source_order"] = ["dingtalk_group_file"]
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "supporting_only",
+        "upstream_status": "ok",
+        "reason": "metric_fact_without_contract",
+    }
+    snapshot.fact_answer = [
+        {
+            **_canonical_dingtalk_fact("daily_yield_rate", 86.71, unit="%"),
+            "question_id": 8,
+        }
+    ]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "mes_readonly_source_not_usable" in result.failed_reasons
+
+
+def test_mes_first_metric_cannot_use_dingtalk_priority_exception() -> None:
+    question = build_20_question_catalog()[9]
+    snapshot = _passing_snapshot(10)
+    snapshot.evidence["primary_source"] = "dingtalk_group_file"
+    snapshot.evidence["candidate_sources"] = ["dingtalk_group_file"]
+    snapshot.evidence["trace"]["source_order"] = ["dingtalk_group_file"]
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "ok",
+        "reason": "no_current_metric_fact",
+    }
+    snapshot.fact_answer = [
+        {
+            **_canonical_dingtalk_fact("wip_total", 1403.0, unit="吨"),
+            "question_id": 10,
+            "source_key": "dingtalk_group_file",
+            "source_ref": {
+                "source_key": "dingtalk_group_file",
+                "evidence_id": 14,
+                "trace_id": "dingtalk-fact-wip_total-14",
+                "business_date": "2026-06-27",
+            },
+            "trace_id": "dingtalk-fact-wip_total-14",
+        }
+    ]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "mes_readonly_source_not_usable" in result.failed_reasons
+
+
+def test_data_hub_projection_cannot_replace_required_mes_current_fact() -> None:
+    question = build_20_question_catalog()[7]
+    snapshot = _passing_snapshot(8)
+    snapshot.evidence["primary_source"] = "data_hub_projection"
+    snapshot.evidence["candidate_sources"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_order"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "ok",
+        "reason": "no_current_metric_fact",
+        "record_count": 1000,
+    }
+    snapshot.fact_answer = [
+        {
+            "question_id": 8,
+            "field": "daily_yield_rate",
+            "status": "confirmed",
+            "value": 86.71,
+            "source": "data_hub_projection",
+            "source_key": "data_hub_projection",
+            "source_type": "root_owner_correction",
+            "source_ref": {
+                "source": "root_owner_correction",
+                "correction_id": 13,
+                "trace_id": "root-owner-correction-13",
+                "business_date": "2026-06-27",
+            },
+            "business_date": "2026-06-27",
+            "business_window": "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00",
+            "unit": "%",
+            "metric_contract_version": "2026-07-11",
+            "trace_id": "root-owner-correction-13",
+        }
+    ]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "mes_readonly_source_not_usable" in result.failed_reasons
+
+
 def test_dingtalk_supporting_only_does_not_confirm_critical_value() -> None:
     question = build_20_question_catalog()[4]
     snapshot = _passing_snapshot(5)
