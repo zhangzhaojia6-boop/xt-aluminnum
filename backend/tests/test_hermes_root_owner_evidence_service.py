@@ -1,6 +1,7 @@
 from datetime import date
 
 from app.services import hermes_root_owner_evidence_service as root_owner_evidence_service
+from app.services.hermes_20_question_acceptance import confirmed_fact_failure_reason
 from app.services.hermes_dingtalk_evidence_service import DingTalkEvidenceItem
 from app.services.hermes_root_owner_evidence_service import (
     EvidenceCandidate,
@@ -125,6 +126,35 @@ def test_mes_wins_over_data_hub_projection_in_production_domain() -> None:
     assert decision.primary.value["total_output_daily"] == 100.0
 
 
+def test_source_priority_still_wins_when_lower_source_has_structured_fact_shape() -> None:
+    candidates = [
+        EvidenceCandidate(
+            source_key="data_hub_projection",
+            source_type="data_hub",
+            domain="production",
+            priority=40,
+            status="ok",
+            value={"total_output_daily": {"value": 99.0, "source_ref": {"row_count": 1}}},
+            summary="数据中枢结构化事实",
+            trace_ref={},
+        ),
+        EvidenceCandidate(
+            source_key="dingtalk_group_content",
+            source_type="dingtalk_group_content",
+            domain="production",
+            priority=10,
+            status="ok",
+            value={"total_output_daily": 100.0},
+            summary="钉钉高优先级事实",
+            trace_ref={},
+        ),
+    ]
+
+    decision = choose_primary_evidence(candidates, domain="production")
+
+    assert decision.primary.source_key == "dingtalk_group_content"
+
+
 def test_collect_records_missing_sources_explicitly() -> None:
     decision = collect_root_owner_evidence(
         db=None,
@@ -140,7 +170,7 @@ def test_collect_records_missing_sources_explicitly() -> None:
     assert decision.trace["trace_id"] == "trace-evidence-missing"
 
 
-def test_collect_keeps_dingtalk_metadata_supporting_and_uses_mes_primary() -> None:
+def test_collect_keeps_dingtalk_metadata_and_uncontracted_mes_as_supporting() -> None:
     class MesReader:
         def read_sources(self, **_kwargs):
             return {
@@ -168,11 +198,13 @@ def test_collect_keeps_dingtalk_metadata_supporting_and_uses_mes_primary() -> No
         hub_reader=lambda **_kwargs: None,
     )
 
-    assert decision.primary.source_key == "mes_readonly"
-    assert decision.primary.value["total_output_daily"] == 100.0
-    assert [candidate.source_key for candidate in decision.candidates] == ["mes_readonly"]
+    assert decision.primary is None
+    assert decision.candidates == ()
     assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
-    assert decision.trace["supporting_evidence"][0]["source_key"] == "dingtalk_group_chat"
+    assert [item["source_key"] for item in decision.trace["supporting_evidence"]] == [
+        "dingtalk_group_chat",
+        "mes_readonly",
+    ]
 
 
 def test_collect_records_missing_and_failed_source_status_with_redacted_errors() -> None:
@@ -202,7 +234,7 @@ def test_collect_records_missing_and_failed_source_status_with_redacted_errors()
     assert "plain-pass" not in source_status["data_hub_projection"]["error"]
 
 
-def test_inventory_domain_queries_mes_for_inventory_metrics_and_prefers_mes_over_hub() -> None:
+def test_inventory_domain_queries_mes_but_keeps_uncontracted_values_supporting() -> None:
     class MesReader:
         def __init__(self) -> None:
             self.calls = []
@@ -236,8 +268,8 @@ def test_inventory_domain_queries_mes_for_inventory_metrics_and_prefers_mes_over
             "query_keys": ["finished_inbound_records", "stock_records", "wip_totals"],
         }
     ]
-    assert decision.primary.source_key == "mes_readonly"
-    assert decision.primary.value["finished_inbound_daily"] == 120.0
+    assert decision.primary.source_key == "data_hub_projection"
+    assert decision.primary.value["finished_inbound_daily"] == 99.0
     assert decision.trace["source_status"]["mes_readonly"]["query_keys"] == [
         "finished_inbound_records",
         "stock_records",
@@ -301,7 +333,16 @@ def test_default_dingtalk_reader_promotes_structured_metric_fact_over_mes(monkey
     )
 
     assert decision.primary.source_key == "dingtalk_group_chat"
-    assert decision.primary.value["total_output_daily"] == 118.0
+    field_fact = decision.primary.value["total_output_daily"]
+    assert field_fact["value"] == 118.0
+    assert field_fact["source_type"] == "dingtalk_supplement"
+    assert confirmed_fact_failure_reason(
+        {
+            "question_id": 1,
+            "field": "total_output_daily",
+            **field_fact,
+        }
+    ) is None
     assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "ok"
     assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 1
     assert decision.trace["source_status"]["dingtalk_group_content"]["sources"]["dingtalk_text"]["count"] == 1
@@ -330,16 +371,15 @@ def test_default_dingtalk_group_fact_without_specialist_sender_becomes_primary(m
     )
 
     assert decision.primary.source_key == "dingtalk_group_chat"
-    assert decision.primary.value == {"total_output_daily": 118.0}
+    assert decision.primary.value["total_output_daily"]["value"] == 118.0
     assert [candidate.source_key for candidate in decision.candidates] == [
         "dingtalk_group_chat",
-        "mes_readonly",
         "data_hub_projection",
     ]
     assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 1
 
 
-def test_default_dingtalk_reader_keeps_unverified_facts_supporting_and_uses_mes(monkeypatch) -> None:
+def test_default_dingtalk_reader_keeps_unverified_facts_and_raw_mes_supporting(monkeypatch) -> None:
     def read_dingtalk_evidence(_db, *, business_date):
         assert business_date == date(2026, 6, 27)
         return [_dingtalk_item(trace_id="trace-ding-unverified", value=118.0, adoptable=False)]
@@ -361,15 +401,14 @@ def test_default_dingtalk_reader_keeps_unverified_facts_supporting_and_uses_mes(
         hub_reader=lambda **_kwargs: None,
     )
 
-    assert decision.primary.source_key == "mes_readonly"
-    assert decision.primary.value == {"total_output_daily": 100.0}
-    assert [candidate.source_key for candidate in decision.candidates] == ["mes_readonly"]
+    assert decision.primary is None
+    assert decision.candidates == ()
     assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
     assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 0
     assert decision.trace["supporting_evidence"][0]["source_key"] == "dingtalk_group_chat"
 
 
-def test_default_dingtalk_reader_keeps_condition_rules_supporting_and_uses_mes(monkeypatch) -> None:
+def test_default_dingtalk_reader_keeps_condition_rules_and_raw_mes_supporting(monkeypatch) -> None:
     def read_dingtalk_evidence(_db, *, business_date):
         assert business_date == date(2026, 6, 27)
         return [_dingtalk_item(trace_id="trace-ding-condition-rules", value=118.0, adoptable=False)]
@@ -391,9 +430,8 @@ def test_default_dingtalk_reader_keeps_condition_rules_supporting_and_uses_mes(m
         hub_reader=lambda **_kwargs: None,
     )
 
-    assert decision.primary.source_key == "mes_readonly"
-    assert decision.primary.value == {"total_output_daily": 100.0}
-    assert [candidate.source_key for candidate in decision.candidates] == ["mes_readonly"]
+    assert decision.primary is None
+    assert decision.candidates == ()
     assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
     assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 0
     assert decision.trace["supporting_evidence"][0]["source_key"] == "dingtalk_group_chat"
@@ -423,7 +461,7 @@ def test_default_dingtalk_reader_prefers_text_over_file_when_both_verified(monke
     )
 
     assert decision.primary.source_key == "dingtalk_group_chat"
-    assert decision.primary.value == {"total_output_daily": 118.0}
+    assert decision.primary.value["total_output_daily"]["value"] == 118.0
     assert [candidate.source_key for candidate in decision.candidates] == [
         "dingtalk_group_chat",
         "dingtalk_group_file",
@@ -461,7 +499,7 @@ def test_default_dingtalk_reader_preserves_failed_status_and_redacted_error(monk
     assert "plain-pass" not in text_status["error"]
 
 
-def test_mes_real_records_shape_normalizes_to_metric_fact() -> None:
+def test_mes_real_records_shape_is_supporting_without_fact_contract() -> None:
     class MesReader:
         def read_sources(self, **_kwargs):
             return {
@@ -483,11 +521,14 @@ def test_mes_real_records_shape_normalizes_to_metric_fact() -> None:
         hub_reader=lambda **_kwargs: None,
     )
 
-    assert decision.primary.source_key == "mes_readonly"
-    assert decision.primary.value == {"total_output_daily": 100.0}
+    assert decision.primary is None
+    assert decision.trace["source_status"]["mes_readonly"]["status"] == "supporting_only"
+    assert decision.trace["source_status"]["mes_readonly"]["upstream_status"] == "ok"
+    assert decision.trace["source_status"]["mes_readonly"]["reason"] == "metric_fact_without_contract"
+    assert decision.trace["supporting_evidence"][-1]["source_key"] == "mes_readonly"
 
 
-def test_mes_metadata_shape_normalizes_quality_and_wip_metrics() -> None:
+def test_mes_metadata_shape_is_supporting_without_fact_contract() -> None:
     class MesReader:
         def read_sources(self, **kwargs):
             query_keys = kwargs["query_keys"]
@@ -518,11 +559,11 @@ def test_mes_metadata_shape_normalizes_quality_and_wip_metrics() -> None:
         hub_reader=lambda **_kwargs: None,
     )
 
-    assert quality_decision.primary.source_key == "mes_readonly"
-    assert quality_decision.primary.value == {"daily_yield_rate": 84.86}
+    assert quality_decision.primary is None
     assert quality_decision.trace["source_status"]["mes_readonly"]["query_keys"] == ["yield_records"]
-    assert wip_decision.primary.source_key == "mes_readonly"
-    assert wip_decision.primary.value == {"wip_total": 12.5}
+    assert wip_decision.primary is None
+    assert quality_decision.trace["supporting_evidence"][-1]["source_key"] == "mes_readonly"
+    assert wip_decision.trace["supporting_evidence"][-1]["source_key"] == "mes_readonly"
 
 
 def test_hub_ready_status_can_be_primary_when_mes_is_missing() -> None:
@@ -548,6 +589,133 @@ def test_hub_ready_status_can_be_primary_when_mes_is_missing() -> None:
     assert decision.primary.value == {"total_output_daily": 88.0}
     assert decision.trace["source_status"]["data_hub_projection"]["status"] == "ready"
     assert decision.trace["source_status"]["data_hub_projection"]["candidate_status"] == "ok"
+
+
+def test_default_hub_reader_uses_compare_only_fact_bundle_and_keeps_field_when_bundle_blocked(monkeypatch) -> None:
+    calls = []
+
+    def fake_build_daily_fact_bundle(db, **kwargs):
+        calls.append({"db": db, **kwargs})
+        return {
+            "status": "blocked",
+            "facts": {
+                "total_output_daily": {
+                    "value": 88.0,
+                    "unit": "吨",
+                    "source_type": "mes_workshop_process_records",
+                    "evidence_status": "confirmed",
+                    "source_ref": {
+                        "business_date": "2026-06-27",
+                        "business_window": "2026-06-27T08:00:00+08:00/2026-06-28T08:00:00+08:00",
+                        "source_ref": "mes_workshop_process_records",
+                        "unit": "吨",
+                        "metric_contract_version": "2026-07-11",
+                        "latest_row_id": 9,
+                        "row_count": 2,
+                        "trace_id": "projection-read:mes_workshop_process_records:9:2",
+                    },
+                }
+            },
+            "missing_fields": ["total_electricity_kwh"],
+            "gap_plan": {
+                "status": "needs_action",
+                "items": [
+                    {
+                        "field": "total_electricity_kwh",
+                        "next_step": "请电工扫码补录全厂高压总用电量。",
+                        "actual": 100,
+                        "expected": 120,
+                    }
+                ],
+            },
+        }
+
+    monkeypatch.setattr(
+        root_owner_evidence_service.daily_fact_bundle,
+        "build_daily_fact_bundle",
+        fake_build_daily_fact_bundle,
+    )
+    fake_db = object()
+
+    decision = collect_root_owner_evidence(
+        db=fake_db,
+        message_plan=_message_plan(),
+        trace_id="trace-default-daily-fact-bundle",
+        dingtalk_reader=lambda **_kwargs: [],
+        mes_reader=None,
+    )
+
+    assert calls == [
+        {
+            "db": fake_db,
+            "business_date": date(2026, 6, 27),
+            "allow_output_skill_reference_adoption": False,
+        }
+    ]
+    assert decision.primary.source_key == "data_hub_projection"
+    assert decision.primary.status == "ok"
+    assert decision.primary.value["total_output_daily"]["value"] == 88.0
+    assert decision.primary.trace_ref["source"] == "daily_fact_bundle"
+    assert decision.trace["source_status"]["data_hub_projection"] == {
+        "status": "blocked",
+        "candidate_status": "ok",
+    }
+    assert decision.trace["gap_plan"]["items"] == [
+        {
+            "field": "total_electricity_kwh",
+            "next_step": "请电工扫码补录全厂高压总用电量。",
+        }
+    ]
+
+
+def test_contract_shaped_hub_fact_wins_over_bare_mes_aggregate() -> None:
+    class MesReader:
+        def read_sources(self, **_kwargs):
+            return {
+                "source_status": {"mes": "ok"},
+                "records": {
+                    "workshop_process_records": [
+                        {"net_weight": 60.5},
+                        {"output_weight": 39.5},
+                    ]
+                },
+            }
+
+    hub_fact = {
+        "value": 99.0,
+        "unit": "吨",
+        "source_type": "mes_workshop_process_records",
+        "evidence_status": "confirmed",
+        "source_ref": {
+            "business_date": "2026-06-27",
+            "business_window": "2026-06-27T08:00:00+08:00/2026-06-28T08:00:00+08:00",
+            "source_ref": "mes_workshop_process_records",
+            "unit": "吨",
+            "metric_contract_version": "2026-07-11",
+            "latest_row_id": 9,
+            "row_count": 2,
+            "trace_id": "projection-read:mes_workshop_process_records:9:2",
+        },
+    }
+
+    decision = collect_root_owner_evidence(
+        db=None,
+        message_plan=_message_plan(),
+        trace_id="trace-hub-contract-over-bare-mes",
+        dingtalk_reader=lambda **_kwargs: [],
+        mes_reader=MesReader(),
+        hub_reader=lambda **_kwargs: {
+            "status": "blocked",
+            "facts": {"total_output_daily": hub_fact},
+            "missing_fields": ["total_electricity_kwh"],
+        },
+    )
+
+    assert decision.primary.source_key == "data_hub_projection"
+    assert decision.primary.value == {"total_output_daily": hub_fact}
+    assert [candidate.source_key for candidate in decision.candidates] == ["data_hub_projection"]
+    assert decision.trace["source_status"]["mes_readonly"]["reason"] == "metric_fact_without_contract"
+    assert decision.trace["supporting_evidence"][-1]["source_key"] == "mes_readonly"
 
 
 def test_default_reader_keeps_machine_only_text_as_supporting_only(monkeypatch) -> None:
@@ -599,7 +767,7 @@ def test_default_reader_keeps_machine_only_text_as_supporting_only(monkeypatch) 
         hub_reader=lambda **_kwargs: None,
     )
 
-    assert decision.primary.source_key == "mes_readonly"
+    assert decision.primary is None
     assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
     assert decision.trace["source_status"]["dingtalk_group_content"]["candidate_count"] == 0
     assert decision.trace["supporting_evidence"][0]["source_key"] == "dingtalk_group_chat"
@@ -653,5 +821,5 @@ def test_default_reader_requires_trace_before_dingtalk_can_be_primary(monkeypatc
         hub_reader=lambda **_kwargs: None,
     )
 
-    assert decision.primary.source_key == "mes_readonly"
+    assert decision.primary is None
     assert decision.trace["source_status"]["dingtalk_group_content"]["status"] == "supporting_only"
