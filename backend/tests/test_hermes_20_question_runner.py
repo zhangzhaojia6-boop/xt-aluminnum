@@ -157,7 +157,11 @@ def test_acceptance_diagnostics_exposes_gate_reasons_without_raw_messages_or_sec
         {"text": "raw group message token=group-secret"}
     ]
     snapshot.dispatch["channel_key"] = "https://example.test/?access_token=channel-secret"
-    snapshot.dispatch["detail"] = "provider response token=provider-secret"
+    snapshot.dispatch["detail"] = (
+        "provider response token=provider-secret "
+        "access_token=access-secret signature=signature-secret sign=sign-secret "
+        "https://oapi.dingtalk.com/robot/send?access_token=url-secret&sign=url-sign-secret"
+    )
 
     diagnostics = runner.build_acceptance_diagnostics(outcome)
     serialized = json.dumps(diagnostics, ensure_ascii=False)
@@ -169,12 +173,14 @@ def test_acceptance_diagnostics_exposes_gate_reasons_without_raw_messages_or_sec
         "mes_readonly",
     ]
     assert diagnostics["questions"][0]["fact_answer"][0]["field"] == "total_output_daily"
-    assert diagnostics["questions"][0]["dispatch"] == {
-        "status": "sent",
-        "log_status": "sent",
-        "channel_type": "dingtalk_group",
-        "detail": "provider response token=<redacted>",
-    }
+    dispatch = diagnostics["questions"][0]["dispatch"]
+    assert dispatch["status"] == "sent"
+    assert dispatch["log_status"] == "sent"
+    assert dispatch["channel_type"] == "dingtalk_group"
+    assert "token=<redacted>" in dispatch["detail"]
+    assert "access_token=<redacted>" in dispatch["detail"]
+    assert "signature=<redacted>" in dispatch["detail"]
+    assert "sign=<redacted>" in dispatch["detail"]
     assert "answer" not in diagnostics["questions"][0]
     assert "supporting_evidence" not in serialized
     assert "channel_key" not in serialized
@@ -185,8 +191,34 @@ def test_acceptance_diagnostics_exposes_gate_reasons_without_raw_messages_or_sec
     assert "group-secret" not in serialized
     assert "channel-secret" not in serialized
     assert "provider-secret" not in serialized
+    assert "access-secret" not in serialized
+    assert "signature-secret" not in serialized
+    assert "sign-secret" not in serialized
+    assert "url-secret" not in serialized
+    assert "url-sign-secret" not in serialized
     assert "token=<redacted>" in serialized
     assert "password=<redacted>" in serialized
+
+
+def test_preflight_acceptance_diagnostics_keeps_normal_summary_schema_and_redacts_reason() -> None:
+    diagnostics = runner.build_preflight_acceptance_diagnostics(
+        "DingTalk access_token=preflight-secret"
+    )
+
+    assert diagnostics == {
+        "status": "preflight_failed",
+        "failure_reason": "DingTalk access_token=<redacted>",
+        "summary": {
+            "core_passed": False,
+            "delivery_passed": False,
+            "core_pass_count": 0,
+            "delivery_success_count": 0,
+            "environment_failure_count": 0,
+            "total": 20,
+            "results": [],
+        },
+        "questions": [],
+    }
 
 
 def test_runner_exercises_source_trust_question(monkeypatch) -> None:

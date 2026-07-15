@@ -50,7 +50,15 @@ jobs:
                   {
                       "status": "preflight_failed",
                       "failure_reason": reason,
-                      "summary": {},
+                      "summary": {
+                          "core_passed": False,
+                          "delivery_passed": False,
+                          "core_pass_count": 0,
+                          "delivery_success_count": 0,
+                          "environment_failure_count": 0,
+                          "total": 20,
+                          "results": [],
+                      },
                       "questions": [],
                   },
                   ensure_ascii=False,
@@ -134,6 +142,7 @@ jobs:
           from app.services.hermes_20_question_runner import (
               DingTalkDeliveryTarget,
               build_acceptance_diagnostics,
+              build_preflight_acceptance_diagnostics,
               run_20_question_acceptance,
           )
 
@@ -212,12 +221,7 @@ jobs:
               if not owner_id:
                   print("NO_OWNER_DINGTALK_USER")
                   write_diagnostics(
-                      {
-                          "status": "preflight_failed",
-                          "failure_reason": "no_owner_dingtalk_user",
-                          "summary": {},
-                          "questions": [],
-                      }
+                      build_preflight_acceptance_diagnostics("no_owner_dingtalk_user")
                   )
                   write_artifact(
                       f"{run_label}-preflight.txt",
@@ -233,12 +237,7 @@ jobs:
               if not explicit_group_key:
                   print("EXPLICIT_GROUP_SECRET_REQUIRED_FOR_RUN_REGISTRATION")
                   write_diagnostics(
-                      {
-                          "status": "preflight_failed",
-                          "failure_reason": "acceptance_group_missing",
-                          "summary": {},
-                          "questions": [],
-                      }
+                      build_preflight_acceptance_diagnostics("acceptance_group_missing")
                   )
                   sys.exit(24)
               selected_group_masked = mask(explicit_group_key)
@@ -260,12 +259,7 @@ jobs:
               if current_user is None:
                   print("NO_ADMIN_USER")
                   write_diagnostics(
-                      {
-                          "status": "preflight_failed",
-                          "failure_reason": "no_admin_user",
-                          "summary": {},
-                          "questions": [],
-                      }
+                      build_preflight_acceptance_diagnostics("no_admin_user")
                   )
                   write_artifact(
                       f"{run_label}-preflight.txt",

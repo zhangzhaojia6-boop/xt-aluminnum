@@ -15,6 +15,7 @@ from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.models.agent_communication import AgentRun, AgentOutboxMessage, ExternalMessageLog
 from app.models.system import User
 from app.services import agent_communication_service
+from app.services.dingtalk_secret_sanitizer import sanitize_dingtalk_payload_for_storage
 from app.services.hermes_20_question_acceptance import (
     AcceptanceSummary,
     AcceptanceTurnSnapshot,
@@ -44,6 +45,23 @@ class DingTalkDeliveryTarget:
 class Hermes20QuestionRunOutcome:
     snapshots: tuple[AcceptanceTurnSnapshot, ...]
     summary: AcceptanceSummary
+
+
+def build_preflight_acceptance_diagnostics(failure_reason: str) -> dict[str, Any]:
+    return {
+        "status": "preflight_failed",
+        "failure_reason": _diagnostic_value(failure_reason),
+        "summary": {
+            "core_passed": False,
+            "delivery_passed": False,
+            "core_pass_count": 0,
+            "delivery_success_count": 0,
+            "environment_failure_count": 0,
+            "total": len(build_20_question_catalog()),
+            "results": [],
+        },
+        "questions": [],
+    }
 
 
 def build_acceptance_diagnostics(outcome: Hermes20QuestionRunOutcome) -> dict[str, Any]:
@@ -115,7 +133,7 @@ def _diagnostic_value(value: Any) -> Any:
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         return [_diagnostic_value(item) for item in value]
     if isinstance(value, str):
-        return redact_secret_text(value)
+        return sanitize_dingtalk_payload_for_storage(value)
     return value
 
 
