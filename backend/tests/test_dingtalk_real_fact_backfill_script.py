@@ -310,6 +310,42 @@ def test_owner_verified_dws_text_is_confirmed_only_with_complete_lineage(monkeyp
         db.close()
 
 
+def test_owner_verified_plan_contract_text_adds_traceable_fact_updates(monkeypatch, tmp_path) -> None:
+    module, Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    input_jsonl = tmp_path / 'messages.jsonl'
+    text = (
+        '投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨 '
+        '当天合同443吨 热轧436吨 总余合同量2765吨'
+    )
+    row = _owner_verified_text_row(text=text, message_id='msg-plan-contract-001')
+    _write_jsonl(input_jsonl, [row])
+
+    summary = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-plan-contract',
+    )
+
+    assert summary['confirmed'] == 1
+    assert summary['committed'] == 1
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        updates = evidence.payload['fact_updates']
+        assert updates['daily_input_weight']['value'] == 525
+        assert updates['remaining_contract_weight']['value'] == 2765
+        assert updates['remaining_contract_weight']['source_ref']['parser'] == 'plan_contract_message_v1'
+        assert updates['remaining_contract_weight']['source_ref']['content_sha256'] == row[
+            'content_sha256'
+        ]
+    finally:
+        db.close()
+
+
 def test_owner_verified_dws_row_with_wrong_hash_is_rejected_before_persistence(monkeypatch, tmp_path) -> None:
     module, Session = _prepare(monkeypatch)
     files_root = tmp_path / 'files'

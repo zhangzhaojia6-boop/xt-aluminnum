@@ -66,9 +66,11 @@ def test_fact_source_map_uses_enterprise_app_scope_for_group_content_priority_so
     assert {item["metric_key"] for item in dingtalk_group_items} == {
         "total_output_daily",
         "finished_inbound_daily",
+        "daily_input_weight",
         "daily_yield_rate",
         "total_electricity_kwh",
         "total_gas_m3",
+        "remaining_contract_weight",
         "anomaly_explanation_daily",
     }
     for item in dingtalk_group_items:
@@ -85,8 +87,11 @@ def test_fact_source_map_prioritizes_dingtalk_group_content_first() -> None:
     for metric_key in {
         "total_output_daily",
         "finished_inbound_daily",
+        "daily_input_weight",
         "total_electricity_kwh",
         "total_gas_m3",
+        "daily_yield_rate",
+        "remaining_contract_weight",
         "anomaly_explanation_daily",
     }:
         item = find_fact_source(metric_key)

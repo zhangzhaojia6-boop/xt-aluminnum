@@ -4,6 +4,11 @@ from collections.abc import Mapping
 import re
 from typing import Any
 
+from app.services.dingtalk_verified_fact_extractor import (
+    PLAN_CONTRACT_PARSER,
+    parse_plan_contract_message,
+)
+
 
 SOURCE = "dingtalk_supplement"
 DEFAULT_CONFIDENCE = 0.95
@@ -111,6 +116,9 @@ def _structured_candidates(
         }
         if "reason" in item:
             candidate["reason"] = item.get("reason")
+        source_ref = item.get("source_ref")
+        if isinstance(source_ref, Mapping):
+            candidate["source_ref"] = dict(source_ref)
         candidates.append(candidate)
     return candidates
 
@@ -144,7 +152,7 @@ def _iter_fact_updates(fact_updates: Any) -> list[tuple[str, Mapping[str, Any]]]
 
 
 def _plain_text_candidates(raw_text: str, *, trace_id: str) -> list[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
+    candidates = _plan_contract_candidates(raw_text, trace_id=trace_id)
     for field, default_unit, phrases in FIELD_SPECS:
         value_unit = _value_near_any_phrase(
             raw_text,
@@ -167,6 +175,43 @@ def _plain_text_candidates(raw_text: str, *, trace_id: str) -> list[dict[str, An
             }
         )
     return candidates
+
+
+def _plan_contract_candidates(raw_text: str, *, trace_id: str) -> list[dict[str, Any]]:
+    parsed = parse_plan_contract_message(raw_text)
+    if parsed is None:
+        return []
+    common = {
+        "unit": "吨",
+        "confidence": 0.99,
+        "source": SOURCE,
+        "trace_id": trace_id,
+        "raw_text": raw_text,
+    }
+    return [
+        {
+            **common,
+            "field": "daily_input_weight",
+            "value": parsed["daily_input_weight"],
+            "reason": "钉钉计划科合同消息确定性分项求和",
+            "source_ref": {
+                "parser": PLAN_CONTRACT_PARSER,
+                "components": parsed["components"],
+                "matched_segments": parsed["matched_segments"],
+            },
+        },
+        {
+            **common,
+            "field": "remaining_contract_weight",
+            "value": parsed["remaining_contract_weight"],
+            "reason": "钉钉计划科合同消息明确标签值",
+            "source_ref": {
+                "parser": PLAN_CONTRACT_PARSER,
+                "context_values": parsed["context_values"],
+                "matched_segments": parsed["matched_segments"],
+            },
+        },
+    ]
 
 
 def _value_near_any_phrase(

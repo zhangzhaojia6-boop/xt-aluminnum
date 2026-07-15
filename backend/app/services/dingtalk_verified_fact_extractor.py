@@ -1,14 +1,29 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+import hashlib
 from io import BytesIO
 from pathlib import Path
 import re
 from typing import Any
+import unicodedata
 
 from openpyxl import load_workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
+
+
+PLAN_CONTRACT_PARSER = 'plan_contract_message_v1'
+_NUMBER_PATTERN = r'(?P<value>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)'
+_PLAN_CONTRACT_PATTERNS = {
+    '2050_input': re.compile(rf'2050\s*投料\s*{_NUMBER_PATTERN}\s*吨'),
+    '1850_input': re.compile(rf'1850\s*投料\s*{_NUMBER_PATTERN}\s*吨'),
+    'external_processing': re.compile(rf'外加工\s*{_NUMBER_PATTERN}\s*吨'),
+    'medium_plate': re.compile(rf'中厚板\s*{_NUMBER_PATTERN}\s*吨'),
+    'daily_contract': re.compile(rf'当天合同\s*{_NUMBER_PATTERN}\s*吨'),
+    'hot_rolling_contract': re.compile(rf'热轧\s*{_NUMBER_PATTERN}\s*吨'),
+    'remaining_contract': re.compile(rf'总余合同量\s*{_NUMBER_PATTERN}\s*吨'),
+}
 
 
 def extract_verified_file_fact_updates(
@@ -52,6 +67,89 @@ def extract_verified_file_fact_updates(
             }
         }
     return {}
+
+
+def extract_verified_text_fact_updates(
+    *,
+    text: str,
+    business_date: date,
+    content_sha256: str,
+) -> dict[str, dict[str, Any]]:
+    clean_hash = str(content_sha256 or '').strip().lower()
+    if hashlib.sha256(text.encode('utf-8')).hexdigest() != clean_hash:
+        return {}
+    parsed = parse_plan_contract_message(text)
+    if parsed is None:
+        return {}
+
+    base_source_ref = {
+        'parser': PLAN_CONTRACT_PARSER,
+        'business_date': business_date.isoformat(),
+        'content_sha256': clean_hash,
+        'matched_segments': parsed['matched_segments'],
+    }
+    return {
+        'daily_input_weight': {
+            'value': parsed['daily_input_weight'],
+            'unit': '吨',
+            'confidence': 0.99,
+            'reason': '钉钉计划科合同消息确定性分项求和',
+            'source_ref': {
+                **base_source_ref,
+                'components': parsed['components'],
+            },
+        },
+        'remaining_contract_weight': {
+            'value': parsed['remaining_contract_weight'],
+            'unit': '吨',
+            'confidence': 0.99,
+            'reason': '钉钉计划科合同消息明确标签值',
+            'source_ref': {
+                **base_source_ref,
+                'context_values': parsed['context_values'],
+            },
+        },
+    }
+
+
+def parse_plan_contract_message(text: str) -> dict[str, Any] | None:
+    normalized = unicodedata.normalize('NFKC', str(text or ''))
+    if len(re.findall(r'投料量\s*:', normalized)) != 1:
+        return None
+
+    values: dict[str, int | float] = {}
+    matched_segments: dict[str, dict[str, Any]] = {}
+    for key, pattern in _PLAN_CONTRACT_PATTERNS.items():
+        matches = list(pattern.finditer(normalized))
+        if len(matches) != 1:
+            return None
+        match = matches[0]
+        values[key] = _plain_number(match.group('value'))
+        matched_segments[key] = {
+            'text': match.group(0),
+            'start': match.start(),
+            'end': match.end(),
+        }
+
+    components = {
+        key: values[key]
+        for key in ('2050_input', '1850_input', 'external_processing', 'medium_plate')
+    }
+    return {
+        'daily_input_weight': sum(components.values()),
+        'remaining_contract_weight': values['remaining_contract'],
+        'components': components,
+        'context_values': {
+            'daily_contract': values['daily_contract'],
+            'hot_rolling_contract': values['hot_rolling_contract'],
+        },
+        'matched_segments': matched_segments,
+    }
+
+
+def _plain_number(value: str) -> int | float:
+    number = float(value.replace(',', ''))
+    return int(number) if number.is_integer() else number
 
 
 def _company_daily_yield_source(sheet: Worksheet, *, business_date: date) -> dict[str, str] | None:
