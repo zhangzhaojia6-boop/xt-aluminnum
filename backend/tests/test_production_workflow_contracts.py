@@ -1057,10 +1057,13 @@ def test_daily_report_alignment_prod_keeps_artifacts_outside_repo_and_preserves_
 
     assert 'days' not in inputs
     assert 'reference_mode' not in inputs
+    assert inputs['business_end_date']['default'] == ''
     assert "DAYS: '3'" in source
+    assert 'END_DATE: ${{ github.event.inputs.business_end_date }}' in source
     assert 'REFERENCE_MODE: compare' in source
     assert 'test "$DAYS" = "3"' in source
     assert 'test "$REFERENCE_MODE" = "compare"' in source
+    assert 'business_end_date must be YYYY-MM-DD' in source
     assert "/srv/aluminum-bypass/docs/superpowers/reports" not in source
     assert '/var/lib/aluminum-bypass/acceptance/daily-report-alignment-${RUN_ID}' in source
     assert 'install -d -m 700 "$artifact_dir"' in source
@@ -1075,6 +1078,11 @@ def test_daily_report_alignment_prod_keeps_artifacts_outside_repo_and_preserves_
     assert 'official_daily_report' not in source
     assert '--reference-mode "$REFERENCE_MODE"' in source
     assert '--output-skill-root "$output_root"' in source
+    assert 'alignment_args=(' in source
+    assert 'alignment_args+=(--end-date "$END_DATE")' in source
+    assert '"${alignment_args[@]}"' in source
+    assert "tr -d '\\r\\n'" in source
+    assert 'OUTPUT_SKILL_BUNDLE_INVALID_BASE64' in source
 
 
 def test_hermes_acceptance_prod_fails_closed_without_real_owner_and_keeps_artifacts_outside_repo() -> None:
@@ -1122,6 +1130,7 @@ def test_hermes_acceptance_always_registers_explicit_real_group_and_runs_full_ga
     assert 'NO_APPROVED_DINGTALK_GROUP_CANDIDATE' not in source
     assert 'acceptance_test' not in source
     assert 'append_remote_assignment DINGTALK_ACCEPTANCE_GROUP_KEY "$DINGTALK_ACCEPTANCE_GROUP_KEY"' in source
+    assert "printf -v REMOTE_PREAMBLE '%sexport %s=%q\\n'" in source
     assert "DINGTALK_ACCEPTANCE_GROUP_KEY='$DINGTALK_ACCEPTANCE_GROUP_KEY'" not in source
     assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"' in source
 

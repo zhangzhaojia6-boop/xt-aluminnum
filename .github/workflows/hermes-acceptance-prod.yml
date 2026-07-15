@@ -53,7 +53,7 @@ jobs:
           append_remote_assignment() {
             local name="$1"
             local value="$2"
-            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+            printf -v REMOTE_PREAMBLE '%sexport %s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
           }
 
           REMOTE_PREAMBLE=""
