@@ -7,6 +7,7 @@ from zipfile import ZipFile
 from openpyxl import Workbook
 
 from app.services.dingtalk_verified_fact_extractor import (
+    extract_owner_verified_visual_fact_updates,
     extract_verified_file_fact_updates,
     extract_verified_text_fact_updates,
 )
@@ -177,3 +178,90 @@ def test_verified_plan_contract_text_rejects_malformed_number_or_wrong_hash() ->
 
 def test_verified_plan_contract_text_ignores_unrelated_messages() -> None:
     assert _extract_text('今天合同很多，2050投料463吨，请大家关注') == {}
+
+
+WIP_SCREENSHOT = b'\xff\xd8\xffowner-verified-wip\xff\xd9'
+
+
+def _extract_wip_visual(
+    *,
+    business_date: date = date(2026, 7, 11),
+    reported_date: str = '2026-07-12',
+    event_time: str = '2026-07-12T08:19:42+08:00',
+    value=1877,
+    content_sha256: str | None = None,
+) -> dict:
+    return extract_owner_verified_visual_fact_updates(
+        file_name='wip.jpg',
+        content=WIP_SCREENSHOT,
+        business_date=business_date,
+        event_time=event_time,
+        file_sha256=content_sha256 or sha256(WIP_SCREENSHOT).hexdigest(),
+        verified_facts={
+            'wip_total': {
+                'value': value,
+                'unit': '吨',
+                'reported_date': reported_date,
+                'row_label': '汇总',
+                'column_label': '在制料',
+            }
+        },
+    )
+
+
+def test_owner_verified_wip_screenshot_returns_traceable_fact() -> None:
+    result = _extract_wip_visual()
+
+    assert result['wip_total']['value'] == 1877
+    assert result['wip_total']['unit'] == '吨'
+    assert result['wip_total']['source_ref'] == {
+        'parser': 'owner_verified_wip_screenshot_v1',
+        'verification_mode': 'owner_verified_visual',
+        'reported_date': '2026-07-12',
+        'business_date': '2026-07-11',
+        'business_date_rule': 'next_calendar_day_before_owner_daily_cutoff',
+        'event_time_cutoff': '09:30',
+        'row_label': '汇总',
+        'column_label': '在制料',
+        'file_sha256': sha256(WIP_SCREENSHOT).hexdigest(),
+    }
+
+
+def test_owner_verified_wip_screenshot_uses_image_magic_for_synthetic_media_extension() -> None:
+    content = b'\x89PNG\r\n\x1a\nowner-verified-wip-IEND\xaeB`\x82'
+
+    result = extract_owner_verified_visual_fact_updates(
+        file_name='dingtalk-media.jpg',
+        content=content,
+        business_date=date(2026, 7, 11),
+        event_time='2026-07-12T08:19:42+08:00',
+        file_sha256=sha256(content).hexdigest(),
+        verified_facts={
+            'wip_total': {
+                'value': 1877,
+                'unit': '吨',
+                'reported_date': '2026-07-12',
+                'row_label': '汇总',
+                'column_label': '在制料',
+            }
+        },
+    )
+
+    assert result['wip_total']['value'] == 1877
+
+
+def test_owner_verified_wip_screenshot_rejects_wrong_business_date_mapping() -> None:
+    assert _extract_wip_visual(business_date=date(2026, 7, 12)) == {}
+    assert _extract_wip_visual(reported_date='2026-07-13') == {}
+    assert _extract_wip_visual(event_time='2026-07-13T08:19:42+08:00') == {}
+
+
+def test_owner_verified_wip_screenshot_requires_next_morning_before_owner_cutoff() -> None:
+    assert _extract_wip_visual(event_time='2026-07-12T09:29:59+08:00')['wip_total']['value'] == 1877
+    assert _extract_wip_visual(event_time='2026-07-12T09:30:00+08:00') == {}
+    assert _extract_wip_visual(event_time='2026-07-12T15:19:42+08:00') == {}
+
+
+def test_owner_verified_wip_screenshot_rejects_wrong_hash_or_invalid_value() -> None:
+    assert _extract_wip_visual(content_sha256='0' * 64) == {}
+    assert _extract_wip_visual(value='not-a-number') == {}
