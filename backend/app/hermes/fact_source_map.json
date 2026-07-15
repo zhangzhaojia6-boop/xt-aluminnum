@@ -55,14 +55,19 @@
     "metric_key": "daily_input_weight",
     "display_name": "当日投料量",
     "domain": "operations",
-    "priority_sources": ["MES/WMS readonly", "data_hub_projection", "DailyFactBundle"],
-    "source_tables": ["daily_fact_bundle_snapshots", "work_order_entries", "daily_reports"],
-    "source_services": ["contract_canonical_service", "template_daily_report", "daily_overview_builder"],
+    "priority_sources": ["dingtalk_group_content", "MES/WMS readonly", "data_hub_projection", "DailyFactBundle"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "not_required_enterprise_app_scope",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
+    "source_tables": ["multimodal_evidence", "daily_fact_bundle_snapshots", "work_order_entries", "daily_reports"],
+    "source_services": ["dingtalk_verified_fact_extractor", "contract_canonical_service", "template_daily_report", "daily_overview_builder"],
     "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/reports/template-daily/preview"],
     "frontend_pages": ["/manage/today", "/manage/production"],
-    "hermes_tools": ["hub_query", "source_map", "history_report"],
+    "hermes_tools": ["dingtalk_evidence", "hub_query", "source_map", "history_report"],
     "delete_protection": "protect",
-    "known_risks": ["投料、上机量、坯料输入和合同用料不能混成一个数"],
+    "known_risks": ["投料、上机量、坯料输入和合同用料不能混成一个数", "钉钉投料量必须由2050、1850、外加工和中厚板四项完整求和并保留原文哈希"],
     "verification_status": "已证实"
   },
   {
@@ -173,15 +178,20 @@
     "metric_key": "remaining_contract_weight",
     "display_name": "总余合同量",
     "domain": "operations",
-    "priority_sources": ["MES/WMS readonly", "data_hub_projection", "DailyFactBundle"],
-    "source_tables": ["daily_fact_bundle_snapshots", "work_order_entries", "mes_coil_snapshots"],
-    "source_services": ["DailyFactBundle", "contract_progress_projection_service", "factory_command_service"],
+    "priority_sources": ["dingtalk_group_content", "MES/WMS readonly", "data_hub_projection", "DailyFactBundle"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "not_required_enterprise_app_scope",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
+    "source_tables": ["multimodal_evidence", "daily_fact_bundle_snapshots", "work_order_entries", "mes_coil_snapshots"],
+    "source_services": ["dingtalk_verified_fact_extractor", "DailyFactBundle", "contract_progress_projection_service", "factory_command_service"],
     "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/factory-command/overview"],
     "frontend_pages": ["/manage/today", "/manage/production"],
-    "hermes_tools": ["hub_query", "mes_wms_read", "source_map"],
+    "hermes_tools": ["dingtalk_evidence", "hub_query", "mes_wms_read", "source_map"],
     "delete_protection": "protect",
-    "known_risks": ["合同和发货影响需要跨库存、入库、发货一起判断"],
-    "verification_status": "候选"
+    "known_risks": ["合同和发货影响需要跨库存、入库、发货一起判断", "钉钉总余合同量只能采用明确标签且唯一出现的吨值并保留原文哈希"],
+    "verification_status": "已证实"
   },
   {
     "metric_key": "monthly_total_output",

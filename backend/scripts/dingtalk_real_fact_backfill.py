@@ -25,7 +25,10 @@ from app.services.dingtalk_energy_ingest_service import (  # noqa: E402
 )
 from app.services.dingtalk_service import DingTalkDownloadedFile  # noqa: E402
 from app.services.dingtalk_stream_gateway_service import ingest_dingtalk_stream_event  # noqa: E402
-from app.services.dingtalk_verified_fact_extractor import extract_verified_file_fact_updates  # noqa: E402
+from app.services.dingtalk_verified_fact_extractor import (  # noqa: E402
+    extract_verified_file_fact_updates,
+    extract_verified_text_fact_updates,
+)
 
 
 SOURCE_TRANSPORT = 'dws_history_backfill'
@@ -277,6 +280,11 @@ def _owner_verified_contract(row: Mapping[str, Any], *, files_root: Path) -> Own
         )
     elif text and not local_file_path and not file_name:
         actual_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
+        fact_updates = extract_verified_text_fact_updates(
+            text=text,
+            business_date=business_date,
+            content_sha256=actual_hash,
+        )
     else:
         raise ValueError('owner_verified_content_ambiguous')
     if actual_hash != expected_hash:

@@ -39,6 +39,45 @@ def test_structured_fact_updates_become_candidates() -> None:
     ]
 
 
+def test_structured_fact_updates_preserve_verified_source_ref() -> None:
+    source_ref = {
+        "parser": "plan_contract_message_v1",
+        "business_date": "2026-07-11",
+        "content_sha256": "a" * 64,
+        "matched_segments": {
+            "remaining_contract": {
+                "text": "总余合同量2765吨",
+                "start": 64,
+                "end": 75,
+            }
+        },
+        "components": {
+            "2050_input": 463,
+            "1850_input": 0,
+            "external_processing": 62,
+            "medium_plate": 0,
+        },
+    }
+
+    candidates = extract_daily_fact_update_candidates(
+        {
+            "trace_id": "verified-contract-trace",
+            "payload": {
+                "fact_updates": {
+                    "daily_input_weight": {
+                        "value": 525,
+                        "unit": "吨",
+                        "confidence": 0.99,
+                        "source_ref": source_ref,
+                    }
+                }
+            },
+        }
+    )
+
+    assert candidates[0]["source_ref"] == source_ref
+
+
 @pytest.mark.parametrize(
     ("text", "field", "value", "unit"),
     [
@@ -114,6 +153,30 @@ def test_payload_attachment_text_produces_candidates_without_top_level_text() ->
 
 def test_unknown_text_returns_empty_candidates() -> None:
     assert extract_daily_fact_update_candidates({"recognized_text": "辛苦了，收到"}) == []
+
+
+def test_plan_contract_message_produces_component_sum_and_remaining_contract_candidates() -> None:
+    text = (
+        "投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨 "
+        "当天合同443吨 热轧436吨 总余合同量2765吨"
+    )
+
+    candidates = extract_daily_fact_update_candidates(
+        {"trace_id": "plan-contract-trace", "recognized_text": text}
+    )
+
+    assert [(item["field"], item["value"], item["unit"]) for item in candidates] == [
+        ("daily_input_weight", 525, "吨"),
+        ("remaining_contract_weight", 2765, "吨"),
+    ]
+    assert all(item["trace_id"] == "plan-contract-trace" for item in candidates)
+    assert all(item["source_ref"]["parser"] == "plan_contract_message_v1" for item in candidates)
+
+
+def test_incomplete_plan_contract_message_is_not_partially_guessed() -> None:
+    text = "投料量：2050投料463吨 1850投料0吨 外加工62吨 总余合同量2765吨"
+
+    assert extract_daily_fact_update_candidates({"recognized_text": text}) == []
 
 
 @pytest.mark.parametrize(

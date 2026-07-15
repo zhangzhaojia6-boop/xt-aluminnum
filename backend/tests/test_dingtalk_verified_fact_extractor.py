@@ -6,7 +6,10 @@ from zipfile import ZipFile
 
 from openpyxl import Workbook
 
-from app.services.dingtalk_verified_fact_extractor import extract_verified_file_fact_updates
+from app.services.dingtalk_verified_fact_extractor import (
+    extract_verified_file_fact_updates,
+    extract_verified_text_fact_updates,
+)
 
 
 MODIFIED_TAG = '{http://purl.org/dc/terms/}modified'
@@ -109,3 +112,68 @@ def test_verified_yield_extractor_rejects_duplicate_business_date_rows() -> None
     content = _set_workbook_modified(output.getvalue(), datetime(2026, 7, 12))
 
     assert _extract(content) == {}
+
+
+PLAN_CONTRACT_TEXT = (
+    '投料量：2050投料463吨 1850投料0吨 外加工62吨  中厚板0吨  '
+    '当天合同443吨    热轧436吨   总余合同量2765吨'
+)
+
+
+def _extract_text(text: str = PLAN_CONTRACT_TEXT) -> dict:
+    return extract_verified_text_fact_updates(
+        text=text,
+        business_date=date(2026, 7, 11),
+        content_sha256=sha256(text.encode('utf-8')).hexdigest(),
+    )
+
+
+def test_verified_plan_contract_text_returns_traceable_exact_facts() -> None:
+    result = _extract_text()
+
+    assert result['daily_input_weight']['value'] == 525
+    assert result['daily_input_weight']['source_ref']['components'] == {
+        '2050_input': 463,
+        '1850_input': 0,
+        'external_processing': 62,
+        'medium_plate': 0,
+    }
+    assert result['remaining_contract_weight']['value'] == 2765
+    assert result['remaining_contract_weight']['source_ref']['parser'] == 'plan_contract_message_v1'
+    assert result['remaining_contract_weight']['source_ref']['business_date'] == '2026-07-11'
+    assert result['remaining_contract_weight']['source_ref']['content_sha256'] == sha256(
+        PLAN_CONTRACT_TEXT.encode('utf-8')
+    ).hexdigest()
+    assert result['remaining_contract_weight']['source_ref']['matched_segments']['remaining_contract'][
+        'text'
+    ] == '总余合同量2765吨'
+
+
+def test_verified_plan_contract_text_tolerates_spacing_and_ascii_colon() -> None:
+    text = (
+        '投料量: 2050投料 313 吨\n1850投料 0 吨，外加工 24 吨；中厚板 0 吨 '
+        '当天合同 212 吨 热轧 212 吨 总余合同量 2664 吨'
+    )
+
+    result = _extract_text(text)
+
+    assert result['daily_input_weight']['value'] == 337
+    assert result['remaining_contract_weight']['value'] == 2664
+
+
+def test_verified_plan_contract_text_rejects_missing_component_or_duplicate_label() -> None:
+    assert _extract_text(PLAN_CONTRACT_TEXT.replace('中厚板0吨', '')) == {}
+    assert _extract_text(PLAN_CONTRACT_TEXT + ' 总余合同量2765吨') == {}
+
+
+def test_verified_plan_contract_text_rejects_malformed_number_or_wrong_hash() -> None:
+    assert _extract_text(PLAN_CONTRACT_TEXT.replace('2765吨', '2,7,65吨')) == {}
+    assert extract_verified_text_fact_updates(
+        text=PLAN_CONTRACT_TEXT,
+        business_date=date(2026, 7, 11),
+        content_sha256='0' * 64,
+    ) == {}
+
+
+def test_verified_plan_contract_text_ignores_unrelated_messages() -> None:
+    assert _extract_text('今天合同很多，2050投料463吨，请大家关注') == {}
