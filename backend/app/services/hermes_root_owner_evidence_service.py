@@ -5,14 +5,16 @@ from typing import Any, Callable, Mapping
 
 from sqlalchemy.orm import Session
 
+from app.core.business_time import production_business_window
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
+from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACTS
 from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
 from app.services.hermes_dingtalk_evidence_service import (
     DingTalkEvidenceItem,
     query_dingtalk_evidence,
 )
 from app.services.hermes_mes_read_service import HermesMesReadService
-from app.services.report import template_daily_report
+from app.services.report import daily_fact_bundle
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +152,14 @@ def collect_root_owner_evidence(
             source_status["mes_readonly"] = mes_status
             if mes_candidate is None:
                 missing_sources.append("mes_readonly")
+            elif mes_candidate.status == "supporting_only":
+                supporting_evidence.append(
+                    _candidate_trace_detail(
+                        mes_candidate,
+                        status="supporting_only",
+                        reason="metric_fact_without_contract",
+                    )
+                )
             else:
                 candidates.append(mes_candidate)
 
@@ -161,9 +171,9 @@ def collect_root_owner_evidence(
     source_status["data_hub_projection"] = hub_status
     if hub_payload:
         raw_hub_status = str(hub_payload.get("status") or "ok")
-        hub_candidate_status = _candidate_status(raw_hub_status)
         hub_fact = _extract_hub_metric_fact(hub_payload, tuple(message_plan.metric_keys))
         if hub_fact:
+            hub_candidate_status = _hub_candidate_status(raw_hub_status, hub_fact)
             candidates.append(
                 EvidenceCandidate(
                     source_key="data_hub_projection",
@@ -173,7 +183,7 @@ def collect_root_owner_evidence(
                     status=hub_candidate_status,
                     value=filter_sensitive_mapping(hub_fact),
                     summary="数据中枢投影已读取当前指标",
-                    trace_ref={"source": "template_daily_report", "status": raw_hub_status},
+                    trace_ref={"source": "daily_fact_bundle", "status": raw_hub_status},
                 )
             )
             source_status["data_hub_projection"]["candidate_status"] = hub_candidate_status
@@ -184,22 +194,26 @@ def collect_root_owner_evidence(
         missing_sources.append("data_hub_projection")
 
     decision = choose_primary_evidence(candidates, domain=message_plan.domain)
+    trace = {
+        "trace_id": trace_id,
+        "business_date": message_plan.business_date.isoformat(),
+        "domain": message_plan.domain,
+        "intent": message_plan.intent,
+        "source_order": [candidate.source_key for candidate in decision.candidates],
+        "missing_sources": missing_sources,
+        "source_status": source_status,
+        "supporting_evidence": supporting_evidence,
+        "conflicts": list(decision.conflicts),
+    }
+    hub_gap_plan = _trace_gap_plan(hub_payload)
+    if hub_gap_plan:
+        trace["gap_plan"] = hub_gap_plan
     return EvidenceDecision(
         primary=decision.primary,
         candidates=decision.candidates,
         conflicts=decision.conflicts,
         missing_sources=missing_sources,
-        trace={
-            "trace_id": trace_id,
-            "business_date": message_plan.business_date.isoformat(),
-            "domain": message_plan.domain,
-            "intent": message_plan.intent,
-            "source_order": [candidate.source_key for candidate in decision.candidates],
-            "missing_sources": missing_sources,
-            "source_status": source_status,
-            "supporting_evidence": supporting_evidence,
-            "conflicts": list(decision.conflicts),
-        },
+        trace=trace,
     )
 
 
@@ -406,13 +420,19 @@ def _read_mes_candidate(
     if not metric_fact:
         status_detail["reason"] = "no_current_metric_fact"
         return None, status_detail
+    candidate_status = "ok" if status == "ok" else "candidate"
+    if not _has_structured_metric_fact(metric_fact):
+        candidate_status = "supporting_only"
+        status_detail["upstream_status"] = status
+        status_detail["status"] = "supporting_only"
+        status_detail["reason"] = "metric_fact_without_contract"
     return (
         EvidenceCandidate(
             source_key="mes_readonly",
             source_type="external_readonly",
             domain=message_plan.domain,
             priority=EXTERNAL_READONLY_PRIORITY,
-            status="ok" if status == "ok" else "candidate",
+            status=candidate_status,
             value=filter_sensitive_mapping(metric_fact),
             summary="MES 只读库已读取当前指标",
             trace_ref=status_detail,
@@ -433,7 +453,11 @@ def _read_hub_payload(
         elif db is None:
             return None, {"status": "missing", "reason": "db_unavailable"}
         else:
-            payload = template_daily_report.build_template_daily_report_payload(db, target_date=business_date)
+            payload = daily_fact_bundle.build_daily_fact_bundle(
+                db,
+                business_date=business_date,
+                allow_output_skill_reference_adoption=False,
+            )
     except Exception as exc:
         return None, {"status": "failed", "error": redact_secret_text(f"{type(exc).__name__}: {exc}")}
     if payload:
@@ -477,7 +501,43 @@ def _extract_dingtalk_item_metric_fact(item: DingTalkEvidenceItem, metric_keys: 
     for candidate in candidates:
         field_name = str(candidate.get("field") or "").strip()
         if field_name in metric_keys and _has_metric_value(candidate.get("value")):
-            result[field_name] = candidate.get("value")
+            contract = DAILY_REPORT_METRIC_CONTRACTS.get(field_name)
+            if contract is None or item.business_date is None:
+                continue
+            window_start, window_end = production_business_window(item.business_date)
+            business_date = item.business_date.isoformat()
+            business_window = f"{window_start.isoformat()}/{window_end.isoformat()}"
+            source_key = str(item.source_key or "dingtalk_group_content")
+            source_ref = {
+                "source_key": source_key,
+                "evidence_id": item.evidence_id,
+                "trace_id": item.trace_id,
+                "business_date": business_date,
+                "business_window": business_window,
+                "unit": contract.unit,
+                "metric_contract_version": contract.metric_contract_version,
+            }
+            for key in (
+                "numerator_field",
+                "numerator_evidence_id",
+                "denominator_field",
+                "denominator_evidence_id",
+            ):
+                if candidate.get(key) not in (None, ""):
+                    source_ref[key] = candidate[key]
+            result[field_name] = {
+                "value": candidate.get("value"),
+                "status": "confirmed",
+                "source_key": source_key,
+                "source_type": "dingtalk_supplement",
+                "source_ref": source_ref,
+                "business_date": business_date,
+                "business_window": business_window,
+                "unit": contract.unit,
+                "metric_contract_version": contract.metric_contract_version,
+                "trace_id": item.trace_id,
+                "source_trace_id": item.trace_id,
+            }
     return result or None
 
 
@@ -490,6 +550,9 @@ def _extract_hub_metric_fact(payload: Mapping[str, Any], metric_keys: tuple[str,
     if isinstance(facts, Mapping):
         values = facts.get("values")
         extracted = _extract_direct_metric_fact(values, metric_key_set)
+        if extracted:
+            result.update(extracted)
+        extracted = _extract_direct_metric_fact(facts, metric_key_set)
         if extracted:
             result.update(extracted)
     direct = _extract_direct_metric_fact(payload, metric_key_set)
@@ -602,6 +665,44 @@ def _candidate_status(status: str) -> str:
     return status or "ok"
 
 
+def _hub_candidate_status(status: str, metric_fact: Mapping[str, Any]) -> str:
+    if _has_structured_metric_fact(metric_fact):
+        return "ok"
+    return _candidate_status(status)
+
+
+def _has_structured_metric_fact(metric_fact: Mapping[str, Any]) -> bool:
+    return any(
+        isinstance(field_fact, Mapping) and _has_metric_value(field_fact.get("value"))
+        for field_fact in metric_fact.values()
+    )
+
+
+def _trace_gap_plan(payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(payload, Mapping):
+        return None
+    gap_plan = payload.get("gap_plan")
+    if not isinstance(gap_plan, Mapping):
+        return None
+    safe_items: list[dict[str, Any]] = []
+    items = gap_plan.get("items")
+    if isinstance(items, list):
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            safe_item = {
+                key: item[key]
+                for key in ("field", "metric_key", "action", "next_step")
+                if item.get(key) not in (None, "")
+            }
+            if safe_item:
+                safe_items.append(filter_sensitive_mapping(safe_item))
+    return {
+        "status": str(gap_plan.get("status") or ""),
+        "items": safe_items,
+    }
+
+
 def _candidate_trace_detail(
     candidate: EvidenceCandidate,
     *,
@@ -621,8 +722,15 @@ def _candidate_trace_detail(
 def _candidate_value_differs(left: Any, right: Any) -> bool:
     if left is None or right is None:
         return False
-    return (
-        asdict(left) != asdict(right)
-        if hasattr(left, "__dataclass_fields__") and hasattr(right, "__dataclass_fields__")
-        else left != right
-    )
+    return _comparable_candidate_value(left) != _comparable_candidate_value(right)
+
+
+def _comparable_candidate_value(value: Any) -> Any:
+    if hasattr(value, "__dataclass_fields__"):
+        return asdict(value)
+    if not isinstance(value, Mapping):
+        return value
+    return {
+        key: item.get("value") if isinstance(item, Mapping) and "value" in item else item
+        for key, item in value.items()
+    }
