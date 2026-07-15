@@ -121,14 +121,19 @@
     "metric_key": "daily_yield_rate",
     "display_name": "日成品率",
     "domain": "quality",
-    "priority_sources": ["MES/WMS readonly", "DailyFactBundle", "computed", "historical_report"],
-    "source_tables": ["daily_fact_bundle_snapshots", "mes_workshop_process_records", "mes_stock_records"],
-    "source_services": ["DailyFactBundle", "yield_matrix_canonical_service", "template_daily_report"],
+    "priority_sources": ["dingtalk_group_content", "MES/WMS readonly", "DailyFactBundle", "computed", "historical_report"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "not_required_enterprise_app_scope",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
+    "source_tables": ["multimodal_evidence", "daily_fact_bundle_snapshots", "mes_workshop_process_records", "mes_stock_records"],
+    "source_services": ["dingtalk_verified_fact_extractor", "DailyFactBundle", "yield_matrix_canonical_service", "template_daily_report"],
     "api_routes": ["/api/v1/dashboard/daily-production"],
     "frontend_pages": ["/manage/today", "/manage/production"],
-    "hermes_tools": ["hub_query", "rag_route", "source_map"],
+    "hermes_tools": ["dingtalk_evidence", "hub_query", "rag_route", "source_map"],
     "delete_protection": "protect",
-    "known_risks": ["成品率必须保留分子分母口径"],
+    "known_risks": ["成品率必须保留分子分母口径", "钉钉工作簿必须保留文件哈希、完整业务日和确定性单元格 trace"],
     "verification_status": "候选"
   },
   {

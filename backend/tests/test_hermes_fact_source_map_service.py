@@ -66,6 +66,7 @@ def test_fact_source_map_uses_enterprise_app_scope_for_group_content_priority_so
     assert {item["metric_key"] for item in dingtalk_group_items} == {
         "total_output_daily",
         "finished_inbound_daily",
+        "daily_yield_rate",
         "total_electricity_kwh",
         "total_gas_m3",
         "anomaly_explanation_daily",

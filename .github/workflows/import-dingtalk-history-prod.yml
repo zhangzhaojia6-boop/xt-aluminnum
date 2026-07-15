@@ -1,0 +1,196 @@
+name: Import Owner-Verified DingTalk History Production
+
+concurrency:
+  group: xintai-production-ops
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'import-owner-verified-dingtalk-history' to confirm the production import
+        required: true
+      bundle_sha256:
+        description: SHA-256 of the temporary encrypted-at-rest Actions secret bundle
+        required: true
+      expected_rows:
+        description: Exact number of evidence rows expected in the bundle
+        required: true
+        default: '1'
+
+jobs:
+  import-owner-verified-dingtalk-history:
+    if: github.event.inputs.confirm == 'import-owner-verified-dingtalk-history'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Import owner-verified DingTalk history
+        id: import
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+          DINGTALK_HISTORY_IMPORT_BUNDLE_B64: ${{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64 }}
+          BUNDLE_SHA256: ${{ github.event.inputs.bundle_sha256 }}
+          EXPECTED_ROWS: ${{ github.event.inputs.expected_rows }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          test -n "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64"
+          printf '%s' "$BUNDLE_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+          printf '%s' "$EXPECTED_ROWS" | grep -Eq '^[1-9][0-9]*$'
+          test "$EXPECTED_ROWS" -le 20
+
+          safe_extract_zip() {
+            python3 - "$1" "$2" <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import sys
+
+          archive_path = Path(sys.argv[1])
+          output_root = Path(sys.argv[2]).resolve()
+          with ZipFile(archive_path) as archive:
+              for member in archive.infolist():
+                  target = (output_root / member.filename).resolve()
+                  if target != output_root and output_root not in target.parents:
+                      raise SystemExit('unsafe_bundle_path')
+              archive.extractall(output_root)
+          PY
+          }
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          bundle="dingtalk-history-${RUN_ID}.zip"
+          printf '%s' "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64" | tr -d '\r\n' | base64 -d > "$bundle"
+          chmod 600 "$bundle"
+          test "$(sha256sum "$bundle" | cut -d' ' -f1)" = "$BUNDLE_SHA256"
+          local_check_dir="dingtalk-history-check-${RUN_ID}"
+          install -d -m 700 "$local_check_dir"
+          safe_extract_zip "$bundle" "$local_check_dir"
+          test -f "$local_check_dir/messages.jsonl"
+          rm -rf "$local_check_dir"
+
+          remote_bundle="/tmp/xintai-dingtalk-history-${RUN_ID}.zip"
+          remote_work_dir="/tmp/xintai-dingtalk-history-${RUN_ID}"
+          remote_artifact_dir="/var/lib/aluminum-bypass/acceptance/dingtalk-history-${RUN_ID}"
+          local_artifact_dir="dingtalk-history-production-${RUN_ID}"
+          mkdir -p "$local_artifact_dir"
+          echo "local_artifact_dir=$local_artifact_dir" >> "$GITHUB_OUTPUT"
+          echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "$bundle" "$SSH_USER@$SSH_HOST:$remote_bundle"
+
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%sexport %s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+
+          REMOTE_PREAMBLE=""
+          append_remote_assignment REMOTE_BUNDLE "$remote_bundle"
+          append_remote_assignment REMOTE_WORK_DIR "$remote_work_dir"
+          append_remote_assignment ARTIFACT_DIR "$remote_artifact_dir"
+          append_remote_assignment EXPECTED_ROWS "$EXPECTED_ROWS"
+          append_remote_assignment RUN_ID "$RUN_ID"
+
+          set +e
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
+          set -euo pipefail
+          remote_work_dir="$REMOTE_WORK_DIR"
+          artifact_dir="$ARTIFACT_DIR"
+          cleanup() {
+            rm -f "$REMOTE_BUNDLE"
+            rm -rf "$remote_work_dir"
+          }
+          trap cleanup EXIT
+          install -d -m 700 "$remote_work_dir" "$artifact_dir"
+
+          safe_extract_zip() {
+            python3 - "$1" "$2" <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import sys
+
+          archive_path = Path(sys.argv[1])
+          output_root = Path(sys.argv[2]).resolve()
+          with ZipFile(archive_path) as archive:
+              for member in archive.infolist():
+                  target = (output_root / member.filename).resolve()
+                  if target != output_root and output_root not in target.parents:
+                      raise SystemExit('unsafe_bundle_path')
+              archive.extractall(output_root)
+          PY
+          }
+
+          safe_extract_zip "$REMOTE_BUNDLE" "$remote_work_dir"
+          test -f "$remote_work_dir/messages.jsonl"
+          row_count="$(python3 - "$remote_work_dir/messages.jsonl" <<'PY'
+          from pathlib import Path
+          import sys
+          print(sum(1 for line in Path(sys.argv[1]).read_text(encoding='utf-8').splitlines() if line.strip()))
+          PY
+          )"
+          test "$row_count" = "$EXPECTED_ROWS"
+
+          cd /srv/aluminum-bypass/backend
+          . .venv/bin/activate
+          summary="$(python scripts/dingtalk_real_fact_backfill.py \
+            --input-jsonl "$remote_work_dir/messages.jsonl" \
+            --files-root "$remote_work_dir" \
+            --days 7 \
+            --confirmation-mode owner-verified-dws-history \
+            --confirmation-run-id "github-actions:${RUN_ID}")"
+          printf '%s\n' "$summary" > "$artifact_dir/import-summary.json"
+          chmod 600 "$artifact_dir/import-summary.json"
+          SUMMARY="$summary" python3 - "$EXPECTED_ROWS" <<'PY'
+          import json
+          import os
+          import sys
+
+          payload = json.loads(os.environ['SUMMARY'])
+          expected = int(sys.argv[1])
+          confirmed = int(payload.get('confirmed', 0)) + int(payload.get('already_confirmed', 0))
+          if (
+              int(payload.get('committed', 0)) != 1
+              or confirmed != expected
+              or int(payload.get('rejected', 0))
+              or int(payload.get('confirmation_rejected', 0))
+          ):
+              raise SystemExit('owner_verified_import_gate_failed')
+          PY
+          printf '%s\n' "$summary"
+          REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"
+          remote_status=$?
+          set -e
+
+          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -r \
+            "$SSH_USER@$SSH_HOST:$remote_artifact_dir/." "$local_artifact_dir/" || true
+          echo "exit_code=$remote_status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload import summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dingtalk-history-production-${{ github.run_id }}
+          path: ${{ steps.import.outputs.local_artifact_dir }}
+          if-no-files-found: warn
+
+      - name: Fail when import gate failed
+        if: steps.import.outputs.exit_code != '0'
+        run: exit ${{ steps.import.outputs.exit_code }}

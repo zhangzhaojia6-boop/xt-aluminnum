@@ -766,6 +766,9 @@ def _apply_dingtalk_supplements(
                 "recognized_text": candidate.get("raw_text") or _dingtalk_evidence_text(item, payload),
                 "business_date": business_date.isoformat(),
             }
+            field_source_ref = candidate.get("source_ref")
+            if isinstance(field_source_ref, Mapping):
+                source_detail["field_source_ref"] = _json_safe(field_source_ref)
             trace_id = str(candidate.get("trace_id") or item.trace_id or "").strip()
             if trace_id:
                 source_detail["trace_id"] = trace_id
