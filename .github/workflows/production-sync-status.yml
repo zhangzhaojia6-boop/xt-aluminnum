@@ -977,6 +977,82 @@ jobs:
           PY
           }
 
+          report_stream_diagnostics() {
+            local active_since="${1:-}"
+            local diagnostic_file
+            local client_id
+            local client_secret
+            local robot_code
+            local log_file
+            diagnostic_file="$(mktemp /tmp/hermes-stream-diagnostics.XXXXXX)"
+
+            {
+              echo "__JOURNAL__"
+              journalctl -u hermes-gateway --since "$active_since" --no-pager -o short-iso -n 300 2>&1 || true
+              for log_file in \
+                "$HERMES_HOME/logs/agent.log" \
+                "$HERMES_HOME/logs/gateway.log" \
+                "$HERMES_HOME/logs/errors.log"; do
+                if [ -f "$log_file" ]; then
+                  echo "__FILE__=$(basename "$log_file")"
+                  tail -n 300 "$log_file" 2>&1 || true
+                fi
+              done
+            } > "$diagnostic_file"
+
+            client_id="$(read_env_value DINGTALK_CLIENT_ID "$HERMES_ENV_FILE")"
+            client_secret="$(read_env_value DINGTALK_CLIENT_SECRET "$HERMES_ENV_FILE")"
+            robot_code="$(read_env_value DINGTALK_ROBOT_CODE "$HERMES_ENV_FILE")"
+
+            echo "HERMES_STREAM_DIAGNOSTICS_START"
+            if ! python3 - "$diagnostic_file" "$client_id" "$client_secret" "$robot_code" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          path = Path(sys.argv[1])
+          sensitive_values = [value for value in sys.argv[2:] if value]
+          lifecycle = re.compile(
+              r"dingtalk|stream(?: mode| client| connection| websocket)|messaging platforms?|"
+              r"platform adapter|adapter could|plugin platform|websocket",
+              re.IGNORECASE,
+          )
+          user_content = re.compile(
+              r"(?i)(?<![A-Za-z0-9_])[\"']?(?:text|content|message|messages|prompt|answer|"
+              r"payload|query|input|output)[\"']?\s*[:=]"
+          )
+          lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+          selected = [line for line in lines if line.startswith("__") or lifecycle.search(line)]
+          for line in selected[-240:]:
+              for value in sensitive_values:
+                  line = line.replace(value, "[REDACTED]")
+              content_match = user_content.search(line)
+              if content_match:
+                  line = line[:content_match.start()] + "content=[REDACTED]"
+              line = re.sub(
+                  r"(?i)(access[_-]?token=)[^&\s]+",
+                  r"\1[REDACTED]",
+                  line,
+              )
+              line = re.sub(
+                  r"(?i)((?:client|app)[_-]?secret\s*[:=]\s*)[^\s,;]+",
+                  r"\1[REDACTED]",
+                  line,
+              )
+              line = re.sub(
+                  r"(?i)(authorization\s*[:=]\s*(?:bearer\s+)?)[^\s,;]+",
+                  r"\1[REDACTED]",
+                  line,
+              )
+              print(line)
+          PY
+            then
+              echo "HERMES_STREAM_DIAGNOSTICS_UNAVAILABLE"
+            fi
+            rm -f "$diagnostic_file"
+            echo "HERMES_STREAM_DIAGNOSTICS_END"
+          }
+
           report_stream_connection() {
             local require_connected="$1"
             local attempts="${2:-1}"
@@ -1007,6 +1083,9 @@ jobs:
               echo "HERMES_STREAM_CONNECTED=no"
               echo "HERMES_STREAM_CONNECTED_LINE=none"
               if [ "$require_connected" = "yes" ]; then
+                if ! report_stream_diagnostics "$active_since"; then
+                  echo "HERMES_STREAM_DIAGNOSTICS_UNAVAILABLE"
+                fi
                 return 1
               fi
             fi

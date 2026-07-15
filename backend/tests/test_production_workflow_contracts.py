@@ -6,6 +6,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import textwrap
 import time
@@ -274,6 +275,112 @@ def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contra
     assert 'for attempt in $(seq 1 "$attempts")' in source
     assert 'sleep "$delay_seconds"' in source
     assert 'report_stream_connection "yes" 40 3' in source
+
+
+def test_production_stream_gate_emits_redacted_failure_diagnostics_before_rollback(tmp_path: Path) -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+
+    diagnostic_body = _extract_shell_function(source, 'report_stream_diagnostics')
+    assert 'HERMES_STREAM_DIAGNOSTICS_START' in diagnostic_body
+    assert 'HERMES_STREAM_DIAGNOSTICS_END' in diagnostic_body
+    assert 'journalctl -u hermes-gateway' in diagnostic_body
+    assert 'agent.log' in diagnostic_body
+    assert 'gateway.log' in diagnostic_body
+    assert 'errors.log' in diagnostic_body
+    assert '[REDACTED]' in diagnostic_body
+    assert 'access[_-]?token' in diagnostic_body
+    assert '(?:client|app)[_-]?secret' in diagnostic_body
+
+    connection_body = _extract_shell_function(source, 'report_stream_connection')
+    disconnected_index = connection_body.index('HERMES_STREAM_CONNECTED=no')
+    diagnostic_index = connection_body.index('report_stream_diagnostics "$active_since"')
+    failure_index = connection_body.index('return 1')
+    assert disconnected_index < diagnostic_index < failure_index
+
+    heredoc_start = diagnostic_body.index("<<'PY'\n") + len("<<'PY'\n")
+    heredoc_end = diagnostic_body.index('\n          PY', heredoc_start)
+    sanitizer = textwrap.dedent(diagnostic_body[heredoc_start:heredoc_end])
+    diagnostic_file = tmp_path / 'stream.log'
+    client_id = 'fake-client-id-for-redaction'
+    client_secret = 'fake-client-secret-for-redaction'
+    robot_code = 'fake-robot-code-for-redaction'
+    diagnostic_file.write_text(
+        '\n'.join(
+            (
+                '__JOURNAL__',
+                (
+                    '[dingtalk] Failed to connect '
+                    f'client_id={client_id} app_secret={client_secret} '
+                    f'robot={robot_code} access_token=fake-access-token '
+                    'authorization=Bearer fake-bearer-token '
+                    'text="private-text" content=private-content '
+                    'payload={"message":"private-message"}'
+                ),
+                'WARNING unrelated warning with private-warning-content',
+                'ordinary chat content must-not-leak',
+            )
+        ),
+        encoding='utf-8',
+    )
+    result = subprocess.run(
+        [sys.executable, '-', str(diagnostic_file), client_id, client_secret, robot_code],
+        input=sanitizer,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert '[dingtalk] Failed to connect' in result.stdout
+    assert '[REDACTED]' in result.stdout
+    assert client_id not in result.stdout
+    assert client_secret not in result.stdout
+    assert robot_code not in result.stdout
+    assert 'fake-access-token' not in result.stdout
+    assert 'fake-bearer-token' not in result.stdout
+    assert 'private-text' not in result.stdout
+    assert 'private-content' not in result.stdout
+    assert 'private-message' not in result.stdout
+    assert 'private-warning-content' not in result.stdout
+    assert 'must-not-leak' not in result.stdout
+
+
+def test_stream_diagnostic_failure_preserves_original_gate_exit_code(tmp_path: Path) -> None:
+    bash = _require_bash()
+    source = _read('.github/workflows/production-sync-status.yml')
+    connection_body = textwrap.dedent(_extract_shell_function(source, 'report_stream_connection'))
+    script_path = tmp_path / 'stream-gate.sh'
+    script_path.write_text(
+        '\n'.join(
+            (
+                '#!/usr/bin/env bash',
+                'set -euo pipefail',
+                'systemctl() {',
+                '  if [ "$1" = "show" ]; then printf "%s\\n" "Wed 2026-07-15 08:00:00 CST"; fi',
+                '  return 0',
+                '}',
+                'journalctl() { return 0; }',
+                'report_stream_diagnostics() { return 73; }',
+                connection_body,
+                'set +e',
+                '( set -e; report_stream_connection "yes" 1 0 ) > result.out 2>&1',
+                'gate_rc="$?"',
+                'set -e',
+                '[ "$gate_rc" -eq 1 ]',
+                'grep -Fq "HERMES_STREAM_DIAGNOSTICS_UNAVAILABLE" result.out',
+                '',
+            )
+        ),
+        encoding='utf-8',
+        newline='\n',
+    )
+    result = subprocess.run(
+        [bash, script_path.name],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_production_sync_deploy_applies_stream_config_inside_rollback_boundary() -> None:
