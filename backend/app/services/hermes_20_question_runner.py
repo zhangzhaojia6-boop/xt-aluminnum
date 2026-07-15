@@ -11,15 +11,18 @@ from sqlalchemy.orm import Session
 from app.adapters import get_mes_adapter, set_mes_adapter
 from app.adapters.factory import create_mes_adapter
 from app.adapters.mes_adapter import NullMesAdapter
+from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.models.agent_communication import AgentRun, AgentOutboxMessage, ExternalMessageLog
 from app.models.system import User
 from app.services import agent_communication_service
+from app.services.dingtalk_secret_sanitizer import sanitize_dingtalk_payload_for_storage
 from app.services.hermes_20_question_acceptance import (
     AcceptanceSummary,
     AcceptanceTurnSnapshot,
     build_20_question_catalog,
     confirmed_fact_failure_reason,
     evaluate_acceptance_summary,
+    evaluate_question_snapshot,
 )
 from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.hermes_root_owner_production_orchestrator import run_root_owner_production_turn
@@ -42,6 +45,96 @@ class DingTalkDeliveryTarget:
 class Hermes20QuestionRunOutcome:
     snapshots: tuple[AcceptanceTurnSnapshot, ...]
     summary: AcceptanceSummary
+
+
+def build_preflight_acceptance_diagnostics(failure_reason: str) -> dict[str, Any]:
+    return {
+        "status": "preflight_failed",
+        "failure_reason": _diagnostic_value(failure_reason),
+        "summary": {
+            "core_passed": False,
+            "delivery_passed": False,
+            "core_pass_count": 0,
+            "delivery_success_count": 0,
+            "environment_failure_count": 0,
+            "total": len(build_20_question_catalog()),
+            "results": [],
+        },
+        "questions": [],
+    }
+
+
+def build_acceptance_diagnostics(outcome: Hermes20QuestionRunOutcome) -> dict[str, Any]:
+    catalog = {question.question_id: question for question in build_20_question_catalog()}
+    questions: list[dict[str, Any]] = []
+    recognition_keys = (
+        "domain",
+        "intent",
+        "metric_keys",
+        "business_date",
+        "confidence",
+        "needs_clarification",
+        "recognition_reason",
+    )
+    for snapshot in outcome.snapshots:
+        question = catalog.get(snapshot.question_id)
+        if question is None:
+            continue
+        result = evaluate_question_snapshot(question, snapshot)
+        evidence = snapshot.evidence if isinstance(snapshot.evidence, Mapping) else {}
+        trace_value = evidence.get("trace")
+        trace = trace_value if isinstance(trace_value, Mapping) else {}
+        questions.append(
+            {
+                "question_id": snapshot.question_id,
+                "trace_id": redact_secret_text(snapshot.trace_id),
+                "status": snapshot.status,
+                "gates": [
+                    {"name": gate.name, "passed": gate.passed, "reason": gate.reason}
+                    for gate in result.gates
+                ],
+                "recognition": _diagnostic_value(
+                    {
+                        key: snapshot.recognition.get(key)
+                        for key in recognition_keys
+                        if key in snapshot.recognition
+                    }
+                ),
+                "source": _diagnostic_value(
+                    {
+                        "primary_source": evidence.get("primary_source"),
+                        "candidate_sources": evidence.get("candidate_sources"),
+                        "missing_sources": evidence.get("missing_sources"),
+                        "source_order": trace.get("source_order"),
+                        "source_status": trace.get("source_status"),
+                        "conflicts": evidence.get("conflicts"),
+                    }
+                ),
+                "fact_answer": _diagnostic_value(snapshot.fact_answer),
+                "dispatch": _diagnostic_value(
+                    {
+                        key: snapshot.dispatch.get(key)
+                        for key in ("status", "log_status", "channel_type", "detail")
+                        if key in snapshot.dispatch
+                    }
+                ),
+            }
+        )
+    return {
+        "summary": _diagnostic_value(outcome.summary.to_dict()),
+        "questions": questions,
+    }
+
+
+def _diagnostic_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        filtered = filter_sensitive_mapping(value)
+        return {str(key): _diagnostic_value(item) for key, item in filtered.items()}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return [_diagnostic_value(item) for item in value]
+    if isinstance(value, str):
+        return sanitize_dingtalk_payload_for_storage(value)
+    return value
 
 
 def run_20_question_acceptance(
