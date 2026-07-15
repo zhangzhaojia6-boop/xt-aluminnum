@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from collections.abc import Mapping
+from datetime import date, datetime, timedelta
 import hashlib
 from io import BytesIO
+import math
 from pathlib import Path
 import re
 from typing import Any
@@ -12,8 +14,11 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
 
+from app.core.business_time import OWNER_DAILY_CUTOFF, local_now
+
 
 PLAN_CONTRACT_PARSER = 'plan_contract_message_v1'
+WIP_SCREENSHOT_PARSER = 'owner_verified_wip_screenshot_v1'
 _NUMBER_PATTERN = r'(?P<value>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)'
 _PLAN_CONTRACT_PATTERNS = {
     '2050_input': re.compile(rf'2050\s*投料\s*{_NUMBER_PATTERN}\s*吨'),
@@ -24,6 +29,68 @@ _PLAN_CONTRACT_PATTERNS = {
     'hot_rolling_contract': re.compile(rf'热轧\s*{_NUMBER_PATTERN}\s*吨'),
     'remaining_contract': re.compile(rf'总余合同量\s*{_NUMBER_PATTERN}\s*吨'),
 }
+
+
+def extract_owner_verified_visual_fact_updates(
+    *,
+    file_name: str,
+    content: bytes,
+    business_date: date,
+    event_time: str | datetime,
+    file_sha256: str,
+    verified_facts: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    clean_hash = str(file_sha256 or '').strip().lower()
+    if hashlib.sha256(content).hexdigest() != clean_hash:
+        return {}
+    if not _is_supported_image(file_name, content):
+        return {}
+    if set(verified_facts) != {'wip_total'}:
+        return {}
+
+    item = verified_facts.get('wip_total')
+    if not isinstance(item, Mapping):
+        return {}
+    reported_date = _iso_date(item.get('reported_date'))
+    parsed_event_time = _iso_datetime(event_time)
+    if reported_date is None or parsed_event_time is None:
+        return {}
+    local_event_time = local_now(parsed_event_time)
+    if reported_date != business_date + timedelta(days=1):
+        return {}
+    if local_event_time.date() != reported_date:
+        return {}
+    if local_event_time.time().replace(tzinfo=None) >= OWNER_DAILY_CUTOFF:
+        return {}
+    if str(item.get('unit') or '').strip() != '吨':
+        return {}
+    if str(item.get('row_label') or '').strip() != '汇总':
+        return {}
+    if str(item.get('column_label') or '').strip() != '在制料':
+        return {}
+    value = _finite_nonnegative_number(item.get('value'))
+    if value is None:
+        return {}
+
+    return {
+        'wip_total': {
+            'value': value,
+            'unit': '吨',
+            'confidence': 0.99,
+            'reason': '钉钉在制料截图人工确权汇总值',
+            'source_ref': {
+                'parser': WIP_SCREENSHOT_PARSER,
+                'verification_mode': 'owner_verified_visual',
+                'reported_date': reported_date.isoformat(),
+                'business_date': business_date.isoformat(),
+                'business_date_rule': 'next_calendar_day_before_owner_daily_cutoff',
+                'event_time_cutoff': OWNER_DAILY_CUTOFF.isoformat(timespec='minutes'),
+                'row_label': '汇总',
+                'column_label': '在制料',
+                'file_sha256': clean_hash,
+            },
+        }
+    }
 
 
 def extract_verified_file_fact_updates(
@@ -149,6 +216,43 @@ def parse_plan_contract_message(text: str) -> dict[str, Any] | None:
 
 def _plain_number(value: str) -> int | float:
     number = float(value.replace(',', ''))
+    return int(number) if number.is_integer() else number
+
+
+def _is_supported_image(file_name: str, content: bytes) -> bool:
+    suffix = Path(file_name).suffix.lower()
+    if suffix not in {'.jpg', '.jpeg', '.png'}:
+        return False
+    is_jpeg = content.startswith(b'\xff\xd8\xff') and content.endswith(b'\xff\xd9')
+    is_png = content.startswith(b'\x89PNG\r\n\x1a\n') and content.endswith(b'IEND\xaeB`\x82')
+    return is_jpeg or is_png
+
+
+def _iso_date(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value or '').strip())
+    except ValueError:
+        return None
+
+
+def _iso_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value or '').strip().replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
+def _finite_nonnegative_number(value: Any) -> int | float | None:
+    if isinstance(value, bool) or value in (None, ''):
+        return None
+    try:
+        number = float(str(value).replace(',', ''))
+    except ValueError:
+        return None
+    if not math.isfinite(number) or number < 0:
+        return None
     return int(number) if number.is_integer() else number
 
 

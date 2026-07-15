@@ -1181,7 +1181,7 @@ def test_mes_contract_problem_cannot_use_priority_dingtalk_exception() -> None:
     assert "mes_readonly_source_not_usable" in result.failed_reasons
 
 
-def test_mes_first_metric_cannot_use_dingtalk_priority_exception() -> None:
+def test_wip_metric_can_use_verified_dingtalk_priority_source() -> None:
     question = build_20_question_catalog()[9]
     snapshot = _passing_snapshot(10)
     snapshot.evidence["primary_source"] = "dingtalk_group_file"
@@ -1208,8 +1208,8 @@ def test_mes_first_metric_cannot_use_dingtalk_priority_exception() -> None:
 
     result = evaluate_question_snapshot(question, snapshot)
 
-    assert result.core_passed is False
-    assert "mes_readonly_source_not_usable" in result.failed_reasons
+    assert result.core_passed is True
+    assert result.failed_reasons == []
 
 
 def test_data_hub_projection_cannot_replace_required_mes_current_fact() -> None:

@@ -26,6 +26,7 @@ from app.services.dingtalk_energy_ingest_service import (  # noqa: E402
 from app.services.dingtalk_service import DingTalkDownloadedFile  # noqa: E402
 from app.services.dingtalk_stream_gateway_service import ingest_dingtalk_stream_event  # noqa: E402
 from app.services.dingtalk_verified_fact_extractor import (  # noqa: E402
+    extract_owner_verified_visual_fact_updates,
     extract_verified_file_fact_updates,
     extract_verified_text_fact_updates,
 )
@@ -56,6 +57,7 @@ class OwnerVerifiedContract:
     business_date: date
     content_sha256: str
     fact_updates: dict[str, dict[str, Any]]
+    visual_attachment_text: str | None
 
 
 @dataclass(frozen=True)
@@ -254,7 +256,8 @@ def _owner_verified_contract(row: Mapping[str, Any], *, files_root: Path) -> Own
     expected_hash = str(row.get('content_sha256') or '').strip().lower()
     if not all((group_id, message_id, sender_user_id, event_time, business_date_text)):
         raise ValueError('owner_verified_lineage_incomplete')
-    if _parse_event_time(event_time) is None:
+    parsed_event_time = _parse_event_time(event_time)
+    if parsed_event_time is None:
         raise ValueError('owner_verified_event_time_invalid')
     try:
         business_date = date.fromisoformat(str(business_date_text)[:10])
@@ -266,7 +269,10 @@ def _owner_verified_contract(row: Mapping[str, Any], *, files_root: Path) -> Own
     text = _first_text(row.get('message_text'), row.get('text'), row.get('content'))
     file_name = _first_text(row.get('fileName'), row.get('file_name'), row.get('name'))
     local_file_path = _first_text(row.get('localFilePath'), row.get('local_file_path'))
+    visual_facts_present = 'owner_verified_visual_facts' in row
+    visual_facts = row.get('owner_verified_visual_facts')
     fact_updates: dict[str, dict[str, Any]] = {}
+    visual_attachment_text: str | None = None
     if local_file_path and file_name:
         content = _resolve_local_file(files_root, local_file_path).read_bytes()
         if not _first_text(row.get('fileId'), row.get('file_id')):
@@ -278,7 +284,23 @@ def _owner_verified_contract(row: Mapping[str, Any], *, files_root: Path) -> Own
             business_date=business_date,
             file_sha256=actual_hash,
         )
+        if visual_facts_present:
+            if fact_updates or not isinstance(visual_facts, Mapping):
+                raise ValueError('owner_verified_visual_fact_ambiguous')
+            fact_updates = extract_owner_verified_visual_fact_updates(
+                file_name=file_name,
+                content=content,
+                business_date=business_date,
+                event_time=parsed_event_time,
+                file_sha256=actual_hash,
+                verified_facts=visual_facts,
+            )
+            if not fact_updates:
+                raise ValueError('owner_verified_visual_fact_invalid')
+            visual_attachment_text = _visual_attachment_text(fact_updates)
     elif text and not local_file_path and not file_name:
+        if visual_facts_present:
+            raise ValueError('owner_verified_visual_fact_requires_file')
         actual_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
         fact_updates = extract_verified_text_fact_updates(
             text=text,
@@ -298,7 +320,20 @@ def _owner_verified_contract(row: Mapping[str, Any], *, files_root: Path) -> Own
         business_date=business_date,
         content_sha256=expected_hash,
         fact_updates=fact_updates,
+        visual_attachment_text=visual_attachment_text,
     )
+
+
+def _visual_attachment_text(fact_updates: Mapping[str, Mapping[str, Any]]) -> str:
+    item = fact_updates.get('wip_total')
+    if not isinstance(item, Mapping):
+        raise ValueError('owner_verified_visual_fact_missing_wip_total')
+    source_ref = item.get('source_ref')
+    if not isinstance(source_ref, Mapping):
+        raise ValueError('owner_verified_visual_fact_missing_source_ref')
+    value = item.get('value')
+    reported_date = str(source_ref.get('reported_date') or '').strip()
+    return f'汇总/在制料：{value}吨（报表日期 {reported_date}）'
 
 
 def _confirm_owner_verified_evidence(
@@ -320,6 +355,24 @@ def _confirm_owner_verified_evidence(
     stored_hash = str(payload.get('file_hash') or '').strip().lower()
     if not stored_hash and stored_text:
         stored_hash = hashlib.sha256(stored_text.encode('utf-8')).hexdigest()
+    owner_verification = {
+        'mode': 'owner_verified_dws_history',
+        'run_id': confirmation_run_id,
+        'content_sha256': verification.content_sha256,
+    }
+    existing_verification = payload.get('owner_verification')
+    repeat_visual_confirmation = (
+        evidence.confirmation_status == 'confirmed'
+        and isinstance(existing_verification, Mapping)
+        and existing_verification.get('mode') == owner_verification['mode']
+        and existing_verification.get('content_sha256') == owner_verification['content_sha256']
+    )
+    parse_status = str(payload.get('parse_status') or '')
+    parse_status_matches = parse_status == 'text_captured'
+    if verification.visual_attachment_text is not None:
+        parse_status_matches = parse_status == 'unsupported_file_type' or (
+            parse_status == 'text_captured' and repeat_visual_confirmation
+        )
     required_matches = (
         str(payload.get('source_transport') or '') == SOURCE_TRANSPORT,
         str(payload.get('trace_id') or '') == verification.message_id,
@@ -330,19 +383,13 @@ def _confirm_owner_verified_evidence(
         == verification.sender_identity_type,
         str(payload.get('business_date') or '') == verification.business_date.isoformat(),
         str(payload.get('event_time') or payload.get('dingtalk_message_time') or '') == verification.event_time,
-        str(payload.get('parse_status') or '') == 'text_captured',
+        parse_status_matches,
         stored_hash == verification.content_sha256,
     )
     if not all(required_matches):
         return 'rejected'
 
-    owner_verification = {
-        'mode': 'owner_verified_dws_history',
-        'run_id': confirmation_run_id,
-        'content_sha256': verification.content_sha256,
-    }
     if evidence.confirmation_status == 'confirmed':
-        existing_verification = payload.get('owner_verification')
         if (
             isinstance(existing_verification, Mapping)
             and existing_verification.get('mode') == owner_verification['mode']
@@ -353,6 +400,11 @@ def _confirm_owner_verified_evidence(
     payload['conversation_id'] = verification.group_id
     payload['sender_identity_type'] = verification.sender_identity_type
     payload['owner_verification'] = owner_verification
+    if verification.visual_attachment_text is not None:
+        payload['pre_confirmation_parse_status'] = parse_status
+        payload['parse_status'] = 'text_captured'
+        payload['attachment_text'] = verification.visual_attachment_text
+        payload['text_extract_detail'] = 'owner_verified_visual_fact'
     if verification.fact_updates:
         payload['fact_updates'] = verification.fact_updates
     evidence.payload = payload

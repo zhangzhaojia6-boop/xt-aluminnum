@@ -164,15 +164,24 @@
     "metric_key": "wip_total",
     "display_name": "当天在制料",
     "domain": "production",
-    "priority_sources": ["MES/WMS readonly", "data_hub_projection", "DailyFactBundle"],
-    "source_tables": ["mes_wip_total_snapshots", "mes_daily_wip_snapshots", "daily_fact_bundle_snapshots"],
-    "source_services": ["mes_extended_service", "DailyFactBundle", "template_daily_report"],
+    "priority_sources": ["dingtalk_group_content", "MES/WMS readonly", "data_hub_projection", "DailyFactBundle"],
+    "dingtalk_evidence_conditions": {
+      "authorized_group": "not_required_enterprise_app_scope",
+      "content_type": ["text", "file", "image"],
+      "time_range": "business_day_window"
+    },
+    "source_tables": ["multimodal_evidence", "mes_wip_total_snapshots", "mes_daily_wip_snapshots", "daily_fact_bundle_snapshots"],
+    "source_services": ["dingtalk_verified_fact_extractor", "mes_extended_service", "DailyFactBundle", "template_daily_report"],
     "api_routes": ["/api/v1/mes/extended/wip-total-snapshots", "/api/v1/dashboard/daily-production"],
     "frontend_pages": ["/manage/today", "/manage/workshop-dashboard"],
-    "hermes_tools": ["mes_wms_read", "hub_query", "source_map"],
+    "hermes_tools": ["dingtalk_evidence", "mes_wms_read", "hub_query", "source_map"],
     "delete_protection": "protect",
-    "known_risks": ["在制重量单位需要持续复核"],
-    "verification_status": "待复核"
+    "known_risks": [
+      "在制重量单位需要持续复核",
+      "次日截图只在 09:30 前且原图哈希、钉钉 lineage、报表日期和人工确权定位完整时归属前一业务日",
+      "真实截图与日报答案钥匙冲突时保留真实值并暴露差异，不反写事实"
+    ],
+    "verification_status": "候选"
   },
   {
     "metric_key": "remaining_contract_weight",

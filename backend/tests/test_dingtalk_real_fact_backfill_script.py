@@ -77,6 +77,32 @@ def _owner_verified_text_row(
     }
 
 
+WIP_SCREENSHOT_CONTENT = b'\xff\xd8\xffowner-verified-wip\xff\xd9'
+
+
+def _owner_verified_visual_row(*, message_id: str = 'msg-owner-verified-wip-001') -> dict:
+    return {
+        'conversationId': 'group-001',
+        'message_id': message_id,
+        'senderStaffId': 'sender-wip-owner',
+        'createTime': '2026-07-08T08:19:42+08:00',
+        'fileName': 'wip.jpg',
+        'fileId': f'dws-media-{message_id}',
+        'localFilePath': 'wip.jpg',
+        'businessDate': '2026-07-07',
+        'content_sha256': hashlib.sha256(WIP_SCREENSHOT_CONTENT).hexdigest(),
+        'owner_verified_visual_facts': {
+            'wip_total': {
+                'value': 1877,
+                'unit': '吨',
+                'reported_date': '2026-07-08',
+                'row_label': '汇总',
+                'column_label': '在制料',
+            }
+        },
+    }
+
+
 def _prepare(monkeypatch):
     module = _load_script_module()
     Session = _db_sessionmaker()
@@ -614,5 +640,211 @@ def test_owner_verified_yield_workbook_adds_cell_traceable_fact_update(monkeypat
             and conflict.get('adopted_value') == 83.81
             for conflict in bundle['conflicts']
         )
+    finally:
+        db.close()
+
+
+def test_owner_verified_wip_screenshot_adds_traceable_fact_update(monkeypatch, tmp_path) -> None:
+    from app.services.report import daily_fact_bundle
+
+    module, Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    screenshot_path = files_root / 'wip.jpg'
+    screenshot_content = WIP_SCREENSHOT_CONTENT
+    screenshot_path.write_bytes(screenshot_content)
+    input_jsonl = tmp_path / 'messages.jsonl'
+    _write_jsonl(
+        input_jsonl,
+        [
+            {
+                'conversationId': 'group-001',
+                'message_id': 'msg-owner-verified-wip-001',
+                'senderStaffId': 'sender-wip-owner',
+                'createTime': '2026-07-08T08:19:42+08:00',
+                'fileName': 'wip.jpg',
+                'fileId': 'dws-media-wip-001',
+                'localFilePath': 'wip.jpg',
+                'businessDate': '2026-07-07',
+                'content_sha256': hashlib.sha256(screenshot_content).hexdigest(),
+                'owner_verified_visual_facts': {
+                    'wip_total': {
+                        'value': 1877,
+                        'unit': '吨',
+                        'reported_date': '2026-07-08',
+                        'row_label': '汇总',
+                        'column_label': '在制料',
+                    }
+                },
+            }
+        ],
+    )
+
+    summary = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-wip-001',
+    )
+
+    assert summary['confirmed'] == 1
+    assert summary['committed'] == 1
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        update = evidence.payload['fact_updates']['wip_total']
+        assert update['value'] == 1877
+        assert update['source_ref']['parser'] == 'owner_verified_wip_screenshot_v1'
+        assert update['source_ref']['file_sha256'] == hashlib.sha256(screenshot_content).hexdigest()
+        assert evidence.payload['parse_status'] == 'text_captured'
+        assert evidence.payload['pre_confirmation_parse_status'] == 'unsupported_file_type'
+        assert evidence.payload['attachment_text'] == '汇总/在制料：1877吨（报表日期 2026-07-08）'
+        monkeypatch.setattr(
+            daily_fact_bundle.template_daily_report,
+            'build_template_daily_report_facts',
+            lambda db, *, target_date, wip_date=None: {
+                'values': {'wip_total': 1758.5},
+                'sources': {'wip_total': 'mes_wip_distribution'},
+                'missing_fields': [],
+                'conflicts': [],
+            },
+        )
+        bundle = build_daily_fact_bundle(
+            db,
+            business_date=date(2026, 7, 7),
+            allow_output_skill_reference_adoption=False,
+        )
+        assert bundle['facts']['wip_total']['value'] == 1877
+        assert bundle['facts']['wip_total']['source_type'] == 'dingtalk_supplement'
+        assert bundle['facts']['wip_total']['source_ref']['evidence_id'] == evidence.id
+        assert any(
+            conflict.get('field') == 'wip_total'
+            and conflict.get('previous_value') == 1758.5
+            and conflict.get('adopted_value') == 1877
+            for conflict in bundle['conflicts']
+        )
+    finally:
+        db.close()
+
+
+def test_owner_verified_wip_screenshot_retry_preserves_first_confirmation_audit(monkeypatch, tmp_path) -> None:
+    module, Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    (files_root / 'wip.jpg').write_bytes(WIP_SCREENSHOT_CONTENT)
+    input_jsonl = tmp_path / 'messages.jsonl'
+    _write_jsonl(input_jsonl, [_owner_verified_visual_row()])
+
+    first = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-wip-first',
+    )
+    db = Session()
+    try:
+        first_payload = json.loads(json.dumps(db.query(MultimodalEvidence).one().payload))
+    finally:
+        db.close()
+
+    second = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-wip-retry',
+    )
+
+    assert first['confirmed'] == 1
+    assert first['committed'] == 1
+    assert second['confirmed'] == 0
+    assert second['already_confirmed'] == 1
+    assert second['committed'] == 1
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload == first_payload
+        assert evidence.payload['owner_verification']['run_id'] == 'test-run-wip-first'
+    finally:
+        db.close()
+
+
+def test_owner_verified_wip_screenshot_rolls_back_with_later_invalid_row(monkeypatch, tmp_path) -> None:
+    module, Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    (files_root / 'wip.jpg').write_bytes(WIP_SCREENSHOT_CONTENT)
+    input_jsonl = tmp_path / 'messages.jsonl'
+    invalid = _owner_verified_text_row(message_id='msg-invalid-after-wip')
+    invalid['content_sha256'] = '0' * 64
+    _write_jsonl(input_jsonl, [_owner_verified_visual_row(), invalid])
+
+    summary = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-wip-atomic',
+    )
+
+    assert summary['committed'] == 0
+    assert summary['confirmed'] == 0
+    assert summary['confirmation_rejected'] == 1
+    db = Session()
+    try:
+        assert db.query(MultimodalEvidence).count() == 0
+    finally:
+        db.close()
+
+
+def test_owner_verified_wip_screenshot_rejects_invalid_visual_contract(monkeypatch, tmp_path) -> None:
+    module, Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    screenshot_path = files_root / 'wip.jpg'
+    screenshot_content = WIP_SCREENSHOT_CONTENT
+    screenshot_path.write_bytes(screenshot_content)
+    input_jsonl = tmp_path / 'messages.jsonl'
+    _write_jsonl(
+        input_jsonl,
+        [
+            {
+                'conversationId': 'group-001',
+                'message_id': 'msg-owner-verified-wip-invalid',
+                'senderStaffId': 'sender-wip-owner',
+                'createTime': '2026-07-08T08:19:42+08:00',
+                'fileName': 'wip.jpg',
+                'fileId': 'dws-media-wip-invalid',
+                'localFilePath': 'wip.jpg',
+                'businessDate': '2026-07-08',
+                'content_sha256': hashlib.sha256(screenshot_content).hexdigest(),
+                'owner_verified_visual_facts': {
+                    'wip_total': {
+                        'value': 1877,
+                        'unit': '吨',
+                        'reported_date': '2026-07-08',
+                        'row_label': '汇总',
+                        'column_label': '在制料',
+                    }
+                },
+            }
+        ],
+    )
+
+    summary = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-wip-invalid',
+    )
+
+    assert summary['confirmation_rejected'] == 1
+    assert summary['committed'] == 0
+    db = Session()
+    try:
+        assert db.query(MultimodalEvidence).count() == 0
     finally:
         db.close()
