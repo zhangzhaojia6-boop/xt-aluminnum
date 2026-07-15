@@ -1135,6 +1135,14 @@ def test_hermes_acceptance_always_registers_explicit_real_group_and_runs_full_ga
     assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"' in source
 
 
+def test_hermes_acceptance_uploads_redacted_per_question_diagnostics() -> None:
+    source = _read('.github/workflows/hermes-acceptance-prod.yml')
+
+    assert 'build_acceptance_diagnostics' in source
+    assert 'hermes-20-question-real-acceptance-production.json' in source
+    assert 'json.dumps(diagnostics, ensure_ascii=False, indent=2)' in source
+
+
 def test_archive_prod_untracked_checks_runtime_references_before_any_move() -> None:
     payload = _load('.github/workflows/archive-prod-untracked.yml')
     source = _read('.github/workflows/archive-prod-untracked.yml')

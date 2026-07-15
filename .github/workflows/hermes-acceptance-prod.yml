@@ -76,6 +76,7 @@ jobs:
           python - <<'PY'
           from __future__ import annotations
 
+          import json
           import os
           import sys
           from datetime import datetime
@@ -92,6 +93,7 @@ jobs:
           from app.services.hermes_20_question_acceptance import render_acceptance_report
           from app.services.hermes_20_question_runner import (
               DingTalkDeliveryTarget,
+              build_acceptance_diagnostics,
               run_20_question_acceptance,
           )
 
@@ -232,8 +234,16 @@ jobs:
           report_path = artifact_dir / f"{business_date_value()}-hermes-20-question-real-acceptance-production.md"
           report_path.write_text(report, encoding="utf-8")
           os.chmod(report_path, 0o600)
+          diagnostics = build_acceptance_diagnostics(outcome)
+          diagnostics_path = artifact_dir / f"{business_date_value()}-hermes-20-question-real-acceptance-production.json"
+          diagnostics_path.write_text(
+              json.dumps(diagnostics, ensure_ascii=False, indent=2),
+              encoding="utf-8",
+          )
+          os.chmod(diagnostics_path, 0o600)
           print(report)
           print("REPORT_PATH=", report_path)
+          print("DIAGNOSTICS_PATH=", diagnostics_path)
           sys.exit(0 if outcome.summary.core_passed and outcome.summary.delivery_passed else 1)
           PY
           status=$?

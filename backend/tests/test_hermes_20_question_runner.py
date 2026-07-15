@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from datetime import date
 from types import SimpleNamespace
 
@@ -133,6 +134,58 @@ def test_runner_builds_snapshots_from_existing_turn_outputs(monkeypatch) -> None
     assert outcome.snapshots[0].fact_answer[0]["source_trace_id"] is None
     assert outcome.summary.core_passed is False
     assert outcome.summary.delivery_passed is False
+
+
+def test_acceptance_diagnostics_exposes_gate_reasons_without_raw_messages_or_secrets(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_user())
+    db.commit()
+    _install_fake_turn(monkeypatch, db)
+    outcome = run_20_question_acceptance(
+        db,
+        current_user=db.get(User, 1),
+        sender_external_id="dt-root-001",
+        business_date=date(2026, 6, 27),
+        limit=1,
+    )
+    snapshot = outcome.snapshots[0]
+    snapshot.recognition["api_token"] = "recognition-secret"
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"]["error"] = (
+        "read failed token=mes-secret password=mes-password"
+    )
+    snapshot.evidence["trace"]["supporting_evidence"] = [
+        {"text": "raw group message token=group-secret"}
+    ]
+    snapshot.dispatch["channel_key"] = "https://example.test/?access_token=channel-secret"
+    snapshot.dispatch["detail"] = "provider response token=provider-secret"
+
+    diagnostics = runner.build_acceptance_diagnostics(outcome)
+    serialized = json.dumps(diagnostics, ensure_ascii=False)
+
+    assert diagnostics["summary"]["core_pass_count"] == 0
+    assert diagnostics["questions"][0]["gates"][0]["name"] == "understanding"
+    assert diagnostics["questions"][0]["source"]["source_order"] == [
+        "dingtalk_group_chat",
+        "mes_readonly",
+    ]
+    assert diagnostics["questions"][0]["fact_answer"][0]["field"] == "total_output_daily"
+    assert diagnostics["questions"][0]["dispatch"] == {
+        "status": "sent",
+        "log_status": "sent",
+        "channel_type": "dingtalk_group",
+    }
+    assert "answer" not in diagnostics["questions"][0]
+    assert "supporting_evidence" not in serialized
+    assert "channel_key" not in serialized
+    assert "api_token" not in serialized
+    assert "recognition-secret" not in serialized
+    assert "mes-secret" not in serialized
+    assert "mes-password" not in serialized
+    assert "group-secret" not in serialized
+    assert "channel-secret" not in serialized
+    assert "provider-secret" not in serialized
+    assert "token=<redacted>" in serialized
+    assert "password=<redacted>" in serialized
 
 
 def test_runner_exercises_source_trust_question(monkeypatch) -> None:
