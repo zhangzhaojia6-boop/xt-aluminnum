@@ -6,6 +6,10 @@ on:
       confirm:
         description: Type 'daily-align' to run production daily-report alignment
         required: true
+      business_end_date:
+        description: Last completed business date in YYYY-MM-DD; empty uses production business time
+        required: false
+        default: ''
 
 jobs:
   daily-report-alignment-prod:
@@ -24,10 +28,18 @@ jobs:
           SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           OUTPUT_SKILL_ZIP_B64: ${{ secrets.DAILY_REPORT_OUTPUT_SKILL_ZIP_B64 }}
           DAYS: '3'
+          END_DATE: ${{ github.event.inputs.business_end_date }}
           REFERENCE_MODE: compare
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
+          local_artifact_dir="daily-report-alignment-production-${RUN_ID}"
+          remote_artifact_dir="/var/lib/aluminum-bypass/acceptance/daily-report-alignment-${RUN_ID}"
+          mkdir -p "$local_artifact_dir"
+          echo "artifact_dir=$remote_artifact_dir" >> "$GITHUB_OUTPUT"
+          echo "local_artifact_dir=$local_artifact_dir" >> "$GITHUB_OUTPUT"
+          echo "exit_code=1" >> "$GITHUB_OUTPUT"
+
           test -n "$SSH_HOST"
           test -n "$SSH_USER"
           test -n "$SSH_KEY"
@@ -35,6 +47,10 @@ jobs:
           test -n "$OUTPUT_SKILL_ZIP_B64"
           test "$DAYS" = "3"
           test "$REFERENCE_MODE" = "compare"
+          if [ -n "$END_DATE" ] && ! printf '%s' "$END_DATE" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+            echo "business_end_date must be YYYY-MM-DD"
+            exit 2
+          fi
 
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
@@ -43,15 +59,21 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
 
           bundle="output-skill-${RUN_ID}.zip"
-          printf '%s' "$OUTPUT_SKILL_ZIP_B64" | base64 -d > "$bundle"
+          if ! printf '%s' "$OUTPUT_SKILL_ZIP_B64" | tr -d '\r\n' | base64 -d > "$bundle"; then
+            echo "OUTPUT_SKILL_BUNDLE_INVALID_BASE64"
+            exit 31
+          fi
+          if ! python3 -m zipfile -t "$bundle" >/dev/null; then
+            echo "OUTPUT_SKILL_BUNDLE_INVALID_ZIP"
+            exit 32
+          fi
 
           remote_bundle="/tmp/xintai-output-skill-${RUN_ID}.zip"
           scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$bundle" "$SSH_USER@$SSH_HOST:$remote_bundle"
 
-          remote_artifact_dir="/var/lib/aluminum-bypass/acceptance/daily-report-alignment-${RUN_ID}"
           set +e
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" \
-            "REMOTE_BUNDLE='$remote_bundle' DAYS='$DAYS' REFERENCE_MODE='$REFERENCE_MODE' RUN_ID='$RUN_ID' ARTIFACT_DIR='$remote_artifact_dir' bash -s" <<'REMOTE'
+            "REMOTE_BUNDLE='$remote_bundle' DAYS='$DAYS' END_DATE='$END_DATE' REFERENCE_MODE='$REFERENCE_MODE' RUN_ID='$RUN_ID' ARTIFACT_DIR='$remote_artifact_dir' bash -s" <<'REMOTE'
           set -euo pipefail
           output_root="/tmp/xintai-output-skill-${RUN_ID}"
           artifact_dir="$ARTIFACT_DIR"
@@ -73,14 +95,20 @@ jobs:
 
           cd /srv/aluminum-bypass/backend
           . .venv/bin/activate
-          set +e
-          python scripts/check_daily_report_output_skill_alignment.py \
-            --output-skill-root "$output_root" \
-            --days "$DAYS" \
-            --reference-mode "$REFERENCE_MODE" \
-            --artifact-dir "$artifact_dir" \
-            --full-differences \
+          alignment_args=(
+            python scripts/check_daily_report_output_skill_alignment.py
+            --output-skill-root "$output_root"
+            --days "$DAYS"
+            --reference-mode "$REFERENCE_MODE"
+            --artifact-dir "$artifact_dir"
+            --full-differences
             --json
+          )
+          if [ -n "$END_DATE" ]; then
+            alignment_args+=(--end-date "$END_DATE")
+          fi
+          set +e
+          "${alignment_args[@]}"
           status=$?
           set -e
           find "$artifact_dir" -type d -exec chmod 700 {} +
@@ -93,8 +121,6 @@ jobs:
           remote_status=$?
           set -e
 
-          local_artifact_dir="daily-report-alignment-production-${RUN_ID}"
-          mkdir -p "$local_artifact_dir"
           scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -r \
             "$SSH_USER@$SSH_HOST:$remote_artifact_dir/." "$local_artifact_dir/" || true
           echo "artifact_dir=$remote_artifact_dir" >> "$GITHUB_OUTPUT"
