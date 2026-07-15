@@ -1141,6 +1141,15 @@ def test_hermes_acceptance_uploads_redacted_per_question_diagnostics() -> None:
     assert 'build_acceptance_diagnostics' in source
     assert 'hermes-20-question-real-acceptance-production.json' in source
     assert 'json.dumps(diagnostics, ensure_ascii=False, indent=2)' in source
+    assert 'write_local_preflight_failure' in source
+    assert '"status": "preflight_failed"' in source
+    assert '"failure_reason": reason' in source
+    assert 'echo "exit_code=2" >> "$GITHUB_OUTPUT"' in source
+    assert 'def write_diagnostics(payload: dict[str, object]) -> Path:' in source
+    assert source.count('write_diagnostics(') >= 5
+    assert source.index('diagnostics = build_acceptance_diagnostics(outcome)') < source.index(
+        'if len(outcome.snapshots) != 20:'
+    )
 
 
 def test_archive_prod_untracked_checks_runtime_references_before_any_move() -> None:

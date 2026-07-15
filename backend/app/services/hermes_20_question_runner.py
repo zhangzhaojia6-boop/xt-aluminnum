@@ -96,7 +96,7 @@ def build_acceptance_diagnostics(outcome: Hermes20QuestionRunOutcome) -> dict[st
                 "dispatch": _diagnostic_value(
                     {
                         key: snapshot.dispatch.get(key)
-                        for key in ("status", "log_status", "channel_type")
+                        for key in ("status", "log_status", "channel_type", "detail")
                         if key in snapshot.dispatch
                     }
                 ),

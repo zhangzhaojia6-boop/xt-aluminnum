@@ -173,6 +173,7 @@ def test_acceptance_diagnostics_exposes_gate_reasons_without_raw_messages_or_sec
         "status": "sent",
         "log_status": "sent",
         "channel_type": "dingtalk_group",
+        "detail": "provider response token=<redacted>",
     }
     assert "answer" not in diagnostics["questions"][0]
     assert "supporting_evidence" not in serialized
