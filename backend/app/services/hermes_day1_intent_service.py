@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any
 
 from app.config import settings
+from app.core.business_time import resolve_yearless_business_date
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,12 +40,21 @@ class Day1CommandParseError(ValueError):
         super().__init__(f'{code}:{message}')
 
 
-def parse_day1_command(text: str, *, default_year: int) -> HermesDay1Command | None:
+def parse_day1_command(
+    text: str,
+    *,
+    default_year: int | None,
+    reference_date: date | None = None,
+) -> HermesDay1Command | None:
     clean = str(text or '').strip()
     if not clean or '日报' not in clean:
         return None
 
-    business_date = _extract_business_date(clean, default_year=default_year)
+    business_date = _extract_business_date(
+        clean,
+        default_year=default_year,
+        reference_date=reference_date,
+    )
     if business_date is None:
         return None
 
@@ -132,7 +142,12 @@ def require_root_owner_for_day1_report(decision: Day1ActorDecision) -> None:
         raise PermissionError('owner_required')
 
 
-def _extract_business_date(text: str, *, default_year: int) -> date | None:
+def _extract_business_date(
+    text: str,
+    *,
+    default_year: int | None,
+    reference_date: date | None,
+) -> date | None:
     iso_match = re.search(r'(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})', text)
     if iso_match:
         return _build_date(
@@ -142,12 +157,38 @@ def _extract_business_date(text: str, *, default_year: int) -> date | None:
             raw=iso_match.group(0),
         )
 
+    full_chinese_match = re.search(
+        r'(?P<year>20\d{2})年(?P<month>\d{1,2})月(?P<day>\d{1,2})日',
+        text,
+    )
+    if full_chinese_match:
+        return _build_date(
+            year=int(full_chinese_match.group('year')),
+            month=int(full_chinese_match.group('month')),
+            day=int(full_chinese_match.group('day')),
+            raw=full_chinese_match.group(0),
+        )
+
     chinese_match = re.search(r'(?P<month>\d{1,2})月(?P<day>\d{1,2})日', text)
     if chinese_match:
+        month = int(chinese_match.group('month'))
+        day = int(chinese_match.group('day'))
+        if default_year is None:
+            _build_date(year=2000, month=month, day=day, raw=chinese_match.group(0))
+            raise Day1CommandParseError('missing_event_year', chinese_match.group(0))
+        if reference_date is not None:
+            try:
+                return resolve_yearless_business_date(
+                    month=month,
+                    day=day,
+                    reference_date=reference_date,
+                )
+            except ValueError as exc:
+                raise Day1CommandParseError('invalid_date', chinese_match.group(0)) from exc
         return _build_date(
             year=default_year,
-            month=int(chinese_match.group('month')),
-            day=int(chinese_match.group('day')),
+            month=month,
+            day=day,
             raw=chinese_match.group(0),
         )
 

@@ -65,6 +65,31 @@ def test_parse_day1_command_rejects_invalid_chinese_date() -> None:
     assert '6月32日' in str(exc_info.value)
 
 
+def test_parse_day1_command_requires_event_year_for_short_chinese_date() -> None:
+    with pytest.raises(day1.Day1CommandParseError) as exc_info:
+        day1.parse_day1_command('生成 6月19日正式日报', default_year=None)
+
+    assert exc_info.value.code == 'missing_event_year'
+
+
+def test_parse_day1_command_uses_explicit_chinese_year_without_event_year() -> None:
+    command = day1.parse_day1_command('生成 2025年6月19日正式日报', default_year=None)
+
+    assert command is not None
+    assert command.business_date == date(2025, 6, 19)
+
+
+def test_parse_day1_command_uses_nearest_event_year_at_new_year() -> None:
+    command = day1.parse_day1_command(
+        '生成 12月31日正式日报',
+        default_year=2026,
+        reference_date=date(2026, 1, 1),
+    )
+
+    assert command is not None
+    assert command.business_date == date(2025, 12, 31)
+
+
 def test_classify_day1_actor_uses_configured_user_id_before_name(monkeypatch) -> None:
     monkeypatch.setattr(day1.settings, 'APP_ENV', 'production', raising=False)
     monkeypatch.setattr(day1.settings, 'HERMES_OWNER_DINGTALK_USER_IDS', 'dt-root', raising=False)

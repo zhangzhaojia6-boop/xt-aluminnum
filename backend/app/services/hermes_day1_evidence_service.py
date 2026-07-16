@@ -133,6 +133,7 @@ def record_day1_dingtalk_evidence(
             'group_id': group_id,
             'trace_id': trace_id,
             'business_date': business_date.isoformat() if business_date else None,
+            'business_date_status': _clean_payload_text(payload, 'business_date_status'),
             'workshop_name': workshop_name or None,
             'file_name': file_name,
             'file_hash': file_hash,

@@ -19,10 +19,34 @@ on:
           - status
           - apply
           - verify
-      authorized_group_ids:
-        description: DingTalk openConversationId/conversationId allowlist. Default '*' means all app-authorized conversations.
+      acceptance_marker:
+        description: Safe Phase 1 acceptance marker, validated only during verify
         required: false
-        default: '*'
+        default: ''
+      acceptance_since:
+        description: ISO-8601 lower bound for acceptance evidence, validated only during verify
+        required: false
+        default: ''
+      min_text:
+        description: Minimum text evidence rows for verify
+        required: false
+        default: '10'
+      min_files:
+        description: Minimum file evidence rows for verify
+        required: false
+        default: '5'
+      expected_u1_sha256:
+        description: Normalized SHA-256 for unfamiliar sentence U1, validated only during verify
+        required: false
+        default: ''
+      expected_u2_sha256:
+        description: Normalized SHA-256 for unfamiliar sentence U2, validated only during verify
+        required: false
+        default: ''
+      expected_hermes_sha:
+        description: Exact Hermes HEAD expected on production, validated only during verify
+        required: false
+        default: ''
 
 jobs:
   configure-dingtalk-stream-production:
@@ -39,7 +63,13 @@ jobs:
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
           SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           MODE: ${{ github.event.inputs.mode }}
-          AUTHORIZED_GROUP_IDS: ${{ github.event.inputs.authorized_group_ids }}
+          ACCEPTANCE_MARKER: ${{ github.event.inputs.acceptance_marker }}
+          ACCEPTANCE_SINCE: ${{ github.event.inputs.acceptance_since }}
+          MIN_TEXT: ${{ github.event.inputs.min_text }}
+          MIN_FILES: ${{ github.event.inputs.min_files }}
+          EXPECTED_U1_SHA256: ${{ github.event.inputs.expected_u1_sha256 }}
+          EXPECTED_U2_SHA256: ${{ github.event.inputs.expected_u2_sha256 }}
+          EXPECTED_HERMES_SHA: ${{ github.event.inputs.expected_hermes_sha }}
           STREAM_APP_KEY: ${{ secrets.PROD_DINGTALK_STREAM_APP_KEY }}
           STREAM_APP_SECRET: ${{ secrets.PROD_DINGTALK_STREAM_APP_SECRET }}
           STREAM_ROBOT_CODE: ${{ secrets.PROD_DINGTALK_STREAM_ROBOT_CODE }}
@@ -84,7 +114,13 @@ jobs:
 
           REMOTE_PREAMBLE=""
           append_remote_assignment MODE "$MODE"
-          append_remote_assignment AUTHORIZED_GROUP_IDS_B64 "$(b64 "$AUTHORIZED_GROUP_IDS")"
+          append_remote_assignment ACCEPTANCE_MARKER_B64 "$(b64 "$ACCEPTANCE_MARKER")"
+          append_remote_assignment ACCEPTANCE_SINCE_B64 "$(b64 "$ACCEPTANCE_SINCE")"
+          append_remote_assignment MIN_TEXT_B64 "$(b64 "$MIN_TEXT")"
+          append_remote_assignment MIN_FILES_B64 "$(b64 "$MIN_FILES")"
+          append_remote_assignment EXPECTED_U1_SHA256_B64 "$(b64 "$EXPECTED_U1_SHA256")"
+          append_remote_assignment EXPECTED_U2_SHA256_B64 "$(b64 "$EXPECTED_U2_SHA256")"
+          append_remote_assignment EXPECTED_HERMES_SHA_B64 "$(b64 "$EXPECTED_HERMES_SHA")"
           append_remote_assignment STREAM_APP_KEY_B64 "$(b64 "$STREAM_APP_KEY")"
           append_remote_assignment STREAM_APP_SECRET_B64 "$(b64 "$STREAM_APP_SECRET")"
           append_remote_assignment STREAM_ROBOT_CODE_B64 "$(b64 "$STREAM_ROBOT_CODE")"
@@ -95,6 +131,7 @@ jobs:
             printf '%s' "$REMOTE_PREAMBLE"
             cat <<'REMOTE'
           set -euo pipefail
+          umask 077
 
           DATAHUB_REPO="/srv/aluminum-bypass"
           HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
@@ -102,6 +139,14 @@ jobs:
           MODE="${MODE:-status}"
           datahub_env_backup=""
           hermes_env_backup=""
+          db_backup=""
+          acceptance_marker=""
+          acceptance_since=""
+          min_text=""
+          min_files=""
+          expected_u1_sha256=""
+          expected_u2_sha256=""
+          expected_hermes_sha=""
 
           decode_b64() {
             printf '%s' "$1" | base64 -d
@@ -143,24 +188,149 @@ jobs:
 
           backup_env_file() {
             local file="$1"
-            if [ ! -f "$file" ]; then
-              return 0
-            fi
-            local backup="${file}.backup-dingtalk-stream-$(date -u +%Y%m%dT%H%M%SZ)"
+            local label="$2"
+            local backup_dir="/var/backups/aluminum-bypass"
+            install -d -m 700 "$backup_dir"
+            local backup="$backup_dir/${label}.backup-dingtalk-stream-$(date -u +%Y%m%dT%H%M%SZ)"
             cp -p "$file" "$backup"
             printf '%s' "$backup"
+          }
+
+          backup_postgres_database() {
+            local raw_database_url="$1"
+            local backup_file="$2"
+            DATABASE_URL="$raw_database_url" DB_BACKUP="$backup_file" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+          from urllib.parse import parse_qs, unquote, urlsplit
+
+
+          def escape_pgpass(value):
+              return str(value).replace("\\", "\\\\").replace(":", "\\:")
+
+
+          database_url = os.environ.pop("DATABASE_URL")
+          url = urlsplit(database_url)
+          if url.scheme.split("+", 1)[0] not in {"postgres", "postgresql"}:
+              raise RuntimeError("production backup requires PostgreSQL")
+          pg_database = unquote(url.path.lstrip("/"))
+          pg_user = unquote(url.username or "")
+          if not pg_database or not pg_user:
+              raise RuntimeError("production backup requires database and user")
+
+          handle, pgpass_name = tempfile.mkstemp(
+              prefix="aluminum-dingtalk-pgpass-",
+              dir=os.environ.get("PGPASS_TMPDIR") or None,
+          )
+          os.close(handle)
+          pgpass_path = Path(pgpass_name)
+          try:
+              pg_host = url.hostname or "localhost"
+              pg_port = str(url.port or 5432)
+              pg_password = unquote(url.password or "")
+              pgpass_path.write_text(
+                  (
+                      f"{escape_pgpass(pg_host)}:"
+                      f"{escape_pgpass(pg_port)}:"
+                      f"{escape_pgpass(pg_database)}:"
+                      f"{escape_pgpass(pg_user)}:"
+                      f"{escape_pgpass(pg_password)}\n"
+                  ),
+                  encoding="utf-8",
+              )
+              pgpass_path.chmod(0o600)
+              env = os.environ.copy()
+              env.update(
+                  {
+                      "PGHOST": pg_host,
+                      "PGPORT": pg_port,
+                      "PGDATABASE": pg_database,
+                      "PGUSER": pg_user,
+                      "PGPASSFILE": str(pgpass_path),
+                  }
+              )
+              env.pop("PGPASSWORD", None)
+              env.pop("DATABASE_URL", None)
+              query_env = {
+                  "sslmode": "PGSSLMODE",
+                  "sslrootcert": "PGSSLROOTCERT",
+                  "sslcert": "PGSSLCERT",
+                  "sslkey": "PGSSLKEY",
+                  "connect_timeout": "PGCONNECT_TIMEOUT",
+                  "application_name": "PGAPPNAME",
+                  "options": "PGOPTIONS",
+              }
+              query = parse_qs(url.query, keep_blank_values=True)
+              for query_key, env_key in query_env.items():
+                  if query.get(query_key):
+                      env[env_key] = query[query_key][-1]
+
+              pg_dump_argv = [
+                  os.environ.get("PG_DUMP_BIN", "pg_dump"),
+                  "--format=custom",
+                  "--file",
+                  os.environ["DB_BACKUP"],
+              ]
+              pg_restore_argv = [
+                  os.environ.get("PG_RESTORE_BIN", "pg_restore"),
+                  "-l",
+                  os.environ["DB_BACKUP"],
+              ]
+              subprocess.run(pg_dump_argv, check=True, env=env, stdout=subprocess.DEVNULL)
+              subprocess.run(pg_restore_argv, check=True, env=env, stdout=subprocess.DEVNULL)
+          finally:
+              pgpass_path.unlink(missing_ok=True)
+          PY
           }
 
           restore_env_backup() {
             local file="$1"
             local backup="$2"
+            local kind="$3"
+            local temp_file=""
             if [ -z "$backup" ]; then
               return 0
             fi
             if [ ! -f "$backup" ]; then
               return 1
             fi
-            cp -pf "$backup" "$file"
+            temp_file="${file}.restore.$$"
+            awk -v kind="$kind" '
+              function is_protected(key) {
+                if (kind == "datahub") {
+                  return key == "DINGTALK_APP_KEY" || key == "DINGTALK_APP_SECRET" || key == "HERMES_DINGTALK_STREAM_RELAY_TOKEN"
+                }
+                if (kind == "hermes") {
+                  return key == "DINGTALK_CLIENT_ID" || key == "DINGTALK_CLIENT_SECRET" || key == "XINTAI_DINGTALK_STREAM_RELAY_TOKEN"
+                }
+                return 0
+              }
+              /^[[:space:]]*$/ { print; next }
+              /^[[:space:]]*#/ { print; next }
+              index($0, "=") == 0 { print; next }
+              {
+                key = $0
+                sub(/=.*/, "", key)
+                if (!is_protected(key)) {
+                  print
+                }
+              }
+            ' "$backup" > "$temp_file"
+            chmod --reference="$file" "$temp_file"
+            mv "$temp_file" "$file"
+
+            if [ "$kind" = "datahub" ]; then
+              upsert_env_value "$file" "DINGTALK_APP_KEY" "$stream_app_key"
+              upsert_env_value "$file" "DINGTALK_APP_SECRET" "$stream_app_secret"
+              upsert_env_value "$file" "HERMES_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
+              return 0
+            fi
+
+            upsert_env_value "$file" "DINGTALK_CLIENT_ID" "$stream_app_key"
+            upsert_env_value "$file" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"
+            upsert_env_value "$file" "XINTAI_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
           }
 
           detect_hermes_home() {
@@ -183,16 +353,36 @@ jobs:
             systemctl restart nginx
           }
 
+          perform_apply_preflight() {
+            local raw_database_url
+            local backup_dir="/var/backups/aluminum-bypass"
+
+            raw_database_url="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
+            install -d -m 700 "$backup_dir"
+            db_backup="$backup_dir/aluminum-bypass-dingtalk-stream-$(date -u +%Y%m%dT%H%M%SZ).dump"
+            if ! backup_postgres_database "$raw_database_url" "$db_backup"; then
+              return 72
+            fi
+
+            test -s "$db_backup"
+            datahub_env_backup="$(backup_env_file "$DATAHUB_ENV_FILE" datahub.env)"
+            hermes_env_backup="$(backup_env_file "$HERMES_ENV_FILE" hermes.env)"
+            test -r "$datahub_env_backup"
+            test -r "$hermes_env_backup"
+            test "$(stat -c %a "$DATAHUB_ENV_FILE")" = "$(stat -c %a "$datahub_env_backup")"
+            test "$(stat -c %a "$HERMES_ENV_FILE")" = "$(stat -c %a "$hermes_env_backup")"
+          }
+
           rollback_on_apply_error() {
             local exit_code="${1:-1}"
             local rollback_failed=0
             trap - EXIT ERR
             echo "APPLY_FAILED_ROLLBACK_START"
-            if ! restore_env_backup "$DATAHUB_ENV_FILE" "$datahub_env_backup"; then
+            if ! restore_env_backup "$DATAHUB_ENV_FILE" "$datahub_env_backup" datahub; then
               echo "ROLLBACK_FAILED_DATAHUB_ENV"
               rollback_failed=1
             fi
-            if ! restore_env_backup "$HERMES_ENV_FILE" "$hermes_env_backup"; then
+            if ! restore_env_backup "$HERMES_ENV_FILE" "$hermes_env_backup" hermes; then
               echo "ROLLBACK_FAILED_HERMES_ENV"
               rollback_failed=1
             fi
@@ -224,77 +414,6 @@ jobs:
             exit 98
           }
 
-          query_stream_persistence() {
-            local raw_database_url
-            raw_database_url="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
-            DATABASE_URL="$raw_database_url" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
-          import json
-          import os
-          from sqlalchemy import create_engine, text
-
-          engine = create_engine(os.environ["DATABASE_URL"], future=True)
-          payload = {
-              "chat_inbox_count": 0,
-              "chat_inbox_latest_at": None,
-              "chat_inbox_latest_trace_id": None,
-              "multimodal_evidence_count": 0,
-              "multimodal_evidence_latest_at": None,
-              "multimodal_evidence_latest_trace_id": None,
-              "external_message_logs_latest_at": None,
-          }
-          with engine.connect() as conn:
-              inbox = conn.execute(
-                  text(
-                      """
-                      SELECT COUNT(*) AS total,
-                             MAX(created_at) AS latest_at,
-                             (
-                               SELECT trace_id
-                               FROM chat_inbox
-                               WHERE source_payload->>'source_transport' = 'dingtalk_stream'
-                               ORDER BY created_at DESC, id DESC
-                               LIMIT 1
-                             ) AS latest_trace_id
-                      FROM chat_inbox
-                      WHERE source_payload->>'source_transport' = 'dingtalk_stream'
-                      """
-                  )
-              ).mappings().one()
-              evidence = conn.execute(
-                  text(
-                      """
-                      SELECT COUNT(*) AS total,
-                             MAX(created_at) AS latest_at,
-                             (
-                               SELECT payload->>'trace_id'
-                               FROM multimodal_evidence
-                               WHERE payload IS NOT NULL
-                                 AND payload->>'source' = 'dingtalk'
-                                 AND payload->>'source_transport' = 'dingtalk_stream'
-                               ORDER BY created_at DESC, id DESC
-                               LIMIT 1
-                             ) AS latest_trace_id
-                      FROM multimodal_evidence
-                      WHERE payload IS NOT NULL
-                        AND payload->>'source' = 'dingtalk'
-                        AND payload->>'source_transport' = 'dingtalk_stream'
-                      """
-                  )
-              ).mappings().one()
-              external = conn.execute(
-                  text("SELECT MAX(created_at) AS latest_at FROM external_message_logs")
-              ).mappings().one()
-          payload["chat_inbox_count"] = int(inbox["total"] or 0)
-          payload["chat_inbox_latest_at"] = None if inbox["latest_at"] is None else str(inbox["latest_at"])
-          payload["chat_inbox_latest_trace_id"] = inbox["latest_trace_id"]
-          payload["multimodal_evidence_count"] = int(evidence["total"] or 0)
-          payload["multimodal_evidence_latest_at"] = None if evidence["latest_at"] is None else str(evidence["latest_at"])
-          payload["multimodal_evidence_latest_trace_id"] = evidence["latest_trace_id"]
-          payload["external_message_logs_latest_at"] = None if external["latest_at"] is None else str(external["latest_at"])
-          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
-          PY
-          }
-
           stream_runtime_state_is_connected() {
             local active_since_epoch="$1"
             local main_pid
@@ -314,15 +433,7 @@ jobs:
           expected_pid = sys.argv[2]
           expected_start_time = sys.argv[3]
           active_since_epoch = int(sys.argv[4])
-
-          try:
-              payload = json.loads(state_path.read_text(encoding="utf-8"))
-              if not isinstance(payload, dict):
-                  raise ValueError("runtime state is not an object")
-          except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
-              print("HERMES_STREAM_STATE_FILE=unavailable")
-              raise SystemExit(1)
-
+          payload = json.loads(state_path.read_text(encoding="utf-8"))
           platforms = payload.get("platforms")
           platform = platforms.get("dingtalk", {}) if isinstance(platforms, dict) else {}
           state_pid = str(payload.get("pid", ""))
@@ -332,19 +443,14 @@ jobs:
           updated_at = platform.get("updated_at") if isinstance(platform, dict) else None
           pid_match = expected_pid.isdigit() and int(expected_pid) > 0 and state_pid == expected_pid
           start_match = expected_start_time.isdigit() and state_start_time == expected_start_time
-
           updated_epoch = None
           if isinstance(updated_at, str):
-              try:
-                  normalized = updated_at[:-1] + "+00:00" if updated_at.endswith("Z") else updated_at
-                  parsed = datetime.fromisoformat(normalized)
-                  if parsed.tzinfo is None:
-                      parsed = parsed.replace(tzinfo=timezone.utc)
-                  updated_epoch = parsed.timestamp()
-              except ValueError:
-                  pass
+              normalized = updated_at[:-1] + "+00:00" if updated_at.endswith("Z") else updated_at
+              parsed = datetime.fromisoformat(normalized)
+              if parsed.tzinfo is None:
+                  parsed = parsed.replace(tzinfo=timezone.utc)
+              updated_epoch = parsed.timestamp()
           fresh = updated_epoch is not None and updated_epoch > active_since_epoch
-
           safe_gateway_state = gateway_state if gateway_state in {"starting", "running", "draining", "stopping", "stopped", "startup_failed"} else "invalid"
           safe_dingtalk_state = dingtalk_state if dingtalk_state in {"connected", "disconnected", "fatal"} else "invalid"
           print(f"HERMES_STREAM_STATE_PID_MATCH={'yes' if pid_match else 'no'}")
@@ -352,8 +458,7 @@ jobs:
           print(f"HERMES_STREAM_STATE_GATEWAY={safe_gateway_state}")
           print(f"HERMES_STREAM_STATE_DINGTALK={safe_dingtalk_state}")
           print(f"HERMES_STREAM_STATE_FRESH={'yes' if fresh else 'no'}")
-          healthy = pid_match and start_match and gateway_state == "running" and dingtalk_state == "connected" and fresh
-          raise SystemExit(0 if healthy else 1)
+          raise SystemExit(0 if pid_match and start_match and gateway_state == "running" and dingtalk_state == "connected" and fresh else 1)
           PY
           }
 
@@ -402,90 +507,39 @@ jobs:
             fi
           }
 
-          verify_fresh_stream_evidence() {
+          query_stream_persistence() {
             local raw_database_url
-            local active_since
-            local active_since_epoch
             raw_database_url="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
-            active_since="$(systemctl show -p ActiveEnterTimestamp --value hermes-gateway)"
-            active_since_epoch="$(date -d "$active_since" +%s)"
-            DATABASE_URL="$raw_database_url" ACTIVE_SINCE_EPOCH="$active_since_epoch" \
-              "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
-          from datetime import datetime, timezone
+            DATABASE_URL="$raw_database_url" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
           import json
           import os
-
           from sqlalchemy import create_engine, text
 
-          since = datetime.fromtimestamp(int(os.environ["ACTIVE_SINCE_EPOCH"]), tz=timezone.utc)
           engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          payload = {
+              "chat_inbox_count": 0,
+              "chat_inbox_latest_at": None,
+              "multimodal_evidence_count": 0,
+              "multimodal_evidence_latest_at": None,
+              "external_message_logs_latest_at": None,
+          }
           with engine.connect() as conn:
-              row = conn.execute(
-                  text(
-                      """
-                      SELECT
-                        COUNT(*) FILTER (
-                          WHERE evidence_type = 'text'
-                            AND BTRIM(COALESCE(payload->>'message_text', '')) <> ''
-                        ) AS text_count,
-                        COUNT(*) FILTER (
-                          WHERE evidence_type = 'attachment'
-                            AND (
-                              BTRIM(COALESCE(payload->>'file_text', '')) <> ''
-                              OR BTRIM(COALESCE(payload->>'attachment_text', '')) <> ''
-                            )
-                        ) AS file_count,
-                        MAX(created_at) AS latest_at
-                      FROM multimodal_evidence
-                      WHERE created_at >= :since
-                        AND payload IS NOT NULL
-                        AND payload->>'source' = 'dingtalk'
-                        AND payload->>'source_transport' = 'dingtalk_stream'
-                      """
-                  ),
-                  {"since": since},
-              ).mappings().one()
-
-          result = {
-              "active_since": since.isoformat(),
-              "text_count": int(row["text_count"] or 0),
-              "file_count": int(row["file_count"] or 0),
-              "latest_at": None if row["latest_at"] is None else str(row["latest_at"]),
-          }
-          print("FRESH_STREAM_EVIDENCE=" + json.dumps(result, ensure_ascii=False, sort_keys=True))
-          if result["text_count"] < 1 or result["file_count"] < 1:
-              print("FRESH_STREAM_EVIDENCE_VERIFIED=no")
-              raise SystemExit(53)
-          print("FRESH_STREAM_EVIDENCE_VERIFIED=yes")
+              inbox = conn.execute(text("SELECT COUNT(*) AS total, MAX(created_at) AS latest_at FROM chat_inbox WHERE source_payload->>'source_transport' = 'dingtalk_stream'")).mappings().one()
+              evidence = conn.execute(text("SELECT COUNT(*) AS total, MAX(created_at) AS latest_at FROM multimodal_evidence WHERE payload IS NOT NULL AND payload->>'source_transport' = 'dingtalk_stream'")).mappings().one()
+              external = conn.execute(text("SELECT MAX(created_at) AS latest_at FROM external_message_logs")).mappings().one()
+          payload["chat_inbox_count"] = int(inbox["total"] or 0)
+          payload["chat_inbox_latest_at"] = None if inbox["latest_at"] is None else str(inbox["latest_at"])
+          payload["multimodal_evidence_count"] = int(evidence["total"] or 0)
+          payload["multimodal_evidence_latest_at"] = None if evidence["latest_at"] is None else str(evidence["latest_at"])
+          payload["external_message_logs_latest_at"] = None if external["latest_at"] is None else str(external["latest_at"])
+          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
           PY
-          }
-
-          ensure_no_second_stream_process() {
-            local matches
-            matches="$(pgrep -af 'hermes_dingtalk_stream_gateway.py' || true)"
-            if [ -n "$matches" ]; then
-              echo "SECOND_STREAM_PROCESS_DETECTED"
-              echo "$matches"
-              return 1
-            fi
-            echo "SECOND_STREAM_PROCESS_DETECTED=no"
-          }
-
-          tracked_state() {
-            local repo="$1"
-            if git -C "$repo" diff --quiet && git -C "$repo" diff --cached --quiet; then
-              echo clean
-            else
-              echo dirty
-            fi
           }
 
           report_state() {
             local readyz_file="/tmp/configure-dingtalk-readyz.json"
             echo "DATAHUB_HEAD=$(git -C "$DATAHUB_REPO" rev-parse HEAD)"
             echo "HERMES_HEAD=$(git -C "$HERMES_REPO" rev-parse HEAD)"
-            echo "DATAHUB_TRACKED_STATE=$(tracked_state "$DATAHUB_REPO")"
-            echo "HERMES_TRACKED_STATE=$(tracked_state "$HERMES_REPO")"
             echo "SERVICE_STATUS_START"
             systemctl is-active aluminum-bypass hermes-gateway nginx
             echo "SERVICE_STATUS_END"
@@ -511,8 +565,444 @@ jobs:
             echo "HERMES_STREAM_RELAY_TOKEN_PRESENT=$([ -n "$(read_env_value XINTAI_DINGTALK_STREAM_RELAY_TOKEN "$HERMES_ENV_FILE")" ] && echo true || echo false)"
             echo "XINTAI_DATAHUB_BASE_URL=$(read_env_value XINTAI_DATAHUB_BASE_URL "$HERMES_ENV_FILE")"
             report_stream_connection "no" || true
-            ensure_no_second_stream_process
             echo "STREAM_PERSISTENCE=$(query_stream_persistence)"
+          }
+
+          scan_secret_exposure() {
+            local phase="$1"
+            local frontend_match="no"
+            local journal_match="no"
+            local secret_present="false"
+
+            if [ -n "$stream_app_secret" ]; then
+              secret_present="true"
+            fi
+
+            if [ -d "$DATAHUB_REPO/frontend/dist" ]; then
+              if STREAM_APP_SECRET="$stream_app_secret" STREAM_RELAY_KEY="$stream_relay_token" \
+                python3 - "$DATAHUB_REPO/frontend/dist" <<'PY'
+          import os
+          from pathlib import Path
+          import sys
+
+          root = Path(sys.argv[1])
+          needles = [value.encode("utf-8") for value in (os.environ["STREAM_APP_SECRET"], os.environ["STREAM_RELAY_KEY"]) if value]
+          found = False
+          for path in root.rglob("*"):
+              if not path.is_file():
+                  continue
+              blob = path.read_bytes()
+              if any(needle in blob for needle in needles):
+                  found = True
+                  break
+          raise SystemExit(0 if found else 1)
+          PY
+              then
+                frontend_match="yes"
+              fi
+            fi
+
+            if STREAM_APP_SECRET="$stream_app_secret" STREAM_RELAY_KEY="$stream_relay_token" \
+              python3 - <<'PY'
+          import os
+          import subprocess
+
+          proc = subprocess.run(
+              ["journalctl", "-u", "aluminum-bypass", "-u", "hermes-gateway", "-n", "400", "--no-pager", "-o", "cat"],
+              stdout=subprocess.PIPE,
+              stderr=subprocess.DEVNULL,
+              check=False,
+          )
+          blob = proc.stdout or b""
+          needles = [value.encode("utf-8") for value in (os.environ["STREAM_APP_SECRET"], os.environ["STREAM_RELAY_KEY"]) if value]
+          raise SystemExit(0 if any(needle in blob for needle in needles) else 1)
+          PY
+            then
+              journal_match="yes"
+            fi
+
+            echo "SECRET_SCAN_PHASE=$phase"
+            echo "SECRET_SCAN_FRONTEND_MATCH=$frontend_match"
+            echo "SECRET_SCAN_JOURNAL_MATCH=$journal_match"
+            echo "SECRET_SCAN_SECRET_PRESENT=$secret_present"
+
+            [ -n "$stream_app_secret" ] || return 66
+            [ "$secret_present" = "true" ] || return 66
+            [ "$frontend_match" = "no" ] || return 67
+            [ "$journal_match" = "no" ] || return 68
+          }
+
+          run_acceptance_gate() {
+            local phase="$1"
+            local temp_dir=""
+            local ledger_copy=""
+            local gate_output=""
+            local gate_rc=0
+            local gate_json_rc=0
+            local ledger_source="$HERMES_HOME/gateway/xintai_callback_proof_ledger.json"
+
+            cleanup_acceptance_gate() {
+              rm -rf "$temp_dir"
+              trap - RETURN
+            }
+
+            temp_dir="$(mktemp -d)"
+            chmod 700 "$temp_dir"
+            trap cleanup_acceptance_gate RETURN
+            ledger_copy="$temp_dir/xintai_callback_proof_ledger.json"
+            gate_output="$temp_dir/gate-output.json"
+            install -m 600 "$ledger_source" "$ledger_copy"
+
+            if "$DATAHUB_REPO/backend/.venv/bin/python" \
+              "$DATAHUB_REPO/backend/scripts/check_dingtalk_stream_evidence_gate.py" \
+              --marker "$acceptance_marker" \
+              --min-text "$min_text" \
+              --min-files "$min_files" \
+              --since "$acceptance_since" \
+              --hermes-ledger "$ledger_copy" \
+              --expected-u1-sha256 "$expected_u1_sha256" \
+              --expected-u2-sha256 "$expected_u2_sha256" \
+              --output-json "$gate_output"; then
+              gate_rc=0
+            else
+              gate_rc=$?
+            fi
+
+            if python3 - "$phase" "$gate_output" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          phase = sys.argv[1]
+          payload = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+          safe_payload = {
+              "phase": phase,
+              "status": payload.get("status"),
+              "counts": payload.get("counts", {}),
+              "blockers": [item.get("code") for item in payload.get("blockers", []) if isinstance(item, dict)],
+          }
+          print("ACCEPTANCE_GATE=" + json.dumps(safe_payload, ensure_ascii=False, sort_keys=True))
+          PY
+            then
+              gate_json_rc=0
+            else
+              gate_json_rc=$?
+            fi
+            if [ "$gate_rc" -eq 0 ] && [ "$gate_json_rc" -ne 0 ]; then
+              gate_rc="$gate_json_rc"
+            fi
+            return "$gate_rc"
+          }
+
+          verify_duplicate_replay() {
+            local raw_database_url
+            local relay_key
+            umask 077
+            raw_database_url="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
+            relay_key="$(read_env_value HERMES_DINGTALK_STREAM_RELAY_TOKEN "$DATAHUB_ENV_FILE")"
+            DATABASE_URL="$raw_database_url" RELAY_KEY="$relay_key" ACCEPTANCE_MARKER="$acceptance_marker" ACCEPTANCE_SINCE="$acceptance_since" DATAHUB_REPO="$DATAHUB_REPO" \
+              "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          from datetime import datetime, timezone
+          import hashlib
+          import hmac
+          import json
+          import os
+          from pathlib import Path
+          import sys
+          import time
+          import urllib.request
+
+          from sqlalchemy import bindparam, create_engine, text
+          from sqlalchemy.orm import Session
+
+          sys.path.insert(0, str(Path(os.environ["DATAHUB_REPO"]) / "backend"))
+          from app.services.dingtalk_stream_gateway_service import ingest_dingtalk_stream_event
+
+          os.umask(0o077)
+          marker = os.environ["ACCEPTANCE_MARKER"]
+          since = datetime.fromisoformat(os.environ["ACCEPTANCE_SINCE"].replace("Z", "+00:00"))
+          relay_key = os.environ["RELAY_KEY"]
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+
+          def counts(db, trace_ids):
+              receipt_stmt = text("SELECT COUNT(*) AS total FROM dingtalk_inbound_receipts WHERE trace_id IN :trace_ids").bindparams(bindparam("trace_ids", expanding=True))
+              inbox_stmt = text("SELECT COUNT(*) AS total FROM chat_inbox WHERE trace_id IN :trace_ids").bindparams(bindparam("trace_ids", expanding=True))
+              evidence_stmt = text("SELECT COUNT(*) AS total FROM multimodal_evidence WHERE payload IS NOT NULL AND payload->>'trace_id' IN :trace_ids").bindparams(bindparam("trace_ids", expanding=True))
+              runs_stmt = text("SELECT COUNT(*) AS total FROM agent_runs WHERE trace_id IN :trace_ids").bindparams(bindparam("trace_ids", expanding=True))
+              outbox_stmt = text("SELECT COUNT(*) AS total FROM agent_outbox_messages WHERE trace_id IN :trace_ids").bindparams(bindparam("trace_ids", expanding=True))
+              external_stmt = text(
+                  """
+                  SELECT COUNT(*) AS total
+                  FROM external_message_logs AS logs
+                  JOIN agent_outbox_messages AS outbox ON outbox.id = logs.outbox_message_id
+                  WHERE outbox.trace_id IN :trace_ids
+                  """
+              ).bindparams(bindparam("trace_ids", expanding=True))
+              return {
+                  "receipts": int(db.execute(receipt_stmt, {"trace_ids": trace_ids}).scalar_one()),
+                  "inbox": int(db.execute(inbox_stmt, {"trace_ids": trace_ids}).scalar_one()),
+                  "evidence": int(db.execute(evidence_stmt, {"trace_ids": trace_ids}).scalar_one()),
+                  "runs": int(db.execute(runs_stmt, {"trace_ids": trace_ids}).scalar_one()),
+                  "outbox": int(db.execute(outbox_stmt, {"trace_ids": trace_ids}).scalar_one()),
+                  "external_logs": int(db.execute(external_stmt, {"trace_ids": trace_ids}).scalar_one()),
+              }
+
+          with Session(engine) as db:
+              text_row = db.execute(
+                  text(
+                      """
+                      SELECT
+                        trace_id,
+                        channel,
+                        group_id,
+                        sender_external_id,
+                        COALESCE(source_payload->>'msgtype', source_payload->>'messageType', 'text') AS message_type
+                      FROM chat_inbox
+                      WHERE created_at >= :since
+                        AND source_payload->>'source_transport' = 'dingtalk_stream'
+                        AND lower(coalesce(nullif(source_payload->>'msgtype',''), nullif(source_payload->>'messageType',''), 'text')) IN ('text','markdown','richtext','rich_text')
+                        AND POSITION(:marker IN COALESCE(chat_inbox.text, '')) > 0
+                      ORDER BY created_at DESC, id DESC
+                      LIMIT 1
+                      """
+                  ),
+                  {"since": since, "marker": marker},
+              ).mappings().first()
+              file_row = db.execute(
+                  text(
+                      """
+                      SELECT
+                        payload->>'trace_id' AS trace_id,
+                        payload->>'channel' AS channel,
+                        payload->>'group_id' AS group_id,
+                        payload->>'dingtalk_sender_id' AS sender_id,
+                        COALESCE(payload->>'msgtype', payload->>'messageType', 'file') AS message_type,
+                        payload->>'file_name' AS file_name,
+                        payload->>'file_id' AS file_id
+                      FROM multimodal_evidence
+                      WHERE created_at >= :since
+                        AND payload IS NOT NULL
+                        AND payload->>'source_transport' = 'dingtalk_stream'
+                        AND POSITION(:marker IN COALESCE(payload->>'file_name', '')) > 0
+                      ORDER BY created_at DESC, id DESC
+                      LIMIT 1
+                      """
+                  ),
+                  {"since": since, "marker": marker},
+              ).mappings().first()
+
+          if text_row is None or file_row is None:
+              raise SystemExit(69)
+          trace_ids = [str(text_row["trace_id"]), str(file_row["trace_id"])]
+          if trace_ids[0] == trace_ids[1]:
+              trace_ids = [trace_ids[0]]
+          with Session(engine) as db:
+              before = counts(db, trace_ids)
+
+          def sign_payload(payload):
+              nonce = hashlib.sha256(f"{time.time_ns()}:{payload['traceId']}".encode("utf-8")).hexdigest()[:32]
+              stamp = str(int(time.time()))
+              body = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+              signed = stamp.encode("ascii") + b"." + nonce.encode("ascii") + b"." + b"dingtalk_stream" + b"." + body
+              digest = hmac.new(relay_key.encode("utf-8"), signed, hashlib.sha256).hexdigest()
+              return nonce, stamp, body, digest
+
+          def post_payload(payload):
+              nonce, stamp, body, digest = sign_payload(payload)
+              request = urllib.request.Request(
+                  "http://127.0.0.1:8000/api/v1/dingtalk/agent-inbound",
+                  data=body,
+                  method="POST",
+                  headers={
+                      "content-type": "application/json",
+                      "x-dingtalk-inbound-signature": digest,
+                      "x-dingtalk-inbound-timestamp": stamp,
+                      "x-dingtalk-inbound-nonce": nonce,
+                      "x-dingtalk-inbound-kind": "dingtalk_stream",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  return json.loads(response.read().decode("utf-8") or "{}")
+
+          text_payload = {
+              "traceId": text_row["trace_id"],
+              "conversationId": text_row["group_id"] or f"private-{text_row['sender_external_id']}",
+              "conversationType": 2 if text_row["channel"] == "dingtalk_group" else 1,
+              "senderStaffId": text_row["sender_external_id"],
+              "msgtype": text_row["message_type"],
+              "messageType": text_row["message_type"],
+          }
+          file_payload = {
+              "traceId": file_row["trace_id"],
+              "conversationId": file_row["group_id"] or f"private-{file_row['sender_id']}",
+              "conversationType": 2 if file_row["channel"] == "dingtalk_group" else 1,
+              "senderStaffId": file_row["sender_id"],
+              "msgtype": file_row["message_type"],
+              "messageType": file_row["message_type"],
+              "fileName": file_row["file_name"],
+              "fileId": file_row["file_id"],
+          }
+
+          text_response = post_payload(text_payload)
+          text_duplicate = (
+              text_response.get("status") == "duplicate"
+              and text_response.get("should_reply") is False
+              and text_response.get("agent_run_id") is None
+          )
+          file_response = post_payload(file_payload)
+          file_response_duplicate = (
+              file_response.get("status") == "duplicate"
+              and file_response.get("should_reply") is False
+              and file_response.get("agent_run_id") is None
+          )
+
+          class CountingService:
+              def __init__(self):
+                  self._active_trace_hash = ""
+                  self._counts = {}
+
+              def arm(self, trace_id):
+                  self._active_trace_hash = hashlib.sha256(str(trace_id).encode("utf-8")).hexdigest()
+                  self._counts.setdefault(self._active_trace_hash, 0)
+
+              def snapshot(self):
+                  return self._counts.get(self._active_trace_hash, 0)
+
+              def download_robot_message_file(self, *, download_code):
+                  self._counts[self._active_trace_hash] = self.snapshot() + 1
+                  raise RuntimeError("duplicate replay should not download")
+
+          service = CountingService()
+          service.arm(file_row["trace_id"])
+          before_download = service.snapshot()
+          with Session(engine) as db:
+              before_direct = counts(db, trace_ids)
+              file_result = ingest_dingtalk_stream_event(
+                  db,
+                  file_payload,
+                  dingtalk_service=service,
+                  require_authorized_group=False,
+                  source_transport="dingtalk_stream",
+              )
+              after_direct = counts(db, trace_ids)
+          after_download = service.snapshot()
+          with Session(engine) as db:
+              after = counts(db, trace_ids)
+
+          file_duplicate = bool(file_result.get("duplicate")) and file_result.get("evidence_id") is not None
+          counts_unchanged = dict(before) == dict(after) == dict(before_direct) == dict(after_direct)
+          print(f"DUPLICATE_REPLAY_COUNTS_UNCHANGED={'yes' if counts_unchanged else 'no'}")
+          print(f"DUPLICATE_REPLAY_TEXT_RESPONSE_DUPLICATE={'yes' if text_duplicate else 'no'}")
+          print(f"DUPLICATE_REPLAY_FILE_RESPONSE_DUPLICATE={'yes' if file_response_duplicate else 'no'}")
+          print(f"DUPLICATE_REPLAY_FILE_DUPLICATE={'yes' if file_duplicate else 'no'}")
+          print(f"DUPLICATE_REPLAY_DOWNLOAD_ATTEMPTS_UNCHANGED={'yes' if after_download == before_download else 'no'}")
+          print(f"download_attempt_delta={after_download - before_download}")
+          raise SystemExit(0 if counts_unchanged and text_duplicate and file_response_duplicate and file_duplicate and after_download == before_download else 70)
+          PY
+          }
+
+          wait_for_post_restart_event() {
+            local restart_epoch="$1"
+            local attempt
+            local state
+            for attempt in $(seq 1 100); do
+              state="$(DATABASE_URL="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")" RESTART_EPOCH="$restart_epoch" ACCEPTANCE_MARKER="$acceptance_marker" \
+                "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          from datetime import datetime, timezone
+          import os
+
+          from sqlalchemy import create_engine, text
+
+          restart_epoch = int(os.environ["RESTART_EPOCH"])
+          marker = os.environ["ACCEPTANCE_MARKER"]
+          since = datetime.fromtimestamp(restart_epoch, tz=timezone.utc)
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          with engine.connect() as conn:
+              inbox = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total
+                      FROM chat_inbox
+                      WHERE created_at >= :since
+                        AND source_payload->>'source_transport' = 'dingtalk_stream'
+                        AND POSITION(:marker IN COALESCE(text, '')) > 0
+                      """
+                  ),
+                  {"since": since, "marker": marker},
+              ).mappings().one()
+              evidence = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total
+                      FROM multimodal_evidence
+                      WHERE created_at >= :since
+                        AND payload IS NOT NULL
+                        AND payload->>'source_transport' = 'dingtalk_stream'
+                        AND (
+                          POSITION(:marker IN COALESCE(payload->>'file_name', '')) > 0
+                          OR POSITION(:marker IN COALESCE(payload->>'message_text', '')) > 0
+                        )
+                      """
+                  ),
+                  {"since": since, "marker": marker},
+              ).mappings().one()
+          print("FOUND" if int(inbox["total"] or 0) > 0 and int(evidence["total"] or 0) > 0 else "WAITING")
+          PY
+              )"
+              if [ "$state" = "FOUND" ]; then
+                echo "VERIFY_EVENT_AFTER_RESTART=FOUND"
+                return 0
+              fi
+              echo "VERIFY_EVENT_AFTER_RESTART=WAITING"
+              sleep 3
+            done
+            return 71
+          }
+
+          require_verify_inputs() {
+            acceptance_marker="$(decode_b64 "$ACCEPTANCE_MARKER_B64")"
+            acceptance_since="$(decode_b64 "$ACCEPTANCE_SINCE_B64")"
+            min_text="$(decode_b64 "$MIN_TEXT_B64")"
+            min_files="$(decode_b64 "$MIN_FILES_B64")"
+            expected_u1_sha256="$(decode_b64 "$EXPECTED_U1_SHA256_B64")"
+            expected_u2_sha256="$(decode_b64 "$EXPECTED_U2_SHA256_B64")"
+            expected_hermes_sha="$(decode_b64 "$EXPECTED_HERMES_SHA_B64")"
+
+            test -n "$acceptance_marker"
+            test -n "$acceptance_since"
+            test -n "$min_text"
+            test -n "$min_files"
+            test -n "$expected_u1_sha256"
+            test -n "$expected_u2_sha256"
+            test -n "$expected_hermes_sha"
+            [ -n "$stream_app_secret" ]
+            [ -n "$stream_relay_token" ]
+            printf '%s' "$acceptance_marker" | grep -Eq '^XT-P1-[A-Za-z0-9][A-Za-z0-9._-]{7,120}$'
+            printf '%s' "$acceptance_since" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+            printf '%s' "$min_text" | grep -Eq '^[0-9]+$'
+            printf '%s' "$min_files" | grep -Eq '^[0-9]+$'
+            [ "$min_text" -ge 10 ]
+            [ "$min_files" -ge 5 ]
+            printf '%s' "$expected_u1_sha256" | grep -Eq '^[0-9a-f]{64}$'
+            printf '%s' "$expected_u2_sha256" | grep -Eq '^[0-9a-f]{64}$'
+            printf '%s' "$expected_hermes_sha" | grep -Eq '^[0-9a-f]{40}$'
+            python3 - "$acceptance_since" <<'PY'
+          from datetime import datetime
+          import sys
+
+          value = datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00"))
+          if value.tzinfo is None or value.utcoffset() is None:
+              raise SystemExit(1)
+          PY
+          }
+
+          require_expected_hermes_sha() {
+            local actual_hermes_sha
+            actual_hermes_sha="$(git -C "$HERMES_REPO" rev-parse HEAD)"
+            if [ "$actual_hermes_sha" != "$expected_hermes_sha" ]; then
+              echo "EXPECTED_HERMES_SHA_MISMATCH"
+              exit 47
+            fi
           }
 
           if [ ! -f "$DATAHUB_ENV_FILE" ]; then
@@ -530,42 +1020,53 @@ jobs:
             exit 41
           fi
 
-          if [ "$MODE" = "verify" ]; then
-            report_stream_connection "yes" 40 3
-            ensure_no_second_stream_process
-            verify_fresh_stream_evidence
-            report_state
-            exit 0
-          fi
-
-          final_groups="$(decode_b64 "$AUTHORIZED_GROUP_IDS_B64")"
-          if [ -z "$(printf '%s' "$final_groups" | xargs)" ]; then
-            final_groups="*"
-          fi
-
           stream_app_key="$(decode_b64 "$STREAM_APP_KEY_B64")"
           stream_app_secret="$(decode_b64 "$STREAM_APP_SECRET_B64")"
           stream_robot_code="$(decode_b64 "$STREAM_ROBOT_CODE_B64")"
           stream_agent_id="$(decode_b64 "$STREAM_AGENT_ID_B64")"
           stream_app_id="$(decode_b64 "$STREAM_APP_ID_B64")"
-
           stream_relay_token="$(read_env_value HERMES_DINGTALK_STREAM_RELAY_TOKEN "$DATAHUB_ENV_FILE")"
           if [ -z "$stream_relay_token" ]; then
             stream_relay_token="$(openssl rand -hex 32)"
           fi
 
-          datahub_env_backup="$(backup_env_file "$DATAHUB_ENV_FILE")"
-          hermes_env_backup="$(backup_env_file "$HERMES_ENV_FILE")"
-          echo "DATAHUB_ENV_BACKUP=$datahub_env_backup"
-          echo "HERMES_ENV_BACKUP=$hermes_env_backup"
+          if [ "$MODE" = "verify" ]; then
+            local_before_pid="$(systemctl show -p MainPID --value hermes-gateway)"
+            local_before_start=""
+            if [[ "$local_before_pid" =~ ^[1-9][0-9]*$ ]] && [ -r "/proc/$local_before_pid/stat" ]; then
+              local_before_start="$(python3 -c 'from pathlib import Path; import sys; print(Path(f"/proc/{int(sys.argv[1])}/stat").read_text(encoding="utf-8").split()[21])' "$local_before_pid")"
+            fi
+            report_stream_connection "yes" 40 3
+            require_verify_inputs
+            require_expected_hermes_sha
+            scan_secret_exposure PRE_VERIFY
+            run_acceptance_gate PRE
+            verify_duplicate_replay
+            restart_epoch="$(date +%s)"
+            systemctl restart hermes-gateway
+            report_stream_connection "yes" 40 3
+            local_after_pid="$(systemctl show -p MainPID --value hermes-gateway)"
+            local_after_start=""
+            if [[ "$local_after_pid" =~ ^[1-9][0-9]*$ ]] && [ -r "/proc/$local_after_pid/stat" ]; then
+              local_after_start="$(python3 -c 'from pathlib import Path; import sys; print(Path(f"/proc/{int(sys.argv[1])}/stat").read_text(encoding="utf-8").split()[21])' "$local_after_pid")"
+            fi
+            [ "$local_before_pid" != "$local_after_pid" ]
+            [ "$local_before_start" != "$local_after_start" ]
+            wait_for_post_restart_event "$restart_epoch"
+            run_acceptance_gate POST
+            scan_secret_exposure POST_VERIFY
+            report_state
+            exit 0
+          fi
 
+          perform_apply_preflight
           trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_apply_error "$rc"; fi' EXIT
 
           upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"
           upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_DINGTALK_MODE" "stream"
           upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_KEY" "$stream_app_key"
           upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_APP_SECRET" "$stream_app_secret"
-          upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AUTHORIZED_GROUP_IDS" "$final_groups"
+          upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AUTHORIZED_GROUP_IDS" "*"
           upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
           if [ -n "$stream_robot_code" ]; then
             upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_ROBOT_CODE" "$stream_robot_code"
@@ -588,9 +1089,8 @@ jobs:
           systemctl restart aluminum-bypass
           systemctl restart hermes-gateway
           reload_or_restart_nginx
-
           report_stream_connection "yes" 40 3
-          ensure_no_second_stream_process
+          scan_secret_exposure POST_APPLY
           report_state
           trap - EXIT
           REMOTE

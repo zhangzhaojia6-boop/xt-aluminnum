@@ -112,6 +112,7 @@ class ChatInboxMessage(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     agent_code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     trace_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    inbound_dedupe_key: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

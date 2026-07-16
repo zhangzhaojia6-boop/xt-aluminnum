@@ -59,6 +59,7 @@ def handle_agent_command(
     queue_outbox: bool = False,
     source_payload: dict[str, Any] | None = None,
     current_user: User | None = None,
+    chat_inbox: ChatInboxMessage | None = None,
 ) -> AgentCommandResult:
     clean_text = _clean(text)
     if not clean_text:
@@ -74,17 +75,25 @@ def handle_agent_command(
     clean_machine_code = _clean(machine_code) or None
     safe_source_payload = filter_sensitive_mapping(source_payload or {})
 
-    inbox = ChatInboxMessage(
-        channel=clean_channel,
-        group_id=_clean(group_id) or None,
-        sender_external_id=_clean(sender_external_id) or None,
-        text=clean_text,
-        agent_code=clean_agent_code,
-        trace_id=clean_trace_id,
-        source_payload=safe_source_payload,
-    )
-    db.add(inbox)
-    db.flush()
+    inbox = chat_inbox
+    if inbox is None:
+        inbox = ChatInboxMessage(
+            channel=clean_channel,
+            group_id=_clean(group_id) or None,
+            sender_external_id=_clean(sender_external_id) or None,
+            text=clean_text,
+            agent_code=clean_agent_code,
+            trace_id=clean_trace_id,
+            source_payload=safe_source_payload,
+        )
+        db.add(inbox)
+        db.flush()
+    else:
+        inbox.source_payload = {
+            **dict(inbox.source_payload or {}),
+            **safe_source_payload,
+        }
+        db.add(inbox)
 
     intent = _detect_intent(interpreted_text)
     if intent == 'clarify_business_question':

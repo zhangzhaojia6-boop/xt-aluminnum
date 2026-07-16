@@ -69,3 +69,38 @@ def test_orchestrator_persists_closed_loop_payload() -> None:
     assert payload['intent']['task_type'] == 'daily_output'
     assert payload['normalized_request']['metrics'] == ['daily_output', 'monthly_output']
     assert payload['progress_cards'][-1]['stage'] == 'feedback'
+
+
+def test_orchestrator_reuses_precommitted_ingress_inbox() -> None:
+    db = _db()
+    user = User(id=1, username='admin3', password_hash='x', name='张兆嘉', role='admin', is_active=True)
+    inbox = ChatInboxMessage(
+        channel='dingtalk_group',
+        group_id='cid-root',
+        sender_external_id='dt-root',
+        text='今日产量',
+        agent_code='factory_dispatch',
+        trace_id='trace-factory-brain-ingress',
+        source_payload={'source': 'dingtalk_inbound'},
+    )
+    db.add_all([user, inbox])
+    db.commit()
+
+    result = run_factory_brain_turn(
+        db,
+        text='今日产量',
+        channel='dingtalk_group',
+        group_id='cid-root',
+        sender_external_id='dt-root',
+        current_user=user,
+        trace_id='trace-factory-brain-ingress',
+        source_payload={'messageId': 'msg-ingress'},
+        chat_inbox=inbox,
+    )
+    db.commit()
+
+    assert result.chat_inbox_id == inbox.id
+    assert db.query(ChatInboxMessage).count() == 1
+    db.refresh(inbox)
+    assert inbox.agent_code == 'factory_brain'
+    assert inbox.source_payload['factory_brain'] is True

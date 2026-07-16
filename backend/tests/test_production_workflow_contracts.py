@@ -1000,13 +1000,33 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
         'group': 'xintai-production-ops',
         'cancel-in-progress': False,
     }
-    assert inputs['authorized_group_ids']['default'] == '*'
+    assert 'authorized_group_ids' not in inputs
+    assert inputs['acceptance_marker']['required'] is False
+    assert inputs['acceptance_since']['required'] is False
+    assert inputs['min_text']['default'] == '10'
+    assert inputs['min_files']['default'] == '5'
+    assert inputs['expected_u1_sha256']['required'] is False
+    assert inputs['expected_u2_sha256']['required'] is False
+    assert inputs['expected_hermes_sha']['required'] is False
     assert "backend/scripts/hermes_dingtalk_stream_gateway.py --health" not in source
     assert 'rollback_on_apply_error()' in source
     assert "trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_apply_error \"$rc\"; fi' EXIT" in source
     assert 'trap - EXIT' in source
     assert 'append_remote_assignment()' in source
     assert 'printf -v REMOTE_PREAMBLE' in source
+    assert 'AUTHORIZED_GROUP_IDS: ${{ github.event.inputs.authorized_group_ids }}' not in source
+    assert 'DINGTALK_ALLOWED_CHATS' not in source
+    assert '^XT-P1-[A-Za-z0-9][A-Za-z0-9._-]{7,120}$' in source
+    assert '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' in source
+    assert '^[0-9a-f]{64}$' in source
+    assert '^[0-9a-f]{40}$' in source
+    assert 'append_remote_assignment ACCEPTANCE_MARKER_B64' in source
+    assert 'append_remote_assignment ACCEPTANCE_SINCE_B64' in source
+    assert 'append_remote_assignment MIN_TEXT_B64' in source
+    assert 'append_remote_assignment MIN_FILES_B64' in source
+    assert 'append_remote_assignment EXPECTED_U1_SHA256_B64' in source
+    assert 'append_remote_assignment EXPECTED_U2_SHA256_B64' in source
+    assert 'append_remote_assignment EXPECTED_HERMES_SHA_B64' in source
     assert '} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"' in source
     assert """MODE='$MODE'""" not in source
     ssh_launch_index = source.find('} | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"')
@@ -1017,6 +1037,7 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     first_mutation_index = source.find('upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_STREAM_ENABLED" "true"')
     assert -1 not in (apply_trap_index, first_mutation_index)
     assert apply_trap_index < first_mutation_index
+    assert 'upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AUTHORIZED_GROUP_IDS" "*"' in source
     assert 'systemctl restart hermes-gateway' in source
     assert '/readyz' in source
     assert 'systemctl show -p ActiveEnterTimestamp' in source
@@ -1027,21 +1048,27 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'multimodal_evidence' in source
     assert 'chat_inbox' in source
     assert 'external_message_logs' in source
+    assert 'dingtalk_inbound_receipts' in source
+    assert 'agent_runs' in source
+    assert 'agent_outbox_messages' in source
     assert "source_payload->>'source_transport' = 'dingtalk_stream'" in source
     assert "payload->>'source_transport' = 'dingtalk_stream'" in source
     assert "LIKE 'dingtalk-stream-sha256:%'" not in source
     assert "- verify" in source
-    assert 'verify_fresh_stream_evidence()' in source
-    assert 'FRESH_STREAM_EVIDENCE_VERIFIED=yes' in source
-    assert "evidence_type = 'text'" in source
-    assert "evidence_type = 'attachment'" in source
-    assert "payload->>'message_text'" in source
-    assert "payload->>'file_text'" in source
-    assert "payload->>'attachment_text'" in source
-    assert 'WHERE created_at >= :since' in source
+    assert 'perform_apply_preflight()' in source
+    assert 'scan_secret_exposure()' in source
+    assert 'run_acceptance_gate()' in source
+    assert 'verify_duplicate_replay()' in source
+    assert 'verify_fresh_stream_evidence()' not in source
     assert 'report_stream_connection "yes" 40 3' in source
     assert 'DATAHUB_STREAM_RELAY_TOKEN_PRESENT=' in source
     assert 'HERMES_STREAM_RELAY_TOKEN_PRESENT=' in source
+    assert 'run_acceptance_gate PRE' in source
+    assert 'run_acceptance_gate POST' in source
+    assert 'scan_secret_exposure PRE_APPLY' in source or 'scan_secret_exposure POST_APPLY' in source
+    assert 'scan_secret_exposure POST_VERIFY' in source
+    assert 'VERIFY_EVENT_AFTER_RESTART=WAITING' in source
+    assert 'VERIFY_EVENT_AFTER_RESTART=FOUND' in source
     rollback_body = _extract_shell_function(source, 'rollback_on_apply_error')
     assert 'APPLY_FAILED_ROLLBACK_START' in rollback_body
     assert 'APPLY_FAILED_ROLLBACK_DONE' in rollback_body
@@ -1049,6 +1076,452 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'ROLLBACK_FAILED_DATAHUB_ENV' in rollback_body
     assert 'ROLLBACK_FAILED_HERMES_ENV' in rollback_body
     assert 'ROLLBACK_FAILED_READYZ' in rollback_body
+
+
+def test_configure_dingtalk_stream_prod_scoped_gate_scan_and_replay_contracts() -> None:
+    source = _read('.github/workflows/configure-dingtalk-stream-prod.yml')
+    backup_body = _extract_shell_function(source, 'backup_postgres_database')
+    preflight_body = _extract_shell_function(source, 'perform_apply_preflight')
+    gate_body = _extract_shell_function(source, 'run_acceptance_gate')
+    secret_scan_body = _extract_shell_function(source, 'scan_secret_exposure')
+    replay_body = _extract_shell_function(source, 'verify_duplicate_replay')
+
+    assert '"--format=custom"' in backup_body
+    assert '"-l"' in backup_body
+    assert 'subprocess.run(pg_dump_argv' in backup_body
+    assert 'subprocess.run(pg_restore_argv' in backup_body
+    assert 'backup_postgres_database "$raw_database_url" "$db_backup"' in preflight_body
+    assert 'test -s "$db_backup"' in preflight_body
+    assert 'backup_env_file "$DATAHUB_ENV_FILE" datahub.env' in preflight_body
+    assert 'backup_env_file "$HERMES_ENV_FILE" hermes.env' in preflight_body
+    assert '"PGPASSFILE": str(pgpass_path)' in backup_body
+    assert 'env.pop("PGPASSWORD", None)' in backup_body
+    assert 'env.pop("DATABASE_URL", None)' in backup_body
+    assert 'pgpass_path.unlink(missing_ok=True)' in backup_body
+    assert 'hide_password=False' not in backup_body
+    assert 'cp -p "$DATAHUB_ENV_FILE" "$datahub_env_backup"' not in preflight_body
+    assert 'cp -p "$HERMES_ENV_FILE" "$hermes_env_backup"' not in preflight_body
+    assert 'stat -c %a "$DATAHUB_ENV_FILE"' in preflight_body
+    assert 'stat -c %a "$datahub_env_backup"' in preflight_body
+    assert 'stat -c %a "$HERMES_ENV_FILE"' in preflight_body
+    assert 'stat -c %a "$hermes_env_backup"' in preflight_body
+    assert 'xintai_callback_proof_ledger.json' in gate_body
+    assert 'temp_dir="$(mktemp -d)"' in gate_body
+    assert 'chmod 700 "$temp_dir"' in gate_body
+    assert 'install -m 600 "$ledger_source" "$ledger_copy"' in gate_body
+    assert 'trap cleanup_acceptance_gate RETURN' in gate_body
+    assert 'check_dingtalk_stream_evidence_gate.py' in gate_body
+    assert '--marker "$acceptance_marker"' in gate_body
+    assert '--min-text "$min_text"' in gate_body
+    assert '--min-files "$min_files"' in gate_body
+    assert '--since "$acceptance_since"' in gate_body
+    assert '--expected-u1-sha256 "$expected_u1_sha256"' in gate_body
+    assert '--expected-u2-sha256 "$expected_u2_sha256"' in gate_body
+    assert 'if "$DATAHUB_REPO/backend/.venv/bin/python"' in gate_body
+    assert 'else' in gate_body and 'gate_rc=$?' in gate_body
+    assert 'rm -rf "$temp_dir"' in gate_body
+    assert 'subprocess.run(' in secret_scan_body
+    assert "'journalctl'," in secret_scan_body or '"journalctl",' in secret_scan_body
+    assert 'SECRET_SCAN_FRONTEND_MATCH=' in secret_scan_body
+    assert 'SECRET_SCAN_JOURNAL_MATCH=' in secret_scan_body
+    assert 'SECRET_SCAN_SECRET_PRESENT=' in secret_scan_body
+    assert '[ -n "$stream_app_secret" ]' in secret_scan_body
+    assert 'STREAM_APP_KEY' not in secret_scan_body
+    assert 'JOURNAL_BLOB' not in secret_scan_body
+    assert 'filename=' not in secret_scan_body
+    assert 'downloadCode' not in replay_body
+    assert 'message_text' not in replay_body
+    assert 'recognized_text' not in replay_body
+    assert 'raw_metadata' not in replay_body
+    assert 'sessionWebhook' not in replay_body
+    assert 'signed_url' not in replay_body
+    assert 'umask 077' in replay_body
+    assert 'os.umask(0o077)' in replay_body
+    assert 'dingtalk_inbound_receipts' in replay_body
+    assert 'chat_inbox' in replay_body
+    assert 'multimodal_evidence' in replay_body
+    assert 'agent_runs' in replay_body
+    assert 'agent_outbox_messages' in replay_body
+    assert 'external_message_logs' in replay_body
+    assert 'download_attempt_delta' in replay_body
+    assert 'mktemp' not in replay_body
+    assert 'def counts(db, trace_ids):' in replay_body
+    assert 'from sqlalchemy import bindparam, create_engine, text' in replay_body
+    assert "WHERE trace_id IN :trace_ids" in replay_body
+    assert "payload->>'trace_id' IN :trace_ids" in replay_body
+    assert 'JOIN agent_outbox_messages' in replay_body
+    assert 'outbox_message_id' in replay_body
+    assert 'before = counts(db)' not in replay_body
+    assert 'SELECT trace_id, channel, group_id, sender_external_id, text' not in replay_body
+    assert '"text"' not in replay_body
+    assert 'conversationType' in replay_body
+    assert 'ingest_dingtalk_stream_event' in replay_body
+    assert 'download_robot_message_file' in replay_body
+    assert 'file_response = post_payload(file_payload)' in replay_body
+    assert "text_response.get(\"status\") == \"duplicate\"" in replay_body
+    assert "text_response.get(\"should_reply\") is False" in replay_body
+    assert "text_response.get(\"agent_run_id\") is None" in replay_body
+    assert "file_response.get(\"status\") == \"duplicate\"" in replay_body
+    assert "file_response.get(\"should_reply\") is False" in replay_body
+    assert "file_response.get(\"agent_run_id\") is None" in replay_body
+    assert "POSITION(:marker IN COALESCE(chat_inbox.text, '')) > 0" in replay_body
+    assert 'conversationType": 2 if text_row["channel"] == "dingtalk_group" else 1' in replay_body
+    assert 'conversationType": 2 if file_row["channel"] == "dingtalk_group" else 1' in replay_body
+    assert "COALESCE(source_payload->>'msgtype', source_payload->>'messageType', 'text')" in replay_body
+    assert "COALESCE(payload->>'msgtype', payload->>'messageType', 'file')" in replay_body
+
+
+def test_configure_dingtalk_restore_env_backup_preserves_protected_replacements_without_secret_leakage(
+    tmp_path: Path,
+) -> None:
+    bash = _require_bash()
+    source = _read('.github/workflows/configure-dingtalk-stream-prod.yml')
+    restore_body = textwrap.dedent(_extract_shell_function(source, 'restore_env_backup'))
+
+    datahub_env = tmp_path / 'datahub.env'
+    datahub_backup = tmp_path / 'datahub.env.bak'
+    hermes_env = tmp_path / 'hermes.env'
+    hermes_backup = tmp_path / 'hermes.env.bak'
+    script_path = tmp_path / 'restore-env.sh'
+    replacement_key = 'replacement-app-key'
+    replacement_secret = 'replacement-app-secret'
+    replacement_relay = 'replacement-relay-token'
+    old_key = 'old-app-key'
+    old_secret = 'old-app-secret'
+    old_relay = 'old-relay-token'
+    old_client_id = 'old-client-id'
+    old_client_secret = 'old-client-secret'
+    old_hermes_relay = 'old-hermes-relay'
+    datahub_env.write_text(
+        '\n'.join(
+            [
+                'KEEP_ME=current-datahub',
+                'DINGTALK_APP_KEY=current-key',
+                'DINGTALK_APP_SECRET=current-secret',
+                'HERMES_DINGTALK_STREAM_RELAY_TOKEN=current-relay',
+                '',
+            ]
+        ),
+        encoding='utf-8',
+    )
+    datahub_backup.write_text(
+        '\n'.join(
+            [
+                'KEEP_ME=backup-datahub',
+                f'DINGTALK_APP_KEY={old_key}',
+                f'DINGTALK_APP_SECRET={old_secret}',
+                f'HERMES_DINGTALK_STREAM_RELAY_TOKEN={old_relay}',
+                'UNCHANGED_DATAHUB=from-backup',
+                '',
+            ]
+        ),
+        encoding='utf-8',
+    )
+    hermes_env.write_text(
+        '\n'.join(
+            [
+                'KEEP_ME=current-hermes',
+                'DINGTALK_CLIENT_ID=current-client-id',
+                'DINGTALK_CLIENT_SECRET=current-client-secret',
+                'XINTAI_DINGTALK_STREAM_RELAY_TOKEN=current-hermes-relay',
+                '',
+            ]
+        ),
+        encoding='utf-8',
+    )
+    hermes_backup.write_text(
+        '\n'.join(
+            [
+                'KEEP_ME=backup-hermes',
+                f'DINGTALK_CLIENT_ID={old_client_id}',
+                f'DINGTALK_CLIENT_SECRET={old_client_secret}',
+                f'XINTAI_DINGTALK_STREAM_RELAY_TOKEN={old_hermes_relay}',
+                'UNCHANGED_HERMES=from-backup',
+                '',
+            ]
+        ),
+        encoding='utf-8',
+    )
+    script_path.write_text(
+        '\n'.join(
+            [
+                '#!/usr/bin/env bash',
+                'set -euo pipefail',
+                'upsert_env_value() {',
+                '  local file="$1" key="$2" value="$3"',
+                '  if grep -q "^${key}=" "$file"; then',
+                '    sed -i "s|^${key}=.*|${key}=${value}|" "$file"',
+                '  else',
+                '    printf "%s=%s\\n" "$key" "$value" >> "$file"',
+                '  fi',
+                '}',
+                f'stream_app_key="{replacement_key}"',
+                f'stream_app_secret="{replacement_secret}"',
+                f'stream_relay_token="{replacement_relay}"',
+                restore_body,
+                f'restore_env_backup "{datahub_env.name}" "{datahub_backup.name}" datahub',
+                f'restore_env_backup "{hermes_env.name}" "{hermes_backup.name}" hermes',
+                '',
+            ]
+        ),
+        encoding='utf-8',
+        newline='\n',
+    )
+
+    result = subprocess.run(
+        [bash, script_path.name],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+        timeout=15,
+    )
+
+    datahub_text = datahub_env.read_text(encoding='utf-8')
+    hermes_text = hermes_env.read_text(encoding='utf-8')
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert old_key not in datahub_text
+    assert old_secret not in datahub_text
+    assert old_relay not in datahub_text
+    assert old_client_id not in hermes_text
+    assert old_client_secret not in hermes_text
+    assert old_hermes_relay not in hermes_text
+    assert f'DINGTALK_APP_KEY={replacement_key}' in datahub_text
+    assert f'DINGTALK_APP_SECRET={replacement_secret}' in datahub_text
+    assert f'HERMES_DINGTALK_STREAM_RELAY_TOKEN={replacement_relay}' in datahub_text
+    assert f'DINGTALK_CLIENT_ID={replacement_key}' in hermes_text
+    assert f'DINGTALK_CLIENT_SECRET={replacement_secret}' in hermes_text
+    assert f'XINTAI_DINGTALK_STREAM_RELAY_TOKEN={replacement_relay}' in hermes_text
+    assert 'UNCHANGED_DATAHUB=from-backup' in datahub_text
+    assert 'UNCHANGED_HERMES=from-backup' in hermes_text
+    assert replacement_key not in result.stdout
+    assert replacement_secret not in result.stdout
+    assert replacement_relay not in result.stdout
+    assert old_key not in result.stdout
+    assert old_secret not in result.stdout
+    assert old_relay not in result.stdout
+    assert 'chmod --reference="$file" "$temp_file"' in restore_body
+
+
+def test_configure_dingtalk_run_acceptance_gate_preserves_exit_code_and_cleans_temp_dir() -> None:
+    bash = _require_bash()
+    gate_body = textwrap.dedent(_extract_shell_function(_read('.github/workflows/configure-dingtalk-stream-prod.yml'), 'run_acceptance_gate'))
+    tmp_root = Path(tempfile.mkdtemp(prefix='dingtalk-gate-harness-'))
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', newline='\n', suffix='.sh', dir=tmp_root, delete=False) as handle:
+        script_path = Path(handle.name)
+    marker_path = script_path.with_suffix('.log')
+    temp_dir = script_path.with_suffix('.tmpdir')
+    try:
+        script_path.write_text(
+            '\n'.join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    f'MARKER_PATH="{marker_path.as_posix()}"',
+                    f'TEMP_DIR="{temp_dir.as_posix()}"',
+                    'DATAHUB_REPO="$PWD/repo-datahub"',
+                    'HERMES_HOME="$PWD/repo-hermes"',
+                    'acceptance_marker=XT-P1-acceptance',
+                    'acceptance_since=2026-07-16T08:00:00+08:00',
+                    'min_text=10',
+                    'min_files=5',
+                    'expected_u1_sha256=u1',
+                    'expected_u2_sha256=u2',
+                    'mkdir -p "$DATAHUB_REPO/backend/.venv/bin" "$HERMES_HOME/gateway"',
+                    'printf "#!/usr/bin/env bash\\nexit 17\\n" > "$DATAHUB_REPO/backend/.venv/bin/python"',
+                    'printf "{}\\n" > "$HERMES_HOME/gateway/xintai_callback_proof_ledger.json"',
+                    'chmod +x "$DATAHUB_REPO/backend/.venv/bin/python"',
+                    'mktemp() {',
+                    '  if [ "$1" = "-d" ]; then',
+                    '    mkdir -p "$TEMP_DIR"',
+                    '    printf "%s\\n" "$TEMP_DIR"',
+                    '    return 0',
+                    '  fi',
+                    '  return 99',
+                    '}',
+                    'chmod() { echo "chmod:$*" >> "$MARKER_PATH"; }',
+                    'install() { echo "install:$*" >> "$MARKER_PATH"; cp "$3" "$4"; }',
+                    'python3() { echo "python3:$*" >> "$MARKER_PATH"; return 0; }',
+                    'rm() {',
+                    '  echo "rm:$*" >> "$MARKER_PATH"',
+                    '  if [ "$1" = "-rf" ]; then',
+                    '    rmdir "$2"',
+                    '  fi',
+                    '}',
+                    gate_body,
+                    'set +e',
+                    'run_acceptance_gate PRE',
+                    'rc="$?"',
+                    'set -e',
+                    'echo "rc=$rc" >> "$MARKER_PATH"',
+                    'test "$rc" -eq 17',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
+        marker_lines = marker_path.read_text(encoding='utf-8').splitlines() if marker_path.exists() else []
+    finally:
+        if marker_path.exists():
+            os.unlink(marker_path)
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        if script_path.exists():
+            os.unlink(script_path)
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'chmod:700' in '\n'.join(marker_lines)
+    assert any(line.startswith('install:-m 600 ') and 'xintai_callback_proof_ledger.json' in line for line in marker_lines)
+    assert 'rm:-rf' in '\n'.join(marker_lines)
+    assert 'rc=17' in marker_lines
+
+
+def test_configure_dingtalk_preflight_uses_pgpassfile_without_leaking_database_url_or_password() -> None:
+    bash = _require_bash()
+    source = _read('.github/workflows/configure-dingtalk-stream-prod.yml')
+    backup_body = textwrap.dedent(_extract_shell_function(source, 'backup_postgres_database'))
+    tmp_root = Path(tempfile.mkdtemp(prefix='dingtalk-pgpass-harness-'))
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', newline='\n', suffix='.sh', dir=tmp_root, delete=False) as handle:
+        script_path = Path(handle.name)
+    marker_path = script_path.with_suffix('.log')
+    bin_dir = tmp_root / 'bin'
+    bin_dir.mkdir()
+    if os.name == 'nt':
+        pg_dump_path = bin_dir / 'pg_dump.cmd'
+        pg_restore_path = bin_dir / 'pg_restore.cmd'
+        pg_dump_path.write_text(
+            '\n'.join(
+                [
+                    '@echo off',
+                    'echo pg_dump_args:%*>>"%MARKER_PATH%"',
+                    'echo pg_dump_pgpass:%PGPASSFILE%>>"%MARKER_PATH%"',
+                    'if defined PGPASSWORD (echo pg_dump_pgpassword:present>>"%MARKER_PATH%") else (echo pg_dump_pgpassword:missing>>"%MARKER_PATH%")',
+                    'if defined DATABASE_URL (echo pg_dump_database_url:present>>"%MARKER_PATH%") else (echo pg_dump_database_url:missing>>"%MARKER_PATH%")',
+                    'if exist "%PGPASSFILE%" echo pg_dump_pgpass_exists:yes>>"%MARKER_PATH%"',
+                    'set dump_file=',
+                    ':loop',
+                    'if "%~1"=="" goto done',
+                    'if "%~1"=="--file" set dump_file=%~2',
+                    'shift',
+                    'goto loop',
+                    ':done',
+                    'echo dump>"%dump_file%"',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+        )
+        pg_restore_path.write_text('@echo off\necho pg_restore_args:%*>>"%MARKER_PATH%"\n', encoding='utf-8')
+    else:
+        pg_dump_path = bin_dir / 'pg_dump'
+        pg_restore_path = bin_dir / 'pg_restore'
+        pg_dump_path.write_text(
+            '\n'.join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    'printf "pg_dump_args:%s\\n" "$*" >> "$MARKER_PATH"',
+                    'printf "pg_dump_pgpass:%s\\n" "${PGPASSFILE:-}" >> "$MARKER_PATH"',
+                    'if [ -n "${PGPASSWORD:-}" ]; then echo pg_dump_pgpassword:present; else echo pg_dump_pgpassword:missing; fi >> "$MARKER_PATH"',
+                    'if [ -n "${DATABASE_URL:-}" ]; then echo pg_dump_database_url:present; else echo pg_dump_database_url:missing; fi >> "$MARKER_PATH"',
+                    'if [ -f "$PGPASSFILE" ]; then echo pg_dump_pgpass_exists:yes >> "$MARKER_PATH"; fi',
+                    'while [ "$#" -gt 0 ]; do',
+                    '  if [ "$1" = "--file" ]; then shift; printf dump > "$1"; fi',
+                    '  shift',
+                    'done',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        pg_restore_path.write_text(
+            '#!/usr/bin/env bash\nset -euo pipefail\nprintf "pg_restore_args:%s\\n" "$*" >> "$MARKER_PATH"\n',
+            encoding='utf-8',
+            newline='\n',
+        )
+        pg_dump_path.chmod(0o700)
+        pg_restore_path.chmod(0o700)
+    try:
+        script_path.write_text(
+            '\n'.join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    f'MARKER_PATH="{marker_path.as_posix()}"',
+                    'export MARKER_PATH',
+                    'DATAHUB_REPO="$PWD/repo-datahub"',
+                    'mkdir -p "$DATAHUB_REPO/backend/.venv/bin" "$PWD/bin"',
+                    'cat > "$DATAHUB_REPO/backend/.venv/bin/python" <<\'PYTHON_STUB\'',
+                    '#!/usr/bin/env bash',
+                    f'"{sys.executable}" "$@"',
+                    'PYTHON_STUB',
+                    'chmod +x "$DATAHUB_REPO/backend/.venv/bin/python"',
+                    f'PG_DUMP_BIN="{pg_dump_path.as_posix()}"',
+                    f'PG_RESTORE_BIN="{pg_restore_path.as_posix()}"',
+                    f'PGPASS_TMPDIR="{tmp_root.as_posix()}"',
+                    'export PG_DUMP_BIN PG_RESTORE_BIN PGPASS_TMPDIR',
+                    f'BACKUP_FILE="{(tmp_root / "test.dump").as_posix()}"',
+                    backup_body,
+                    'backup_postgres_database "postgresql+psycopg2://test_user:synthetic-test-password@example.com:5433/test_db" "$BACKUP_FILE"',
+                    'test -s "$BACKUP_FILE"',
+                    'if compgen -G "$PWD/aluminum-dingtalk-pgpass-*" >/dev/null; then pgpass_after=yes; else pgpass_after=no; fi',
+                    'printf "pgpass_after:%s\\n" "$pgpass_after" >> "$MARKER_PATH"',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
+        marker_text = marker_path.read_text(encoding='utf-8') if marker_path.exists() else ''
+    finally:
+        if marker_path.exists():
+            os.unlink(marker_path)
+        if script_path.exists():
+            os.unlink(script_path)
+        for leftover in ('repo-datahub', 'bin', 'test.dump'):
+            candidate = tmp_root / leftover
+            if candidate.is_dir():
+                shutil.rmtree(candidate, ignore_errors=True)
+            elif candidate.exists():
+                os.unlink(candidate)
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'synthetic-test-password' not in marker_text
+    assert 'postgresql+psycopg2://' not in marker_text
+    assert 'pg_dump_pgpassword:missing' in marker_text
+    assert 'pg_dump_database_url:missing' in marker_text
+    assert 'pg_dump_pgpass_exists:yes' in marker_text
+    assert 'pgpass_after:no' in marker_text
+
+
+def test_configure_dingtalk_verify_input_contract_requires_thresholds_timezone_and_secrets() -> None:
+    source = _read('.github/workflows/configure-dingtalk-stream-prod.yml')
+    require_body = _extract_shell_function(source, 'require_verify_inputs')
+    backup_body = _extract_shell_function(source, 'backup_postgres_database')
+
+    assert "grep -Eq '^[0-9]+$'" in require_body
+    assert '[ "$min_text" -ge 10 ]' in require_body
+    assert '[ "$min_files" -ge 5 ]' in require_body
+    assert '[ -n "$stream_app_secret" ]' in require_body
+    assert '[ -n "$stream_relay_token" ]' in require_body
+    assert 'datetime.fromisoformat' in require_body
+    assert 'tzinfo is None' in require_body
+    assert 'database_url = os.environ.pop("DATABASE_URL")' in backup_body
+    assert 'pgpass_path.unlink(missing_ok=True)' in backup_body
+    assert 'umask 077' in source
+    assert 'restart_epoch="$(date +%s)"' in source
+    restart_index = source.find('restart_epoch="$(date +%s)"')
+    restart_call_index = source.find('systemctl restart hermes-gateway', restart_index)
+    assert -1 not in (restart_index, restart_call_index)
+    assert restart_index < restart_call_index
+    assert 'backup_dir/$(basename "$file")' not in source
+    assert 'backup_dir/${label}.backup-dingtalk-stream-' in source
 
 
 def test_daily_report_alignment_prod_keeps_artifacts_outside_repo_and_preserves_exit_code() -> None:
@@ -1718,7 +2191,7 @@ def test_configure_dingtalk_apply_failure_restores_env_backups() -> None:
                     'HERMES_ENV_FILE=hermes.env',
                     'datahub_env_backup=datahub.env.bak',
                     'hermes_env_backup=hermes.env.bak',
-                    'restore_env_backup() { echo "restore:$1:$2" >> "$MARKER_PATH"; }',
+                    'restore_env_backup() { echo "restore:$1:$2:$3" >> "$MARKER_PATH"; }',
                     'reload_or_restart_nginx() { echo "nginx" >> "$MARKER_PATH"; }',
                     'systemctl() { echo "systemctl:$*" >> "$MARKER_PATH"; }',
                     'curl() { echo "curl:$*" >> "$MARKER_PATH"; }',
@@ -1743,8 +2216,8 @@ def test_configure_dingtalk_apply_failure_restores_env_backups() -> None:
     assert result.returncode == 52
     assert 'APPLY_FAILED_ROLLBACK_START' in result.stdout
     assert 'APPLY_FAILED_ROLLBACK_DONE' in result.stdout
-    assert 'restore:datahub.env:datahub.env.bak' in marker_lines
-    assert 'restore:hermes.env:hermes.env.bak' in marker_lines
+    assert 'restore:datahub.env:datahub.env.bak:datahub' in marker_lines
+    assert 'restore:hermes.env:hermes.env.bak:hermes' in marker_lines
 
 
 def test_configure_dingtalk_secret_preamble_reaches_remote_bash_without_echoing_values() -> None:

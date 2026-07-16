@@ -299,7 +299,13 @@ def test_dingtalk_inbound_rejects_root_owner_only_factory_brain_request_for_non_
         assert response.status_code == 403
         assert response.json()['detail'] == 'owner_required'
         assert orchestrator_called['value'] is False
-        assert db.query(ChatInboxMessage).count() == 0
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.trace_id == 'trace-dingtalk-root-owner-only-denied-001'
+        assert inbox.text == '帮我生成 skill'
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['trace_id'] == 'trace-dingtalk-root-owner-only-denied-001'
+        assert evidence.payload['business_date'] is None
+        assert evidence.payload['business_date_status'] == 'missing'
         assert db.query(AgentRun).count() == 0
     finally:
         _restore(previous, db)

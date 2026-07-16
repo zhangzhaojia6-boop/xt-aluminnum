@@ -299,3 +299,47 @@ def test_turn_asks_short_clarification_for_unclear_message(monkeypatch) -> None:
             reread_db.close()
     finally:
         db.close()
+
+
+def test_turn_reuses_precommitted_ingress_inbox(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_root_owner())
+    inbox = ChatInboxMessage(
+        channel='dingtalk_private',
+        group_id=None,
+        sender_external_id='dt-root-001',
+        text='给我讲个轻松笑话',
+        agent_code='factory_dispatch',
+        trace_id='trace-root-ingress-reuse',
+        source_payload={'source': 'dingtalk_inbound'},
+    )
+    db.add(inbox)
+    db.commit()
+    monkeypatch.setattr(
+        'app.services.hermes_root_owner_production_orchestrator.agent_communication_service.dispatch_outbox_message',
+        lambda _db, outbox_message_id, *, sender=None: SimpleNamespace(
+            status='sent',
+            detail='sent',
+            outbox_message_id=outbox_message_id,
+        ),
+    )
+
+    try:
+        result = run_root_owner_production_turn(
+            db,
+            text='给我讲个轻松笑话',
+            current_user=db.get(User, 1),
+            sender_external_id='dt-root-001',
+            trace_id='trace-root-ingress-reuse',
+            source_payload={'messageId': 'msg-root-ingress'},
+            default_business_date=date(2026, 6, 27),
+            chat_inbox=inbox,
+        )
+
+        assert result.chat_inbox_id == inbox.id
+        assert db.query(ChatInboxMessage).count() == 1
+        db.refresh(inbox)
+        assert inbox.source_payload['root_owner_private_loop'] is True
+        assert inbox.source_payload['recognition_reason']
+    finally:
+        db.close()

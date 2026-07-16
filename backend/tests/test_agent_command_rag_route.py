@@ -27,7 +27,9 @@ from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.routers import agent as agent_router
 from app.services import agent_communication_service
+from app.services import agent_command_service
 from app.services.agent_command_service import AgentCommandError
+from app.services.agent_command_service import handle_agent_command
 from app.services.rag_service import create_document_from_bytes
 
 
@@ -138,6 +140,56 @@ def test_agent_command_answers_from_rag_and_records_audit_trail() -> None:
         assert run.result_payload['status_color'] == 'green'
 
         assert db.query(RagQueryLog).count() == 1
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_reuses_inbox_and_merges_sanitized_source_payload(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+    inbox = ChatInboxMessage(
+        channel='dingtalk_group',
+        group_id='chat-reused-inbox',
+        sender_external_id='ding-user-reused',
+        text='这份附件怎么处理',
+        agent_code='factory_dispatch',
+        trace_id='trace-reused-inbox-001',
+        source_payload={'source': 'dingtalk_inbound', 'evidence_id': 7},
+    )
+    db.add(inbox)
+    db.commit()
+
+    monkeypatch.setattr(agent_command_service, '_detect_intent', lambda _text: 'clarify_business_question')
+    monkeypatch.setattr(
+        agent_command_service,
+        '_load_business_facts',
+        lambda *_args, **_kwargs: {'status': 'not_connected'},
+    )
+
+    try:
+        result = handle_agent_command(
+            db,
+            channel='dingtalk_group',
+            group_id='chat-reused-inbox',
+            sender_external_id='ding-user-reused',
+            text='这份附件怎么处理',
+            agent_code='factory_dispatch',
+            trace_id='trace-reused-inbox-001',
+            source_payload={
+                'attachment_parse_status': 'text_captured',
+                'downloadCode_present': True,
+                'downloadCode': 'must-not-survive',
+            },
+            chat_inbox=inbox,
+        )
+
+        assert result.chat_inbox_id == inbox.id
+        assert db.query(ChatInboxMessage).count() == 1
+        db.refresh(inbox)
+        assert inbox.source_payload['source'] == 'dingtalk_inbound'
+        assert inbox.source_payload['evidence_id'] == 7
+        assert inbox.source_payload['attachment_parse_status'] == 'text_captured'
+        assert inbox.source_payload['downloadCode_present'] is True
+        assert 'must-not-survive' not in str(inbox.source_payload)
     finally:
         _restore_overrides(previous_overrides, db)
 

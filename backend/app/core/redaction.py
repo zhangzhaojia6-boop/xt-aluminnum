@@ -17,6 +17,9 @@ _SENSITIVE_KEY_TOKENS = (
     'api_key',
     'authorization',
     'credential',
+    'download_code',
+    'session_webhook',
+    'signed_url',
     'mobile',
     'phone',
     'address',
@@ -32,11 +35,18 @@ _URI_AUTHORITY_PATTERN = re.compile(
     r'(?i)\b[a-z][a-z0-9+.-]*://[^/\s:@]*:[^@\s/]+@[^\s,;]+'
 )
 
+_SAFE_BOOLEAN_KEYS = {'downloadcodepresent'}
+
 
 def is_sensitive_key(key: object) -> bool:
     normalized = str(key).strip().lower().replace('-', '_').replace(' ', '_')
     compact = normalized.replace('_', '')
     return any(token.replace('_', '') in compact for token in _SENSITIVE_KEY_TOKENS)
+
+
+def _is_safe_boolean_flag(key: object, value: Any) -> bool:
+    compact = str(key).strip().lower().replace('-', '').replace('_', '').replace(' ', '')
+    return compact in _SAFE_BOOLEAN_KEYS and isinstance(value, bool)
 
 
 def _json_safe_value(value: Any) -> Any:
@@ -54,7 +64,11 @@ def _json_safe_value(value: Any) -> Any:
 
 
 def filter_sensitive_mapping(metadata: Mapping[str, Any]) -> dict[str, Any]:
-    return {str(key): _json_safe_value(value) for key, value in metadata.items() if not is_sensitive_key(key)}
+    return {
+        str(key): _json_safe_value(value)
+        for key, value in metadata.items()
+        if _is_safe_boolean_flag(key, value) or not is_sensitive_key(key)
+    }
 
 
 def redact_secret_text(value: object) -> str:
