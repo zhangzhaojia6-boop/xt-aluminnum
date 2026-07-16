@@ -32,20 +32,33 @@ def run_factory_brain_turn(
     current_user: User,
     trace_id: str | None,
     source_payload: dict[str, Any] | None,
+    chat_inbox: ChatInboxMessage | None = None,
 ) -> FactoryBrainTurnResult:
     clean_trace_id = str(trace_id or '').strip() or uuid4().hex
     clean_text = str(text or '').strip()
-    inbox = ChatInboxMessage(
-        channel=str(channel or '').strip() or 'internal',
-        group_id=str(group_id or '').strip() or None,
-        sender_external_id=str(sender_external_id or '').strip() or None,
-        text=clean_text,
-        agent_code='factory_brain',
-        trace_id=clean_trace_id,
-        source_payload=filter_sensitive_mapping(source_payload or {}),
-    )
-    db.add(inbox)
-    db.flush()
+    inbox = chat_inbox
+    if inbox is None:
+        inbox = ChatInboxMessage(
+            channel=str(channel or '').strip() or 'internal',
+            group_id=str(group_id or '').strip() or None,
+            sender_external_id=str(sender_external_id or '').strip() or None,
+            text=clean_text,
+            agent_code='factory_brain',
+            trace_id=clean_trace_id,
+            source_payload=filter_sensitive_mapping(source_payload or {}),
+        )
+        db.add(inbox)
+        db.flush()
+    else:
+        inbox.agent_code = 'factory_brain'
+        inbox.source_payload = filter_sensitive_mapping(
+            {
+                **dict(inbox.source_payload or {}),
+                **(source_payload or {}),
+                'factory_brain': True,
+            }
+        )
+        db.add(inbox)
 
     graph = build_factory_brain_graph(checkpointer=None)
     state = initial_factory_brain_state(

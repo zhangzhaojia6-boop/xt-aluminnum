@@ -41,7 +41,13 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0054_dingtalk_inbound_receipts' in current.stdout
+    assert '0055_chat_inbox_inbound_dedupe' in current.stdout
+
+    engine = create_engine(database_url, future=True)
+    columns = {item['name']: item for item in inspect(engine).get_columns('chat_inbox')}
+    assert columns['inbound_dedupe_key']['nullable'] is True
+    indexes = {item['name']: item for item in inspect(engine).get_indexes('chat_inbox')}
+    assert bool(indexes['ix_chat_inbox_inbound_dedupe_key']['unique']) is True
 
 
 def _create_residual_dingtalk_inbound_receipts(
@@ -102,7 +108,7 @@ def test_0054_adopts_compatible_residual_table_without_deleting_receipts(tmp_pat
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0054_dingtalk_inbound_receipts' in current.stdout
+    assert '0055_chat_inbox_inbound_dedupe' in current.stdout
     with engine.connect() as conn:
         receipt = conn.execute(
             text(

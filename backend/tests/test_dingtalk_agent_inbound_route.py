@@ -81,6 +81,40 @@ def _install_db_override():
     return db, previous_overrides
 
 
+def test_chat_inbox_allows_only_one_row_per_inbound_receipt() -> None:
+    db, previous_overrides = _install_db_override()
+    receipt = DingTalkInboundReceipt(
+        dedupe_key='a' * 64,
+        channel='dingtalk_group',
+        group_id='cid-concurrent-dedupe',
+        trace_id='trace-concurrent-dedupe-001',
+    )
+    db.add(receipt)
+    db.commit()
+
+    def build_inbox() -> ChatInboxMessage:
+        return ChatInboxMessage(
+            channel='dingtalk_group',
+            group_id='cid-concurrent-dedupe',
+            sender_external_id='dt-concurrent-001',
+            text='并发回调证据',
+            agent_code='factory_dispatch',
+            trace_id='trace-concurrent-dedupe-001',
+            inbound_dedupe_key=receipt.dedupe_key,
+        )
+
+    try:
+        db.add(build_inbox())
+        db.commit()
+
+        db.add(build_inbox())
+        with pytest.raises(IntegrityError):
+            db.commit()
+    finally:
+        db.rollback()
+        _restore_db_override(previous_overrides, db)
+
+
 def _restore_db_override(previous_overrides, db: Session) -> None:
     db.close()
     app.dependency_overrides.clear()
@@ -322,9 +356,14 @@ def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent
         assert payload['should_reply'] is False
         assert payload['energy_ingest']['status'] == 'skipped'
         assert payload['energy_ingest']['reason'] == 'no_inline_file_content'
-        assert payload['chat_inbox_id'] is None
+        inbox = db.query(ChatInboxMessage).one()
+        assert payload['chat_inbox_id'] == inbox.id
         assert payload['agent_run_id'] is None
-        assert db.query(ChatInboxMessage).count() == 0
+        assert inbox.trace_id == 'trace-dingtalk-file-only-001'
+        assert inbox.text == '7月5日抄表.xlsx'
+        assert inbox.source_payload['parse_status'] == 'download_failed'
+        assert inbox.source_payload['download_status'] == 'missing_download_code'
+        assert inbox.source_payload['downloadCode_present'] is False
         assert db.query(AgentRun).count() == 0
         assert db.query(EnergyImportRecord).count() == 0
 
@@ -964,7 +1003,8 @@ def test_dingtalk_agent_inbound_day1_disabled_does_not_write_report_or_run(monke
         assert '未开启' in payload['answer'] or '已关闭' in payload['answer']
         assert payload['agent_run_id'] is None
         assert payload['report_id'] is None
-        assert db.query(ChatInboxMessage).count() == 0
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.trace_id == 'trace-dingtalk-day1-disabled-001'
         assert db.query(AgentRun).count() == 0
         assert db.query(DailyReport).count() == 0
     finally:
@@ -1170,7 +1210,8 @@ def test_dingtalk_agent_inbound_redacts_agent_error_detail(monkeypatch) -> None:
         assert 'detail-pass' not in detail
         assert 'detail-token' not in detail
         assert detail == 'agent failed password=<redacted> token=<redacted>'
-        assert db.query(ChatInboxMessage).count() == 0
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.trace_id == 'trace-dingtalk-redacted-error-001'
         assert db.query(AgentRun).count() == 0
     finally:
         _restore_db_override(previous_overrides, db)
@@ -1298,7 +1339,8 @@ def test_dingtalk_agent_inbound_day1_rejects_non_root_owner(monkeypatch) -> None
 
         assert response.status_code == 403
         assert response.json()['detail'] == 'owner_required'
-        assert db.query(ChatInboxMessage).count() == 0
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.trace_id == 'trace-dingtalk-day1-non-owner-001'
         assert db.query(AgentRun).count() == 0
         assert db.query(DailyReport).count() == 0
     finally:
@@ -1418,7 +1460,8 @@ def test_dingtalk_agent_inbound_day1_non_root_owner_persists_evidence_before_403
         assert evidence.payload['evidence_kind'] == 'fact'
         assert db.query(DailyReport).count() == 0
         assert db.query(AgentRun).count() == 0
-        assert db.query(ChatInboxMessage).count() == 0
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.trace_id == 'trace-dingtalk-day1-fact-403-001'
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -1468,8 +1511,10 @@ def test_dingtalk_agent_inbound_day1_non_root_owner_dedupes_evidence_only_trace_
         assert first.status_code == 403
         assert second.status_code == 200
         assert first.json()['detail'] == 'owner_required'
-        assert second.json()['action'] == 'dingtalk-evidence-duplicate'
+        assert second.json()['action'] == 'dingtalk-duplicate'
         assert db.query(MultimodalEvidence).count() == 1
+        assert db.query(ChatInboxMessage).count() == 1
+        assert db.query(DingTalkInboundReceipt).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -1518,8 +1563,10 @@ def test_dingtalk_agent_inbound_day1_disabled_dedupes_evidence_only_trace_id(mon
         assert first.status_code == 200
         assert second.status_code == 200
         assert first.json()['code'] == 'hermes_day1_disabled'
-        assert second.json()['action'] == 'dingtalk-evidence-duplicate'
+        assert second.json()['action'] == 'dingtalk-duplicate'
         assert db.query(MultimodalEvidence).count() == 1
+        assert db.query(ChatInboxMessage).count() == 1
+        assert db.query(DingTalkInboundReceipt).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -1890,9 +1937,16 @@ def test_dingtalk_agent_inbound_duplicate_file_callback_downloads_once(monkeypat
         assert first.status_code == 200
         assert second.status_code == 200
         assert first.json()['action'] == 'dingtalk-evidence-recorded'
-        assert second.json()['action'] == 'dingtalk-evidence-duplicate'
+        assert second.json()['action'] == 'dingtalk-duplicate'
         assert download_calls == ['download-dedupe-secret-001']
         assert db.query(MultimodalEvidence).count() == 1
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.source_payload['parse_status'] == 'text_captured'
+        assert inbox.source_payload['download_status'] == 'downloaded'
+        assert inbox.source_payload['downloadCode_present'] is True
+        assert len(inbox.source_payload['file_hash']) == 64
+        assert 'download-dedupe-secret-001' not in str(inbox.source_payload)
+        assert db.query(DingTalkInboundReceipt).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -2453,9 +2507,17 @@ def test_production_inbound_signature_accepts_unknown_metadata_and_rejects_tampe
         )
 
         assert accepted.status_code == 200
-        assert accepted.json()['should_reply'] is False
+        accepted_payload = accepted.json()
+        assert accepted_payload['should_reply'] is False
+        receipt = db.query(DingTalkInboundReceipt).one()
+        inbox = db.query(ChatInboxMessage).one()
         evidence = db.query(MultimodalEvidence).one()
+        assert receipt.trace_id == 'trace-unknown-event-001'
+        assert accepted_payload['chat_inbox_id'] == inbox.id
+        assert inbox.trace_id == receipt.trace_id
+        assert inbox.text == 'custom_unknown'
         assert evidence.confirmation_status == 'machine_only'
+        assert evidence.payload['trace_id'] == receipt.trace_id
         assert evidence.payload['source_transport'] == 'dingtalk_stream'
         assert evidence.payload['raw_metadata']['rawNote'] == '未知事件也必须留元数据'
         assert tampered.status_code == 401
@@ -2581,7 +2643,9 @@ def test_unprivileged_bound_user_message_is_retained_without_agent_side_effects(
         assert response.status_code == 200
         assert response.json()['should_reply'] is False
         assert db.query(MultimodalEvidence).count() == 1
-        assert db.query(ChatInboxMessage).count() == 0
+        inbox = db.query(ChatInboxMessage).one()
+        assert response.json()['chat_inbox_id'] == inbox.id
+        assert inbox.trace_id == 'trace-operator-candidate-001'
         assert db.query(AgentRun).count() == 0
         assert db.query(AgentOutboxMessage).count() == 0
     finally:

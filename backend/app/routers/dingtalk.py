@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.auth import create_access_token
-from app.core.redaction import redact_secret_text
+from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.core.scope import build_scope_summary
 from app.database import get_db
 from app.models.agent_communication import (
@@ -586,6 +586,111 @@ def _find_duplicate_inbound_message(
     return query.order_by(ChatInboxMessage.id.asc()).first()
 
 
+def _inbound_inbox_text(
+    payload: dict[str, Any],
+    *,
+    extracted_text: str,
+    evidence: MultimodalEvidence | None,
+) -> str:
+    text = _clean_text(extracted_text)
+    if text:
+        return text
+    evidence_text = _clean_text(getattr(evidence, 'recognized_text', None))
+    if evidence_text:
+        return evidence_text
+    event = normalize_dingtalk_stream_event(payload)
+    return _clean_text(event.file_name) or _clean_text(event.message_type)
+
+
+def _inbound_evidence_metadata(evidence: MultimodalEvidence | None) -> dict[str, Any]:
+    payload = dict(evidence.payload or {}) if evidence is not None else {}
+    keys = (
+        'business_date',
+        'business_date_status',
+        'dingtalk_content_type',
+        'dingtalk_file_size',
+        'dingtalk_message_time',
+        'dingtalk_received_at',
+        'downloadCode_present',
+        'download_status',
+        'file_hash',
+        'file_name',
+        'parse_status',
+        'text_extract_detail',
+    )
+    return {key: payload[key] for key in keys if payload.get(key) not in (None, '')}
+
+
+def _ensure_inbound_chat_inbox(
+    db: Session,
+    *,
+    payload: dict[str, Any],
+    channel: str,
+    group_id: str,
+    trace_id: str,
+    sender_external_id: str,
+    agent_code: str,
+    extracted_text: str,
+    evidence_id: int | None,
+    inbound_dedupe_key: str,
+    source_payload: dict[str, Any],
+) -> ChatInboxMessage:
+    existing = (
+        db.query(ChatInboxMessage)
+        .filter(ChatInboxMessage.inbound_dedupe_key == inbound_dedupe_key)
+        .one_or_none()
+    )
+    if existing is not None:
+        return existing
+
+    existing = _find_duplicate_inbound_message(
+        db,
+        channel=channel,
+        group_id=group_id,
+        trace_id=trace_id,
+    )
+    if existing is not None:
+        if existing.inbound_dedupe_key is None:
+            existing.inbound_dedupe_key = inbound_dedupe_key
+            db.add(existing)
+            db.flush()
+        return existing
+
+    evidence = db.get(MultimodalEvidence, evidence_id) if evidence_id is not None else None
+    inbox = ChatInboxMessage(
+        channel=channel,
+        group_id=group_id or None,
+        sender_external_id=sender_external_id or None,
+        text=_inbound_inbox_text(payload, extracted_text=extracted_text, evidence=evidence),
+        agent_code=agent_code,
+        trace_id=trace_id,
+        inbound_dedupe_key=inbound_dedupe_key,
+        source_payload=filter_sensitive_mapping(
+            {
+                **source_payload,
+                **_inbound_evidence_metadata(evidence),
+                'source': 'dingtalk_inbound',
+                'channel': channel,
+                'evidence_id': evidence_id,
+            }
+        ),
+    )
+    db.add(inbox)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        existing = (
+            db.query(ChatInboxMessage)
+            .filter(ChatInboxMessage.inbound_dedupe_key == inbound_dedupe_key)
+            .one_or_none()
+        )
+        if existing is None:
+            raise
+        return existing
+    return inbox
+
+
 def _find_duplicate_inbound_evidence(
     db: Session,
     *,
@@ -953,6 +1058,28 @@ def dingtalk_agent_inbound(
             'trace_id': trace_id,
             'evidence_id': existing_evidence.id if existing_evidence is not None else None,
         }
+    sender_external_id = _clean_text(
+        _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
+    )
+    source_payload = {
+        **_sanitize_inbound_payload(payload),
+        'source_transport': source_transport,
+    }
+    ingress_inbox = _ensure_inbound_chat_inbox(
+        db,
+        payload=payload,
+        channel=channel,
+        group_id=group_id,
+        trace_id=trace_id,
+        sender_external_id=sender_external_id,
+        agent_code=agent_code,
+        extracted_text=text,
+        evidence_id=stream_result.get('evidence_id'),
+        inbound_dedupe_key=receipt.dedupe_key,
+        source_payload=source_payload,
+    )
+    db.commit()
+    db.refresh(ingress_inbox)
     if source_transport == 'dingtalk_stream':
         user = _resolve_inbound_user(db, payload)
     if not text or not _has_inbound_agent_access(user):
@@ -968,31 +1095,12 @@ def dingtalk_agent_inbound(
             'should_reply': False,
             'evidence_id': stream_result.get('evidence_id'),
             'energy_ingest': stream_result.get('energy_ingest'),
-            'chat_inbox_id': None,
+            'chat_inbox_id': ingress_inbox.id,
             'agent_run_id': None,
             'report_id': None,
         }
     assert user is not None
-    sender_external_id = _clean_text(
-        _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
-    )
     has_inbound_evidence = _has_inbound_evidence_payload(payload)
-    duplicate = _find_duplicate_inbound_message(db, channel=channel, group_id=group_id, trace_id=trace_id)
-    if duplicate is not None:
-        _set_inbound_receipt_status(db, receipt_id, 'completed', commit=True)
-        return {
-            'errcode': 0,
-            'errmsg': 'ok',
-            'action': 'dingtalk-duplicate',
-            'status': 'duplicate',
-            'trace_id': trace_id,
-            'answer': '',
-            'messages': [],
-            'should_reply': False,
-            'chat_inbox_id': duplicate.id,
-            'agent_run_id': None,
-            'report_id': None,
-        }
     queue_outbox = _has_bound_inbound_outbox_channel(db, group_id=scoped_group_id, agent_code=agent_code)
     if channel_scope is None:
         channel_scope = _resolve_inbound_channel_scope(db, group_id=scoped_group_id, payload=payload)
@@ -1011,10 +1119,6 @@ def dingtalk_agent_inbound(
             trace_id=trace_id,
             source_transport=source_transport,
         )
-    source_payload = {
-        **_sanitize_inbound_payload(payload),
-        'source_transport': source_transport,
-    }
     day1_parse_error: Day1CommandParseError | None = None
     try:
         day1_command = None
@@ -1083,27 +1187,17 @@ def dingtalk_agent_inbound(
                 'code': 'hermes_day1_disabled',
                 'answer': answer,
                 'messages': [],
-                'chat_inbox_id': None,
+                'chat_inbox_id': ingress_inbox.id,
                 'agent_run_id': None,
                 'report_id': None,
             }
 
-        chat_inbox = ChatInboxMessage(
-            channel=channel,
-            group_id=group_id or None,
-            sender_external_id=sender_external_id or None,
-            text=text,
-            agent_code=agent_code,
-            trace_id=trace_id,
-            source_payload={
-                **source_payload,
-                'source': 'dingtalk_inbound',
-                'day1_super_brain': True,
-                'channel': channel,
-            },
-        )
+        chat_inbox = ingress_inbox
+        chat_inbox.source_payload = {
+            **dict(chat_inbox.source_payload or {}),
+            'day1_super_brain': True,
+        }
         db.add(chat_inbox)
-        db.flush()
 
         try:
             result = run_day1_super_brain(
@@ -1162,6 +1256,7 @@ def dingtalk_agent_inbound(
                     **source_payload,
                     **({'day1_parse_error': day1_parse_error.code} if day1_parse_error is not None else {}),
                 },
+                chat_inbox=ingress_inbox,
             )
             _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)
             db.commit()
@@ -1216,6 +1311,7 @@ def dingtalk_agent_inbound(
                 current_user=user,
                 trace_id=trace_id or None,
                 source_payload=source_payload,
+                chat_inbox=ingress_inbox,
             )
             _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)
             db.commit()
@@ -1248,6 +1344,7 @@ def dingtalk_agent_inbound(
             queue_outbox=queue_outbox,
             source_payload=source_payload,
             current_user=user,
+            chat_inbox=ingress_inbox,
         )
         _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)
         db.commit()

@@ -58,6 +58,7 @@ def run_root_owner_production_turn(
     source_payload: dict[str, Any] | None,
     default_business_date: date | None = None,
     mes_reader: HermesMesReadService | None = None,
+    chat_inbox: ChatInboxMessage | None = None,
 ) -> RootOwnerProductionTurnResult:
     clean_trace_id = str(trace_id or "").strip() or uuid4().hex
     clean_text = str(text or "").strip()
@@ -77,24 +78,37 @@ def run_root_owner_production_turn(
     )
     source = _source_payload_block(plan=plan, source_payload=source_payload)
 
-    inbox = ChatInboxMessage(
-        channel="dingtalk_private",
-        group_id=None,
-        sender_external_id=sender_id or None,
-        text=clean_text,
-        agent_code="factory_dispatch",
-        trace_id=clean_trace_id,
-        source_payload=filter_sensitive_mapping(
+    inbox = chat_inbox
+    if inbox is None:
+        inbox = ChatInboxMessage(
+            channel="dingtalk_private",
+            group_id=None,
+            sender_external_id=sender_id or None,
+            text=clean_text,
+            agent_code="factory_dispatch",
+            trace_id=clean_trace_id,
+            source_payload=filter_sensitive_mapping(
+                {
+                    **(source_payload or {}),
+                    "source": "dingtalk_inbound",
+                    "root_owner_private_loop": True,
+                    "recognition_reason": plan.recognition_reason,
+                }
+            ),
+        )
+        db.add(inbox)
+        db.flush()
+    else:
+        inbox.source_payload = filter_sensitive_mapping(
             {
+                **dict(inbox.source_payload or {}),
                 **(source_payload or {}),
                 "source": "dingtalk_inbound",
                 "root_owner_private_loop": True,
                 "recognition_reason": plan.recognition_reason,
             }
-        ),
-    )
-    db.add(inbox)
-    db.flush()
+        )
+        db.add(inbox)
 
     if plan.needs_clarification:
         decision = EvidenceDecision(primary=None, candidates=(), conflicts=(), missing_sources=[], trace={})
