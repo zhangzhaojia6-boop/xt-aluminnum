@@ -5,7 +5,7 @@ import re
 from typing import Any, Mapping
 from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
-from app.core.redaction import filter_sensitive_mapping, redact_secret_text
+from app.core.redaction import is_sensitive_key, redact_secret_text
 
 
 DINGTALK_EPHEMERAL_KEYS = {
@@ -21,6 +21,8 @@ DINGTALK_EPHEMERAL_KEYS = {
     'downloadedfilebytes',
 }
 DINGTALK_EPHEMERAL_QUERY_KEYS = {'downloadcode', 'download_code', 'access_token', 'signature', 'sign', 'sig'}
+DINGTALK_SANITIZED_URL_KEYS = {'signedurl', 'signed_url'}
+DINGTALK_SAFE_BOOLEAN_KEYS = {'downloadcodepresent'}
 RAW_METADATA_MAX_STRING_LENGTH = 512
 RAW_METADATA_MAX_ITEMS = 25
 RAW_METADATA_MAX_DEPTH = 6
@@ -35,12 +37,16 @@ def sanitize_dingtalk_payload_for_storage(value: Any, *, depth: int = 0) -> Any:
     if depth >= RAW_METADATA_MAX_DEPTH:
         return RAW_METADATA_TRUNCATION_MARKER
     if isinstance(value, Mapping):
-        filtered = filter_sensitive_mapping(value)
         sanitized: dict[str, Any] = {}
         kept = 0
-        for raw_key, item in filtered.items():
+        for raw_key, item in value.items():
             normalized_key = str(raw_key).strip().lower().replace('-', '_')
+            compact_key = normalized_key.replace('_', '')
             if normalized_key in DINGTALK_EPHEMERAL_KEYS:
+                continue
+            safe_boolean = compact_key in DINGTALK_SAFE_BOOLEAN_KEYS and isinstance(item, bool)
+            sanitized_url = normalized_key in DINGTALK_SANITIZED_URL_KEYS and isinstance(item, str)
+            if is_sensitive_key(raw_key) and not (safe_boolean or sanitized_url):
                 continue
             if kept >= RAW_METADATA_MAX_ITEMS:
                 sanitized['__truncated__'] = RAW_METADATA_TRUNCATION_MARKER

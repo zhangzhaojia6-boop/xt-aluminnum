@@ -93,6 +93,7 @@ def test_authorized_text_event_writes_message_text(monkeypatch) -> None:
         assert evidence.confirmation_status == 'machine_only'
         assert evidence.payload['message_text'] == '今日日报：产量 32 吨'
         assert evidence.payload['business_date'] == '2026-06-28'
+        assert evidence.payload['business_date_status'] == 'payload_explicit'
         assert evidence.payload['group_id'] == 'group-001'
         assert evidence.payload['trace_id'] == 'msg-001'
         assert evidence.payload['source_transport'] == 'dingtalk_stream'
@@ -492,6 +493,7 @@ def test_missing_business_date_without_workshop_stays_unknown(monkeypatch) -> No
 
         evidence = db.query(MultimodalEvidence).one()
         assert evidence.payload['business_date'] is None
+        assert evidence.payload['business_date_status'] == 'missing'
     finally:
         db.close()
 
@@ -515,8 +517,103 @@ def test_missing_business_date_with_unknown_workshop_stays_unknown(monkeypatch) 
 
         assert evidence.payload['workshop_name'] is None
         assert evidence.payload['business_date'] is None
+        assert evidence.payload['business_date_status'] == 'missing'
         assert len(items) == 1
         assert items[0].adoptable_as_fact is False
+    finally:
+        db.close()
+
+
+def test_stream_uses_event_year_for_month_day_filename(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    content = '产量 32 吨'.encode('utf-8')
+    db = _db_session()
+    try:
+        payload = _file_payload(
+            messageId='file-month-day-001',
+            content={'fileName': '7月7日日报.txt', 'fileId': 'file-month-day-001'},
+            createTime='2025-12-31T08:30:00+08:00',
+            fileContentBase64=base64.b64encode(content).decode('ascii'),
+        )
+        del payload['data']['businessDate']
+
+        gateway.ingest_dingtalk_stream_event(
+            db,
+            payload,
+            dingtalk_service=FakeDingTalkService(error=AssertionError('inline content must not download')),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['business_date'] == '2025-07-07'
+        assert evidence.payload['business_date_status'] == 'filename_explicit'
+        assert evidence.payload['dingtalk_message_time'] == '2025-12-31T08:30:00+08:00'
+    finally:
+        db.close()
+
+
+def test_stream_uses_nearest_event_year_for_new_year_filename(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    content = '产量 32 吨'.encode('utf-8')
+    db = _db_session()
+    try:
+        payload = _file_payload(
+            messageId='file-new-year-001',
+            content={'fileName': '12月31日日报.txt', 'fileId': 'file-new-year-001'},
+            createTime='2026-01-01T08:30:00+08:00',
+            fileContentBase64=base64.b64encode(content).decode('ascii'),
+        )
+        del payload['data']['businessDate']
+
+        gateway.ingest_dingtalk_stream_event(
+            db,
+            payload,
+            dingtalk_service=FakeDingTalkService(error=AssertionError('inline content must not download')),
+        )
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['business_date'] == '2025-12-31'
+        assert evidence.payload['business_date_status'] == 'filename_explicit'
+    finally:
+        db.close()
+
+
+def test_stream_uses_absolute_message_date_before_event_window(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    db = _db_session()
+    try:
+        payload = _text_payload(
+            messageId='msg-text-date-001',
+            text={'content': '请核对 2025年7月6日 的产量'},
+            workshopName='铸轧二车间',
+            createTime='2026-06-03T09:00:00+08:00',
+        )
+        del payload['data']['businessDate']
+
+        gateway.ingest_dingtalk_stream_event(db, payload)
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['business_date'] == '2025-07-06'
+        assert evidence.payload['business_date_status'] == 'text_explicit'
+    finally:
+        db.close()
+
+
+def test_relative_message_date_without_workshop_stays_missing(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    db = _db_session()
+    try:
+        payload = _text_payload(
+            messageId='msg-relative-date-001',
+            text={'content': '请核对昨天的产量'},
+            createTime='2026-06-03T09:00:00+08:00',
+        )
+        del payload['data']['businessDate']
+
+        gateway.ingest_dingtalk_stream_event(db, payload)
+
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['business_date'] is None
+        assert evidence.payload['business_date_status'] == 'missing'
     finally:
         db.close()
 
@@ -539,6 +636,7 @@ def test_stream_without_business_date_uses_event_time_and_workshop_for_confirmed
         items = query_dingtalk_evidence(db, business_date=date(2026, 6, 2))
 
         assert evidence.payload['business_date'] == '2026-06-02'
+        assert evidence.payload['business_date_status'] == 'event_time_window'
         assert evidence.payload['workshop_name'] == '铸二'
         assert len(items) == 1
         assert items[0].business_date == date(2026, 6, 2)
@@ -577,13 +675,18 @@ def test_excel_file_can_be_passed_to_existing_energy_ingest(monkeypatch) -> None
     db = _db_session()
     try:
         payload = _file_payload(
-            content={'fileName': '2026-07-07电耗.xlsx', 'downloadCode': 'download-code-001', 'fileId': 'file-001'}
+            content={'fileName': '7月7日电耗.xlsx', 'downloadCode': 'download-code-001', 'fileId': 'file-001'},
+            createTime='2025-12-31T08:30:00+08:00',
         )
+        del payload['data']['businessDate']
         result = gateway.ingest_dingtalk_stream_event(db, payload, dingtalk_service=fake_dingtalk)
 
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.payload['business_date'] == '2025-07-07'
         assert result['file_text'] is True
         assert result['energy_ingest'] == {'status': 'promoted'}
         assert len(calls) == 1
+        assert calls[0][0]['businessDate'] == '2025-07-07'
         assert calls[0][2] == 'file-msg-001'
     finally:
         db.close()

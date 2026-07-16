@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime
+from datetime import date, datetime
 import logging
 from pathlib import Path
+import re
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.active_workshops import is_active_production_workshop_name, normalize_workshop_name
-from app.core.business_time import resolve_production_business_date
+from app.core.business_time import resolve_production_business_date, resolve_yearless_business_date
 from app.core.redaction import redact_secret_text
 from app.models.agent_communication import MultimodalEvidence
 from app.services.dingtalk_energy_ingest_service import (
@@ -37,6 +38,10 @@ from app.services.hermes_day1_evidence_service import record_day1_dingtalk_evide
 LOGGER = logging.getLogger(__name__)
 EXCEL_SUFFIXES = {'.xls', '.xlsx', '.xlsm'}
 INLINE_FILE_BYTES_LIMIT = 10 * 1024 * 1024
+FULL_DATE_RE = re.compile(
+    r'(?<!\d)(?P<year>20\d{2})\s*[-_/\.年]\s*(?P<month>\d{1,2})\s*[-_/\.月]\s*(?P<day>\d{1,2})\s*日?'
+)
+MONTH_DAY_RE = re.compile(r'(?<!\d)(?P<month>\d{1,2})\s*月\s*(?P<day>\d{1,2})\s*日')
 
 
 def ingest_dingtalk_stream_event(
@@ -105,12 +110,14 @@ def _ingest_text_event(
         parse_status=parse_status,
         source_transport=source_transport,
     )
+    business_date, business_date_status = _resolve_business_date(event, recognized_text=text)
+    evidence_payload['business_date_status'] = business_date_status
 
     evidence = record_day1_dingtalk_evidence(
         db,
         payload=evidence_payload,
         actor=None,
-        business_date=_resolve_business_date(event),
+        business_date=business_date,
         channel=event.channel,
         group_id=event.group_id,
         trace_id=event.trace_id,
@@ -187,6 +194,9 @@ def _ingest_file_event(
         if file_text.status == 'text_captured':
             recognized_text = file_text.text
 
+    business_date, business_date_status = _resolve_business_date(event, recognized_text=recognized_text)
+    file_payload['business_date_status'] = business_date_status
+
     duplicate = _find_duplicate_evidence(
         db,
         event,
@@ -206,7 +216,7 @@ def _ingest_file_event(
         db,
         payload=file_payload,
         actor=None,
-        business_date=_resolve_business_date(event),
+        business_date=business_date,
         channel=event.channel,
         group_id=event.group_id,
         trace_id=event.trace_id,
@@ -216,7 +226,18 @@ def _ingest_file_event(
     _merge_stream_payload(evidence, file_payload)
     _commit_evidence(db, evidence, commit=commit)
 
-    energy_result = _maybe_ingest_energy_file(db, file_payload, evidence, event, downloaded) if process_energy else None
+    energy_result = (
+        _maybe_ingest_energy_file(
+            db,
+            file_payload,
+            evidence,
+            event,
+            downloaded,
+            business_date=business_date,
+        )
+        if process_energy
+        else None
+    )
     return _result(
         event,
         accepted=True,
@@ -254,20 +275,24 @@ def _maybe_ingest_energy_file(
     evidence: MultimodalEvidence | None,
     event: NormalizedDingTalkEvent,
     downloaded: DingTalkDownloadedFile | None,
+    *,
+    business_date: date | None,
 ) -> dict[str, Any] | None:
     if evidence is None:
         return None
     if Path(str(event.file_name or '')).suffix.lower() not in EXCEL_SUFFIXES:
         return None
+    ingest_payload = dict(file_payload)
+    if business_date is not None:
+        ingest_payload['businessDate'] = business_date.isoformat()
     if downloaded is None:
         return ingest_dingtalk_energy_file(
             db,
-            payload=file_payload,
+            payload=ingest_payload,
             evidence=evidence,
             trace_id=event.trace_id,
         )
 
-    ingest_payload = dict(file_payload)
     ingest_payload['fileContentBase64'] = base64.b64encode(downloaded.content).decode('ascii')
     try:
         return ingest_dingtalk_energy_file(db, payload=ingest_payload, evidence=evidence, trace_id=event.trace_id)
@@ -356,26 +381,76 @@ def _find_duplicate_evidence(
     return None
 
 
-def _resolve_business_date(event: NormalizedDingTalkEvent):
-    explicit_date = resolve_dingtalk_energy_business_date(
-        dict(event.raw_payload),
-        file_name=event.file_name,
-        fallback_to_last_completed=False,
-    )
+def _resolve_business_date(
+    event: NormalizedDingTalkEvent,
+    *,
+    recognized_text: str = '',
+) -> tuple[date | None, str]:
+    raw_payload = dict(event.raw_payload)
+    has_payload_date = any(raw_payload.get(key) not in (None, '') for key in DATE_KEYS)
+    try:
+        explicit_date = resolve_dingtalk_energy_business_date(
+            raw_payload,
+            fallback_to_last_completed=False,
+        )
+    except ValueError:
+        return None, 'missing'
     if explicit_date is not None:
-        return explicit_date
-    workshop_name = normalize_workshop_name(
-        event.raw_payload.get('workshop_name')
-        or event.raw_payload.get('workshopName')
-        or event.raw_payload.get('workshop')
+        return explicit_date, 'payload_explicit'
+    if has_payload_date:
+        return None, 'missing'
+
+    event_time = parse_dingtalk_event_datetime(event.event_time)
+    reference_date = event_time.date() if event_time is not None else None
+    filename_date = _absolute_date_from_text(event.file_name, reference_date=reference_date)
+    if filename_date is not None:
+        return filename_date, 'filename_explicit'
+
+    text_date = _absolute_date_from_text(
+        event.message_text or recognized_text,
+        reference_date=reference_date,
     )
-    event_time = _parse_event_datetime(event.event_time)
+    if text_date is not None:
+        return text_date, 'text_explicit'
+
+    workshop_name = normalize_workshop_name(
+        raw_payload.get('workshop_name')
+        or raw_payload.get('workshopName')
+        or raw_payload.get('workshop')
+    )
     if not is_active_production_workshop_name(workshop_name) or event_time is None:
+        return None, 'missing'
+    return resolve_production_business_date(event_time, workshop_name=workshop_name), 'event_time_window'
+
+
+def _absolute_date_from_text(value: Any, *, reference_date: date | None) -> date | None:
+    text = str(value or '').strip()
+    if not text:
         return None
-    return resolve_production_business_date(event_time, workshop_name=workshop_name)
+    full_match = FULL_DATE_RE.search(text)
+    if full_match is not None:
+        try:
+            return date(
+                int(full_match.group('year')),
+                int(full_match.group('month')),
+                int(full_match.group('day')),
+            )
+        except ValueError:
+            return None
+    month_day_match = MONTH_DAY_RE.search(text)
+    if month_day_match is None or reference_date is None:
+        return None
+    try:
+        return resolve_yearless_business_date(
+            month=int(month_day_match.group('month')),
+            day=int(month_day_match.group('day')),
+            reference_date=reference_date,
+        )
+    except ValueError:
+        return None
 
 
-def _parse_event_datetime(value: Any) -> datetime | None:
+def parse_dingtalk_event_datetime(value: Any) -> datetime | None:
     text = str(value or '').strip()
     if not text:
         return None

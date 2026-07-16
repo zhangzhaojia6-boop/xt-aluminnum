@@ -364,6 +364,9 @@ def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent
         assert inbox.source_payload['parse_status'] == 'download_failed'
         assert inbox.source_payload['download_status'] == 'missing_download_code'
         assert inbox.source_payload['downloadCode_present'] is False
+        assert inbox.source_payload['business_date_status'] == 'missing'
+        assert 'business_date' in inbox.source_payload
+        assert inbox.source_payload['business_date'] is None
         assert db.query(AgentRun).count() == 0
         assert db.query(EnergyImportRecord).count() == 0
 
@@ -377,7 +380,8 @@ def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent
         assert evidence.payload['file_name'] == '7月5日抄表.xlsx'
         assert evidence.payload['evidence_kind'] == 'fact'
         assert evidence.payload['metric_write_allowed'] is False
-        assert evidence.payload['business_date'] == '2026-07-05'
+        assert evidence.payload['business_date'] is None
+        assert evidence.payload['business_date_status'] == 'missing'
         assert evidence.payload['energy_ingest']['status'] == 'skipped'
     finally:
         _restore_db_override(previous_overrides, db)
@@ -989,6 +993,7 @@ def test_dingtalk_agent_inbound_day1_disabled_does_not_write_report_or_run(monke
                 'senderStaffId': 'dt-root-disabled-001',
                 'senderUnionId': 'union-root-disabled-001',
                 'text': {'content': '生成 6月19日正式日报'},
+                'createTime': '2026-06-20T08:30:00+08:00',
                 'agentCode': 'factory_dispatch',
                 'traceId': 'trace-dingtalk-day1-disabled-001',
             },
@@ -1273,6 +1278,7 @@ def test_dingtalk_agent_inbound_day1_root_owner_calls_orchestrator_without_forci
                 'senderStaffId': 'dt-root-ready-001',
                 'senderUnionId': 'union-root-ready-001',
                 'text': {'content': '生成 6月19日正式日报'},
+                'createTime': '2026-06-20T08:30:00+08:00',
                 'agentCode': 'factory_dispatch',
                 'traceId': 'trace-dingtalk-day1-ready-001',
             },
@@ -1332,6 +1338,7 @@ def test_dingtalk_agent_inbound_day1_rejects_non_root_owner(monkeypatch) -> None
                 'senderStaffId': 'dt-allowed-not-owner-001',
                 'senderUnionId': 'union-allowed-not-owner-001',
                 'text': {'content': '生成 6月19日正式日报'},
+                'createTime': '2026-06-20T08:30:00+08:00',
                 'agentCode': 'factory_dispatch',
                 'traceId': 'trace-dingtalk-day1-non-owner-001',
             },
@@ -1447,6 +1454,7 @@ def test_dingtalk_agent_inbound_day1_non_root_owner_persists_evidence_before_403
                 'senderStaffId': 'dt-allowed-fact-001',
                 'senderUnionId': 'union-allowed-fact-001',
                 'text': {'content': '生成 6月19日正式日报，产量 32 吨'},
+                'createTime': '2025-06-20T08:30:00+08:00',
                 'agentCode': 'factory_dispatch',
                 'traceId': 'trace-dingtalk-day1-fact-403-001',
             },
@@ -1456,12 +1464,15 @@ def test_dingtalk_agent_inbound_day1_non_root_owner_persists_evidence_before_403
         assert response.json()['detail'] == 'owner_required'
         assert db.query(MultimodalEvidence).count() == 1
         evidence = db.query(MultimodalEvidence).one()
-        assert evidence.payload['business_date'] == '2026-06-19'
+        assert evidence.payload['business_date'] == '2025-06-19'
+        assert evidence.payload['business_date_status'] == 'command_explicit'
         assert evidence.payload['evidence_kind'] == 'fact'
         assert db.query(DailyReport).count() == 0
         assert db.query(AgentRun).count() == 0
         inbox = db.query(ChatInboxMessage).one()
         assert inbox.trace_id == 'trace-dingtalk-day1-fact-403-001'
+        assert inbox.source_payload['business_date'] == '2025-06-19'
+        assert inbox.source_payload['business_date_status'] == 'command_explicit'
     finally:
         _restore_db_override(previous_overrides, db)
 
@@ -1491,6 +1502,7 @@ def test_dingtalk_agent_inbound_day1_non_root_owner_dedupes_evidence_only_trace_
         'senderStaffId': 'dt-allowed-fact-dup-001',
         'senderUnionId': 'union-allowed-fact-dup-001',
         'text': {'content': '生成 6月19日正式日报，产量 32 吨'},
+        'createTime': '2026-06-20T08:30:00+08:00',
         'agentCode': 'factory_dispatch',
         'traceId': 'trace-dingtalk-day1-fact-403-dup-001',
     }
@@ -1543,6 +1555,7 @@ def test_dingtalk_agent_inbound_day1_disabled_dedupes_evidence_only_trace_id(mon
         'senderStaffId': 'dt-root-disabled-dup-001',
         'senderUnionId': 'union-root-disabled-dup-001',
         'text': {'content': '生成 6月19日正式日报，产量 32 吨'},
+        'createTime': '2026-06-20T08:30:00+08:00',
         'agentCode': 'factory_dispatch',
         'traceId': 'trace-dingtalk-day1-disabled-dup-001',
     }
@@ -2002,6 +2015,7 @@ def test_dingtalk_agent_inbound_sanitizes_chat_inbox_source_payload_download_sec
                 'senderStaffId': 'dt-root-secret-sanitize-001',
                 'senderUnionId': 'union-root-secret-sanitize-001',
                 'text': {'content': '生成 6月19日正式日报'},
+                'createTime': '2026-06-20T08:30:00+08:00',
                 'msgParam': json.dumps(
                     {
                         'downloadCode': 'download-chat-001',

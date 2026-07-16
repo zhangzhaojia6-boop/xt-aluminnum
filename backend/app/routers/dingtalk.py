@@ -54,7 +54,10 @@ from app.services.dingtalk_energy_ingest_service import (
 from app.services.dingtalk_file_text_extractor import extract_dingtalk_file_text
 from app.services.dingtalk_secret_sanitizer import sanitize_dingtalk_payload_for_storage
 from app.services.dingtalk_stream_event_service import normalize_dingtalk_stream_event
-from app.services.dingtalk_stream_gateway_service import ingest_dingtalk_stream_event
+from app.services.dingtalk_stream_gateway_service import (
+    ingest_dingtalk_stream_event,
+    parse_dingtalk_event_datetime,
+)
 from app.services.hermes_day1_evidence_service import Day1EvidenceError, record_day1_dingtalk_evidence
 from app.services.hermes_day1_intent_service import (
     Day1CommandParseError,
@@ -618,7 +621,10 @@ def _inbound_evidence_metadata(evidence: MultimodalEvidence | None) -> dict[str,
         'parse_status',
         'text_extract_detail',
     )
-    return {key: payload[key] for key in keys if payload.get(key) not in (None, '')}
+    metadata = {key: payload[key] for key in keys if payload.get(key) not in (None, '')}
+    if payload.get('business_date_status') == 'missing':
+        metadata['business_date'] = None
+    return metadata
 
 
 def _ensure_inbound_chat_inbox(
@@ -1123,7 +1129,12 @@ def dingtalk_agent_inbound(
     try:
         day1_command = None
         if not _is_legacy_slash_daily_report_command(text):
-            day1_command = parse_day1_command(text, default_year=datetime.now().year)
+            event_time = parse_dingtalk_event_datetime(normalize_dingtalk_stream_event(payload).event_time)
+            day1_command = parse_day1_command(
+                text,
+                default_year=event_time.year if event_time is not None else None,
+                reference_date=event_time.date() if event_time is not None else None,
+            )
     except Day1CommandParseError as exc:
         day1_parse_error = exc
         day1_command = None
@@ -1134,9 +1145,23 @@ def dingtalk_agent_inbound(
         trace_id=trace_id,
         source_transport=source_transport,
     )
+    if day1_command is not None:
+        command_date = day1_command.business_date.isoformat()
+        source_payload = {
+            **source_payload,
+            'business_date': command_date,
+            'business_date_status': 'command_explicit',
+        }
+        ingress_inbox.source_payload = {
+            **dict(ingress_inbox.source_payload or {}),
+            'business_date': command_date,
+            'business_date_status': 'command_explicit',
+        }
+        db.add(ingress_inbox)
     if evidence_duplicate is not None and day1_command is not None:
         duplicate_payload = dict(evidence_duplicate.payload or {})
-        duplicate_payload['business_date'] = day1_command.business_date.isoformat()
+        duplicate_payload['business_date'] = command_date
+        duplicate_payload['business_date_status'] = 'command_explicit'
         evidence_duplicate.payload = duplicate_payload
         db.add(evidence_duplicate)
     if evidence_duplicate is None:

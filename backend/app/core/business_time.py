@@ -53,6 +53,18 @@ def resolve_production_business_date(now: datetime | None = None, workshop_name:
     return current_local.date()
 
 
+def resolve_yearless_business_date(*, month: int, day: int, reference_date: date) -> date:
+    candidates: list[date] = []
+    for year in (reference_date.year, reference_date.year - 1):
+        try:
+            candidates.append(date(year, month, day))
+        except ValueError:
+            continue
+    if not candidates:
+        return date(reference_date.year, month, day)
+    return min(candidates, key=lambda candidate: abs((candidate - reference_date).days))
+
+
 def production_business_window(business_date: date, workshop_name: str | None = None) -> tuple[datetime, datetime]:
     timezone = ZoneInfo(settings.DEFAULT_TIMEZONE)
     start_at = datetime.combine(business_date, production_business_day_start(workshop_name), tzinfo=timezone)

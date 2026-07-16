@@ -64,7 +64,7 @@ def test_record_day1_dingtalk_evidence_records_text_fact_payload() -> None:
     try:
         evidence = service.record_day1_dingtalk_evidence(
             db,
-            payload={'msgtype': 'text'},
+            payload={'msgtype': 'text', 'business_date_status': 'payload_explicit'},
             actor=SimpleNamespace(id=23),
             business_date=date(2026, 6, 21),
             channel='group_chat',
@@ -86,6 +86,7 @@ def test_record_day1_dingtalk_evidence_records_text_fact_payload() -> None:
         assert evidence.payload['group_id'] == 'group-001'
         assert evidence.payload['trace_id'] == 'trace-001'
         assert evidence.payload['business_date'] == '2026-06-21'
+        assert evidence.payload['business_date_status'] == 'payload_explicit'
         assert evidence.payload['file_name'] is None
         assert evidence.payload['file_hash'] is None
         assert evidence.payload['parse_status'] == 'text_captured'

@@ -5,6 +5,7 @@ from app.core.business_time import (
     production_business_window,
     resolve_owner_daily_business_date,
     resolve_production_business_date,
+    resolve_yearless_business_date,
 )
 
 
@@ -38,3 +39,8 @@ def test_billet_business_window_is_24_hours_from_1000_anchor() -> None:
 
     assert start_at == datetime(2026, 6, 3, 10, 0, tzinfo=SHANGHAI)
     assert end_at == datetime(2026, 6, 4, 10, 0, tzinfo=SHANGHAI)
+
+
+def test_yearless_business_date_uses_nearest_legal_year_at_new_year() -> None:
+    assert resolve_yearless_business_date(month=12, day=31, reference_date=date(2026, 1, 1)) == date(2025, 12, 31)
+    assert resolve_yearless_business_date(month=1, day=2, reference_date=date(2026, 1, 1)) == date(2026, 1, 2)
