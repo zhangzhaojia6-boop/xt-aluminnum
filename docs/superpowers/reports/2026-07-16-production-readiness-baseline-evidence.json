@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "collected_at": "2026-07-16T13:38:30+08:00",
+  "datahub": {
+    "branch": "feat/production-readiness-closure-20260716",
+    "baseline_sha": "c3961c3852c3459fed98c3e15537189cb9eeb9eb",
+    "worktree": ".worktrees/production-readiness-closure-20260716"
+  },
+  "hermes": {
+    "baseline_sha": "7e99a11319721d7c7d4c14af17620f88f58d7144"
+  },
+  "local_checks": [
+    {
+      "name": "backend_focused_baseline",
+      "environment": "Windows isolated worktree",
+      "command": "uv run --with-requirements backend/requirements.txt --with pytest pytest -q backend/tests/test_business_time_contract.py backend/tests/test_sqlserver_mes_adapter.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_daily_fact_bundle_service.py backend/tests/test_hermes_root_owner_production_orchestrator.py backend/tests/test_hermes_20_question_runner.py",
+      "exit_code": 0,
+      "result": "176 passed, 9 warnings"
+    },
+    {
+      "name": "frontend_dependencies",
+      "environment": "Windows isolated worktree/frontend",
+      "command": "npm ci",
+      "exit_code": 0,
+      "result": "448 packages installed, 0 vulnerabilities"
+    },
+    {
+      "name": "frontend_unit_baseline",
+      "environment": "Windows isolated worktree/frontend",
+      "command": "npm test",
+      "exit_code": 0,
+      "result": "727 passed, 0 failed"
+    },
+    {
+      "name": "frontend_production_build",
+      "environment": "Windows isolated worktree/frontend",
+      "command": "npm run build",
+      "exit_code": 0,
+      "result": "build succeeded; one chunk-size warning retained for Phase 10"
+    }
+  ],
+  "production_checks": [
+    {
+      "name": "production_sync_status",
+      "environment": "production host through GitHub Actions SSH",
+      "run_id": 29468271590,
+      "url": "https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29468271590",
+      "workflow_file": ".github/workflows/production-sync-status.yml",
+      "invocation": "workflow_dispatch mode=status; execute the workflow embedded remote bash status collector through controlled SSH",
+      "head_sha": "c3961c3852c3459fed98c3e15537189cb9eeb9eb",
+      "exit_code": 0,
+      "conclusion": "success",
+      "observed": "datahub and Hermes SHAs, clean tracked states, three active services, readyz details, MES sync, versionz, Hermes Stream connected"
+    },
+    {
+      "name": "dingtalk_stream_configuration",
+      "environment": "production host through GitHub Actions SSH",
+      "run_id": 29468904272,
+      "url": "https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29468904272",
+      "workflow_file": ".github/workflows/configure-dingtalk-stream-prod.yml",
+      "invocation": "workflow_dispatch mode=status; execute the workflow embedded remote DingTalk status collector through controlled SSH",
+      "head_sha": "c3961c3852c3459fed98c3e15537189cb9eeb9eb",
+      "exit_code": 0,
+      "conclusion": "success"
+    },
+    {
+      "name": "hermes_20_question_acceptance",
+      "environment": "production",
+      "run_id": 29450363271,
+      "url": "https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29450363271",
+      "workflow_file": ".github/workflows/hermes-acceptance-prod.yml",
+      "invocation": "workflow_dispatch confirm=hermes-20q business_date=2026-07-13; run the embedded production 20-question acceptance through controlled SSH",
+      "artifact": "hermes-20q-production-29450363271",
+      "exit_code": 1,
+      "conclusion": "failure",
+      "result": "core 12/20; delivery 20/20"
+    },
+    {
+      "name": "daily_report_compare_only_alignment",
+      "environment": "production",
+      "run_id": 29450406503,
+      "url": "https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29450406503",
+      "workflow_file": ".github/workflows/daily-report-alignment-prod.yml",
+      "invocation": "workflow_dispatch days=3 end_date=2026-07-13; remote command python scripts/check_daily_report_output_skill_alignment.py --recent-business-days 3 --end-business-date 2026-07-13 --reference-mode compare",
+      "artifact": "daily-report-alignment-production-29450406503",
+      "exit_code": 1,
+      "conclusion": "failure",
+      "result": "2026-07-11 11/127; 2026-07-12 8/127; 2026-07-13 7/120; all real-source gates failed"
+    }
+  ],
+  "denominator_contract": {
+    "canonical_fields": 127,
+    "reference_absent_on_2026_07_13": [
+      "daily_contract_weight",
+      "daily_hot_roll_contract_weight",
+      "cold_roll_input_daily",
+      "cold_2050_input_daily",
+      "cold_1850_input_daily",
+      "medium_plate_input_daily",
+      "remaining_contract_weight"
+    ],
+    "rule": "Only explicitly declared N/A fields may be removed from the daily denominator. Omitted reference fields remain blocking reference_absent fields."
+  }
+}
