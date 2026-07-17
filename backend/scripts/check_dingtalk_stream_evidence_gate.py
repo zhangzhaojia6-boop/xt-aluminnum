@@ -19,7 +19,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.core.active_workshops import is_active_production_workshop_name  # noqa: E402
-from app.database import SessionLocal  # noqa: E402
+from app.database import get_sessionmaker  # noqa: E402
 from app.models.agent_communication import (  # noqa: E402
     ChatInboxMessage,
     DingTalkInboundReceipt,
@@ -441,7 +441,7 @@ def _parse_since(value: str) -> datetime:
 def main(
     argv: list[str] | None = None,
     *,
-    session_factory: Callable[[], Session] = SessionLocal,
+    session_factory: Callable[[], Session] | None = None,
 ) -> int:
     parser = argparse.ArgumentParser(description='Check persisted DingTalk Stream acceptance evidence.')
     parser.add_argument('--marker', required=True)
@@ -459,7 +459,8 @@ def main(
     except ValueError:
         parser.error('--since must be an ISO-8601 datetime')
 
-    with session_factory() as db:
+    resolved_session_factory = session_factory or get_sessionmaker()
+    with resolved_session_factory() as db:
         payload = inspect_dingtalk_stream_evidence_gate(
             db,
             marker=args.marker,

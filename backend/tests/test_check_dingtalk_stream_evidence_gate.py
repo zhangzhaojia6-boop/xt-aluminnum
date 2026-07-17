@@ -401,3 +401,37 @@ def test_gate_main_writes_sanitized_json_and_returns_nonzero_on_failure(tmp_path
     assert 'LEDGER_CALLBACK_MISSING' in stdout
     assert marker not in stdout
     assert marker not in written
+
+
+def test_gate_main_resolves_default_session_factory_lazily(tmp_path: Path, monkeypatch) -> None:
+    module = _load_script_module()
+    marker = 'XT-ACCEPT-CLI-DEFAULT-SESSION'
+    db = _session()
+    ledger, u1, u2, _ = _seed_valid_acceptance(db, marker=marker)
+    engine = db.get_bind()
+    db.close()
+    ledger_path = tmp_path / 'ledger.json'
+    ledger_path.write_text(json.dumps({'entries': ledger}), encoding='utf-8')
+    output_path = tmp_path / 'gate.json'
+    SessionFactory = sessionmaker(bind=engine)
+    monkeypatch.setattr(module, 'get_sessionmaker', lambda: SessionFactory, raising=False)
+
+    exit_code = module.main(
+        [
+            '--marker',
+            marker,
+            '--since',
+            '2026-07-01T00:00:00+00:00',
+            '--hermes-ledger',
+            str(ledger_path),
+            '--expected-u1-sha256',
+            u1,
+            '--expected-u2-sha256',
+            u2,
+            '--output-json',
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    assert json.loads(output_path.read_text(encoding='utf-8'))['status'] == 'PASS'
