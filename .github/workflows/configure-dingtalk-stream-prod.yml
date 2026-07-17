@@ -639,6 +639,7 @@ jobs:
             local gate_output=""
             local gate_rc=0
             local gate_json_rc=0
+            local raw_database_url=""
             local ledger_source="$HERMES_HOME/gateway/xintai_callback_proof_ledger.json"
 
             cleanup_acceptance_gate() {
@@ -652,8 +653,10 @@ jobs:
             ledger_copy="$temp_dir/xintai_callback_proof_ledger.json"
             gate_output="$temp_dir/gate-output.json"
             install -m 600 "$ledger_source" "$ledger_copy"
+            raw_database_url="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"
+            [ -n "$raw_database_url" ] || return 69
 
-            if "$DATAHUB_REPO/backend/.venv/bin/python" \
+            if DATABASE_URL="$raw_database_url" "$DATAHUB_REPO/backend/.venv/bin/python" \
               "$DATAHUB_REPO/backend/scripts/check_dingtalk_stream_evidence_gate.py" \
               --marker "$acceptance_marker" \
               --min-text "$min_text" \
@@ -668,7 +671,10 @@ jobs:
               gate_rc=$?
             fi
 
-            if python3 - "$phase" "$gate_output" <<'PY'
+            if [ ! -s "$gate_output" ]; then
+              echo "ACCEPTANCE_GATE_OUTPUT=missing"
+              gate_json_rc=69
+            elif python3 - "$phase" "$gate_output" <<'PY'
           import json
           from pathlib import Path
           import sys

@@ -1117,8 +1117,12 @@ def test_configure_dingtalk_stream_prod_scoped_gate_scan_and_replay_contracts() 
     assert '--since "$acceptance_since"' in gate_body
     assert '--expected-u1-sha256 "$expected_u1_sha256"' in gate_body
     assert '--expected-u2-sha256 "$expected_u2_sha256"' in gate_body
-    assert 'if "$DATAHUB_REPO/backend/.venv/bin/python"' in gate_body
+    assert 'raw_database_url="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"' in gate_body
+    assert '[ -n "$raw_database_url" ]' in gate_body
+    assert 'if DATABASE_URL="$raw_database_url" "$DATAHUB_REPO/backend/.venv/bin/python"' in gate_body
     assert 'else' in gate_body and 'gate_rc=$?' in gate_body
+    assert 'if [ ! -s "$gate_output" ]; then' in gate_body
+    assert 'ACCEPTANCE_GATE_OUTPUT=missing' in gate_body
     assert 'rm -rf "$temp_dir"' in gate_body
     assert 'subprocess.run(' in secret_scan_body
     assert "'journalctl'," in secret_scan_body or '"journalctl",' in secret_scan_body
@@ -1320,6 +1324,7 @@ def test_configure_dingtalk_run_acceptance_gate_preserves_exit_code_and_cleans_t
                     f'MARKER_PATH="{marker_path.as_posix()}"',
                     f'TEMP_DIR="{temp_dir.as_posix()}"',
                     'DATAHUB_REPO="$PWD/repo-datahub"',
+                    'DATAHUB_ENV_FILE="$PWD/datahub.env"',
                     'HERMES_HOME="$PWD/repo-hermes"',
                     'acceptance_marker=XT-P1-acceptance',
                     'acceptance_since=2026-07-16T08:00:00+08:00',
@@ -1341,6 +1346,7 @@ def test_configure_dingtalk_run_acceptance_gate_preserves_exit_code_and_cleans_t
                     '}',
                     'chmod() { echo "chmod:$*" >> "$MARKER_PATH"; }',
                     'install() { echo "install:$*" >> "$MARKER_PATH"; cp "$3" "$4"; }',
+                    'read_env_value() { printf "%s\\n" "postgresql+psycopg2://test:test@localhost/test"; }',
                     'python3() { echo "python3:$*" >> "$MARKER_PATH"; return 0; }',
                     'rm() {',
                     '  echo "rm:$*" >> "$MARKER_PATH"',
