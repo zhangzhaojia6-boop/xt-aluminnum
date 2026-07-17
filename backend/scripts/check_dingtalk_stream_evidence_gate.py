@@ -45,6 +45,7 @@ LEDGER_ENTRY_FIELDS = {
 IMAGE_SUFFIXES = {'.bmp', '.gif', '.jpeg', '.jpg', '.png', '.webp'}
 TERMINAL_RECEIPT_STATUSES = {'completed', 'completed_evidence'}
 SHA256_RE = re.compile(r'^[0-9a-f]{64}$')
+LEADING_DINGTALK_MENTION_RE = re.compile(r'^(?:@\S+[ \t\u3000]+)+')
 
 
 def _clean(value: Any) -> str:
@@ -56,7 +57,9 @@ def _sha256(value: str) -> str:
 
 
 def normalized_text_sha256(value: str) -> str:
-    normalized = ' '.join(unicodedata.normalize('NFKC', str(value or '')).strip().split())
+    normalized = unicodedata.normalize('NFKC', str(value or '')).strip()
+    normalized = LEADING_DINGTALK_MENTION_RE.sub('', normalized)
+    normalized = ' '.join(normalized.split())
     return _sha256(normalized)
 
 
@@ -239,6 +242,7 @@ def inspect_dingtalk_stream_evidence_gate(
     candidate_evidence: list[MultimodalEvidence] = []
     correlated_trace_count = 0
     ledger_callback_count = 0
+    event_time_fallback_traces: set[str] = set()
     for trace_id in sorted(marker_traces):
         receipts = receipts_by_trace.get(trace_id, [])
         inboxes = inbox_by_trace.get(trace_id, [])
@@ -283,7 +287,16 @@ def inspect_dingtalk_stream_evidence_gate(
                 if normalized_text_sha256(evidence_payload.get('message_text')) != normalized_text_sha256(inbox.text):
                     _increment(blockers, 'TRACE_TEXT_MISMATCH')
                     correlation_valid = False
-            event_time = _parse_iso_datetime(evidence_payload.get('dingtalk_message_time'))
+            raw_event_time = _clean(evidence_payload.get('dingtalk_message_time'))
+            event_time = _parse_iso_datetime(raw_event_time)
+            if event_time is None and not raw_event_time:
+                received_time = _parse_iso_datetime(evidence_payload.get('dingtalk_received_at'))
+                if received_time is not None:
+                    event_time = received_time
+                    event_time_fallback_traces.add(trace_id)
+                elif isinstance(receipt.created_at, datetime):
+                    event_time = receipt.created_at
+                    event_time_fallback_traces.add(trace_id)
             if event_time is None:
                 _increment(blockers, 'EVENT_TIME_MISSING')
                 correlation_valid = False
@@ -363,7 +376,10 @@ def inspect_dingtalk_stream_evidence_gate(
         )
         if not conversation_id:
             _increment(blockers, 'FILE_CONVERSATION_MISSING')
-        if not _clean(payload.get('dingtalk_message_time')):
+        if (
+            not _clean(payload.get('dingtalk_message_time'))
+            and _clean(payload.get('trace_id')) not in event_time_fallback_traces
+        ):
             _increment(blockers, 'FILE_EVENT_TIME_MISSING')
 
         parse_status = _clean(payload.get('parse_status'))
@@ -427,6 +443,7 @@ def inspect_dingtalk_stream_evidence_gate(
             'private_trace_count': private_trace_count,
             'normalization_u1_match_count': int(expected_u1 in text_hashes),
             'normalization_u2_match_count': int(expected_u2 in text_hashes),
+            'event_time_fallback_count': len(event_time_fallback_traces),
         },
     }
 

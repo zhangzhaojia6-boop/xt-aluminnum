@@ -1000,6 +1000,8 @@ def dingtalk_agent_inbound(
     )
     if auth_nonce is not None:
         _consume_inbound_nonce(db, kind=auth_kind, nonce=auth_nonce)
+    if not _clean_text(_first_payload_value(payload, 'receivedAt', 'received_at')):
+        payload = {**payload, 'receivedAt': datetime.now(timezone.utc).isoformat()}
     group_id = _clean_text(_first_payload_value(payload, 'conversationId', 'conversation_id', 'chatId', 'openConversationId'))
     channel = _resolve_inbound_channel_type(payload, group_id=group_id)
     trace_id = _resolve_inbound_trace_id(payload)

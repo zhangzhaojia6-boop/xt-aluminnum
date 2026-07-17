@@ -383,6 +383,8 @@ def test_dingtalk_agent_inbound_records_file_only_evidence_without_running_agent
         assert evidence.payload['business_date'] is None
         assert evidence.payload['business_date_status'] == 'missing'
         assert evidence.payload['energy_ingest']['status'] == 'skipped'
+        assert datetime.fromisoformat(evidence.payload['dingtalk_received_at']).tzinfo is not None
+        assert inbox.source_payload['receivedAt'] == evidence.payload['dingtalk_received_at']
     finally:
         _restore_db_override(previous_overrides, db)
 

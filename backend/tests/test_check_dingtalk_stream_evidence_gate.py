@@ -313,6 +313,52 @@ def test_gate_blocks_old_event_and_callback_replayed_after_since() -> None:
         db.close()
 
 
+def test_gate_uses_persisted_receipt_time_when_callback_has_no_message_time() -> None:
+    module = _load_script_module()
+    marker = 'XT-ACCEPT-RECEIVED-TIME-MARKER'
+    db = _session()
+    try:
+        ledger, u1, u2, _ = _seed_valid_acceptance(db, marker=marker)
+        for evidence in db.query(MultimodalEvidence).all():
+            evidence.payload = {
+                key: value
+                for key, value in evidence.payload.items()
+                if key not in {'dingtalk_message_time', 'dingtalk_received_at'}
+            }
+        db.commit()
+
+        payload = _inspect(module, db, marker=marker, ledger=ledger, u1=u1, u2=u2)
+
+        assert payload['status'] == 'PASS'
+        assert payload['counts']['event_time_fallback_count'] == 15
+    finally:
+        db.close()
+
+
+def test_gate_ignores_only_leading_dingtalk_mentions_for_normalization_hashes() -> None:
+    module = _load_script_module()
+    marker = 'XT-ACCEPT-MENTION-MARKER'
+    db = _session()
+    try:
+        ledger, u1, u2, _ = _seed_valid_acceptance(db, marker=marker)
+        inboxes = db.query(ChatInboxMessage).order_by(ChatInboxMessage.id.asc()).limit(2).all()
+        evidences = db.query(MultimodalEvidence).order_by(MultimodalEvidence.id.asc()).limit(2).all()
+        for inbox, evidence in zip(inboxes, evidences, strict=True):
+            mentioned = f'@鑫泰hermes  {inbox.text}'
+            inbox.text = mentioned
+            evidence.recognized_text = mentioned
+            evidence.payload = {**evidence.payload, 'message_text': mentioned}
+        db.commit()
+
+        payload = _inspect(module, db, marker=marker, ledger=ledger, u1=u1, u2=u2)
+
+        assert payload['status'] == 'PASS'
+        assert payload['counts']['normalization_u1_match_count'] == 1
+        assert payload['counts']['normalization_u2_match_count'] == 1
+    finally:
+        db.close()
+
+
 def test_gate_blocks_cross_table_rows_that_only_share_trace_id() -> None:
     module = _load_script_module()
     marker = 'XT-ACCEPT-CORRELATION-MARKER'
