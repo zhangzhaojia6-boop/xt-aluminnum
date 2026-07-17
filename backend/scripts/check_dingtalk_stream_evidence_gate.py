@@ -129,6 +129,19 @@ def _parse_iso_datetime(value: Any) -> datetime | None:
     return parsed
 
 
+def _parse_dingtalk_message_time(value: Any) -> datetime | None:
+    raw_value = _clean(value)
+    parsed = _parse_iso_datetime(raw_value)
+    if parsed is not None:
+        return parsed
+    if re.fullmatch(r'\d{13}', raw_value) is None:
+        return None
+    try:
+        return datetime.fromtimestamp(int(raw_value) / 1000, tz=timezone.utc)
+    except (OSError, OverflowError, ValueError):
+        return None
+
+
 def _ledger_message_kind(value: Any) -> str:
     compact = re.sub(r'[^a-z0-9]', '', _clean(value).lower())
     if compact in {'file', 'image', 'picture', 'photo', 'attachment'}:
@@ -288,7 +301,7 @@ def inspect_dingtalk_stream_evidence_gate(
                     _increment(blockers, 'TRACE_TEXT_MISMATCH')
                     correlation_valid = False
             raw_event_time = _clean(evidence_payload.get('dingtalk_message_time'))
-            event_time = _parse_iso_datetime(raw_event_time)
+            event_time = _parse_dingtalk_message_time(raw_event_time)
             if event_time is None and not raw_event_time:
                 received_time = _parse_iso_datetime(evidence_payload.get('dingtalk_received_at'))
                 if received_time is not None:

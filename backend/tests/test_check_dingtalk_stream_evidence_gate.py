@@ -335,6 +335,26 @@ def test_gate_uses_persisted_receipt_time_when_callback_has_no_message_time() ->
         db.close()
 
 
+def test_gate_accepts_dingtalk_millisecond_message_time() -> None:
+    module = _load_script_module()
+    marker = 'XT-ACCEPT-MILLISECOND-TIME-MARKER'
+    db = _session()
+    try:
+        ledger, u1, u2, _ = _seed_valid_acceptance(db, marker=marker)
+        for evidence in db.query(MultimodalEvidence).all():
+            payload = dict(evidence.payload)
+            payload['dingtalk_message_time'] = '1784276334692'
+            evidence.payload = payload
+        db.commit()
+
+        payload = _inspect(module, db, marker=marker, ledger=ledger, u1=u1, u2=u2)
+
+        assert payload['status'] == 'PASS'
+        assert payload['counts']['event_time_fallback_count'] == 0
+    finally:
+        db.close()
+
+
 def test_gate_ignores_only_leading_dingtalk_mentions_for_normalization_hashes() -> None:
     module = _load_script_module()
     marker = 'XT-ACCEPT-MENTION-MARKER'
