@@ -33,7 +33,7 @@ from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnap
 from app.models.production import MobileShiftReport, WorkOrderEntry
 from app.models.reports import DailyReport, DailyReportHistoryRecord
 from app.services import energy_service
-from app.services.report import template_daily_fact_sources, template_daily_report
+from app.services.report import daily_overview_builder, template_daily_fact_sources, template_daily_report
 from app.services.report.daily_fact_bundle import build_daily_fact_bundle
 from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 
@@ -601,7 +601,13 @@ def _manual_entry_source_diagnostics(db: Any, business_date: date) -> dict[str, 
         "owner_daily_recognized_field_count": 0,
         "mobile_coil_rows": 0,
         "mobile_coil_rows_with_output_weight": 0,
+        "mobile_coil_rows_with_verified_output_weight": 0,
         "mobile_coil_rows_with_energy": 0,
+        "mobile_coil_raw_output_weight_tons": 0.0,
+        "mobile_coil_preferred_output_weight_tons": 0.0,
+        "mobile_coil_latest_work_order_day_rows": 0,
+        "mobile_coil_latest_raw_output_weight_tons": 0.0,
+        "mobile_coil_latest_preferred_output_weight_tons": 0.0,
         "mobile_shift_rows": 0,
         "mobile_shift_rows_with_output_weight": 0,
         "mobile_shift_rows_with_electricity": 0,
@@ -610,12 +616,7 @@ def _manual_entry_source_diagnostics(db: Any, business_date: date) -> dict[str, 
     try:
         if work_order_table_exists:
             entries = (
-                db.query(
-                    WorkOrderEntry.entry_type,
-                    WorkOrderEntry.extra_payload,
-                    WorkOrderEntry.output_weight,
-                    WorkOrderEntry.energy_kwh,
-                )
+                db.query(WorkOrderEntry)
                 .filter(
                     WorkOrderEntry.business_date == business_date,
                     WorkOrderEntry.entry_status.in_(SUBMITTED_ENTRY_STATUSES),
@@ -634,10 +635,29 @@ def _manual_entry_source_diagnostics(db: Any, business_date: date) -> dict[str, 
                 if entry_type == "mobile_coil":
                     result["mobile_coil_rows"] += 1
                     result["mobile_coil_rows_with_output_weight"] += int(_has_value(entry.output_weight))
+                    result["mobile_coil_rows_with_verified_output_weight"] += int(
+                        _has_value(entry.verified_output_weight)
+                    )
                     result["mobile_coil_rows_with_energy"] += int(_has_value(entry.energy_kwh))
             result["rows_by_entry_type"] = dict(sorted(rows_by_entry_type.items()))
             result["owner_daily_recognized_fields"] = sorted(owner_fields)
             result["owner_daily_recognized_field_count"] = len(owner_fields)
+            mobile_rows = [row for row in entries if str(row.entry_type or "") == "mobile_coil"]
+            result["mobile_coil_raw_output_weight_tons"] = _entry_output_total_tons(mobile_rows, preferred=False)
+            result["mobile_coil_preferred_output_weight_tons"] = _entry_output_total_tons(
+                mobile_rows,
+                preferred=True,
+            )
+            latest_rows = _latest_mobile_coil_rows_for_diagnostics(db, business_date)
+            result["mobile_coil_latest_work_order_day_rows"] = len(latest_rows)
+            result["mobile_coil_latest_raw_output_weight_tons"] = _entry_output_total_tons(
+                latest_rows,
+                preferred=False,
+            )
+            result["mobile_coil_latest_preferred_output_weight_tons"] = _entry_output_total_tons(
+                latest_rows,
+                preferred=True,
+            )
 
         if mobile_shift_table_exists:
             shift_rows = (
@@ -685,6 +705,41 @@ def _recognized_owner_daily_fields(payload: Any) -> set[str]:
 
 def _has_value(value: Any) -> bool:
     return value is not None and value != ""
+
+
+def _latest_mobile_coil_rows_for_diagnostics(db: Any, business_date: date) -> list[WorkOrderEntry]:
+    rows = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_status.in_(tuple(daily_overview_builder.SUBMITTED_STATUSES)),
+            WorkOrderEntry.entry_type == "mobile_coil",
+            or_(
+                WorkOrderEntry.output_weight.is_not(None),
+                WorkOrderEntry.verified_output_weight.is_not(None),
+            ),
+        )
+        .all()
+    )
+    latest: dict[tuple[date, int], WorkOrderEntry] = {}
+    for row in rows:
+        if row.work_order_id is None or row.business_date is None:
+            continue
+        key = (row.business_date, int(row.work_order_id))
+        current = latest.get(key)
+        if current is None or daily_overview_builder._entry_sort_key(row) >= daily_overview_builder._entry_sort_key(current):
+            latest[key] = row
+    return list(latest.values())
+
+
+def _entry_output_total_tons(rows: Sequence[Any], *, preferred: bool) -> float:
+    total_kg = 0.0
+    for row in rows:
+        value = row.output_weight
+        if preferred and _has_value(getattr(row, "verified_output_weight", None)):
+            value = row.verified_output_weight
+        total_kg += _safe_float(value)
+    return round(total_kg / 1000, 3)
 
 
 def _wip_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
@@ -863,6 +918,11 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
         "confirmed_file_payload_rows_in_business_window": len(confirmed_file_rows),
         "parseable_file_payload_rows": parseable_confirmed_files,
         "parseable_file_payload_rows_in_business_window": parseable_confirmed_files,
+        "file_diagnostics": {
+            "all": _dingtalk_file_shape_summary(file_rows),
+            "confirmed": _dingtalk_file_shape_summary(confirmed_file_rows),
+            "machine_only": _dingtalk_file_shape_summary(machine_file_rows),
+        },
     }
 
 
@@ -884,6 +944,47 @@ def _parseable_dingtalk_file_count(rows: Sequence[Any]) -> int:
     return count
 
 
+def _dingtalk_file_shape_summary(rows: Sequence[Any]) -> dict[str, Any]:
+    suffix_counts: dict[str, int] = {}
+    parse_status_counts: dict[str, int] = {}
+    download_status_counts: dict[str, int] = {}
+    field_count_buckets = {"0": 0, "1_2": 0, "3_plus": 0}
+    rows_with_text = 0
+    max_parseable_fields = 0
+
+    for row in rows:
+        payload = row.payload if isinstance(row.payload, dict) else {}
+        file_name = str(payload.get("file_name") or payload.get("fileName") or "").strip()
+        suffix = Path(file_name).suffix.lower() or "<missing>"
+        parse_status = str(payload.get("parse_status") or "<missing>").strip().lower()
+        download_status = str(payload.get("download_status") or "<missing>").strip().lower()
+        suffix_counts[suffix] = suffix_counts.get(suffix, 0) + 1
+        parse_status_counts[parse_status] = parse_status_counts.get(parse_status, 0) + 1
+        download_status_counts[download_status] = download_status_counts.get(download_status, 0) + 1
+
+        if _dingtalk_payload_text(row):
+            rows_with_text += 1
+        parseable_fields = _parseable_field_count(_dingtalk_evidence_text(row))
+        max_parseable_fields = max(max_parseable_fields, parseable_fields)
+        if parseable_fields == 0:
+            field_count_buckets["0"] += 1
+        elif parseable_fields < MIN_DINGTALK_PARSEABLE_FIELDS:
+            field_count_buckets["1_2"] += 1
+        else:
+            field_count_buckets["3_plus"] += 1
+
+    return {
+        "row_count": len(rows),
+        "file_suffix_counts": dict(sorted(suffix_counts.items())),
+        "parse_status_counts": dict(sorted(parse_status_counts.items())),
+        "download_status_counts": dict(sorted(download_status_counts.items())),
+        "rows_with_extracted_payload_text": rows_with_text,
+        "rows_without_extracted_payload_text": len(rows) - rows_with_text,
+        "parseable_field_count_buckets": field_count_buckets,
+        "max_parseable_fields": max_parseable_fields,
+    }
+
+
 MIN_DINGTALK_PARSEABLE_FIELDS = 3
 
 
@@ -891,6 +992,14 @@ def _dingtalk_evidence_text(row: Any) -> str:
     parts: list[str] = []
     seen: set[str] = set()
     _append_dingtalk_text_part(row.recognized_text, parts=parts, seen=seen)
+    payload = row.payload if isinstance(row.payload, dict) else {}
+    _collect_dingtalk_payload_text(payload, parts=parts, seen=seen)
+    return "\n".join(parts)
+
+
+def _dingtalk_payload_text(row: Any) -> str:
+    parts: list[str] = []
+    seen: set[str] = set()
     payload = row.payload if isinstance(row.payload, dict) else {}
     _collect_dingtalk_payload_text(payload, parts=parts, seen=seen)
     return "\n".join(parts)

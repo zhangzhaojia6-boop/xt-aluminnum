@@ -585,7 +585,29 @@ def test_source_diagnostics_reports_known_manual_entry_coverage_without_raw_payl
                     entry_type="mobile_coil",
                     entry_status="verified",
                     output_weight=12000,
+                    verified_output_weight=11800,
                     energy_kwh=500,
+                    submitted_at=datetime(2026, 6, 29, 9, 0),
+                ),
+                script.WorkOrderEntry(
+                    work_order_id=3,
+                    workshop_id=2,
+                    business_date=business_date,
+                    entry_type="mobile_coil",
+                    entry_status="approved",
+                    output_weight=13000,
+                    verified_output_weight=12500,
+                    submitted_at=datetime(2026, 6, 29, 10, 0),
+                ),
+                script.WorkOrderEntry(
+                    work_order_id=3,
+                    workshop_id=2,
+                    business_date=business_date,
+                    entry_type="mobile_coil",
+                    entry_status="approved",
+                    output_weight=None,
+                    verified_output_weight=14000,
+                    submitted_at=datetime(2026, 6, 29, 11, 0),
                 ),
                 script.MobileShiftReport(
                     business_date=business_date,
@@ -606,19 +628,87 @@ def test_source_diagnostics_reports_known_manual_entry_coverage_without_raw_payl
 
     manual = diagnostics["manual_entries"]
     assert manual["status"] == "ready"
-    assert manual["submitted_rows"] == 2
-    assert manual["rows_by_entry_type"] == {"mobile_coil": 1, "owner_daily": 1}
+    assert manual["submitted_rows"] == 4
+    assert manual["rows_by_entry_type"] == {"mobile_coil": 3, "owner_daily": 1}
     assert manual["owner_daily_rows"] == 1
     assert manual["owner_daily_recognized_fields"] == ["cold_1650_daily", "cold_roll_input_daily"]
     assert manual["owner_daily_recognized_field_count"] == 2
     assert "private_note" not in json.dumps(manual)
-    assert manual["mobile_coil_rows"] == 1
-    assert manual["mobile_coil_rows_with_output_weight"] == 1
+    assert manual["mobile_coil_rows"] == 3
+    assert manual["mobile_coil_rows_with_output_weight"] == 2
+    assert manual["mobile_coil_rows_with_verified_output_weight"] == 3
     assert manual["mobile_coil_rows_with_energy"] == 1
+    assert manual["mobile_coil_raw_output_weight_tons"] == 25
+    assert manual["mobile_coil_preferred_output_weight_tons"] == 38.3
+    assert manual["mobile_coil_latest_work_order_day_rows"] == 1
+    assert manual["mobile_coil_latest_raw_output_weight_tons"] == 0
+    assert manual["mobile_coil_latest_preferred_output_weight_tons"] == 14
     assert manual["mobile_shift_rows"] == 1
     assert manual["mobile_shift_rows_with_output_weight"] == 1
     assert manual["mobile_shift_rows_with_electricity"] == 1
     assert manual["mobile_shift_rows_with_gas"] == 1
+
+
+def test_latest_mobile_coil_diagnostics_matches_production_status_and_dedup_semantics(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'alignment-mobile-coil-latest.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[script.WorkOrderEntry.__table__])
+    Session = sessionmaker(bind=engine, future=True)
+    db = Session()
+    business_date = date(2026, 6, 29)
+    try:
+        db.add_all(
+            [
+                script.WorkOrderEntry(
+                    work_order_id=1,
+                    workshop_id=1,
+                    business_date=business_date,
+                    entry_type="mobile_coil",
+                    entry_status="submitted",
+                    output_weight=10000,
+                    submitted_at=datetime(2026, 6, 29, 9, 0),
+                ),
+                script.WorkOrderEntry(
+                    work_order_id=1,
+                    workshop_id=1,
+                    business_date=business_date,
+                    entry_type="mobile_coil",
+                    entry_status="approved",
+                    output_weight=None,
+                    verified_output_weight=12000,
+                    submitted_at=datetime(2026, 6, 29, 10, 0),
+                ),
+                script.WorkOrderEntry(
+                    work_order_id=2,
+                    workshop_id=2,
+                    business_date=business_date,
+                    entry_type="mobile_coil",
+                    entry_status="auto_confirmed",
+                    output_weight=7000,
+                    verified_output_weight=6800,
+                    submitted_at=datetime(2026, 6, 29, 11, 0),
+                ),
+                script.WorkOrderEntry(
+                    work_order_id=3,
+                    workshop_id=3,
+                    business_date=business_date,
+                    entry_type="mobile_coil",
+                    entry_status="verified",
+                    output_weight=9000,
+                    verified_output_weight=8800,
+                    submitted_at=datetime(2026, 6, 29, 12, 0),
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = script._latest_mobile_coil_rows_for_diagnostics(db, business_date)
+    finally:
+        db.close()
+
+    assert sorted(row.work_order_id for row in rows) == [1, 2]
+    assert {row.work_order_id: row.entry_status for row in rows} == {1: "approved", 2: "auto_confirmed"}
+    assert script._entry_output_total_tons(rows, preferred=False) == 7
+    assert script._entry_output_total_tons(rows, preferred=True) == 18.8
 
 
 def test_source_diagnostics_reports_datahub_final_report_parseability(tmp_path) -> None:
@@ -706,6 +796,8 @@ def test_source_diagnostics_reports_parseable_dingtalk_file_payloads(tmp_path) -
                 payload={
                     "source": "dingtalk",
                     "file_name": "6月29日生产日报.xlsx",
+                    "parse_status": "text_captured",
+                    "download_status": "downloaded",
                     "attachments": [
                         {
                             "parsed_text": (
@@ -729,6 +821,8 @@ def test_source_diagnostics_reports_parseable_dingtalk_file_payloads(tmp_path) -
                 payload={
                     "source": "dingtalk",
                     "file_name": "6月29日机器采样日报.txt",
+                    "parse_status": "text_captured",
+                    "download_status": "downloaded",
                     "file_text": (
                         "6月29日生产日报\n"
                         "车间总产量日合计100吨。\n"
@@ -774,7 +868,43 @@ def test_source_diagnostics_reports_parseable_dingtalk_file_payloads(tmp_path) -
     assert dingtalk["confirmed_file_payload_rows_in_business_window"] == 1
     assert dingtalk["parseable_file_payload_rows"] == 1
     assert dingtalk["parseable_file_payload_rows_in_business_window"] == 1
+    assert dingtalk["file_diagnostics"] == {
+        "all": {
+            "row_count": 2,
+            "file_suffix_counts": {".txt": 1, ".xlsx": 1},
+            "parse_status_counts": {"text_captured": 2},
+            "download_status_counts": {"downloaded": 2},
+            "rows_with_extracted_payload_text": 2,
+            "rows_without_extracted_payload_text": 0,
+            "parseable_field_count_buckets": {"0": 0, "1_2": 0, "3_plus": 2},
+            "max_parseable_fields": 4,
+        },
+        "confirmed": {
+            "row_count": 1,
+            "file_suffix_counts": {".xlsx": 1},
+            "parse_status_counts": {"text_captured": 1},
+            "download_status_counts": {"downloaded": 1},
+            "rows_with_extracted_payload_text": 1,
+            "rows_without_extracted_payload_text": 0,
+            "parseable_field_count_buckets": {"0": 0, "1_2": 0, "3_plus": 1},
+            "max_parseable_fields": 4,
+        },
+        "machine_only": {
+            "row_count": 1,
+            "file_suffix_counts": {".txt": 1},
+            "parse_status_counts": {"text_captured": 1},
+            "download_status_counts": {"downloaded": 1},
+            "rows_with_extracted_payload_text": 1,
+            "rows_without_extracted_payload_text": 0,
+            "parseable_field_count_buckets": {"0": 0, "1_2": 0, "3_plus": 1},
+            "max_parseable_fields": 4,
+        },
+    }
     assert "all_file_payload_rows" not in dingtalk
+    serialized = json.dumps(dingtalk, ensure_ascii=False)
+    assert "车间总产量" not in serialized
+    assert "6月29日生产日报.xlsx" not in serialized
+    assert "dingtalk://media" not in serialized
 
 
 def test_energy_source_diagnostics_groups_rows_by_source(monkeypatch) -> None:
