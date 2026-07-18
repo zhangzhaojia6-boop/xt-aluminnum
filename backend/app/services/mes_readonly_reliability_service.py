@@ -13,10 +13,10 @@ from app.adapters.sqlserver_mes_adapter import (
     audit_sqlserver_readonly_contract,
     classify_sqlserver_failure,
 )
-from app.core.business_time import production_business_window
+from app.core.business_time import local_now, production_business_window, resolve_production_business_date
 from app.core.redaction import redact_secret_text
 from app.models.mes import MesMaterialRecord, MesStockRecord, MesSyncRunLog, MesWorkshopProcessRecord
-from app.services.mes_sync_service import SYNC_CURSOR_KEY, latest_sync_status
+from app.services.mes_sync_service import SYNC_CURSOR_KEY, _run_with_adapter_retries, latest_sync_status
 
 
 _PROJECTION_SOURCES: dict[str, tuple[type, tuple[str, ...]]] = {
@@ -25,6 +25,12 @@ _PROJECTION_SOURCES: dict[str, tuple[type, tuple[str, ...]]] = {
     'finished_inbound_records': (MesStockRecord, ('sqlserver:stock_header_records',)),
     'delivery_records': (MesStockRecord, ('sqlserver:delivery_records', 'sqlserver:delivery_stock_records')),
     'material_records': (MesMaterialRecord, ('sqlserver:material_records',)),
+}
+_FAULT_ACTION_BY_KIND = {
+    'connection_failed': 'check_mes_connection',
+    'query_timeout': 'check_mes_timeout',
+    'schema_changed': 'check_mes_schema',
+    'read_failed': 'check_mes_source',
 }
 
 
@@ -63,6 +69,9 @@ def _sanitize_query_result(item: Mapping[str, Any]) -> dict[str, Any]:
         'effective_query_key': str(item.get('effective_query_key') or item.get('query_key') or ''),
         'source_path': str(item.get('source_path') or ''),
         'source_table': str(item.get('source_table') or ''),
+        'event_time_field': str(item.get('event_time_field') or ''),
+        'window_start_at': str(item.get('window_start_at') or ''),
+        'window_end_at': str(item.get('window_end_at') or ''),
         'query_status': query_status,
         'outcome': outcome,
         'observed_row_count': int(observed) if observed is not None else None,
@@ -80,7 +89,20 @@ def _sanitize_query_result(item: Mapping[str, Any]) -> dict[str, Any]:
     return result
 
 
-def run_controlled_fault_drills() -> list[dict[str, Any]]:
+def _persisted_event_id(event: object, *, expected_type: str) -> str | None:
+    if not isinstance(event, Mapping):
+        return None
+    event_id = event.get('id')
+    if event_id in (None, '') or str(event.get('event_type') or '') != expected_type:
+        return None
+    return str(event_id)
+
+
+def run_controlled_fault_drills(*, event_publisher=None) -> list[dict[str, Any]]:
+    if event_publisher is None:
+        from app.tasks.mes_sync import _publish_sync_event
+
+        event_publisher = _publish_sync_event
     cases = (
         ('disconnect', ConnectionError('server unavailable')),
         ('timeout', TimeoutError('query timed out')),
@@ -88,26 +110,73 @@ def run_controlled_fault_drills() -> list[dict[str, Any]]:
     )
     drills = []
     for drill_id, error in cases:
-        attempts = 0
-        recovered = False
-        failure_kind = ''
-        while attempts < 2:
-            attempts += 1
-            try:
-                if attempts == 1:
-                    raise error
-                recovered = True
-                break
-            except Exception as exc:  # noqa: BLE001
-                failure_kind = classify_sqlserver_failure(exc)
+        operation_attempts = 0
+
+        def operation():
+            nonlocal operation_attempts
+            operation_attempts += 1
+            if operation_attempts == 1:
+                raise error
+            return True
+
+        try:
+            _result, attempts, failure_kind = _run_with_adapter_retries(
+                operation,
+                sleep_before_retry=lambda _seconds: None,
+            )
+            recovered = attempts > 1
+        except Exception as exc:  # noqa: BLE001
+            attempts = int(getattr(exc, 'attempt_count', operation_attempts) or operation_attempts)
+            failure_kind = str(getattr(exc, 'failure_kind', '') or classify_sqlserver_failure(exc))
+            recovered = False
+
+        failed_step = {
+            'cursor_key': f'controlled_audit:{drill_id}',
+            'status': 'failed',
+            'attempt_count': 1,
+            'failure_kind': failure_kind,
+            'recovered': False,
+            'action': _FAULT_ACTION_BY_KIND.get(failure_kind, 'check_mes_source'),
+        }
+        failed_event = event_publisher(
+            'mes_sync_failed',
+            {
+                'controlled_audit': True,
+                'drill_id': drill_id,
+                'steps': [failed_step],
+            },
+        )
+        recovered_event = None
+        if recovered:
+            recovered_event = event_publisher(
+                'mes_sync_recovered',
+                {
+                    'controlled_audit': True,
+                    'drill_id': drill_id,
+                    'steps': [
+                        {
+                            **failed_step,
+                            'status': 'success',
+                            'attempt_count': attempts,
+                            'recovered': True,
+                        }
+                    ],
+                },
+            )
+        failed_event_id = _persisted_event_id(failed_event, expected_type='mes_sync_failed')
+        recovered_event_id = _persisted_event_id(recovered_event, expected_type='mes_sync_recovered')
+        events_persisted = bool(failed_event_id and recovered_event_id)
         drills.append(
             {
                 'drill_id': drill_id,
                 'failure_kind': failure_kind,
-                'mode': 'in_memory_no_vendor_call',
+                'mode': 'persistent_event_bus_no_vendor_call',
                 'attempt_count': attempts,
                 'recovered': recovered,
-                'status': 'pass' if recovered else 'blocked',
+                'events_persisted': events_persisted,
+                'failed_event_id': failed_event_id,
+                'recovered_event_id': recovered_event_id,
+                'status': 'pass' if recovered and events_persisted else 'blocked',
             }
         )
     return drills
@@ -144,6 +213,8 @@ def evaluate_mes_readonly_reliability(
         'status': str(permission_audit.get('status') or 'blocked'),
         'database_dangerous_permissions': list(permission_audit.get('database_dangerous_permissions') or []),
         'object_results': list(permission_audit.get('object_results') or []),
+        'schema_results': list(permission_audit.get('schema_results') or []),
+        'dangerous_database_roles': list(permission_audit.get('dangerous_database_roles') or []),
         'dangerous_permissions': list(permission_audit.get('dangerous_permissions') or []),
         'failure_kind': str(permission_audit.get('failure_kind') or ''),
         'error': _safe_error(permission_audit.get('error')) if permission_audit.get('error') else None,
@@ -155,6 +226,9 @@ def evaluate_mes_readonly_reliability(
             'mode': str(item.get('mode') or ''),
             'attempt_count': int(item.get('attempt_count') or 0),
             'recovered': bool(item.get('recovered')),
+            'events_persisted': bool(item.get('events_persisted')),
+            'failed_event_id': str(item.get('failed_event_id') or ''),
+            'recovered_event_id': str(item.get('recovered_event_id') or ''),
             'status': str(item.get('status') or 'blocked'),
         }
         for item in fault_drills
@@ -194,7 +268,10 @@ def evaluate_mes_readonly_reliability(
         blockers.append(_blocker('mes_sync_stale'))
     elif safe_sync_status['status'] != 'fresh':
         blockers.append(_blocker('mes_sync_unhealthy', status=safe_sync_status['status']))
-    if any(item['status'] != 'pass' or not item['recovered'] for item in safe_fault_drills):
+    if any(
+        item['status'] != 'pass' or not item['recovered'] or not item['events_persisted']
+        for item in safe_fault_drills
+    ):
         blockers.append(_blocker('controlled_fault_drill_failed'))
 
     return {
@@ -229,21 +306,34 @@ def _projection_count(db: Session, *, query_key: str, business_date: date) -> in
 
 
 def _successful_sync_dates(db: Session, business_dates: Sequence[date]) -> list[str]:
-    successful = []
-    for business_date in business_dates:
-        start_at, end_at = production_business_window(business_date)
-        count = int(
-            db.query(func.count(MesSyncRunLog.id))
-            .filter(MesSyncRunLog.cursor_key == SYNC_CURSOR_KEY)
-            .filter(MesSyncRunLog.status == 'success')
-            .filter(MesSyncRunLog.started_at >= start_at)
-            .filter(MesSyncRunLog.started_at < end_at)
-            .scalar()
-            or 0
-        )
-        if count > 0:
-            successful.append(business_date.isoformat())
-    return successful
+    if not business_dates:
+        return []
+    earliest_start = min(production_business_window(item)[0] for item in business_dates)
+    run_logs = (
+        db.query(MesSyncRunLog)
+        .filter(MesSyncRunLog.cursor_key == SYNC_CURSOR_KEY)
+        .filter(MesSyncRunLog.status == 'success')
+        .filter(MesSyncRunLog.started_at >= earliest_start)
+        .order_by(MesSyncRunLog.started_at.asc())
+        .all()
+    )
+    successful_labels = set()
+    for run_log in run_logs:
+        metadata = run_log.metadata_json if isinstance(run_log.metadata_json, dict) else {}
+        raw_target = metadata.get('target_business_date')
+        try:
+            target = date.fromisoformat(str(raw_target)) if raw_target else None
+        except ValueError:
+            target = None
+        if target is None:
+            raw_window_start = metadata.get('window_started_at')
+            try:
+                reference_at = datetime.fromisoformat(str(raw_window_start)) if raw_window_start else run_log.started_at
+            except (TypeError, ValueError):
+                reference_at = run_log.started_at
+            target = resolve_production_business_date(local_now(reference_at))
+        successful_labels.add(target.isoformat())
+    return [item.isoformat() for item in business_dates if item.isoformat() in successful_labels]
 
 
 def build_mes_readonly_reliability_report(
@@ -253,6 +343,7 @@ def build_mes_readonly_reliability_report(
     business_dates: Sequence[date],
     now: datetime,
     run_fault_drills: bool = True,
+    fault_event_publisher=None,
 ) -> dict[str, Any]:
     readonly_contract = audit_sqlserver_readonly_contract()
     try:
@@ -307,5 +398,9 @@ def build_mes_readonly_reliability_report(
         query_results=query_results,
         successful_sync_dates=_successful_sync_dates(db, business_dates),
         sync_status=latest_sync_status(db, now=now),
-        fault_drills=run_controlled_fault_drills() if run_fault_drills else (),
+        fault_drills=(
+            run_controlled_fault_drills(event_publisher=fault_event_publisher)
+            if run_fault_drills
+            else ()
+        ),
     )

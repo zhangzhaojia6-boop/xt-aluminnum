@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.mes import MesMaterialRecord, MesStockRecord, MesSyncRunLog, MesWorkshopProcessRecord
+from app.models.production import RealtimeEvent
 from app.services import mes_readonly_reliability_service as service
 from app.services.mes_readonly_reliability_service import (
     build_mes_readonly_reliability_report,
@@ -39,13 +40,28 @@ def _query_results() -> list[dict]:
                     'observed_row_count': 1,
                     'projection_count': 1,
                     'schema_columns': ['Id', 'OperateDate'],
+                    'event_time_field': 'OperateDate',
+                    'window_start_at': f'{business_date.isoformat()}T07:50:00+08:00',
+                    'window_end_at': f'{business_date.isoformat()}T07:50:00+08:00',
                 }
             )
     results[-1].update(observed_row_count=0, projection_count=None, schema_columns=[])
     return results
 
 
+def _persisted_fault_drills():
+    events = []
+
+    def publish(event_type, payload):
+        event = {'id': len(events) + 1, 'event_type': event_type, 'payload': payload}
+        events.append(event)
+        return event
+
+    return run_controlled_fault_drills(event_publisher=publish), events
+
+
 def _evaluate(**overrides):
+    fault_drills, _events = _persisted_fault_drills()
     inputs = {
         'business_dates': BUSINESS_DATES,
         'readonly_contract': {'status': 'pass', 'passed': True, 'issues': []},
@@ -58,7 +74,7 @@ def _evaluate(**overrides):
             'stale_threshold_seconds': 300.0,
             'last_run_status': 'success',
         },
-        'fault_drills': run_controlled_fault_drills(),
+        'fault_drills': fault_drills,
     }
     inputs.update(overrides)
     return evaluate_mes_readonly_reliability(**inputs)
@@ -75,6 +91,9 @@ def test_gate_passes_three_dates_with_rows_or_explicit_no_data() -> None:
     assert no_data['no_data_reason'] == 'source_query_returned_no_rows'
     assert no_data['fact_value'] is None
     assert no_data['projection_count'] is None
+    assert no_data['event_time_field'] == 'OperateDate'
+    assert no_data['window_start_at']
+    assert no_data['window_end_at']
 
 
 def test_gate_blocks_dangerous_permissions_projection_gap_and_stale_sync() -> None:
@@ -152,7 +171,7 @@ def test_permission_audit_failure_keeps_only_redacted_diagnostic() -> None:
 
 
 def test_controlled_fault_drills_classify_and_recover_without_touching_mes() -> None:
-    drills = run_controlled_fault_drills()
+    drills, events = _persisted_fault_drills()
 
     assert {item['failure_kind'] for item in drills} == {
         'connection_failed',
@@ -161,7 +180,48 @@ def test_controlled_fault_drills_classify_and_recover_without_touching_mes() -> 
     }
     assert all(item['status'] == 'pass' for item in drills)
     assert all(item['recovered'] is True for item in drills)
-    assert all(item['mode'] == 'in_memory_no_vendor_call' for item in drills)
+    assert all(item['mode'] == 'persistent_event_bus_no_vendor_call' for item in drills)
+    assert all(item['events_persisted'] is True for item in drills)
+    assert all(item['failed_event_id'] for item in drills)
+    assert all(item['recovered_event_id'] for item in drills)
+    assert [item['event_type'] for item in events] == [
+        'mes_sync_failed',
+        'mes_sync_recovered',
+    ] * 3
+    assert all('workflow_event' not in item['payload'] for item in events)
+    assert events[0]['payload']['steps'][0]['action'] == 'check_mes_connection'
+
+
+def test_gate_blocks_fault_drill_when_event_persistence_is_not_proven() -> None:
+    drills = run_controlled_fault_drills(event_publisher=lambda _event_type, _payload: None)
+
+    assert all(item['events_persisted'] is False for item in drills)
+    assert all(item['status'] == 'blocked' for item in drills)
+    result = _evaluate(fault_drills=drills)
+    assert {item['code'] for item in result['blockers']} == {'controlled_fault_drill_failed'}
+
+
+def test_controlled_fault_drills_persist_database_events_without_workflow_dispatch(monkeypatch) -> None:
+    from app.core import event_bus as event_bus_module
+    from app.core.event_bus import DatabaseEventBus
+
+    engine = create_engine('sqlite:///:memory:', future=True)
+    Base.metadata.create_all(engine, tables=[RealtimeEvent.__table__])
+    SessionLocal = sessionmaker(bind=engine, future=True)
+    monkeypatch.setattr(
+        event_bus_module,
+        'event_bus',
+        DatabaseEventBus(sessionmaker_factory=lambda: SessionLocal),
+    )
+
+    drills = run_controlled_fault_drills()
+
+    with SessionLocal() as db:
+        rows = db.query(RealtimeEvent).order_by(RealtimeEvent.id.asc()).all()
+    assert all(item['status'] == 'pass' for item in drills)
+    assert [item.event_type for item in rows] == ['mes_sync_failed', 'mes_sync_recovered'] * 3
+    assert all(item.payload['controlled_audit'] is True for item in rows)
+    assert all('workflow_event' not in item.payload for item in rows)
 
 
 def test_builder_combines_source_probes_projection_counts_and_sync_days(monkeypatch) -> None:
@@ -223,6 +283,9 @@ def test_builder_combines_source_probes_projection_counts_and_sync_days(monkeypa
                 'observed_row_count': 1,
                 'schema_columns': ['Id'],
                 'query_sha256': 'a' * 64,
+                'event_time_field': 'OperateDate',
+                'window_start_at': _kwargs['start_at'].isoformat(),
+                'window_end_at': _kwargs['end_at'].isoformat(),
             }
 
     monkeypatch.setattr(
@@ -241,10 +304,37 @@ def test_builder_combines_source_probes_projection_counts_and_sync_days(monkeypa
         adapter=Adapter(),
         business_dates=BUSINESS_DATES,
         now=datetime(2026, 7, 18, 12, 0, tzinfo=timezone),
+        fault_event_publisher=lambda event_type, payload: {
+            'id': f'{event_type}:{payload["drill_id"]}',
+            'event_type': event_type,
+        },
     )
 
     assert report['status'] == 'pass'
     assert len(report['query_results']) == 15
     assert all(item['projection_count'] == 1 for item in report['query_results'])
     assert all(item['outcome'] == 'success' for item in report['sync_days'])
+    db.close()
+
+
+def test_successful_sync_dates_count_late_recovery_for_covered_business_window() -> None:
+    engine = create_engine('sqlite:///:memory:', future=True)
+    Base.metadata.create_all(engine, tables=[MesSyncRunLog.__table__])
+    db = sessionmaker(bind=engine, future=True)()
+    timezone = ZoneInfo('Asia/Shanghai')
+    db.add(
+        MesSyncRunLog(
+            cursor_key='coil_snapshots',
+            started_at=datetime(2026, 7, 18, 8, 5, tzinfo=timezone),
+            finished_at=datetime(2026, 7, 18, 8, 6, tzinfo=timezone),
+            status='success',
+            metadata_json={
+                'window_started_at': '2026-07-17T07:50:00+08:00',
+                'target_business_date': '2026-07-17',
+            },
+        )
+    )
+    db.commit()
+
+    assert service._successful_sync_dates(db, [date(2026, 7, 17), date(2026, 7, 18)]) == ['2026-07-17']
     db.close()

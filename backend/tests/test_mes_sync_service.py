@@ -111,6 +111,8 @@ def test_sync_coil_snapshots_updates_cursor_and_stats(monkeypatch):
     assert payload.upserted_count == 1
     assert payload.next_cursor == 'cursor-2'
     assert cursor.cursor_value == 'cursor-2'
+    run_log = next(item for item in db.added if item.__class__.__name__ == 'MesSyncRunLog')
+    assert run_log.metadata_json['target_business_date'] == '2026-04-11'
 
 
 def test_upsert_snapshot_projects_mvc_fields_and_prefers_mes_product_id():

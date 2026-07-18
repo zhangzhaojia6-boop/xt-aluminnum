@@ -128,6 +128,16 @@ _OBJECT_PERMISSION_QUERY = (
     "WHERE permission_name IN ('INSERT', 'UPDATE', 'DELETE', 'ALTER', 'CONTROL', "
     "'EXECUTE', 'TAKE OWNERSHIP') ORDER BY permission_name"
 )
+_SCHEMA_PERMISSION_QUERY = (
+    "SELECT permission_name FROM fn_my_permissions(%s, 'SCHEMA') "
+    "WHERE permission_name IN ('INSERT', 'UPDATE', 'DELETE', 'ALTER', 'CONTROL', "
+    "'EXECUTE', 'TAKE OWNERSHIP') ORDER BY permission_name"
+)
+_DATABASE_ROLE_QUERY = (
+    "SELECT role_name FROM (VALUES ('db_owner'), ('db_ddladmin'), ('db_datawriter'), "
+    "('db_securityadmin')) AS roles(role_name) "
+    "WHERE IS_ROLEMEMBER(role_name) = 1 ORDER BY role_name"
+)
 
 
 class MesReadOnlyViolation(RuntimeError):
@@ -193,6 +203,8 @@ SQLSERVER_QUERY_SPECS = (
     SqlServerQuerySpec('window:material_records', 'material_records', 'MES_Material', 'window', 'ProductionDate'),
     SqlServerQuerySpec('permission:database', 'database_permissions', 'DATABASE', 'permission', None),
     SqlServerQuerySpec('permission:object', 'object_permissions', 'REGISTERED_TABLES', 'permission', None),
+    SqlServerQuerySpec('permission:schema', 'schema_permissions', 'REGISTERED_SCHEMAS', 'permission', None),
+    SqlServerQuerySpec('permission:database_role', 'database_roles', 'DATABASE_ROLES', 'permission', None),
 )
 
 
@@ -288,6 +300,8 @@ def audit_sqlserver_readonly_contract() -> dict[str, Any]:
         },
         'permission:database': _DATABASE_PERMISSION_QUERY,
         'permission:object': _OBJECT_PERMISSION_QUERY,
+        'permission:schema': _SCHEMA_PERMISSION_QUERY,
+        'permission:database_role': _DATABASE_ROLE_QUERY,
     }
     issues: list[str] = []
     registered_ids = {spec.probe_id for spec in SQLSERVER_QUERY_SPECS}
@@ -623,11 +637,19 @@ class SqlServerMesAdapter(MesAdapter):
             for spec in SQLSERVER_QUERY_SPECS
             if spec.probe_id == f'window:{effective_key}'
         )
+        event_time_field = next(
+            spec.event_time_field
+            for spec in SQLSERVER_QUERY_SPECS
+            if spec.probe_id == f'window:{effective_key}'
+        )
         return {
             'query_key': query_key,
             'effective_query_key': effective_key,
             'source_path': f'sqlserver:{source_path_key}',
             'source_table': source_table,
+            'event_time_field': event_time_field,
+            'window_start_at': start_at.isoformat(),
+            'window_end_at': end_at.isoformat(),
             'query_status': 'success',
             'observed_row_count': len(rows),
             'observation_limit': 1,
@@ -656,7 +678,7 @@ class SqlServerMesAdapter(MesAdapter):
             {
                 spec.source_table
                 for spec in SQLSERVER_QUERY_SPECS
-                if spec.source_table not in {'DATABASE', 'REGISTERED_TABLES'}
+                if spec.mode in {'current', 'window'}
             }
         )
         for source_table in source_tables:
@@ -674,10 +696,49 @@ class SqlServerMesAdapter(MesAdapter):
                         'permissions': permissions,
                     }
                 )
+
+        schema_results = []
+        source_schemas = sorted(
+            {
+                source_table.split('.', 1)[0] if '.' in source_table else 'dbo'
+                for source_table in source_tables
+            }
+        )
+        for source_schema in source_schemas:
+            rows = self._run_permission_query('schema_permissions', source_schema=source_schema)
+            permissions = sorted(
+                {str(row.get('permission_name') or row.get('PERMISSION_NAME') or '').strip() for row in rows}
+                - {''}
+            )
+            schema_results.append({'source_schema': source_schema, 'dangerous_permissions': permissions})
+            if permissions:
+                dangerous.append(
+                    {
+                        'scope': 'schema',
+                        'resource': source_schema,
+                        'permissions': permissions,
+                    }
+                )
+
+        role_rows = self._run_permission_query('database_roles')
+        dangerous_database_roles = sorted(
+            {str(row.get('role_name') or row.get('ROLE_NAME') or '').strip() for row in role_rows}
+            - {''}
+        )
+        if dangerous_database_roles:
+            dangerous.append(
+                {
+                    'scope': 'database_role',
+                    'resource': self._database or 'configured_database',
+                    'permissions': dangerous_database_roles,
+                }
+            )
         return {
             'status': 'pass' if not dangerous else 'blocked',
             'database_dangerous_permissions': database_permissions,
             'object_results': object_results,
+            'schema_results': schema_results,
+            'dangerous_database_roles': dangerous_database_roles,
             'dangerous_permissions': dangerous,
         }
 
@@ -686,19 +747,34 @@ class SqlServerMesAdapter(MesAdapter):
         query_key: str,
         *,
         source_table: str | None = None,
+        source_schema: str | None = None,
     ) -> list[Mapping[str, Any]]:
         if self._query_runner is not None:
             return self._query_runner(
                 query_key,
                 source_table=source_table,
+                source_schema=source_schema,
                 limit=1,
                 offset=0,
                 start_at=None,
                 end_at=None,
                 tracking_card_no=None,
             )
-        query = _DATABASE_PERMISSION_QUERY if query_key == 'database_permissions' else _OBJECT_PERMISSION_QUERY
-        params: tuple[Any, ...] = () if source_table is None else (source_table,)
+        queries = {
+            'database_permissions': _DATABASE_PERMISSION_QUERY,
+            'object_permissions': _OBJECT_PERMISSION_QUERY,
+            'schema_permissions': _SCHEMA_PERMISSION_QUERY,
+            'database_roles': _DATABASE_ROLE_QUERY,
+        }
+        if query_key not in queries:
+            raise ValueError(f'unregistered SQL Server permission probe: {query_key}')
+        query = queries[query_key]
+        if source_table is not None:
+            params: tuple[Any, ...] = (source_table,)
+        elif source_schema is not None:
+            params = (source_schema,)
+        else:
+            params = ()
         try:
             return _run_pymssql_query(
                 host=self._host,

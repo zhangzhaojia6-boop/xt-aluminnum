@@ -506,7 +506,7 @@ def _sleep_before_retry(seconds: float) -> None:
         time.sleep(seconds)
 
 
-def _run_with_adapter_retries(operation):
+def _run_with_adapter_retries(operation, *, sleep_before_retry=_sleep_before_retry):
     attempts = 0
     retry_limit = _retry_limit()
     failure_kind = None
@@ -524,7 +524,7 @@ def _run_with_adapter_retries(operation):
                     attempt_count=attempts,
                     failure_kind=failure_kind,
                 ) from exc
-            _sleep_before_retry(_retry_backoff_seconds(attempts))
+            sleep_before_retry(_retry_backoff_seconds(attempts))
 
 
 def _base_sync_status(*, cursor_key: str, configured: bool) -> dict[str, Any]:
@@ -751,6 +751,7 @@ def sync_coil_snapshots(
         status='running',
         metadata_json={
             'window_started_at': window_started_at.isoformat(),
+            'target_business_date': resolve_production_business_date(window_started_at).isoformat(),
             'cursor_value': cursor.cursor_value,
             'limit': settings.MES_SYNC_LIMIT,
         },

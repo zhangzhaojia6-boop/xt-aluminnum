@@ -299,7 +299,7 @@ npm run build
 
 Expected: focused and full backend suites pass; frontend tests and production build pass. Record exact counts without calling a targeted run “full QA.”
 
-- [ ] **Step 2: Run independent spec and quality reviews**
+- [x] **Step 2: Run independent spec and quality reviews**
 
 Review the diff against issue `#37`. Block merge for any path that can issue SQL writes, any gate that treats missing as zero, raw-row leakage, a workflow that can audit a different SHA, or a fault drill that touches the real MES schema.
 

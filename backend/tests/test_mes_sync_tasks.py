@@ -179,13 +179,13 @@ def test_publish_sync_event_forwards_to_persistent_database_event_bus(monkeypatc
     from app.core import event_bus as event_bus_module
 
     published = []
-    monkeypatch.setattr(
-        event_bus_module.event_bus,
-        'publish',
-        lambda event_type, payload: published.append((event_type, payload)),
-    )
+    def publish(event_type, payload):
+        published.append((event_type, payload))
+        return {'id': 17, 'event_type': event_type, 'payload': payload}
 
-    mes_sync_tasks._publish_sync_event(
+    monkeypatch.setattr(event_bus_module.event_bus, 'publish', publish)
+
+    event = mes_sync_tasks._publish_sync_event(
         'mes_sync_recovered',
         {
             'steps': [
@@ -204,3 +204,4 @@ def test_publish_sync_event_forwards_to_persistent_database_event_bus(monkeypatc
     assert published[0][0] == 'mes_sync_recovered'
     assert published[0][1]['source'] == 'mes_projection'
     assert published[0][1]['steps'][0]['failure_kind'] == 'query_timeout'
+    assert event['id'] == 17

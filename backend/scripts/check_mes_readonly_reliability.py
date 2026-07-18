@@ -12,7 +12,8 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from app.adapters.mes_adapter import get_mes_adapter
+from app.adapters.factory import create_mes_adapter
+from app.adapters.mes_adapter import set_mes_adapter
 from app.core.business_time import last_completed_production_business_date, local_now
 from app.database import get_sessionmaker
 from app.services.mes_readonly_reliability_service import build_mes_readonly_reliability_report
@@ -84,9 +85,13 @@ def run(
 
     session = (session_factory or get_sessionmaker())()
     try:
+        selected_adapter = adapter
+        if selected_adapter is None:
+            selected_adapter = create_mes_adapter()
+            set_mes_adapter(selected_adapter)
         report = build_mes_readonly_reliability_report(
             session,
-            adapter=adapter or get_mes_adapter(),
+            adapter=selected_adapter,
             business_dates=business_dates,
             now=current,
             run_fault_drills=args.fault_drill,

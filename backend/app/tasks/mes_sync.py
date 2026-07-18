@@ -17,17 +17,17 @@ _ACTION_BY_FAILURE_KIND = {
 }
 
 
-def _publish_sync_event(event_type: str, payload: dict[str, object]) -> None:
+def _publish_sync_event(event_type: str, payload: dict[str, object]) -> dict[str, object] | None:
     try:
         from app.core.event_bus import event_bus
 
-        event_bus.publish(event_type, {
+        return event_bus.publish(event_type, {
             'business_date': None,
             'source': 'mes_projection',
             **payload,
         })
     except Exception:
-        return
+        return None
 
 
 def _safe_result(value):
