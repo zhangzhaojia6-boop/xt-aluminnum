@@ -482,6 +482,48 @@ def test_missing_output_skill_alignment_does_not_fallback_to_audit_match_rate() 
     assert '状态：需复核' in result['dingtalk_messages'][0]
 
 
+def test_contract_absent_and_invalid_na_fields_are_visible_in_judgment_and_dingtalk() -> None:
+    service = _service()
+
+    result = service.build_day1_three_part_report(
+        business_date=BUSINESS_DATE,
+        sources=_sources(
+            output_skill_alignment={
+                'status': 'blocked',
+                'field_match_rate': 100.0,
+                'matched_fields': 124,
+                'expected_fields': 124,
+                'difference_count': 0,
+                'differences': [],
+                'char_match_rate': 100.0,
+                'exact_match': True,
+                'threshold': 95.0,
+                'reference_present_fields': 124,
+                'declared_na_fields': [],
+                'invalid_na_fields': ['not_a_daily_report_field'],
+                'reference_absent_fields': ['cast_roll_active_lines', 'finished_inbound_month'],
+                'reference_absent_count': 2,
+                'normative_fields': 127,
+                'normative_denominator': 127,
+                'normative_matched_fields': 124,
+                'normative_coverage_rate': 97.64,
+            },
+        ),
+    )
+
+    assert result['status'] == 'blocked'
+    assert result['brain_judgment']['reference_absent_fields'] == [
+        'cast_roll_active_lines',
+        'finished_inbound_month',
+    ]
+    assert result['brain_judgment']['invalid_na_fields'] == ['not_a_daily_report_field']
+    judgment_text = str(result['brain_judgment']['risks'])
+    dingtalk_text = '\n'.join(result['dingtalk_messages'])
+    for field_name in ('cast_roll_active_lines', 'finished_inbound_month', 'not_a_daily_report_field'):
+        assert field_name in judgment_text
+        assert field_name in dingtalk_text
+
+
 def test_threshold_can_be_custom_percent_and_still_allow_publish() -> None:
     service = _service()
 

@@ -610,6 +610,17 @@ def test_production_sync_status_reports_hermes_runtime_without_exposing_process_
     assert 'HERMES_GATEWAY_DEPLOY_CONTRACT=rejected' in report_status_body
 
 
+def test_production_status_exposes_daily_report_contract_gate_without_breaking_old_rollback() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    report_status_body = _extract_shell_function(source, 'report_status')
+
+    assert 'backend/scripts/check_daily_report_field_contract.py' in report_status_body
+    assert 'scripts/check_daily_report_field_contract.py --json' in report_status_body
+    assert 'DAILY_REPORT_FIELD_CONTRACT_GATE_START' in report_status_body
+    assert 'DAILY_REPORT_FIELD_CONTRACT_GATE_END' in report_status_body
+    assert 'DAILY_REPORT_FIELD_CONTRACT_GATE=not_available_for_sha' in report_status_body
+
+
 def test_production_sync_status_builds_reversible_isolated_hermes_runtime() -> None:
     source = _read('.github/workflows/production-sync-status.yml')
     deployment = source[source.find('RAW_DATABASE_URL="$(read_env_value DATABASE_URL "$DATAHUB_ENV_FILE")"'):]

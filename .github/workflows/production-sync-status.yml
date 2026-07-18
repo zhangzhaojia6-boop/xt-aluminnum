@@ -1175,6 +1175,7 @@ jobs:
 
           report_status() {
             local version_required="$1"
+            local contract_gate_script="$DATAHUB_REPO/backend/scripts/check_daily_report_field_contract.py"
 
             print_repo_status "DATAHUB" "$DATAHUB_REPO"
             print_repo_status "HERMES" "$HERMES_REPO"
@@ -1192,6 +1193,17 @@ jobs:
               report_http_json "VERSIONZ" "http://127.0.0.1:8000/versionz" /tmp/versionz.json
             else
               report_http_json "VERSIONZ" "http://127.0.0.1:8000/versionz" /tmp/versionz.json || true
+            fi
+
+            if [ -f "$contract_gate_script" ]; then
+              echo "DAILY_REPORT_FIELD_CONTRACT_GATE_START"
+              (
+                cd "$DATAHUB_REPO/backend"
+                ./.venv/bin/python scripts/check_daily_report_field_contract.py --json
+              )
+              echo "DAILY_REPORT_FIELD_CONTRACT_GATE_END"
+            else
+              echo "DAILY_REPORT_FIELD_CONTRACT_GATE=not_available_for_sha"
             fi
 
             report_managed_uv_state

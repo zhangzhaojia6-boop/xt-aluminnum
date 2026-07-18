@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.business_time import local_now
 from app.core.redaction import filter_sensitive_mapping
+from app.domain.daily_report_field_contract import source_lane_priority
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
@@ -30,29 +31,32 @@ from app.services.report import template_daily_report
 
 
 SOURCE_PRIORITY = {
-    "root_owner_correction": 100,
-    "dingtalk_supplement": 90,
-    "mes_wms": 80,
-    "mes_packaging_output": 80,
-    "mes_wip_distribution": 80,
-    "mes_workshop_process_records": 80,
-    "wms": 80,
-    "finished_inbound_output": 80,
-    "owner_or_energy_summary": 70,
-    "manual_mobile_coil": 70,
-    "owner_daily": 70,
-    "manual": 70,
-    "recovery_daily": 70,
-    "overhaul_daily": 70,
-    "computed": 60,
-    "energy_cost": 60,
-    "contract_projection": 60,
-    "yield_projection": 60,
-    "datahub_final_daily_report": 88,
-    "official_daily_report": 88,
-    "historical_report": 40,
-    "rag": 30,
-    "output_skill": 20,
+    source_type: source_lane_priority(source_type)
+    for source_type in (
+        "root_owner_correction",
+        "dingtalk_supplement",
+        "mes_wms",
+        "mes_packaging_output",
+        "mes_wip_distribution",
+        "mes_workshop_process_records",
+        "wms",
+        "finished_inbound_output",
+        "owner_or_energy_summary",
+        "manual_mobile_coil",
+        "owner_daily",
+        "manual",
+        "recovery_daily",
+        "overhaul_daily",
+        "computed",
+        "energy_cost",
+        "contract_projection",
+        "yield_projection",
+        "datahub_final_daily_report",
+        "official_daily_report",
+        "historical_report",
+        "rag",
+        "output_skill",
+    )
 }
 MIN_DINGTALK_DAILY_REPORT_FIELDS = 3
 DINGTALK_STRUCTURED_FACT_KEYS = ("fact_updates", "daily_facts", "facts", "extracted_facts", "fields")
@@ -152,7 +156,9 @@ def build_daily_fact_bundle(
     )
     bundle["fact_closure"] = build_daily_report_fact_closure(bundle)
     bundle["real_source_gate_passed"] = (
-        not reference_only and bundle["fact_closure"].get("status") == "pass"
+        not reference_only
+        and bundle["output_skill_alignment"].get("status") == "passed"
+        and bundle["fact_closure"].get("status") == "pass"
     )
     if persist_run or snapshot_reason:
         _persist_bundle(
@@ -293,10 +299,7 @@ def _fact_item(
 
 
 def _source_priority(source: str) -> int:
-    source_key = str(source or "")
-    if source_key.startswith("mes_") or source_key.startswith("wms_"):
-        return 80
-    return SOURCE_PRIORITY.get(source_key, SOURCE_PRIORITY.get(source_key.split(":")[0], 50))
+    return source_lane_priority(source)
 
 
 def _source_confidence(source: str) -> float:
@@ -523,6 +526,9 @@ def _apply_root_owner_corrections(
         if isinstance(row.value_payload, Mapping):
             new_value = row.value_payload.get("value")
         new_unit = row.unit or old_unit
+        new_priority = _source_priority("root_owner_correction")
+        old_priority = _source_priority(str(old_source or "")) if old_fact else -1
+        should_adopt = old_fact is None or new_priority >= old_priority
         source_detail = {
             "source": "root_owner_correction",
             "correction_id": row.id,
@@ -531,18 +537,19 @@ def _apply_root_owner_corrections(
             "source_text": row.source_text,
             "business_date": business_date,
         }
-        facts[field_name] = _fact_item(
-            value=new_value,
-            unit=new_unit,
-            source="root_owner_correction",
-            source_type="root_owner_correction",
-            priority=100,
-            freshness="confirmed",
-            confidence=1.0,
-            adoption_reason=row.reason,
-            source_detail=source_detail,
-            source_ref=source_detail,
-        )
+        if should_adopt:
+            facts[field_name] = _fact_item(
+                value=new_value,
+                unit=new_unit,
+                source="root_owner_correction",
+                source_type="root_owner_correction",
+                priority=new_priority,
+                freshness="confirmed",
+                confidence=_source_confidence("root_owner_correction"),
+                adoption_reason=row.reason,
+                source_detail=source_detail,
+                source_ref=source_detail,
+            )
         correction_refs.append(
             {
                 "id": row.id,
@@ -551,8 +558,8 @@ def _apply_root_owner_corrections(
             }
         )
         if old_value != new_value:
-            conflicts.append(
-                {
+            if should_adopt:
+                conflict = {
                     "field": field_name,
                     "type": "root_owner_correction",
                     "adopted_source": "root_owner_correction",
@@ -561,7 +568,17 @@ def _apply_root_owner_corrections(
                     "adopted_value": new_value,
                     "reason": row.reason,
                 }
-            )
+            else:
+                conflict = {
+                    "field": field_name,
+                    "type": "root_owner_correction",
+                    "adopted_source": old_source,
+                    "adopted_value": old_value,
+                    "candidate_source": "root_owner_correction",
+                    "candidate_value": new_value,
+                    "reason": "higher_priority_fact_retained",
+                }
+            conflicts.append(conflict)
 
     bundle["facts"] = facts
     bundle["conflicts"] = conflicts
@@ -783,7 +800,11 @@ def _apply_dingtalk_supplements(
                 source_type="dingtalk_supplement",
                 priority=new_priority,
                 freshness="supplemented",
-                confidence=0.95 if has_structured_updates else _candidate_confidence(candidate),
+                confidence=(
+                    _source_confidence("dingtalk_supplement")
+                    if has_structured_updates
+                    else _candidate_confidence(candidate)
+                ),
                 adoption_reason=reason,
                 source_detail=source_detail,
                 source_ref=source_detail,

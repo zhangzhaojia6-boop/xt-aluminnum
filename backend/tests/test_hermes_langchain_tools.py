@@ -123,7 +123,7 @@ def test_hub_query_tool_returns_structured_payload() -> None:
     assert result['source'] == 'data_hub'
     assert 'request' in result
     assert 'facts' in result
-    assert result['source_guidance']['tool_priority'] == 3
+    assert result['source_guidance']['tool_priority'] == 60
     assert 'priority_order' not in result['source_guidance']
 
 
@@ -173,8 +173,8 @@ def test_dingtalk_evidence_tool_returns_group_content_priority_first() -> None:
         assert payload['status'] == 'ok'
         assert payload['source'] == 'dingtalk_group_content'
         assert payload['facts'][0]['source_key'] in {'dingtalk_group_file', 'dingtalk_group_chat'}
-        assert payload['facts'][0]['priority'] == 10
-        assert payload['source_guidance']['tool_priority'] == 1
+        assert payload['facts'][0]['priority'] == 100
+        assert payload['source_guidance']['tool_priority'] == 100
         assert 'priority_order' not in payload['source_guidance']
     finally:
         db.close()
@@ -343,7 +343,7 @@ def test_mes_wms_read_tool_exposes_readonly_health_summary() -> None:
 
     assert payload['status'] == 'ok'
     assert payload['source'] == 'mes_wms_readonly'
-    assert payload['source_guidance']['tool_priority'] == 2
+    assert payload['source_guidance']['tool_priority'] == 80
     assert payload['source_health'] == {
         'adapter': 'AdapterProbe',
         'readonly': True,
@@ -394,7 +394,8 @@ def test_rag_route_guidance_does_not_claim_current_numeric_fact_or_english_ident
 
     guidance_text = json.dumps(payload['source_guidance'], ensure_ascii=False).lower()
 
-    assert payload['source_guidance']['tool_priority'] == 4
+    assert payload['source_guidance']['tool_priority'] == 30
+    assert '授权修正' in ' '.join(payload['source_guidance']['source_rules'])
     assert '不作为当前实时数字事实来源' in payload['source_guidance']['tool_usage']
     assert 'priority_order' not in payload['source_guidance']
     assert 'developer' not in guidance_text

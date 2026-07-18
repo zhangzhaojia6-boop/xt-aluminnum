@@ -43,6 +43,8 @@ def render_fact_source_map_markdown() -> str:
         "",
         "本文件由 `backend/app/hermes/fact_source_map.json` 自动生成，不手工维护。",
         "",
+        "完整字段、业务时间、容差和统一来源顺序见：[日报 127 字段合同](daily-report-field-contract.md)。",
+        "",
         "| 指标 | 领域 | 来源优先级 | 涉及服务 | 保护级别 | 状态 | 接口 | 页面 | 涉及表 | Hermes 工具 | 证据条件 | 已知风险 |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]

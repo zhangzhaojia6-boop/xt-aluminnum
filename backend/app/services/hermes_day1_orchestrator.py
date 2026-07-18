@@ -220,6 +220,9 @@ def _upsert_daily_report(
             'missing_fields': product.get('missing_fields'),
             'conflicts': product.get('conflicts'),
             'source_status': _as_mapping(sources.get('audit_run')).get('source_status'),
+            'output_skill_alignment': _output_skill_alignment_payload(
+                sources.get('output_skill_alignment')
+            ),
         }
     )
     report.report_data = report_data
@@ -286,7 +289,14 @@ def _archive_ready_day1_report(
         db,
         business_date=command.business_date,
         report_text=formal_text,
-        report_payload=_formal_history_payload(product=product, daily_fact_bundle=daily_fact_bundle),
+        report_payload=_formal_history_payload(
+            product=product,
+            daily_fact_bundle=daily_fact_bundle,
+            output_skill_alignment=(
+                _as_mapping(sources.get('output_skill_alignment'))
+                or _as_mapping(daily_fact_bundle.get('output_skill_alignment'))
+            ),
+        ),
         source_snapshot=source_snapshot,
         trace_id=trace_id,
         created_by_id=actor.id,
@@ -334,6 +344,7 @@ def _formal_history_payload(
     *,
     product: dict[str, Any],
     daily_fact_bundle: Mapping[str, Any],
+    output_skill_alignment: Mapping[str, Any],
 ) -> dict[str, Any]:
     return _json_safe(
         {
@@ -348,7 +359,7 @@ def _formal_history_payload(
             'sources': daily_fact_bundle.get('sources') or {},
             'correction_refs': daily_fact_bundle.get('correction_refs') or [],
             'dingtalk_refs': daily_fact_bundle.get('dingtalk_refs') or [],
-            'output_skill_alignment': daily_fact_bundle.get('output_skill_alignment') or {},
+            'output_skill_alignment': _output_skill_alignment_payload(output_skill_alignment),
         }
     )
 
@@ -580,6 +591,15 @@ def _output_skill_alignment_payload(value: Any, *, include_differences: bool = T
         'char_match_rate': alignment.get('char_match_rate'),
         'exact_match': alignment.get('exact_match'),
         'threshold': alignment.get('threshold'),
+        'reference_present_fields': alignment.get('reference_present_fields'),
+        'declared_na_fields': alignment.get('declared_na_fields') or [],
+        'invalid_na_fields': alignment.get('invalid_na_fields') or [],
+        'reference_absent_fields': alignment.get('reference_absent_fields') or [],
+        'reference_absent_count': alignment.get('reference_absent_count'),
+        'normative_fields': alignment.get('normative_fields'),
+        'normative_denominator': alignment.get('normative_denominator'),
+        'normative_matched_fields': alignment.get('normative_matched_fields'),
+        'normative_coverage_rate': alignment.get('normative_coverage_rate'),
     }
     if include_differences:
         payload['differences'] = [

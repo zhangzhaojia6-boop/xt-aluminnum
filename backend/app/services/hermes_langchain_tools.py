@@ -9,12 +9,12 @@ from typing import Any, Callable, Mapping
 from sqlalchemy.orm import Session
 
 from app.core.redaction import redact_secret_text
+from app.domain.daily_report_field_contract import source_lane_priority
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
 from app.models.reports import DailyReport
 from app.models.system import User
 from app.services.hermes_codex_construction_service import request_codex_construction
 from app.services.hermes_data_audit_service import HermesDataAuditService
-from app.services.hermes_fact_priority_service import PRIORITY as FACT_SOURCE_PRIORITY
 from app.services.hermes_long_term_rule_service import list_active_rules
 from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.hermes_fact_source_map_service import find_fact_source, source_summary_for_metric
@@ -30,19 +30,19 @@ _DINGTALK_TEXT_EVIDENCE_TYPES = {'text', 'dingtalk_text'}
 _DINGTALK_FILE_EVIDENCE_TYPES = {'file', 'attachment', 'dingtalk_file'}
 _TOOL_GUIDANCE_HINTS: dict[str, dict[str, object]] = {
     'dingtalk_group_content': {
-        'priority': FACT_SOURCE_PRIORITY['dingtalk_group_content'],
+        'priority': source_lane_priority('dingtalk_group_content'),
         'usage': '当前工具优先读取钉钉群聊天和群文件证据。',
     },
     'mes_wms_readonly': {
-        'priority': FACT_SOURCE_PRIORITY['mes_wms'],
+        'priority': source_lane_priority('mes_wms_readonly'),
         'usage': '当前工具读取 MES/WMS 只读事实，不写回外部系统。',
     },
     'data_hub': {
-        'priority': FACT_SOURCE_PRIORITY['hub'],
+        'priority': source_lane_priority('data_hub'),
         'usage': '当前工具读取数据中枢 bundle、投影和汇总结果。',
     },
     'rag': {
-        'priority': 4,
+        'priority': source_lane_priority('rag'),
         'usage': '当前工具只用于规则、定义、历史上下文，不作为当前实时数字事实来源。',
     },
     'fact_source_map': {
@@ -226,7 +226,7 @@ def _dingtalk_evidence_tool(*, db: Session, **kwargs: object) -> ToolResult:
                     {
                         'source_key': 'dingtalk_group_chat',
                         'source_type': 'dingtalk_group_content',
-                        'priority': 10,
+                        'priority': source_lane_priority('dingtalk_group_content'),
                         'channel': row.channel,
                         'group_id': row.group_id,
                         'sender_external_id': row.sender_external_id,
@@ -296,7 +296,7 @@ def _dingtalk_multimodal_fact(row: MultimodalEvidence) -> dict[str, object]:
     return {
         'source_key': 'dingtalk_group_chat' if evidence_type in _DINGTALK_TEXT_EVIDENCE_TYPES else 'dingtalk_group_file',
         'source_type': 'dingtalk_group_content',
-        'priority': 10,
+        'priority': source_lane_priority('dingtalk_group_content'),
         'evidence_type': row.evidence_type,
         'confirmation_status': row.confirmation_status,
         'recognized_text': row.recognized_text,
@@ -494,9 +494,9 @@ def _source_guidance(source: str, kwargs: Mapping[str, object]) -> dict[str, obj
     guidance = {
         'tool_source': source,
         'tool_priority': hint.get('priority'),
-        'tool_usage': hint.get('usage', '当前工具不会改变四层来源优先级，只提供补充信息。'),
+        'tool_usage': hint.get('usage', '当前工具不会改变统一事实优先级，只提供补充信息。'),
         'source_rules': [
-            '钉钉群聊天/群文件优先于一般汇总结果时，应按来源地图和 trace 判断。',
+            '统一事实顺序：钉钉证据 > 授权修正 > MES/WMS 只读 > 扫码补录 > 数据中枢投影 > 历史记录 > RAG 解释。',
             'MES/WMS 只读来源只能读，不能写回外部系统。',
             'RAG 只用于规则、定义、历史上下文，不作为当前实时数字事实来源。',
         ],

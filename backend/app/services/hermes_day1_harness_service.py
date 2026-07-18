@@ -3,10 +3,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
+import json
 from pathlib import Path
 import re
 from typing import Any
 
+from app.domain.daily_report_field_contract import normative_daily_report_fields
 from app.services.hermes_day1_evidence_service import classify_dingtalk_evidence
 from app.services.report.output_skill_reconciliation import reconcile_rendered_daily_report
 
@@ -22,6 +24,15 @@ _ALIGNMENT_KEYS = (
     'char_match_rate',
     'exact_match',
     'threshold',
+    'reference_present_fields',
+    'declared_na_fields',
+    'invalid_na_fields',
+    'reference_absent_fields',
+    'reference_absent_count',
+    'normative_fields',
+    'normative_denominator',
+    'normative_matched_fields',
+    'normative_coverage_rate',
 )
 _SECTION_TITLES = ('智能大脑判断单', '正式日报正文', '各车间明细')
 _TEXT_ENCODINGS = ('utf-8-sig', 'utf-8', 'gb18030', 'gbk')
@@ -40,6 +51,7 @@ def evaluate_day1_run_payload(
     *,
     answer: str,
     output_skill_expected_text: str | None = None,
+    output_skill_reference: Mapping[str, Any] | None = None,
     min_field_match_rate: float = 95.0,
 ) -> list[HarnessCaseResult]:
     payload_map = _as_mapping(payload)
@@ -51,6 +63,7 @@ def evaluate_day1_run_payload(
         sources=sources,
         answer=answer,
         output_skill_expected_text=output_skill_expected_text,
+        output_skill_reference=output_skill_reference,
         min_field_match_rate=min_field_match_rate,
     )
     learning = _as_mapping(payload_map.get('learning'))
@@ -95,6 +108,7 @@ def load_output_skill_daily_reference(root: str | Path | None, business_date: da
     return {
         'file_name': matched_file.name,
         'text': text,
+        **_load_output_skill_na_sidecar(matched_file),
     }
 
 
@@ -105,20 +119,31 @@ def build_output_skill_alignment(
     min_field_match_rate: float = 95.0,
 ) -> dict[str, Any]:
     threshold = _normalise_threshold(min_field_match_rate)
-    matched_file = _find_output_skill_daily_file(root, business_date)
-    if matched_file is None:
+    reference = load_output_skill_daily_reference(root, business_date)
+    if reference is None:
         return _missing_alignment_summary(threshold)
 
-    expected_text = _read_text_file(matched_file)
-    if expected_text is None:
-        return _missing_alignment_summary(threshold)
-
-    reconciled = reconcile_rendered_daily_report(actual_text or '', expected_text)
+    reconciled = reconcile_rendered_daily_report(
+        actual_text or '',
+        str(reference.get('text') or ''),
+        normative_fields=normative_daily_report_fields(),
+        declared_na_fields=reference.get('declared_na_fields') or (),
+        invalid_na_fields=reference.get('invalid_na_fields') or (),
+    )
     field_match_rate = _normalise_rate(reconciled.get('field_match_rate'))
-    status = 'passed' if field_match_rate is not None and field_match_rate >= threshold else 'review_needed'
+    normative_coverage_rate = _normalise_rate(reconciled.get('normative_coverage_rate'))
+    contract_blocked = bool(
+        reconciled.get('reference_absent_fields') or reconciled.get('invalid_na_fields')
+    )
+    if contract_blocked:
+        status = 'blocked'
+    elif normative_coverage_rate is not None and normative_coverage_rate >= threshold:
+        status = 'passed'
+    else:
+        status = 'review_needed'
     return {
         'status': status,
-        'file_name': matched_file.name,
+        'file_name': reference.get('file_name'),
         'field_match_rate': field_match_rate,
         'matched_fields': reconciled.get('matched_fields'),
         'expected_fields': reconciled.get('expected_fields'),
@@ -139,6 +164,15 @@ def build_output_skill_alignment(
         'char_match_rate': _normalise_rate(reconciled.get('char_match_rate')),
         'exact_match': bool(reconciled.get('exact_match')),
         'threshold': threshold,
+        'reference_present_fields': reconciled.get('reference_present_fields'),
+        'declared_na_fields': reconciled.get('declared_na_fields') or [],
+        'invalid_na_fields': reconciled.get('invalid_na_fields') or [],
+        'reference_absent_fields': reconciled.get('reference_absent_fields') or [],
+        'reference_absent_count': reconciled.get('reference_absent_count'),
+        'normative_fields': reconciled.get('normative_fields'),
+        'normative_denominator': reconciled.get('normative_denominator'),
+        'normative_matched_fields': reconciled.get('normative_matched_fields'),
+        'normative_coverage_rate': normative_coverage_rate,
     }
 
 
@@ -250,7 +284,20 @@ def _evaluate_output_skill_alignment(
     min_field_match_rate: float,
 ) -> HarnessCaseResult:
     threshold = _normalise_threshold(min_field_match_rate)
-    field_match_rate = _normalise_rate(alignment.get('field_match_rate'))
+    status = str(alignment.get('status') or '').strip().lower()
+    normative_rate = _normalise_rate(alignment.get('normative_coverage_rate'))
+    field_match_rate = normative_rate
+    if field_match_rate is None:
+        field_match_rate = _normalise_rate(alignment.get('field_match_rate'))
+    if status == 'blocked':
+        absent = [str(item) for item in _as_list(alignment.get('reference_absent_fields'))]
+        invalid = [str(item) for item in _as_list(alignment.get('invalid_na_fields'))]
+        detail = '输出 skill 答案钥匙合同未闭合。'
+        if absent:
+            detail += f' 未声明缺字段：{"、".join(absent)}。'
+        if invalid:
+            detail += f' 无效 N/A 字段：{"、".join(invalid)}。'
+        return HarnessCaseResult('output_skill_alignment', False, detail)
     if field_match_rate is None:
         return HarnessCaseResult('output_skill_alignment', False, '没有可用的输出 skill 对齐结果。')
     if field_match_rate >= threshold:
@@ -286,6 +333,7 @@ def _resolve_alignment(
     sources: Mapping[str, Any],
     answer: str,
     output_skill_expected_text: str | None,
+    output_skill_reference: Mapping[str, Any] | None,
     min_field_match_rate: float,
 ) -> Mapping[str, Any]:
     direct = _as_mapping(payload.get('output_skill_alignment'))
@@ -294,13 +342,31 @@ def _resolve_alignment(
     nested = _as_mapping(sources.get('output_skill_alignment'))
     if nested:
         return nested
-    if not output_skill_expected_text:
+    reference = _as_mapping(output_skill_reference)
+    reference_text = str(reference.get('text') or output_skill_expected_text or '')
+    if not reference_text:
         return {}
     formal_text = _extract_section(answer, '正式日报正文', '各车间明细') or answer
-    reconciled = reconcile_rendered_daily_report(formal_text, output_skill_expected_text)
+    reconciled = reconcile_rendered_daily_report(
+        formal_text,
+        reference_text,
+        normative_fields=normative_daily_report_fields(),
+        declared_na_fields=reference.get('declared_na_fields') or (),
+        invalid_na_fields=reference.get('invalid_na_fields') or (),
+    )
+    normative_rate = _normalise_rate(reconciled.get('normative_coverage_rate'))
+    contract_blocked = bool(
+        reconciled.get('reference_absent_fields') or reconciled.get('invalid_na_fields')
+    )
     return {
-        'status': 'passed' if _normalise_rate(reconciled.get('field_match_rate')) >= _normalise_threshold(min_field_match_rate) else 'review_needed',
-        'file_name': None,
+        'status': (
+            'blocked'
+            if contract_blocked
+            else 'passed'
+            if normative_rate is not None and normative_rate >= _normalise_threshold(min_field_match_rate)
+            else 'review_needed'
+        ),
+        'file_name': reference.get('file_name'),
         'field_match_rate': _normalise_rate(reconciled.get('field_match_rate')),
         'matched_fields': reconciled.get('matched_fields'),
         'expected_fields': reconciled.get('expected_fields'),
@@ -309,6 +375,15 @@ def _resolve_alignment(
         'char_match_rate': _normalise_rate(reconciled.get('char_match_rate')),
         'exact_match': bool(reconciled.get('exact_match')),
         'threshold': _normalise_threshold(min_field_match_rate),
+        'reference_present_fields': reconciled.get('reference_present_fields'),
+        'declared_na_fields': reconciled.get('declared_na_fields') or [],
+        'invalid_na_fields': reconciled.get('invalid_na_fields') or [],
+        'reference_absent_fields': reconciled.get('reference_absent_fields') or [],
+        'reference_absent_count': reconciled.get('reference_absent_count'),
+        'normative_fields': reconciled.get('normative_fields'),
+        'normative_denominator': reconciled.get('normative_denominator'),
+        'normative_matched_fields': reconciled.get('normative_matched_fields'),
+        'normative_coverage_rate': normative_rate,
     }
 
 
@@ -369,6 +444,33 @@ def _read_text_file(path: Path) -> str | None:
         return None
 
 
+def _load_output_skill_na_sidecar(report_path: Path) -> dict[str, list[Any]]:
+    sidecar_path = report_path.with_suffix('.na.json')
+    if not sidecar_path.is_file():
+        return {'declared_na_fields': [], 'invalid_na_fields': []}
+    raw = _read_text_file(sidecar_path)
+    if raw is None:
+        return {'declared_na_fields': [], 'invalid_na_fields': ['$sidecar']}
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return {'declared_na_fields': [], 'invalid_na_fields': ['$sidecar']}
+    if not isinstance(payload, Mapping) or set(payload) != {'not_applicable'}:
+        return {'declared_na_fields': [], 'invalid_na_fields': ['$sidecar']}
+    values = payload.get('not_applicable')
+    if not isinstance(values, list):
+        return {'declared_na_fields': [], 'invalid_na_fields': ['$not_applicable']}
+
+    declared: list[str] = []
+    invalid: list[str] = []
+    for index, item in enumerate(values):
+        if not isinstance(item, str) or not item.strip():
+            invalid.append(f'$not_applicable[{index}]')
+            continue
+        declared.append(item.strip())
+    return {'declared_na_fields': declared, 'invalid_na_fields': invalid}
+
+
 def _missing_alignment_summary(min_field_match_rate: float) -> dict[str, Any]:
     return {
         'status': 'missing',
@@ -384,6 +486,15 @@ def _missing_alignment_summary(min_field_match_rate: float) -> dict[str, Any]:
         'char_match_rate': None,
         'exact_match': False,
         'threshold': _normalise_threshold(min_field_match_rate),
+        'reference_present_fields': None,
+        'declared_na_fields': [],
+        'invalid_na_fields': [],
+        'reference_absent_fields': [],
+        'reference_absent_count': None,
+        'normative_fields': len(normative_daily_report_fields()),
+        'normative_denominator': None,
+        'normative_matched_fields': None,
+        'normative_coverage_rate': None,
     }
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 import importlib.util
 from datetime import date, datetime
+import json
 from pathlib import Path
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
+from app.domain.daily_report_field_contract import normative_daily_report_fields
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
 from app.models.mes import (
     MesCoilSnapshot,
@@ -28,6 +30,7 @@ from app.models.mes import (
 )
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
+from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 
 
 EXPECTED_CRITICAL_DAILY_FACT_FIELDS = {
@@ -1703,8 +1706,8 @@ def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: 
     assert fact["value"] == 366
     assert fact["source"] == "root_owner_correction"
     assert fact["source_type"] == "root_owner_correction"
-    assert fact["priority"] == 100
-    assert fact["confidence"] == 1.0
+    assert fact["priority"] == 90
+    assert fact["confidence"] == 0.95
     assert fact["freshness"] == "confirmed"
     assert fact["adoption_reason"] == "root_owner 钉钉确认"
     assert fact["source_detail"] == {
@@ -1736,7 +1739,7 @@ def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: 
         "adopted_value": 366,
         "reason": "root_owner 钉钉确认",
     }
-    assert bundle["confidence"] == 1.0
+    assert bundle["confidence"] == 0.95
     assert bundle["status"] == "ready"
     closure_field = _fact_closure_field(bundle, "total_output_daily")
     assert closure_field["status"] == "needs_evidence"
@@ -2829,8 +2832,8 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
     assert fact["value"] == 50578
     assert fact["source"] == "dingtalk_supplement"
     assert fact["source_type"] == "dingtalk_supplement"
-    assert fact["priority"] == 90
-    assert fact["confidence"] == 0.95
+    assert fact["priority"] == 100
+    assert fact["confidence"] == 1.0
     assert fact["freshness"] == "supplemented"
     assert fact["adoption_reason"] == "能源负责人钉钉补充"
     assert fact["source_detail"] == {
@@ -2868,7 +2871,7 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
     }
 
 
-def test_dingtalk_supplement_does_not_override_root_owner_correction(
+def test_dingtalk_supplement_remains_primary_over_root_owner_correction(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -2946,13 +2949,26 @@ def test_dingtalk_supplement_does_not_override_root_owner_correction(
     bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
 
     fact = bundle["facts"]["total_gas_m3"]
-    assert fact["value"] == 50600
-    assert fact["source"] == "root_owner_correction"
-    assert fact["source_type"] == "root_owner_correction"
+    assert fact["value"] == 50578
+    assert fact["source"] == "dingtalk_supplement"
+    assert fact["source_type"] == "dingtalk_supplement"
     assert fact["priority"] == 100
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_gas_m3"]}]
+    assert bundle["correction_refs"] == [
+        {"id": 1, "field_name": "total_gas_m3", "trace_id": "trace-root-owner-gas"}
+    ]
     assert any(item["type"] == "dingtalk_supplement" for item in bundle["conflicts"])
-    assert any(item["type"] == "root_owner_correction" for item in bundle["conflicts"])
+    assert next(
+        item for item in bundle["conflicts"] if item["type"] == "root_owner_correction"
+    ) == {
+        "field": "total_gas_m3",
+        "type": "root_owner_correction",
+        "adopted_source": "dingtalk_supplement",
+        "adopted_value": 50578,
+        "candidate_source": "root_owner_correction",
+        "candidate_value": 50600,
+        "reason": "higher_priority_fact_retained",
+    }
 
 
 def test_build_daily_fact_bundle_reuses_existing_run_for_same_run_key(
@@ -3279,7 +3295,21 @@ def test_daily_fact_bundle_includes_output_skill_alignment(
         "conflicts": [],
     }
     expected = daily_fact_bundle.template_daily_report.render_template_daily_report(template_facts)
-    (tmp_path / "2026-6-19_日报正文.txt").write_text(expected, encoding="utf-8")
+    report_path = tmp_path / "2026-6-19_日报正文.txt"
+    report_path.write_text(expected, encoding="utf-8")
+    parsed_fields = set(parse_output_skill_daily_report(expected))
+    report_path.with_suffix(".na.json").write_text(
+        json.dumps(
+            {
+                "not_applicable": [
+                    field_name
+                    for field_name in normative_daily_report_fields()
+                    if field_name not in parsed_fields
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
@@ -3294,6 +3324,47 @@ def test_daily_fact_bundle_includes_output_skill_alignment(
     assert bundle["output_skill_alignment"]["file_name"] == "2026-6-19_日报正文.txt"
     assert bundle["output_skill_alignment"]["field_match_rate"] == 100.0
     assert bundle["gap_plan"]["status"] == "ready"
+
+
+def test_daily_fact_bundle_real_source_gate_requires_closed_reference_contract(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"report_date": target_date},
+            "sources": {"report_date": "computed"},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+    monkeypatch.setattr(
+        daily_fact_bundle,
+        "build_output_skill_alignment",
+        lambda *_args, **_kwargs: {
+            "status": "blocked",
+            "reference_absent_fields": ["total_output_daily"],
+        },
+    )
+    monkeypatch.setattr(
+        daily_fact_bundle,
+        "build_daily_report_fact_closure",
+        lambda _bundle: {"status": "pass"},
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+        allow_output_skill_reference_adoption=False,
+    )
+
+    assert bundle["output_skill_alignment"]["status"] == "blocked"
+    assert bundle["fact_closure"]["status"] == "pass"
+    assert bundle["real_source_gate_passed"] is False
 
 
 def test_daily_fact_bundle_output_skill_adoption_stays_blocked_as_reference_only(

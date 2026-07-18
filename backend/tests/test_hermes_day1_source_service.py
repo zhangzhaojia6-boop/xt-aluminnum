@@ -860,6 +860,15 @@ def test_collect_day1_sources_returns_output_skill_alignment_when_reference_root
         'char_match_rate': 100.0,
         'exact_match': True,
         'threshold': 95.0,
+        'reference_present_fields': 127,
+        'declared_na_fields': [],
+        'invalid_na_fields': [],
+        'reference_absent_fields': [],
+        'reference_absent_count': 0,
+        'normative_fields': 127,
+        'normative_denominator': 127,
+        'normative_matched_fields': 127,
+        'normative_coverage_rate': 100.0,
     }
 
 

@@ -9,6 +9,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.business_time import local_now, production_business_window
+from app.domain.daily_report_field_contract import source_lane_priority
 from app.models.master import Workshop
 from app.models.mes import (
     MesCoilSnapshot,
@@ -29,36 +30,39 @@ from app.services.report.output_skill_report_parser import parse_output_skill_da
 SUBMITTED_STATUSES = ("submitted", "verified", "approved")
 DATAHUB_TEMPLATE_REPORT_KEY = "template_daily_report"
 SOURCE_PRIORITY = {
-    "owner_daily": 100,
-    "manual_workbook": 95,
-    "wms_direct": 90,
-    "mes_verified": 85,
-    "manual_mobile_coil": 80,
-    "owner_daily_month_sum": 78,
-    "quality_yield_daily": 76,
-    "recovery_daily": 76,
-    "overhaul_daily": 76,
-    "mes_stock_header_records": 72,
-    "mes_stock_records": 72,
-    "mes_stock_records_missing": 72,
-    "finished_inbound_output": 72,
-    "datahub_final_daily_report": 88,
-    "previous_final_report": 70,
-    "computed": 65,
-    "owner_or_energy_summary": 62,
-    "energy_cost": 62,
-    "contract_projection": 60,
-    "yield_projection": 60,
-    "mes_packaging_output": 45,
-    "mes_delivery_records": 45,
-    "mes_wip_distribution": 40,
-    "mes_daily_wip_snapshot": 40,
-    "mes_coil_snapshot_business_date": 40,
-    "mes_wip_total_snapshot": 40,
-    "mes_material_records": 35,
-    "mes_workshop_process_records": 35,
-    "runtime_target_date": 30,
-    "mes_evidence": 20,
+    source_type: source_lane_priority(source_type)
+    for source_type in (
+        "owner_daily",
+        "manual_workbook",
+        "wms_direct",
+        "mes_verified",
+        "manual_mobile_coil",
+        "owner_daily_month_sum",
+        "quality_yield_daily",
+        "recovery_daily",
+        "overhaul_daily",
+        "mes_stock_header_records",
+        "mes_stock_records",
+        "mes_stock_records_missing",
+        "finished_inbound_output",
+        "datahub_final_daily_report",
+        "previous_final_report",
+        "computed",
+        "owner_or_energy_summary",
+        "energy_cost",
+        "contract_projection",
+        "yield_projection",
+        "mes_packaging_output",
+        "mes_delivery_records",
+        "mes_wip_distribution",
+        "mes_daily_wip_snapshot",
+        "mes_coil_snapshot_business_date",
+        "mes_wip_total_snapshot",
+        "mes_material_records",
+        "mes_workshop_process_records",
+        "runtime_target_date",
+        "mes_evidence",
+    )
 }
 
 MANUAL_OUTPUT_FIELDS = {
@@ -175,13 +179,7 @@ def _source(source_type: str, **extra: Any) -> dict[str, Any]:
 
 
 def _source_priority(source_type: str | None) -> int:
-    if not source_type:
-        return 0
-    if source_type in SOURCE_PRIORITY:
-        return SOURCE_PRIORITY[source_type]
-    if source_type.startswith("mes_"):
-        return SOURCE_PRIORITY["mes_evidence"]
-    return 0
+    return source_lane_priority(source_type)
 
 
 def should_replace_source(existing: dict | None, new_source_type: str) -> bool:
