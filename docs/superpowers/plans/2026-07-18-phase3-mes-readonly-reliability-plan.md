@@ -240,7 +240,7 @@ git commit -m "feat(mes): emit classified sync recovery events"
 - Create: `.github/workflows/mes-readonly-audit-prod.yml`
 - Modify: `backend/tests/test_production_workflow_contracts.py`
 
-- [ ] **Step 1: Write the failing workflow contract test**
+- [x] **Step 1: Write the failing workflow contract test**
 
 Assert that the workflow:
 
@@ -252,7 +252,7 @@ Assert that the workflow:
 - downloads and uploads only the sanitized JSON artifact;
 - never echoes database URLs, passwords, SQL rows, or secret values.
 
-- [ ] **Step 2: Run the workflow contract test and confirm failure**
+- [x] **Step 2: Run the workflow contract test and confirm failure**
 
 ```powershell
 cd backend
@@ -262,15 +262,15 @@ python -m pytest tests/test_production_workflow_contracts.py -q
 
 Expected: the new workflow file is missing.
 
-- [ ] **Step 3: Implement the production workflow**
+- [x] **Step 3: Implement the production workflow**
 
 Use `workflow_dispatch`, `concurrency.group: xintai-production-ops`, `cancel-in-progress: false`, and the existing production SSH secret names. Verify clean production worktrees and exact SHAs before running the gate. Always upload the JSON artifact with `if: always()` so a red gate remains diagnosable.
 
-- [ ] **Step 4: Run workflow tests until green**
+- [x] **Step 4: Run workflow tests until green**
 
 Run the Step 2 command. Expected: workflow contracts pass.
 
-- [ ] **Step 5: Commit the workflow**
+- [x] **Step 5: Commit the workflow**
 
 ```powershell
 git add .github/workflows/mes-readonly-audit-prod.yml backend/tests/test_production_workflow_contracts.py

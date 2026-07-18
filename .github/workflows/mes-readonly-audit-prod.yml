@@ -1,0 +1,201 @@
+name: MES Read-Only Reliability Production Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'mes-readonly-audit' to run the production read-only audit
+        required: true
+      datahub_sha:
+        description: Full 40-character Data Hub production SHA
+        required: true
+      hermes_sha:
+        description: Full 40-character Hermes production SHA
+        required: true
+
+concurrency:
+  group: xintai-production-ops
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mes-readonly-audit-prod:
+    if: github.event.inputs.confirm == 'mes-readonly-audit'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Run pinned production MES read-only audit
+        id: audit
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+          EXPECTED_DATAHUB_SHA: ${{ github.event.inputs.datahub_sha }}
+          EXPECTED_HERMES_SHA: ${{ github.event.inputs.hermes_sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          local_artifact="mes-readonly-audit-${RUN_ID}.json"
+          remote_artifact="/var/lib/aluminum-bypass/acceptance/mes-readonly-audit-${RUN_ID}.json"
+          echo "local_artifact=$local_artifact" >> "$GITHUB_OUTPUT"
+          echo "exit_code=2" >> "$GITHUB_OUTPUT"
+
+          write_local_failure() {
+            local reason="$1"
+            python3 - "$local_artifact" "$reason" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          path.write_text(
+              json.dumps(
+                  {
+                      "status": "blocked",
+                      "business_dates": [],
+                      "business_date_count": 0,
+                      "query_results": [],
+                      "blockers": [{"code": sys.argv[2]}],
+                  },
+                  ensure_ascii=False,
+                  indent=2,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          os.chmod(path, 0o600)
+          PY
+          }
+
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_KEY" ] || [ -z "$SSH_KNOWN_HOSTS" ]; then
+            write_local_failure "ssh_configuration_missing"
+            exit 0
+          fi
+          if ! printf '%s' "$EXPECTED_DATAHUB_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            write_local_failure "datahub_sha_invalid"
+            exit 0
+          fi
+          if ! printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            write_local_failure "hermes_sha_invalid"
+            exit 0
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%sexport %s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+          REMOTE_PREAMBLE=""
+          append_remote_assignment EXPECTED_DATAHUB_SHA "$EXPECTED_DATAHUB_SHA"
+          append_remote_assignment EXPECTED_HERMES_SHA "$EXPECTED_HERMES_SHA"
+          append_remote_assignment REMOTE_ARTIFACT "$remote_artifact"
+
+          set +e
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
+          set -euo pipefail
+          DATAHUB_REPO="/srv/aluminum-bypass"
+          HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
+
+          write_remote_failure() {
+            local reason="$1"
+            python3 - "$REMOTE_ARTIFACT" "$reason" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_text(
+              json.dumps(
+                  {
+                      "status": "blocked",
+                      "business_dates": [],
+                      "business_date_count": 0,
+                      "query_results": [],
+                      "blockers": [{"code": sys.argv[2]}],
+                  },
+                  ensure_ascii=False,
+                  indent=2,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          os.chmod(path, 0o600)
+          PY
+          }
+
+          trap 'rc=$?; if [ "$rc" -ne 0 ] && [ ! -f "$REMOTE_ARTIFACT" ]; then write_remote_failure "remote_preflight_failed"; fi' EXIT
+          install -d -m 700 "$(dirname "$REMOTE_ARTIFACT")"
+          rm -f "$REMOTE_ARTIFACT"
+
+          if [ -n "$(git -C "$DATAHUB_REPO" status --porcelain)" ]; then
+            echo "DATAHUB_WORKTREE_NOT_CLEAN"
+            exit 21
+          fi
+          if [ -n "$(git -C "$HERMES_REPO" status --porcelain)" ]; then
+            echo "HERMES_WORKTREE_NOT_CLEAN"
+            exit 22
+          fi
+          actual_datahub_sha="$(git -C "$DATAHUB_REPO" rev-parse HEAD)"
+          actual_hermes_sha="$(git -C "$HERMES_REPO" rev-parse HEAD)"
+          [ "$actual_datahub_sha" = "$EXPECTED_DATAHUB_SHA" ] || exit 23
+          [ "$actual_hermes_sha" = "$EXPECTED_HERMES_SHA" ] || exit 24
+          [ -x "/srv/aluminum-bypass/backend/.venv/bin/python" ] || exit 25
+
+          set +e
+          (
+            cd "$DATAHUB_REPO/backend"
+            /srv/aluminum-bypass/backend/.venv/bin/python scripts/check_mes_readonly_reliability.py \
+              --days 3 \
+              --fault-drill \
+              --json \
+              --output "$REMOTE_ARTIFACT" >/dev/null
+          )
+          gate_status=$?
+          set -e
+          chmod 600 "$REMOTE_ARTIFACT"
+          trap - EXIT
+          exit "$gate_status"
+          REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"
+          remote_status=$?
+          set -e
+
+          set +e
+          scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "$SSH_USER@$SSH_HOST:$remote_artifact" "$local_artifact"
+          download_status=$?
+          set -e
+          if [ "$download_status" -ne 0 ]; then
+            write_local_failure "audit_artifact_download_failed"
+            remote_status=3
+          fi
+          echo "exit_code=$remote_status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload sanitized MES read-only audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mes-readonly-audit-production-${{ github.run_id }}
+          path: ${{ steps.audit.outputs.local_artifact }}
+          if-no-files-found: warn
+
+      - name: Fail when MES read-only audit is blocked
+        if: steps.audit.outputs.exit_code != '0'
+        run: exit ${{ steps.audit.outputs.exit_code }}

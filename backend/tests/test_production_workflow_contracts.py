@@ -24,6 +24,7 @@ WORKFLOW_PATHS = (
     '.github/workflows/daily-report-alignment-prod.yml',
     '.github/workflows/hermes-acceptance-prod.yml',
     '.github/workflows/archive-prod-untracked.yml',
+    '.github/workflows/mes-readonly-audit-prod.yml',
 )
 
 
@@ -148,6 +149,53 @@ def _extract_hermes_gateway_verifier(source: str) -> str:
     end = capture_body.find(end_marker, start)
     assert end >= 0, 'Hermes gateway verifier heredoc end not found'
     return textwrap.dedent(capture_body[start:end])
+
+
+def test_mes_readonly_audit_workflow_is_pinned_sanitized_and_compare_only() -> None:
+    path = '.github/workflows/mes-readonly-audit-prod.yml'
+    payload = _load(path)
+    source = _read(path)
+    inputs = _workflow_inputs(payload)
+    concurrency = _workflow_concurrency(payload)
+    job = payload['jobs']['mes-readonly-audit-prod']
+
+    assert inputs['confirm']['description'].find('mes-readonly-audit') >= 0
+    assert {'confirm', 'datahub_sha', 'hermes_sha'} <= set(inputs)
+    assert job['if'] == "github.event.inputs.confirm == 'mes-readonly-audit'"
+    assert job['environment'] == 'production'
+    assert concurrency == {
+        'group': 'xintai-production-ops',
+        'cancel-in-progress': False,
+    }
+    assert 'SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}' in source
+    assert 'StrictHostKeyChecking=yes' in source
+    assert 'UserKnownHostsFile=~/.ssh/known_hosts' in source
+    assert 'ssh-keyscan' not in source
+    assert "grep -Eq '^[0-9a-f]{40}$'" in source
+    assert 'git -C "$DATAHUB_REPO" status --porcelain' in source
+    assert 'git -C "$HERMES_REPO" status --porcelain' in source
+    assert 'git -C "$DATAHUB_REPO" rev-parse HEAD' in source
+    assert 'git -C "$HERMES_REPO" rev-parse HEAD' in source
+    assert '[ "$actual_datahub_sha" = "$EXPECTED_DATAHUB_SHA" ]' in source
+    assert '[ "$actual_hermes_sha" = "$EXPECTED_HERMES_SHA" ]' in source
+    assert '/srv/aluminum-bypass/backend/.venv/bin/python' in source
+    assert 'scripts/check_mes_readonly_reliability.py' in source
+    assert '--days 3' in source
+    assert '--fault-drill' in source
+    assert '--json' in source
+    assert '/var/lib/aluminum-bypass/acceptance/mes-readonly-audit-' in source
+    assert 'scp -i ~/.ssh/deploy_key' in source
+    assert 'actions/upload-artifact@v4' in source
+    assert 'if: always()' in source
+    assert 'if-no-files-found: warn' in source
+    assert 'DATABASE_URL' not in source
+    assert 'MES_SQLSERVER_PASSWORD' not in source
+    assert 'printenv' not in source
+    assert 'set -x' not in source
+    assert 'SELECT ' not in source
+    assert 'psql ' not in source
+    assert 'sqlcmd ' not in source
+    assert 'cat "$remote_artifact"' not in source
 
 
 def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_contract() -> None:
