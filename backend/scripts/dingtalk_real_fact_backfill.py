@@ -37,6 +37,7 @@ MACHINE_ONLY_MODE = 'machine-only'
 OWNER_VERIFIED_MODE = 'owner-verified-dws-history'
 SHA256_RE = re.compile(r'^[0-9a-f]{64}$')
 RUN_ID_RE = re.compile(r'^[A-Za-z0-9._:-]{1,128}$')
+REJECTION_REASON_RE = re.compile(r'^[a-z][a-z0-9_]{0,79}$')
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,13 @@ class LocalBackfillDingTalkService:
         )
 
 
+def _record_rejection(summary: dict[str, Any], reason: Any) -> None:
+    clean = str(reason or '').strip()
+    safe_reason = clean if REJECTION_REASON_RE.fullmatch(clean) else 'validation_error'
+    reasons = summary.setdefault('rejection_reasons', {})
+    reasons[safe_reason] = int(reasons.get(safe_reason, 0)) + 1
+
+
 def run_backfill(
     *,
     input_jsonl: str | Path,
@@ -91,18 +99,34 @@ def run_backfill(
     days: int,
     confirmation_mode: str = MACHINE_ONLY_MODE,
     confirmation_run_id: str | None = None,
-) -> dict[str, int]:
+) -> dict[str, Any]:
     if confirmation_mode not in {MACHINE_ONLY_MODE, OWNER_VERIFIED_MODE}:
         raise ValueError('unsupported_confirmation_mode')
     if confirmation_mode == OWNER_VERIFIED_MODE and not RUN_ID_RE.fullmatch(str(confirmation_run_id or '')):
         raise ValueError('invalid_confirmation_run_id')
     root = Path(files_root).resolve()
     session_factory = get_sessionmaker()
-    summary = {'accepted': 0, 'duplicates': 0, 'rejected': 0, 'file_text': 0, 'message_text': 0}
+    summary: dict[str, Any] = {
+        'accepted': 0,
+        'duplicates': 0,
+        'rejected': 0,
+        'file_text': 0,
+        'message_text': 0,
+    }
     if confirmation_mode == OWNER_VERIFIED_MODE:
-        summary.update({'confirmed': 0, 'already_confirmed': 0, 'confirmation_rejected': 0, 'committed': 0})
+        summary.update(
+            {
+                'confirmed': 0,
+                'already_confirmed': 0,
+                'confirmation_rejected': 0,
+                'committed': 0,
+                'rejection_reasons': {},
+            }
+        )
     local_file_service = LocalBackfillDingTalkService()
     cutoff = last_completed_production_business_date() - timedelta(days=max(1, int(days)) - 1)
+    if confirmation_mode == OWNER_VERIFIED_MODE:
+        summary['cutoff_business_date'] = cutoff.isoformat()
 
     db = session_factory()
     try:
@@ -165,8 +189,8 @@ def _run_owner_verified_backfill(
     cutoff: date,
     local_file_service: LocalBackfillDingTalkService,
     confirmation_run_id: str,
-    summary: dict[str, int],
-) -> dict[str, int]:
+    summary: dict[str, Any],
+) -> dict[str, Any]:
     prepared: list[PreparedOwnerVerifiedRow] = []
     for row in rows:
         try:
@@ -189,9 +213,14 @@ def _run_owner_verified_backfill(
                     verification=verification,
                 )
             )
-        except (OSError, ValueError):
+        except OSError:
             summary['rejected'] += 1
             summary['confirmation_rejected'] += 1
+            _record_rejection(summary, 'io_error')
+        except ValueError as exc:
+            summary['rejected'] += 1
+            summary['confirmation_rejected'] += 1
+            _record_rejection(summary, exc)
     if summary['confirmation_rejected']:
         return summary
 
@@ -208,6 +237,7 @@ def _run_owner_verified_backfill(
             if not result.get('accepted'):
                 summary['rejected'] += 1
                 summary['confirmation_rejected'] += 1
+                _record_rejection(summary, result.get('reason') or 'stream_ingest_rejected')
                 break
             summary['accepted'] += 1
             if result.get('duplicate'):
@@ -228,6 +258,7 @@ def _run_owner_verified_backfill(
                 summary['already_confirmed'] += 1
             else:
                 summary['confirmation_rejected'] += 1
+                _record_rejection(summary, 'owner_verification_rejected')
                 break
         if summary['confirmation_rejected']:
             db.rollback()

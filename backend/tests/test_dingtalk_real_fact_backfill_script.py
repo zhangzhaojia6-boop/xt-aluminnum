@@ -448,6 +448,7 @@ def test_owner_verified_dws_row_with_wrong_hash_is_rejected_before_persistence(m
     assert summary['accepted'] == 0
     assert summary['rejected'] == 1
     assert summary['confirmation_rejected'] == 1
+    assert summary['rejection_reasons'] == {'owner_verified_content_hash_mismatch': 1}
     db = Session()
     try:
         assert db.query(MultimodalEvidence).count() == 0
@@ -482,6 +483,7 @@ def test_owner_verified_dws_row_missing_sender_is_rejected_before_persistence(mo
     assert exit_code == 0
     summary = json.loads(captured.getvalue())
     assert summary['confirmation_rejected'] == 1
+    assert summary['rejection_reasons'] == {'owner_verified_lineage_incomplete': 1}
     db = Session()
     try:
         assert db.query(MultimodalEvidence).count() == 0
@@ -519,6 +521,7 @@ def test_owner_verified_dws_package_is_atomic_when_any_row_fails(monkeypatch, tm
     assert summary['committed'] == 0
     assert summary['confirmed'] == 0
     assert summary['confirmation_rejected'] == 1
+    assert summary['rejection_reasons'] == {'owner_verified_content_hash_mismatch': 1}
     db = Session()
     try:
         assert db.query(MultimodalEvidence).count() == 0
