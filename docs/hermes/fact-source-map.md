@@ -2,6 +2,8 @@
 
 本文件由 `backend/app/hermes/fact_source_map.json` 自动生成，不手工维护。
 
+完整字段、业务时间、容差和统一来源顺序见：[日报 127 字段合同](daily-report-field-contract.md)。
+
 | 指标 | 领域 | 来源优先级 | 涉及服务 | 保护级别 | 状态 | 接口 | 页面 | 涉及表 | Hermes 工具 | 证据条件 | 已知风险 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 车间总产量日合计 (total_output_daily) | production | dingtalk_group_content、MES/WMS readonly、data_hub_projection、DailyFactBundle | DailyFactBundle、Hermes、template_daily_report、hermes_langchain_tools | protect | 已证实 | /api/v1/reports/template-daily/preview、/api/v1/dashboard/daily-production | /manage/today、/manage/production | daily_fact_bundle_snapshots、multimodal_evidence、mes_workshop_process_records、daily_reports | hub_query、dingtalk_evidence、output_skill_alignment、source_map | authorized_group=not_required_enterprise_app_scope; content_type=text > file > image; time_range=business_day_window | 包装量、入库量、车间最终日报产量不是同一个数 |

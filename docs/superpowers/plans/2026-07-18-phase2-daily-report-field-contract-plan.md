@@ -212,23 +212,23 @@ feat(report): block undeclared reference gaps
 - Create: `backend/tests/test_daily_report_field_contract_scripts.py`
 - Modify: `docs/hermes/fact-source-map.md`
 
-- [ ] **Step 1: Write failing script tests**
+- [x] **Step 1: Write failing script tests**
 
 Test deterministic Markdown rendering, `--check` drift detection, machine-readable JSON output, exact field count, time constants, source order and maximum tolerance.
 
-- [ ] **Step 2: Implement the renderer and static gate**
+- [x] **Step 2: Implement the renderer and static gate**
 
 The renderer reads only code contracts. The static gate exits non-zero on duplicate/missing fields, invalid units, invalid times, source-order drift, tolerance above 20, or stale generated documentation.
 
-- [ ] **Step 3: Generate the Markdown document**
+- [x] **Step 3: Generate the Markdown document**
 
 The document header must state that `D:\输出skill` is compare-only and RAG cannot create realtime numbers.
 
-- [ ] **Step 4: Link the generated contract from the fact-source map**
+- [x] **Step 4: Link the generated contract from the fact-source map**
 
 Do not hand-copy 127 rows into multiple documents.
 
-- [ ] **Step 5: Run script and documentation checks**
+- [x] **Step 5: Run script and documentation checks**
 
 ```powershell
 uv run --with-requirements backend/requirements.txt python backend/scripts/render_daily_report_field_contract.py --check
@@ -237,7 +237,7 @@ uv run --with-requirements backend/requirements.txt --with pytest pytest -q back
 git diff --check
 ```
 
-- [ ] **Step 6: Commit the generated contract documentation**
+- [x] **Step 6: Commit the generated contract documentation**
 
 ```text
 docs(report): publish generated field contract
