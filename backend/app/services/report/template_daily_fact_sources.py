@@ -8,6 +8,7 @@ from sqlalchemy import and_, func, inspect, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
+from app.core.active_workshops import normalize_workshop_name
 from app.core.business_time import local_now, production_business_window
 from app.domain.daily_report_field_contract import source_lane_priority
 from app.models.master import Workshop
@@ -65,22 +66,19 @@ SOURCE_PRIORITY = {
     )
 }
 
-MANUAL_OUTPUT_FIELDS = {
-    "hot_roll_daily",
-    "hot_roll_month",
-    "foundry_daily",
-    "foundry_month",
-    "cast_2_daily",
-    "cast_2_month",
-    "cast_3_daily",
-    "cast_3_month",
-}
-
 MANUAL_OUTPUT_WORKSHOPS = {
     "hot_roll_daily": ("热轧",),
-    "foundry_daily": ("铸锭", "熔铸", "熔炼"),
-    "cast_2_daily": ("铸二", "铸轧二"),
-    "cast_3_daily": ("铸三", "铸轧三"),
+    "foundry_daily": ("铸锭",),
+    "cast_2_daily": ("铸二",),
+    "cast_3_daily": ("铸三",),
+    "cold_1650_daily": ("冷轧1650",),
+    "cold_1850_daily": ("冷轧1850",),
+    "cold_2050_daily": ("冷轧2050",),
+    "online_anneal_daily": ("新厂在线", "园区在线"),
+    "straightening_daily": ("拉矫",),
+    "finishing_daily": ("精整",),
+    "shearing_daily": ("园区剪切",),
+    "coating_daily": ("彩涂",),
 }
 
 MES_MATERIAL_OUTPUT_WORKSHOPS = {
@@ -120,6 +118,12 @@ MONTHLY_FIELD_BY_DAILY_FIELD = {
     "finishing_daily": "finishing_month",
     "shearing_daily": "shearing_month",
     "coating_daily": "coating_month",
+}
+
+PASS_FIELDS_BY_DAILY_FIELD = {
+    "cold_1650_daily": ("cold_1650_pass_daily", "cold_1650_pass_month"),
+    "cold_1850_daily": ("cold_1850_pass_daily", "cold_1850_pass_month"),
+    "cold_2050_daily": ("cold_2050_pass_daily", "cold_2050_pass_month"),
 }
 
 OWNER_FIELD_ALIASES = {
@@ -596,33 +600,43 @@ def _query_manual_mobile_output(
     *,
     start: date,
     end: date,
-    tokens: tuple[str, ...],
-) -> tuple[float | None, int]:
+    workshop_names: tuple[str, ...],
+) -> tuple[float | None, int | None, int, int | None]:
     if not _has_table(db, WorkOrderEntry.__tablename__):
-        return None, 0
-    rows = (
-        db.query(WorkOrderEntry, Workshop)
-        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
-        .filter(
-            WorkOrderEntry.business_date >= start,
-            WorkOrderEntry.business_date <= end,
-            WorkOrderEntry.entry_type == "mobile_coil",
-            WorkOrderEntry.entry_status.in_(SUBMITTED_STATUSES),
-            WorkOrderEntry.output_weight.isnot(None),
-        )
-        .all()
+        return None, None, 0, None
+    entries = daily_overview_builder._query_latest_mobile_coil_rows(db, start, end)
+    workshop_ids = {entry.workshop_id for entry in entries if entry.workshop_id is not None}
+    workshops_by_id = (
+        {
+            workshop.id: workshop
+            for workshop in db.query(Workshop).filter(Workshop.id.in_(workshop_ids)).all()
+        }
+        if workshop_ids
+        else {}
     )
     total = 0.0
     pass_total = 0
-    matched = False
-    for entry, workshop in rows:
-        if not (_matches_any(workshop.name, tokens) or _matches_any(workshop.code, tokens)):
+    pass_count_present = False
+    row_count = 0
+    latest_row_id: int | None = None
+    accepted_workshops = {normalize_workshop_name(name) for name in workshop_names}
+    for entry in entries:
+        workshop = workshops_by_id.get(entry.workshop_id)
+        if workshop is None:
             continue
-        matched = True
+        if normalize_workshop_name(workshop.name) not in accepted_workshops:
+            continue
+        row_count += 1
+        if entry.id is not None:
+            latest_row_id = max(latest_row_id or 0, int(entry.id))
         total += _to_float(entry.output_weight) / 1000
         payload = entry.extra_payload or {}
-        pass_total += int(_to_float(payload.get("pass_count")) or 0)
-    return (round(total, 3), pass_total) if matched else (None, 0)
+        if payload.get("pass_count") not in (None, ""):
+            pass_count_present = True
+            pass_total += int(_to_float(payload.get("pass_count")) or 0)
+    if not row_count:
+        return None, None, 0, None
+    return round(total, 3), (pass_total if pass_count_present else None), row_count, latest_row_id
 
 
 def _billet_material_business_window(start: date, end: date) -> tuple[datetime, datetime]:
@@ -781,7 +795,7 @@ def _bucketed_mes_output(
     buckets: tuple[str, ...],
     *,
     claimed_source_ids: set[str] | None = None,
-) -> tuple[float | None, int, int, int | None]:
+) -> tuple[float | None, int | None, int, int | None]:
     total = 0.0
     pass_total = 0
     count = 0
@@ -802,7 +816,7 @@ def _bucketed_mes_output(
         claimed_source_ids.add(source_key)
     if count:
         return round(total, 3), pass_total, count, latest_row_id
-    return (0.0, 0, 0, None) if rows else (None, 0, 0, None)
+    return None, None, 0, None
 
 
 def _mes_workshop_source_detail(
@@ -855,11 +869,9 @@ def _owner_daily_payload_values(db: Session, *, target_date: date) -> dict[str, 
 
 def _copy_owner_values(facts: TemplateDailyFacts, owner_payload: dict[str, Any], required_fields: tuple[str, ...]) -> None:
     for key in required_fields:
-        if key in MANUAL_OUTPUT_FIELDS:
-            continue
         for source_key in (key, *OWNER_FIELD_ALIASES.get(key, ())):
             if source_key in owner_payload:
-                _set_missing_value(facts, key, _to_float(owner_payload[source_key]), "owner_daily", field=source_key)
+                _set_value(facts, key, _to_float(owner_payload[source_key]), "owner_daily", field=source_key)
                 break
 
 
@@ -1296,15 +1308,89 @@ def _packaging_output_for_date(db: Session, business_date: date) -> float | None
     return parsed if parsed > 0 else None
 
 
+def _manual_workshop_source_detail(
+    *,
+    workshop_name: str,
+    start: date,
+    end: date,
+    row_count: int,
+    latest_row_id: int | None,
+    unit: str,
+) -> dict[str, Any]:
+    window_start, _unused = production_business_window(start, workshop_name=workshop_name)
+    _unused, window_end = production_business_window(end, workshop_name=workshop_name)
+    detail: dict[str, Any] = {
+        "source_ref": WorkOrderEntry.__tablename__,
+        "business_window": f"{window_start.isoformat()}/{window_end.isoformat()}",
+        "unit": unit,
+        "row_count": row_count,
+        "metric_contract_version": "2026-07-11",
+    }
+    if row_count > 0 and latest_row_id is not None:
+        detail.update(
+            {
+                "latest_row_id": latest_row_id,
+                "trace_id": f"manual-read:{WorkOrderEntry.__tablename__}:{latest_row_id}:{row_count}",
+            }
+        )
+    return detail
+
+
 def collect_manual_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
     month_start = facts.target_date.replace(day=1)
-    for key, tokens in MANUAL_OUTPUT_WORKSHOPS.items():
-        if key in facts.values:
-            continue
-        daily, _daily_pass = _query_manual_mobile_output(db, start=facts.target_date, end=facts.target_date, tokens=tokens)
-        monthly, _monthly_pass = _query_manual_mobile_output(db, start=month_start, end=facts.target_date, tokens=tokens)
-        _set_value(facts, key, daily, "manual_mobile_coil")
-        _set_value(facts, MONTHLY_FIELD_BY_DAILY_FIELD[key], monthly, "manual_mobile_coil")
+    for key, workshop_names in MANUAL_OUTPUT_WORKSHOPS.items():
+        daily, daily_pass, daily_count, daily_latest_row_id = _query_manual_mobile_output(
+            db,
+            start=facts.target_date,
+            end=facts.target_date,
+            workshop_names=workshop_names,
+        )
+        monthly, monthly_pass, monthly_count, monthly_latest_row_id = _query_manual_mobile_output(
+            db,
+            start=month_start,
+            end=facts.target_date,
+            workshop_names=workshop_names,
+        )
+        daily_detail = _manual_workshop_source_detail(
+            workshop_name=workshop_names[0],
+            start=facts.target_date,
+            end=facts.target_date,
+            row_count=daily_count,
+            latest_row_id=daily_latest_row_id,
+            unit="吨",
+        )
+        monthly_detail = _manual_workshop_source_detail(
+            workshop_name=workshop_names[0],
+            start=month_start,
+            end=facts.target_date,
+            row_count=monthly_count,
+            latest_row_id=monthly_latest_row_id,
+            unit="吨",
+        )
+        _set_value(facts, key, daily, "manual_mobile_coil", **daily_detail)
+        _set_value(
+            facts,
+            MONTHLY_FIELD_BY_DAILY_FIELD[key],
+            monthly,
+            "manual_mobile_coil",
+            **monthly_detail,
+        )
+        pass_fields = PASS_FIELDS_BY_DAILY_FIELD.get(key)
+        if pass_fields is not None:
+            _set_value(
+                facts,
+                pass_fields[0],
+                daily_pass,
+                "manual_mobile_coil",
+                **{**daily_detail, "unit": "道"},
+            )
+            _set_value(
+                facts,
+                pass_fields[1],
+                monthly_pass,
+                "manual_mobile_coil",
+                **{**monthly_detail, "unit": "道"},
+            )
 
 
 def collect_mes_material_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
@@ -1407,6 +1493,8 @@ def collect_mes_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
         _set_value(facts, key.replace("_daily", "_pass_daily"), daily_pass, "computed")
         _set_value(facts, key.replace("_daily", "_pass_month"), monthly_pass, "computed")
 
+
+def collect_workshop_rollup_facts(facts: TemplateDailyFacts) -> None:
     cast_2 = facts.values.get("cast_2_daily")
     cast_3 = facts.values.get("cast_3_daily")
     if facts.values.get("cast_roll_daily") is None and (cast_2 is not None or cast_3 is not None):
@@ -1619,10 +1707,10 @@ def collect_template_daily_facts(
     _set_value(facts, "report_date", target_date, "runtime_target_date")
 
     collect_opening_facts(db, facts, wip_date=effective_wip_date)
+    collect_manual_workshop_facts(db, facts)
     _copy_owner_values(facts, _owner_daily_payload_values(db, target_date=target_date), required_fields)
     collect_owner_rollup_facts(db, facts)
-    collect_mes_material_workshop_facts(db, facts)
-    collect_mes_workshop_facts(db, facts)
+    collect_workshop_rollup_facts(facts)
     collect_recovery_and_overhaul_facts(db, facts)
     collect_quality_yield_facts(db, facts)
     collect_yesterday_comparison_facts(db, facts)

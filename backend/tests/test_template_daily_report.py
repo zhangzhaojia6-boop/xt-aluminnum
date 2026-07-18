@@ -196,7 +196,7 @@ def test_all_template_required_fields_have_contract_metadata() -> None:
     assert missing == []
 
 
-def test_build_facts_uses_mes_material_for_hot_roll_and_process_for_cold_roll(tmp_path) -> None:
+def test_build_facts_uses_manual_final_output_and_ignores_raw_mes_process_values(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'template-daily-report.db'}", future=True)
     Base.metadata.create_all(
         engine,
@@ -279,15 +279,17 @@ def test_build_facts_uses_mes_material_for_hot_roll_and_process_for_cold_roll(tm
     with SessionLocal() as db:
         facts = template_daily_report.build_template_daily_report_facts(db, target_date=REPORT_DATE)
 
-    assert facts["values"]["hot_roll_daily"] == 12.0
-    assert facts["sources"]["hot_roll_daily"]["source_type"] == "mes_material_records"
+    assert facts["values"]["hot_roll_daily"] == 0.0
+    assert facts["sources"]["hot_roll_daily"]["source_type"] == "manual_mobile_coil"
     assert facts["sources"]["hot_roll_daily"]["business_window"] == (
         "2026-06-16T10:00:00+08:00/2026-06-17T10:00:00+08:00"
     )
-    assert facts["values"]["cold_1650_daily"] == 33.0
-    assert facts["sources"]["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
-    assert facts["values"]["coating_daily"] == 0.0
-    assert facts["sources"]["coating_daily"]["source_type"] == "mes_workshop_process_records"
+    assert "cold_1650_daily" not in facts["values"]
+    assert "cold_1650_daily" not in facts["sources"]
+    assert "cold_1650_daily" in facts["missing_fields"]
+    assert "coating_daily" not in facts["values"]
+    assert "coating_daily" not in facts["sources"]
+    assert "coating_daily" in facts["missing_fields"]
 
 
 def test_apply_template_daily_report_stores_slim_hermes_bundle(monkeypatch) -> None:

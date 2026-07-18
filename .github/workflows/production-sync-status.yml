@@ -925,7 +925,36 @@ jobs:
               echo "HERMES_RUNTIME_INSPECTION=main_pid_unavailable"
               return 0
             fi
-            runtime_python="$(readlink -f "/proc/$runtime_pid/exe" 2>/dev/null || true)"
+            runtime_python="$(python3 - "$runtime_pid" 2>/dev/null <<'PY'
+          from pathlib import Path
+          import os
+          import re
+          import shlex
+          import subprocess
+          import sys
+
+          runtime_pid = sys.argv[1]
+          raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
+          args = [item.decode("utf-8", errors="strict") for item in raw_args if item]
+          if args:
+              candidate = Path(args[0])
+              if candidate.is_absolute() and candidate.is_file() and os.access(candidate, os.X_OK):
+                  print(args[0])
+                  raise SystemExit(0)
+
+          service_exec = subprocess.check_output(
+              ["systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"],
+              text=True,
+          ).strip()
+          match = re.search(r"path=(\S+)\s*;\s*argv\[\]=(.*?)\s*;", service_exec)
+          if match is None:
+              raise SystemExit(1)
+          service_args = shlex.split(match.group(2))
+          if not service_args:
+              raise SystemExit(1)
+          print(service_args[0])
+          PY
+            )"
             echo "HERMES_RUNTIME_PYTHON=${runtime_python:-unavailable}"
             echo "HERMES_RUNTIME_CWD=$(readlink -f "/proc/$runtime_pid/cwd" 2>/dev/null || true)"
             if [ -z "$runtime_python" ] || [ ! -x "$runtime_python" ]; then
@@ -943,6 +972,8 @@ jobs:
           from importlib import metadata
           from pathlib import Path
           import re
+          import shlex
+          import subprocess
           import sys
 
           def package_version(name: str) -> str:
@@ -961,11 +992,31 @@ jobs:
           runtime_pid = sys.argv[1]
           raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
           args = [item.decode("utf-8", errors="replace") for item in raw_args if item]
+          if "-m" not in args[1:]:
+              service_exec = subprocess.check_output(
+                  ["systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"],
+                  text=True,
+              ).strip()
+              match = re.search(r"path=(\S+)\s*;\s*argv\[\]=(.*?)\s*;", service_exec)
+              if match is not None:
+                  service_args = shlex.split(match.group(2))
+                  if service_args:
+                      args = service_args
           entrypoint = "unavailable"
-          if len(args) >= 3 and args[1] == "-m":
-              entrypoint = "module:" + safe_entrypoint(args[2])
-          elif len(args) >= 2:
-              entrypoint = "script:" + safe_entrypoint(args[1])
+          try:
+              module_index = args.index("-m", 1)
+          except ValueError:
+              module_index = -1
+          if module_index >= 0 and len(args) > module_index + 1:
+              entrypoint = "module:" + safe_entrypoint(args[module_index + 1])
+          else:
+              for candidate in args[1:]:
+                  if candidate == "-P":
+                      continue
+                  if candidate.startswith("-"):
+                      break
+                  entrypoint = "script:" + safe_entrypoint(candidate)
+                  break
 
           print("HERMES_RUNTIME_PYTHON_VERSION=" + ".".join(str(part) for part in sys.version_info[:3]))
           print(f"HERMES_RUNTIME_PREFIX={sys.prefix}")
