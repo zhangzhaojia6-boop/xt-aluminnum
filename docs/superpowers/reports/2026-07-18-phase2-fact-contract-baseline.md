@@ -68,6 +68,7 @@
 - 最终后端全量：2818 passed、5 skipped、27 deselected，耗时 773.53 秒。
 - 前端 CI 等价验证：`npm ci`、依赖审计、生产构建和 PWA 生成均通过；本轮评审修复没有修改前端文件。
 - 静态合同门禁：`status=pass`，127/130 字段、时间、来源顺序、最大误差和生成文档全部通过。
+- 生产同步工作流会在目标 SHA 包含合同脚本时执行同一静态门禁并输出起止标记；回滚到旧 SHA 时明确输出 `not_available_for_sha`，不误伤回滚。相关工作流合同测试 49 passed。
 - Python 全模块 `compileall` 通过。
 - 独立规格评审：APPROVED。
 - 独立代码质量复审：原 4 项 REQUEST CHANGES 全部关闭，APPROVED；复审另跑 28 条定向测试并复现结构化 N/A 双路径一致。
