@@ -565,6 +565,76 @@ def test_owner_verified_dws_retry_preserves_first_confirmation_audit(monkeypatch
         db.close()
 
 
+def test_owner_verified_dws_upgrades_machine_only_equivalent_event_time(monkeypatch, tmp_path) -> None:
+    module, Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    input_jsonl = tmp_path / 'messages.jsonl'
+    row = _owner_verified_text_row()
+    row['createTime'] = '2026-07-07 17:46:26'
+    _write_jsonl(input_jsonl, [row])
+
+    machine_only = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+    )
+    row['createTime'] = '2026-07-07T17:46:26+08:00'
+    _write_jsonl(input_jsonl, [row])
+    owner_verified = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-equivalent-event-time',
+    )
+
+    assert machine_only['accepted'] == 1
+    assert owner_verified['duplicates'] == 1
+    assert owner_verified['confirmed'] == 1
+    assert owner_verified['confirmation_rejected'] == 0
+    assert owner_verified['committed'] == 1
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.confirmation_status == 'confirmed'
+        assert evidence.payload['event_time'] == '2026-07-07 17:46:26'
+    finally:
+        db.close()
+
+
+def test_owner_verified_dws_rejects_different_event_time(monkeypatch, tmp_path) -> None:
+    module, Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    input_jsonl = tmp_path / 'messages.jsonl'
+    row = _owner_verified_text_row()
+    row['createTime'] = '2026-07-07 17:46:26'
+    _write_jsonl(input_jsonl, [row])
+    module.run_backfill(input_jsonl=input_jsonl, files_root=files_root, days=3)
+
+    row['createTime'] = '2026-07-07T17:46:27+08:00'
+    _write_jsonl(input_jsonl, [row])
+    owner_verified = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-different-event-time',
+    )
+
+    assert owner_verified['confirmed'] == 0
+    assert owner_verified['confirmation_rejected'] == 1
+    assert owner_verified['committed'] == 0
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.confirmation_status != 'confirmed'
+        assert 'owner_verification' not in evidence.payload
+    finally:
+        db.close()
+
+
 def test_owner_verified_dws_accepts_open_dingtalk_sender_identity(monkeypatch, tmp_path) -> None:
     module, Session = _prepare(monkeypatch)
     files_root = tmp_path / 'files'
