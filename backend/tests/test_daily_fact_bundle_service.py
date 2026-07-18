@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 import importlib.util
 from datetime import date, datetime
+import json
 from pathlib import Path
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
+from app.domain.daily_report_field_contract import normative_daily_report_fields
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
 from app.models.mes import (
     MesCoilSnapshot,
@@ -28,6 +30,7 @@ from app.models.mes import (
 )
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
+from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 
 
 EXPECTED_CRITICAL_DAILY_FACT_FIELDS = {
@@ -3292,7 +3295,21 @@ def test_daily_fact_bundle_includes_output_skill_alignment(
         "conflicts": [],
     }
     expected = daily_fact_bundle.template_daily_report.render_template_daily_report(template_facts)
-    (tmp_path / "2026-6-19_日报正文.txt").write_text(expected, encoding="utf-8")
+    report_path = tmp_path / "2026-6-19_日报正文.txt"
+    report_path.write_text(expected, encoding="utf-8")
+    parsed_fields = set(parse_output_skill_daily_report(expected))
+    report_path.with_suffix(".na.json").write_text(
+        json.dumps(
+            {
+                "not_applicable": [
+                    field_name
+                    for field_name in normative_daily_report_fields()
+                    if field_name not in parsed_fields
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
@@ -3307,6 +3324,47 @@ def test_daily_fact_bundle_includes_output_skill_alignment(
     assert bundle["output_skill_alignment"]["file_name"] == "2026-6-19_日报正文.txt"
     assert bundle["output_skill_alignment"]["field_match_rate"] == 100.0
     assert bundle["gap_plan"]["status"] == "ready"
+
+
+def test_daily_fact_bundle_real_source_gate_requires_closed_reference_contract(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"report_date": target_date},
+            "sources": {"report_date": "computed"},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+    monkeypatch.setattr(
+        daily_fact_bundle,
+        "build_output_skill_alignment",
+        lambda *_args, **_kwargs: {
+            "status": "blocked",
+            "reference_absent_fields": ["total_output_daily"],
+        },
+    )
+    monkeypatch.setattr(
+        daily_fact_bundle,
+        "build_daily_report_fact_closure",
+        lambda _bundle: {"status": "pass"},
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+        allow_output_skill_reference_adoption=False,
+    )
+
+    assert bundle["output_skill_alignment"]["status"] == "blocked"
+    assert bundle["fact_closure"]["status"] == "pass"
+    assert bundle["real_source_gate_passed"] is False
 
 
 def test_daily_fact_bundle_output_skill_adoption_stays_blocked_as_reference_only(

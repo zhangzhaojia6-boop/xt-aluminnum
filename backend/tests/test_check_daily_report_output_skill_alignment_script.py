@@ -51,6 +51,15 @@ def test_run_alignment_checks_uses_compare_mode_by_default(tmp_path) -> None:
                 "field_match_rate": 100.0,
                 "matched_fields": 130,
                 "expected_fields": 130,
+                "reference_present_fields": 127,
+                "declared_na_fields": [],
+                "invalid_na_fields": [],
+                "reference_absent_fields": [],
+                "reference_absent_count": 0,
+                "normative_fields": 127,
+                "normative_denominator": 127,
+                "normative_matched_fields": 127,
+                "normative_coverage_rate": 100.0,
                 "field_tolerances": {"total_output_daily": 20.0, "daily_yield_rate": 0.2},
                 "difference_count": 0,
                 "differences": [],
@@ -77,6 +86,9 @@ def test_run_alignment_checks_uses_compare_mode_by_default(tmp_path) -> None:
     assert rows[0]["key_fact_sources"]["total_output_daily"]["source_type"] == "mes_packaging_output"
     assert rows[0]["gap_plan"]["status"] == "ready"
     assert rows[0]["field_tolerances"] == {"total_output_daily": 20.0, "daily_yield_rate": 0.2}
+    assert rows[0]["reference_present_fields"] == 127
+    assert rows[0]["normative_denominator"] == 127
+    assert rows[0]["normative_coverage_rate"] == 100.0
     assert calls == [date(2026, 6, 28), date(2026, 6, 29)]
     assert os.environ.get("OUTPUT_SKILL_ROOT") == previous
     assert os.environ.get("OUTPUT_SKILL_REFERENCE_MODE") == "adopt"
@@ -150,6 +162,15 @@ def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> 
             "status": "review_needed",
             "bundle_status": "ready",
             "field_match_rate": 98.5,
+            "reference_present_fields": 124,
+            "declared_na_fields": [],
+            "invalid_na_fields": [],
+            "reference_absent_fields": ["cast_roll_active_lines", "cast_roll_daily", "finished_inbound_month"],
+            "reference_absent_count": 3,
+            "normative_fields": 127,
+            "normative_denominator": 127,
+            "normative_matched_fields": 12,
+            "normative_coverage_rate": 9.45,
             "field_tolerances": {"total_output_daily": 20.0, "daily_yield_rate": 0.2},
             "exact_match": False,
             "difference_count": 1,
@@ -197,6 +218,9 @@ def test_write_alignment_artifacts_creates_json_and_markdown_files(tmp_path) -> 
     assert "Fact closure status: blocked" in markdown
     assert "Reference mode" in markdown
     assert "Field tolerances" in markdown
+    assert "comparison-only" in markdown
+    assert "Normative coverage rate: 9.45" in markdown
+    assert "Reference absent fields: cast_roll_active_lines, cast_roll_daily, finished_inbound_month" in markdown
     assert "daily_yield_rate" in markdown
     assert "trace-output" in markdown
     assert "1" in markdown
@@ -372,6 +396,77 @@ def test_run_alignment_checks_blocks_when_fact_closure_is_blocked(tmp_path) -> N
     assert rows[0]["status"] == "blocked"
     assert rows[0]["fact_closure"]["status"] == "blocked"
     assert script.checks_passed(rows) is False
+
+
+def test_run_alignment_checks_blocks_reference_contract_gaps(tmp_path) -> None:
+    def fake_builder(db, *, business_date, persist_run=False):
+        return {
+            "status": "ready",
+            "missing_fields": [],
+            "fact_closure": {"status": "pass", "critical_fields": []},
+            "output_skill_alignment": {
+                "status": "blocked",
+                "field_match_rate": 100.0,
+                "matched_fields": 124,
+                "expected_fields": 124,
+                "reference_present_fields": 124,
+                "declared_na_fields": [],
+                "invalid_na_fields": [],
+                "reference_absent_fields": ["field_a", "field_b", "field_c"],
+                "reference_absent_count": 3,
+                "normative_fields": 127,
+                "normative_denominator": 127,
+                "normative_matched_fields": 124,
+                "normative_coverage_rate": 97.64,
+                "difference_count": 0,
+                "differences": [],
+            },
+        }
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+    )
+
+    assert rows[0]["status"] == "blocked"
+    assert rows[0]["real_source_gate_passed"] is False
+    assert rows[0]["reference_absent_fields"] == ["field_a", "field_b", "field_c"]
+    assert rows[0]["normative_coverage_rate"] == 97.64
+    assert script.checks_passed(rows) is False
+
+
+def test_print_text_shows_both_denominators_and_reference_gaps(capsys) -> None:
+    script._print_text(
+        {
+            "output_skill_root": "D:/输出skill",
+            "passed": False,
+            "results": [
+                {
+                    "business_date": "2026-06-29",
+                    "status": "blocked",
+                    "alignment_status": "blocked",
+                    "fact_closure": {"status": "pass"},
+                    "field_match_rate": 100.0,
+                    "matched_fields": 124,
+                    "expected_fields": 124,
+                    "normative_matched_fields": 124,
+                    "normative_denominator": 127,
+                    "normative_coverage_rate": 97.64,
+                    "reference_absent_fields": ["field_a", "field_b", "field_c"],
+                    "file_name": "2026-6-29_日报正文.txt",
+                    "differences": [],
+                }
+            ],
+        }
+    )
+
+    output = capsys.readouterr().out
+    assert "matched=124/124" in output
+    assert "normative=124/127" in output
+    assert "normative_coverage_rate=97.64" in output
+    assert "reference_absent=field_a,field_b,field_c" in output
 
 
 def test_source_diagnostics_reports_real_wip_candidates(tmp_path) -> None:

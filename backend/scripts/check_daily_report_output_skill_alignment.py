@@ -26,6 +26,7 @@ from sqlalchemy import and_, func, inspect, or_
 
 from app.core.business_time import last_completed_production_business_date, local_now, production_business_window
 from app.database import get_sessionmaker
+from app.domain.daily_report_field_contract import normative_daily_report_fields
 from app.models.agent_communication import MultimodalEvidence
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot
 from app.models.reports import DailyReport, DailyReportHistoryRecord
@@ -72,6 +73,7 @@ DINGTALK_TEXT_CONTAINER_KEYS = (
     "sheet",
     "sheets",
 )
+NORMATIVE_FIELD_COUNT = len(normative_daily_report_fields())
 
 
 def parse_business_date(value: str) -> date:
@@ -170,6 +172,15 @@ def run_alignment_checks(
                         "field_match_rate": alignment.get("field_match_rate"),
                         "matched_fields": alignment.get("matched_fields"),
                         "expected_fields": alignment.get("expected_fields"),
+                        "reference_present_fields": alignment.get("reference_present_fields"),
+                        "declared_na_fields": alignment.get("declared_na_fields") or [],
+                        "invalid_na_fields": alignment.get("invalid_na_fields") or [],
+                        "reference_absent_fields": alignment.get("reference_absent_fields") or [],
+                        "reference_absent_count": alignment.get("reference_absent_count"),
+                        "normative_fields": alignment.get("normative_fields"),
+                        "normative_denominator": alignment.get("normative_denominator"),
+                        "normative_matched_fields": alignment.get("normative_matched_fields"),
+                        "normative_coverage_rate": alignment.get("normative_coverage_rate"),
                         "numeric_tolerance": alignment.get("numeric_tolerance"),
                         "field_tolerances": alignment.get("field_tolerances") or {},
                         "tolerance_matched_fields": alignment.get("tolerance_matched_fields"),
@@ -200,6 +211,15 @@ def run_alignment_checks(
                         "field_match_rate": None,
                         "matched_fields": None,
                         "expected_fields": None,
+                        "reference_present_fields": None,
+                        "declared_na_fields": [],
+                        "invalid_na_fields": [],
+                        "reference_absent_fields": [],
+                        "reference_absent_count": None,
+                        "normative_fields": NORMATIVE_FIELD_COUNT,
+                        "normative_denominator": None,
+                        "normative_matched_fields": None,
+                        "normative_coverage_rate": None,
                         "numeric_tolerance": None,
                         "field_tolerances": {},
                         "tolerance_matched_fields": None,
@@ -240,7 +260,17 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
                 f"- Real-source gate passed: {bool(row.get('real_source_gate_passed'))}",
                 f"- Fact closure status: {_fact_closure_status(row)}",
                 f"- Bundle status: {row.get('bundle_status')}",
+                "- Answer key role: comparison-only; it is never a fact source.",
                 f"- Field match rate: {row.get('field_match_rate')}",
+                f"- Reference present fields: {row.get('reference_present_fields')}",
+                f"- Declared N/A fields: {', '.join(str(item) for item in row.get('declared_na_fields') or [])}",
+                f"- Invalid N/A fields: {', '.join(str(item) for item in row.get('invalid_na_fields') or [])}",
+                f"- Reference absent count: {row.get('reference_absent_count')}",
+                f"- Reference absent fields: {', '.join(str(item) for item in row.get('reference_absent_fields') or [])}",
+                f"- Normative fields: {row.get('normative_fields')}",
+                f"- Normative denominator: {row.get('normative_denominator')}",
+                f"- Normative matched fields: {row.get('normative_matched_fields')}",
+                f"- Normative coverage rate: {row.get('normative_coverage_rate')}",
                 f"- Field tolerances: {row.get('field_tolerances') or {}}",
                 f"- Tolerance matched fields: {row.get('tolerance_matched_fields')}",
                 f"- Exact match: {row.get('exact_match')}",
@@ -412,11 +442,20 @@ def _print_text(payload: dict[str, Any]) -> None:
             f"fact_closure={_fact_closure_status(row)} "
             f"field_match_rate={row['field_match_rate']} "
             f"matched={row['matched_fields']}/{row['expected_fields']} "
+            f"normative={row.get('normative_matched_fields')}/{row.get('normative_denominator')} "
+            f"normative_coverage_rate={row.get('normative_coverage_rate')} "
             f"file={row['file_name']}"
         )
         if row.get("error"):
             line = f"{line} error={row['error']}"
         print(line)
+        print("  answer_key_role=comparison-only")
+        reference_absent = row.get("reference_absent_fields") or []
+        if reference_absent:
+            print(f"  reference_absent={','.join(str(item) for item in reference_absent)}")
+        invalid_na = row.get("invalid_na_fields") or []
+        if invalid_na:
+            print(f"  invalid_na={','.join(str(item) for item in invalid_na)}")
         gap_plan = row.get("gap_plan") or {}
         if gap_plan.get("item_count"):
             print(

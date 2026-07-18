@@ -156,7 +156,9 @@ def build_daily_fact_bundle(
     )
     bundle["fact_closure"] = build_daily_report_fact_closure(bundle)
     bundle["real_source_gate_passed"] = (
-        not reference_only and bundle["fact_closure"].get("status") == "pass"
+        not reference_only
+        and bundle["output_skill_alignment"].get("status") == "passed"
+        and bundle["fact_closure"].get("status") == "pass"
     )
     if persist_run or snapshot_reason:
         _persist_bundle(

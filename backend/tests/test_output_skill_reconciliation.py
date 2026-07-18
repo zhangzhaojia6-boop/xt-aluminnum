@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from app.domain.daily_report_field_contract import normative_daily_report_fields
 from app.services.report import output_skill_reconciliation
 from app.services.report.output_skill_reconciliation import reconcile_rendered_daily_report
 
@@ -110,3 +111,70 @@ def test_legacy_numeric_tolerance_is_accepted_but_ignored() -> None:
     assert result["matched_fields"] == 2  # report_date and total output
     assert result["differences"][0]["field"] == "daily_yield_rate"
     assert result["differences"][0]["tolerance"] == 0.2
+
+
+def test_normative_denominator_does_not_shrink_for_undeclared_reference_gaps() -> None:
+    normative_fields = normative_daily_report_fields()
+    reference_fields = normative_fields[:124]
+    absent_fields = list(normative_fields[124:])
+    values = {field_name: index for index, field_name in enumerate(reference_fields)}
+
+    result = output_skill_reconciliation.reconcile_field_values(
+        values,
+        values,
+        normative_fields=normative_fields,
+    )
+
+    assert result["reference_present_fields"] == 124
+    assert result["declared_na_fields"] == []
+    assert result["invalid_na_fields"] == []
+    assert result["reference_absent_fields"] == absent_fields
+    assert result["reference_absent_count"] == 3
+    assert result["normative_fields"] == 127
+    assert result["normative_denominator"] == 127
+    assert result["normative_matched_fields"] == 124
+    assert result["normative_coverage_rate"] == 97.64
+
+
+def test_valid_explicit_na_reduces_normative_denominator() -> None:
+    normative_fields = normative_daily_report_fields()
+    reference_fields = normative_fields[:124]
+    declared_na = list(normative_fields[124:])
+    values = {field_name: index for index, field_name in enumerate(reference_fields)}
+
+    result = output_skill_reconciliation.reconcile_field_values(
+        values,
+        values,
+        normative_fields=normative_fields,
+        declared_na_fields=declared_na,
+    )
+
+    assert result["reference_present_fields"] == 124
+    assert result["declared_na_fields"] == declared_na
+    assert result["invalid_na_fields"] == []
+    assert result["reference_absent_fields"] == []
+    assert result["reference_absent_count"] == 0
+    assert result["normative_fields"] == 127
+    assert result["normative_denominator"] == 124
+    assert result["normative_matched_fields"] == 124
+    assert result["normative_coverage_rate"] == 100.0
+
+
+def test_unknown_or_duplicate_na_field_is_invalid_and_does_not_reduce_denominator() -> None:
+    normative_fields = normative_daily_report_fields()
+    reference_fields = normative_fields[:124]
+    duplicate = normative_fields[124]
+    values = {field_name: index for index, field_name in enumerate(reference_fields)}
+
+    result = output_skill_reconciliation.reconcile_field_values(
+        values,
+        values,
+        normative_fields=normative_fields,
+        declared_na_fields=[duplicate, duplicate, "not_a_daily_report_field"],
+    )
+
+    assert result["declared_na_fields"] == []
+    assert result["invalid_na_fields"] == [duplicate, "not_a_daily_report_field"]
+    assert result["reference_absent_fields"] == list(normative_fields[124:])
+    assert result["normative_denominator"] == 127
+    assert result["normative_coverage_rate"] == 97.64

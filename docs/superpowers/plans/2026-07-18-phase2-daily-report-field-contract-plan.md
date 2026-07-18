@@ -147,7 +147,7 @@ fix(report): enforce canonical fact-source priority
 - Modify: `backend/tests/test_hermes_day1_output_skill_alignment.py`
 - Modify: `backend/tests/test_check_daily_report_output_skill_alignment_script.py`
 
-- [ ] **Step 1: Write failing reconciliation tests**
+- [x] **Step 1: Write failing reconciliation tests**
 
 Cover these cases:
 
@@ -157,9 +157,9 @@ Cover these cases:
 4. Answer-key-present match rate and normative coverage rate are both returned.
 5. Reference adoption mode remains unable to pass the real-source gate.
 
-- [ ] **Step 2: Run the tests and verify current output lacks these fields**
+- [x] **Step 2: Run the tests and verify current output lacks these fields**
 
-- [ ] **Step 3: Implement a structured N/A sidecar**
+- [x] **Step 3: Implement a structured N/A sidecar**
 
 For `2026-7-17_日报正文.txt`, allow optional `2026-7-17_日报正文.na.json`:
 
@@ -169,7 +169,7 @@ For `2026-7-17_日报正文.txt`, allow optional `2026-7-17_日报正文.na.json
 
 Only canonical field keys are accepted. Absence of the sidecar means no N/A declarations; omission is never interpreted as N/A.
 
-- [ ] **Step 4: Extend reconciliation without breaking old keys**
+- [x] **Step 4: Extend reconciliation without breaking old keys**
 
 Keep `field_match_rate`, `matched_fields` and `expected_fields` for compatibility. Add:
 
@@ -187,17 +187,17 @@ normative_coverage_rate
 
 The alignment status is `blocked` when `reference_absent_fields` or `invalid_na_fields` is non-empty.
 
-- [ ] **Step 5: Propagate fields through JSON, Markdown and terminal output**
+- [x] **Step 5: Propagate fields through JSON, Markdown and terminal output**
 
 The artifact must list every absent field and explain that the answer key is comparison-only.
 
-- [ ] **Step 6: Run focused and adjacent tests**
+- [x] **Step 6: Run focused and adjacent tests**
 
 ```powershell
 uv run --with-requirements backend/requirements.txt --with pytest pytest -q backend/tests/test_output_skill_reconciliation.py backend/tests/test_hermes_day1_output_skill_alignment.py backend/tests/test_check_daily_report_output_skill_alignment_script.py backend/tests/test_daily_fact_closure_task.py
 ```
 
-- [ ] **Step 7: Commit the denominator gate**
+- [x] **Step 7: Commit the denominator gate**
 
 ```text
 feat(report): block undeclared reference gaps
