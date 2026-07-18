@@ -276,22 +276,22 @@ Run the generated-doc command twice and prove the second run leaves a clean diff
 - Update: `docs/superpowers/plans/2026-07-16-production-readiness-closed-loop-execution-plan.md`
 - Create: `docs/superpowers/reports/2026-07-18-phase2-fact-contract-closure.md`
 
-- [ ] **Step 1: Push the Phase 2 branch and require green CI**
+- [x] **Step 1: Push the Phase 2 branch and require green CI**
 
-- [ ] **Step 2: Merge through the normal reviewed path and deploy the exact accepted SHA**
+- [x] **Step 2: Merge through the normal reviewed path and deploy the exact accepted SHA**
 
-- [ ] **Step 3: Run the production static contract gate**
+- [x] **Step 3: Run the production static contract gate**
 
 Expected: exit 0, 127 normative fields, source order fixed, all tolerances at most 20, generated document current.
 
-- [ ] **Step 4: Rerun 2026-07-15 through 2026-07-17 compare-only alignment**
+- [x] **Step 4: Rerun 2026-07-15 through 2026-07-17 compare-only alignment**
 
 Expected for Phase 2: the business alignment may remain below 90% and therefore remain red for Phase 4, but every day must now report both rates and exactly explain each `reference_absent`. A low match rate must not be relabeled as a Phase 2 contract failure.
 
-- [ ] **Step 5: Exercise real rollback and redeploy**
+- [x] **Step 5: Exercise real rollback and redeploy**
 
 Use the controlled production workflow to return to the recorded pre-Phase-2 SHA, verify services and `/readyz`, then redeploy the accepted Phase 2 SHA and rerun the static gate. Preserve database backup and workflow links.
 
-- [ ] **Step 6: Archive closure evidence and close #36**
+- [x] **Step 6: Archive closure evidence and close #36**
 
 Only mark Phase 2 complete when code, tests, generated docs, production static gate, compare-only diagnostics, review and rollback evidence all exist. Then update the master plan checkboxes, close GitHub #36 and move to Phase 3 without claiming the 90% Phase 4 target is complete.

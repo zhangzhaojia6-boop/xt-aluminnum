@@ -81,14 +81,16 @@
 
 **Blocked by:** Phase 1
 
-- [ ] 固化 127 个日报字段的单位、业务时间、来源和字段级容差。
-- [ ] 固化标准生产 07:50、铸二/铸三/热轧 10:00、责任人每日一录 09:30 和 10:00 迟报截止的现行时间合同。
-- [ ] 固化分母规则：只有明确 N/A 字段可以扣除；答案钥匙未写且未声明 N/A 的字段必须标为 `reference_absent` 并阻塞门禁。
-- [ ] 同时输出答案钥匙已出现字段匹配率和 127 字段规范覆盖率。
-- [ ] 固化钉钉、授权纠错、MES/WMS、扫码补录、投影、历史和 RAG 的合同。
-- [ ] 建立合同测试和文档一致性检查。
+- [x] 固化 127 个日报字段的单位、业务时间、来源和字段级容差。
+- [x] 固化标准生产 07:50、铸二/铸三/热轧 10:00、责任人每日一录 09:30 和 10:00 迟报截止的现行时间合同。
+- [x] 固化分母规则：只有明确 N/A 字段可以扣除；答案钥匙未写且未声明 N/A 的字段必须标为 `reference_absent` 并阻塞门禁。
+- [x] 同时输出答案钥匙已出现字段匹配率和 127 字段规范覆盖率。
+- [x] 固化钉钉、授权纠错、MES/WMS、扫码补录、投影、历史和 RAG 的合同。
+- [x] 建立合同测试和文档一致性检查。
 
 **Exit gate:** 每个字段都有唯一口径；每天的分母变化均能逐字段解释；实时数字不能由 RAG、历史答案或答案钥匙生成；任何绝对容差不超过 20。
+
+**Evidence:** [Phase 2 事实合同生产闭环报告](../reports/2026-07-18-phase2-fact-contract-closure.md)，合并 [PR #50](https://github.com/zhangzhaojia6-boop/xt-aluminnum/pull/50)，首次生产部署 [#29636674363](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29636674363)，真实回滚 [#29637081280](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29637081280)，重新部署 [#29637188407](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29637188407)，最终只读状态 [#29637297416](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29637297416)。三日业务匹配率仍低于 90%，按计划保留给 Phase 3/4，不把合同闭环写成业务对齐完成。
 
 ### Phase 3: MES/WMS 只读连续可靠性
 
