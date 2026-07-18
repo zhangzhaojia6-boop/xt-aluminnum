@@ -19,6 +19,32 @@ from app.core.business_time import OWNER_DAILY_CUTOFF, local_now
 
 PLAN_CONTRACT_PARSER = 'plan_contract_message_v1'
 WIP_SCREENSHOT_PARSER = 'owner_verified_wip_screenshot_v1'
+WIP_SCREENSHOT_TABLE_PARSER = 'owner_verified_wip_screenshot_v2'
+WIP_VISUAL_FIELD_ROWS = {
+    'wip_total': '汇总',
+    'wip_1650_2050_cold': '1650+2050冷轧合计',
+    'wip_1850_cold': '1850冷轧合计',
+    'wip_milling': '铣床合计',
+    'wip_anneal_total': '在线退火合计',
+    'wip_new_north': '新厂北',
+    'wip_new_south': '新厂南',
+    'wip_park_anneal': '园区退火',
+    'wip_finishing_total': '后工序合计',
+    'wip_straightening': '拉矫合计',
+    'wip_finishing': '精整合计',
+    'wip_park_finishing': '园区剪切',
+    'wip_hot_plate_shearing': '热轧（中厚板）',
+    'wip_coating': '彩涂',
+}
+WIP_TOTAL_COMPONENT_FIELDS = (
+    'wip_1650_2050_cold',
+    'wip_1850_cold',
+    'wip_milling',
+    'wip_anneal_total',
+    'wip_finishing_total',
+    'wip_hot_plate_shearing',
+    'wip_coating',
+)
 _NUMBER_PATTERN = r'(?P<value>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)'
 _PLAN_CONTRACT_PATTERNS = {
     '2050_input': re.compile(rf'2050\s*投料\s*{_NUMBER_PATTERN}\s*吨'),
@@ -45,22 +71,86 @@ def extract_owner_verified_visual_fact_updates(
         return {}
     if not _is_supported_image(file_name, content):
         return {}
-    if set(verified_facts) != {'wip_total'}:
+    field_names = set(verified_facts)
+    if field_names == {'wip_total'}:
+        return _extract_owner_verified_wip_total(
+            business_date=business_date,
+            event_time=event_time,
+            clean_hash=clean_hash,
+            verified_facts=verified_facts,
+        )
+    if field_names != set(WIP_VISUAL_FIELD_ROWS):
         return {}
+
+    lineage = _verified_visual_lineage(
+        business_date=business_date,
+        event_time=event_time,
+        verified_facts=verified_facts,
+    )
+    if lineage is None:
+        return {}
+    reported_date, local_event_time = lineage
+
+    values: dict[str, int | float] = {}
+    for field_name, expected_row_label in WIP_VISUAL_FIELD_ROWS.items():
+        item = verified_facts.get(field_name)
+        if not isinstance(item, Mapping):
+            return {}
+        if _normalize_label(item.get('row_label')) != _normalize_label(expected_row_label):
+            return {}
+        if _normalize_label(item.get('column_label')) != _normalize_label('在制料'):
+            return {}
+        if str(item.get('unit') or '').strip() != '吨':
+            return {}
+        value = _finite_nonnegative_number(item.get('value'))
+        if value is None:
+            return {}
+        values[field_name] = value
+
+    if not _wip_values_are_consistent(values):
+        return {}
+
+    return {
+        field_name: {
+            'value': value,
+            'unit': '吨',
+            'confidence': 0.99,
+            'reason': '钉钉在制料截图人工确权字段',
+            'source_ref': {
+                'parser': WIP_SCREENSHOT_TABLE_PARSER,
+                'verification_mode': 'owner_verified_visual',
+                'reported_date': reported_date.isoformat(),
+                'business_date': business_date.isoformat(),
+                'business_date_rule': 'next_calendar_day_before_owner_daily_cutoff',
+                'event_time': local_event_time.isoformat(),
+                'event_time_cutoff': OWNER_DAILY_CUTOFF.isoformat(timespec='minutes'),
+                'row_label': WIP_VISUAL_FIELD_ROWS[field_name],
+                'column_label': '在制料',
+                'file_sha256': clean_hash,
+            },
+        }
+        for field_name, value in values.items()
+    }
+
+
+def _extract_owner_verified_wip_total(
+    *,
+    business_date: date,
+    event_time: str | datetime,
+    clean_hash: str,
+    verified_facts: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    lineage = _verified_visual_lineage(
+        business_date=business_date,
+        event_time=event_time,
+        verified_facts=verified_facts,
+    )
+    if lineage is None:
+        return {}
+    reported_date, _local_event_time = lineage
 
     item = verified_facts.get('wip_total')
     if not isinstance(item, Mapping):
-        return {}
-    reported_date = _iso_date(item.get('reported_date'))
-    parsed_event_time = _iso_datetime(event_time)
-    if reported_date is None or parsed_event_time is None:
-        return {}
-    local_event_time = local_now(parsed_event_time)
-    if reported_date != business_date + timedelta(days=1):
-        return {}
-    if local_event_time.date() != reported_date:
-        return {}
-    if local_event_time.time().replace(tzinfo=None) >= OWNER_DAILY_CUTOFF:
         return {}
     if str(item.get('unit') or '').strip() != '吨':
         return {}
@@ -93,6 +183,51 @@ def extract_owner_verified_visual_fact_updates(
     }
 
 
+def _verified_visual_lineage(
+    *,
+    business_date: date,
+    event_time: str | datetime,
+    verified_facts: Mapping[str, Any],
+) -> tuple[date, datetime] | None:
+    reported_dates = {
+        _iso_date(item.get('reported_date'))
+        for item in verified_facts.values()
+        if isinstance(item, Mapping)
+    }
+    if len(reported_dates) != 1 or None in reported_dates:
+        return None
+    reported_date = next(iter(reported_dates))
+    parsed_event_time = _iso_datetime(event_time)
+    if parsed_event_time is None:
+        return None
+    local_event_time = local_now(parsed_event_time)
+    if reported_date != business_date + timedelta(days=1):
+        return None
+    if local_event_time.date() != reported_date:
+        return None
+    if local_event_time.time().replace(tzinfo=None) >= OWNER_DAILY_CUTOFF:
+        return None
+    return reported_date, local_event_time
+
+
+def _wip_values_are_consistent(values: Mapping[str, int | float]) -> bool:
+    total = sum(float(values[field]) for field in WIP_TOTAL_COMPONENT_FIELDS)
+    anneal = sum(float(values[field]) for field in ('wip_new_north', 'wip_new_south', 'wip_park_anneal'))
+    finishing = sum(
+        float(values[field])
+        for field in ('wip_straightening', 'wip_finishing', 'wip_park_finishing')
+    )
+    return (
+        math.isclose(float(values['wip_total']), total, abs_tol=0.01)
+        and math.isclose(float(values['wip_anneal_total']), anneal, abs_tol=0.01)
+        and math.isclose(float(values['wip_finishing_total']), finishing, abs_tol=0.01)
+    )
+
+
+def _normalize_label(value: Any) -> str:
+    return re.sub(r'\s+', '', unicodedata.normalize('NFKC', str(value or '')))
+
+
 def extract_verified_file_fact_updates(
     *,
     file_name: str,
@@ -118,7 +253,7 @@ def extract_verified_file_fact_updates(
         value = _yield_percent(sheet[source_ref['value_cell']].value)
         if value is None:
             continue
-        return {
+        updates = {
             'daily_yield_rate': {
                 'value': round(value, 2),
                 'unit': '%',
@@ -133,6 +268,16 @@ def extract_verified_file_fact_updates(
                 },
             }
         }
+        updates.update(
+            _additional_company_yield_updates(
+                sheet,
+                business_date=business_date,
+                modified_date=modified_date,
+                file_sha256=file_sha256,
+                daily_source=source_ref,
+            )
+        )
+        return updates
     return {}
 
 
@@ -155,7 +300,7 @@ def extract_verified_text_fact_updates(
         'content_sha256': clean_hash,
         'matched_segments': parsed['matched_segments'],
     }
-    return {
+    updates = {
         'daily_input_weight': {
             'value': parsed['daily_input_weight'],
             'unit': '吨',
@@ -164,6 +309,16 @@ def extract_verified_text_fact_updates(
             'source_ref': {
                 **base_source_ref,
                 'components': parsed['components'],
+            },
+        },
+        'cold_roll_input_daily': {
+            'value': parsed['cold_roll_input_weight'],
+            'unit': '吨',
+            'confidence': 0.99,
+            'reason': '钉钉计划科合同消息冷轧投料分项求和',
+            'source_ref': {
+                **base_source_ref,
+                'components': parsed['cold_roll_components'],
             },
         },
         'remaining_contract_weight': {
@@ -177,6 +332,41 @@ def extract_verified_text_fact_updates(
             },
         },
     }
+    component_fields = {
+        'cold_2050_input_daily': '2050_input',
+        'cold_1850_input_daily': '1850_input',
+        'outsourced_input_daily': 'external_processing',
+        'medium_plate_input_daily': 'medium_plate',
+    }
+    for field_name, component_name in component_fields.items():
+        updates[field_name] = {
+            'value': parsed['components'][component_name],
+            'unit': '吨',
+            'confidence': 0.99,
+            'reason': '钉钉计划科合同消息明确投料分项',
+            'source_ref': {
+                **base_source_ref,
+                'component': component_name,
+                'matched_segment': parsed['matched_segments'][component_name],
+            },
+        }
+    context_fields = {
+        'daily_contract_weight': 'daily_contract',
+        'daily_hot_roll_contract_weight': 'hot_rolling_contract',
+    }
+    for field_name, context_name in context_fields.items():
+        updates[field_name] = {
+            'value': parsed['context_values'][context_name],
+            'unit': '吨',
+            'confidence': 0.99,
+            'reason': '钉钉计划科合同消息明确合同字段',
+            'source_ref': {
+                **base_source_ref,
+                'context_field': context_name,
+                'matched_segment': parsed['matched_segments'][context_name],
+            },
+        }
+    return updates
 
 
 def parse_plan_contract_message(text: str) -> dict[str, Any] | None:
@@ -202,10 +392,16 @@ def parse_plan_contract_message(text: str) -> dict[str, Any] | None:
         key: values[key]
         for key in ('2050_input', '1850_input', 'external_processing', 'medium_plate')
     }
+    cold_roll_components = {
+        key: components[key]
+        for key in ('2050_input', '1850_input', 'external_processing')
+    }
     return {
         'daily_input_weight': sum(components.values()),
+        'cold_roll_input_weight': sum(cold_roll_components.values()),
         'remaining_contract_weight': values['remaining_contract'],
         'components': components,
+        'cold_roll_components': cold_roll_components,
         'context_values': {
             'daily_contract': values['daily_contract'],
             'hot_rolling_contract': values['hot_rolling_contract'],
@@ -297,6 +493,177 @@ def _company_daily_yield_source(sheet: Worksheet, *, business_date: date) -> dic
         'date_cell': date_cell.coordinate,
         'value_cell': value_cell.coordinate,
         'header_cell': total_header.coordinate,
+    }
+
+
+def _additional_company_yield_updates(
+    sheet: Worksheet,
+    *,
+    business_date: date,
+    modified_date: date,
+    file_sha256: str,
+    daily_source: Mapping[str, str],
+) -> dict[str, dict[str, Any]]:
+    specs = (
+        ('monthly_yield_rate', '总成品率', '月累计'),
+        ('hot_roll_yield_rate', '热轧普卷板', '日合计'),
+        ('hot_roll_monthly_yield_rate', '热轧普卷板', '月累计'),
+        ('cast_roll_yield_rate', '铸轧（幕墙卷+普卷板）', '月累计'),
+        ('plate_coil_yield_rate', '铸轧普卷板', '月累计'),
+    )
+    updates: dict[str, dict[str, Any]] = {}
+    sources: dict[str, dict[str, str]] = {'daily_yield_rate': dict(daily_source)}
+    for field_name, header_text, period_label in specs:
+        source_ref = _company_yield_metric_source(
+            sheet,
+            business_date=business_date,
+            header_text=header_text,
+            period_label=period_label,
+        )
+        if source_ref is None:
+            continue
+        value = _yield_percent(sheet[source_ref['value_cell']].value)
+        if value is None:
+            continue
+        sources[field_name] = source_ref
+        updates[field_name] = {
+            'value': round(value, 2),
+            'unit': '%',
+            'confidence': 0.99,
+            'reason': '钉钉成品率工作簿确定性单元格映射',
+            'source_ref': _yield_source_ref(
+                sheet,
+                modified_date=modified_date,
+                file_sha256=file_sha256,
+                source_ref=source_ref,
+            ),
+        }
+
+    for field_name, current_field in (
+        ('daily_yield_delta', 'daily_yield_rate'),
+        ('hot_roll_yield_delta', 'hot_roll_yield_rate'),
+    ):
+        current_source = sources.get(current_field)
+        if current_source is None:
+            continue
+        delta = _yield_day_over_day_delta(
+            sheet,
+            business_date=business_date,
+            current_source=current_source,
+        )
+        if delta is None:
+            continue
+        value, previous_date_cell, previous_value_cell = delta
+        updates[field_name] = {
+            'value': value,
+            'unit': '%',
+            'confidence': 0.99,
+            'reason': '钉钉成品率工作簿当日与昨日确定性单元格差值',
+            'source_ref': {
+                **_yield_source_ref(
+                    sheet,
+                    modified_date=modified_date,
+                    file_sha256=file_sha256,
+                    source_ref=current_source,
+                ),
+                'previous_date_cell': previous_date_cell,
+                'previous_value_cell': previous_value_cell,
+                'comparison': 'current_day_minus_previous_calendar_day',
+            },
+        }
+    return updates
+
+
+def _company_yield_metric_source(
+    sheet: Worksheet,
+    *,
+    business_date: date,
+    header_text: str,
+    period_label: str,
+) -> dict[str, str] | None:
+    date_header = _find_header(sheet, '日期')
+    metric_header = _find_header(sheet, header_text)
+    if date_header is None or metric_header is None:
+        return None
+    metric_min_col, metric_max_col, metric_max_row = _merged_bounds(sheet, metric_header)
+    period_header = _find_text_in_range(
+        sheet,
+        text=period_label,
+        min_row=metric_max_row + 1,
+        max_row=min(metric_max_row + 4, sheet.max_row),
+        min_col=metric_min_col,
+        max_col=metric_max_col,
+    )
+    if period_header is None:
+        return None
+    _, _, date_header_max_row = _merged_bounds(sheet, date_header)
+    first_data_row = max(date_header_max_row, period_header.row) + 1
+    matching_rows = [
+        row_number
+        for row_number in range(first_data_row, sheet.max_row + 1)
+        if _cell_matches_business_date(
+            sheet.cell(row=row_number, column=date_header.column).value,
+            business_date=business_date,
+        )
+    ]
+    if len(matching_rows) != 1:
+        return None
+    row_number = matching_rows[0]
+    value_cell = sheet.cell(row=row_number, column=period_header.column)
+    if _yield_percent(value_cell.value) is None:
+        return None
+    return {
+        'date_cell': sheet.cell(row=row_number, column=date_header.column).coordinate,
+        'value_cell': value_cell.coordinate,
+        'header_cell': metric_header.coordinate,
+    }
+
+
+def _yield_day_over_day_delta(
+    sheet: Worksheet,
+    *,
+    business_date: date,
+    current_source: Mapping[str, str],
+) -> tuple[float, str, str] | None:
+    current_date_cell = sheet[str(current_source['date_cell'])]
+    current_value_cell = sheet[str(current_source['value_cell'])]
+    previous_date = business_date - timedelta(days=1)
+    previous_rows = [
+        row_number
+        for row_number in range(1, sheet.max_row + 1)
+        if _cell_matches_business_date(
+            sheet.cell(row=row_number, column=current_date_cell.column).value,
+            business_date=previous_date,
+        )
+    ]
+    if len(previous_rows) != 1:
+        return None
+    previous_date_cell = sheet.cell(row=previous_rows[0], column=current_date_cell.column)
+    previous_value_cell = sheet.cell(row=previous_rows[0], column=current_value_cell.column)
+    current_value = _yield_percent(current_value_cell.value)
+    previous_value = _yield_percent(previous_value_cell.value)
+    if current_value is None or previous_value is None:
+        return None
+    return (
+        round(round(current_value, 2) - round(previous_value, 2), 2),
+        previous_date_cell.coordinate,
+        previous_value_cell.coordinate,
+    )
+
+
+def _yield_source_ref(
+    sheet: Worksheet,
+    *,
+    modified_date: date,
+    file_sha256: str,
+    source_ref: Mapping[str, str],
+) -> dict[str, str]:
+    return {
+        'parser': 'company_daily_yield_v1',
+        'sheet_name': sheet.title,
+        'workbook_modified_date': modified_date.isoformat(),
+        **dict(source_ref),
+        'file_sha256': file_sha256,
     }
 
 

@@ -172,7 +172,7 @@ def parse_output_skill_daily_report(text: str) -> dict[str, Any]:
         "cold_roll_input_daily": rf"冷轧日投料{_NUMBER}吨",
         "cold_2050_input_daily": rf"2050投{_NUMBER}吨",
         "cold_1850_input_daily": rf"1850投{_NUMBER}吨",
-        "outsourced_input_daily": rf"外加工{_NUMBER}吨[)）]",
+        "outsourced_input_daily": rf"冷轧日投料[^。；\n]*?外加工{_NUMBER}吨[)）]",
         "medium_plate_input_daily": rf"中厚板{_NUMBER}吨",
         "remaining_contract_weight": rf"总余合同量{_NUMBER}吨",
     }

@@ -37,3 +37,13 @@ def test_parse_output_skill_daily_report_extracts_all_required_fields() -> None:
     missing = [field for field in REQUIRED_FIELDS if field not in parsed]
 
     assert missing == []
+
+
+def test_contract_outsourced_input_does_not_reuse_outsourced_output() -> None:
+    parsed = parse_output_skill_daily_report(
+        "7月16日，车间总产量日合计344吨（外加工76吨）。"
+        "冷轧日投料460吨（2050投386吨、1850投5吨、外加工69吨），中厚板106吨。"
+    )
+
+    assert parsed["outsourced_daily"] == 76
+    assert parsed["outsourced_input_daily"] == 69

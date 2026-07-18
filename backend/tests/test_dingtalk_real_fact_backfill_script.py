@@ -103,6 +103,53 @@ def _owner_verified_visual_row(*, message_id: str = 'msg-owner-verified-wip-001'
     }
 
 
+def _owner_verified_full_visual_row() -> dict:
+    values = {
+        'wip_total': 1166.5,
+        'wip_1650_2050_cold': 345.5,
+        'wip_1850_cold': 103.5,
+        'wip_milling': 0,
+        'wip_anneal_total': 323.5,
+        'wip_new_north': 231,
+        'wip_new_south': 37,
+        'wip_park_anneal': 55.5,
+        'wip_finishing_total': 394,
+        'wip_straightening': 290,
+        'wip_finishing': 99.5,
+        'wip_park_finishing': 4.5,
+        'wip_hot_plate_shearing': 0,
+        'wip_coating': 0,
+    }
+    row_labels = {
+        'wip_total': '汇总',
+        'wip_1650_2050_cold': '1650+2050冷轧合计',
+        'wip_1850_cold': '1850冷轧合计',
+        'wip_milling': '铣床合计',
+        'wip_anneal_total': '在线退火合计',
+        'wip_new_north': '新厂北',
+        'wip_new_south': '新厂南',
+        'wip_park_anneal': '园区退火',
+        'wip_finishing_total': '后工序合计',
+        'wip_straightening': '拉矫合计',
+        'wip_finishing': '精整合计',
+        'wip_park_finishing': '园区剪切',
+        'wip_hot_plate_shearing': '热轧（中厚板）',
+        'wip_coating': '彩涂',
+    }
+    row = _owner_verified_visual_row(message_id='msg-owner-verified-wip-full')
+    row['owner_verified_visual_facts'] = {
+        field: {
+            'value': value,
+            'unit': '吨',
+            'reported_date': '2026-07-08',
+            'row_label': row_labels[field],
+            'column_label': '在制料',
+        }
+        for field, value in values.items()
+    }
+    return row
+
+
 def _prepare(monkeypatch):
     module = _load_script_module()
     Session = _db_sessionmaker()
@@ -724,6 +771,39 @@ def test_owner_verified_wip_screenshot_adds_traceable_fact_update(monkeypatch, t
             and conflict.get('adopted_value') == 1877
             for conflict in bundle['conflicts']
         )
+    finally:
+        db.close()
+
+
+def test_owner_verified_full_wip_screenshot_adds_all_traceable_updates(monkeypatch, tmp_path) -> None:
+    module, Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    (files_root / 'wip.jpg').write_bytes(WIP_SCREENSHOT_CONTENT)
+    input_jsonl = tmp_path / 'messages.jsonl'
+    _write_jsonl(input_jsonl, [_owner_verified_full_visual_row()])
+
+    summary = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-wip-full',
+    )
+
+    assert summary['confirmed'] == 1
+    assert summary['committed'] == 1
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        updates = evidence.payload['fact_updates']
+        assert len(updates) == 14
+        assert updates['wip_total']['value'] == 1166.5
+        assert updates['wip_finishing_total']['value'] == 394
+        assert updates['wip_total']['source_ref']['parser'] == 'owner_verified_wip_screenshot_v2'
+        assert '汇总/在制料：1166.5吨' in evidence.payload['attachment_text']
+        assert '彩涂/在制料：0吨' in evidence.payload['attachment_text']
+        assert evidence.payload['attachment_text'].endswith('报表日期：2026-07-08')
     finally:
         db.close()
 
