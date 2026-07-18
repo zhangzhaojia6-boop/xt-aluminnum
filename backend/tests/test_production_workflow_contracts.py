@@ -1637,9 +1637,19 @@ def test_import_dingtalk_history_prod_requires_owner_confirmation_and_secret_bun
     assert inputs['confirm']['required'] is True
     assert "github.event.inputs.confirm == 'import-owner-verified-dingtalk-history'" in source
     assert 'DINGTALK_HISTORY_IMPORT_BUNDLE_B64: ${{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64 }}' in source
+    for suffix in ('01', '02', '03', '04'):
+        assert (
+            f'DINGTALK_HISTORY_IMPORT_BUNDLE_B64_{suffix}: '
+            f'${{{{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64_{suffix} }}}}'
+        ) in source
     assert 'bundle_sha256' in inputs
     assert 'expected_rows' in inputs
     assert 'DINGTALK_HISTORY_IMPORT_BUNDLE_B64' not in source[source.find('} | ssh'):]
+    assert 'if [ -n "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_01" ]; then' in source
+    assert 'printf \'%s\' \\' in source
+    assert '"$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_04" \\' in source
+    assert "| tr -d '\\r\\n' | base64 -d > \"$bundle\"" in source
+    assert 'unset DINGTALK_HISTORY_IMPORT_BUNDLE_B64_04' in source
     assert 'safe_extract_zip' in source
     assert 'local_file_path_outside_files_root' not in source
     assert '--confirmation-mode owner-verified-dws-history' in source

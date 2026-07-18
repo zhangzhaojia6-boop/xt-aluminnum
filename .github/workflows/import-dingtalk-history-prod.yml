@@ -34,6 +34,10 @@ jobs:
           SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
           SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           DINGTALK_HISTORY_IMPORT_BUNDLE_B64: ${{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64 }}
+          DINGTALK_HISTORY_IMPORT_BUNDLE_B64_01: ${{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64_01 }}
+          DINGTALK_HISTORY_IMPORT_BUNDLE_B64_02: ${{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64_02 }}
+          DINGTALK_HISTORY_IMPORT_BUNDLE_B64_03: ${{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64_03 }}
+          DINGTALK_HISTORY_IMPORT_BUNDLE_B64_04: ${{ secrets.DINGTALK_HISTORY_IMPORT_BUNDLE_B64_04 }}
           BUNDLE_SHA256: ${{ github.event.inputs.bundle_sha256 }}
           EXPECTED_ROWS: ${{ github.event.inputs.expected_rows }}
           RUN_ID: ${{ github.run_id }}
@@ -44,7 +48,15 @@ jobs:
           test -n "$SSH_USER"
           test -n "$SSH_KEY"
           test -n "$SSH_KNOWN_HOSTS"
-          test -n "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64"
+          chunked_bundle=false
+          if [ -n "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_01" ]; then
+            test -n "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_02"
+            test -n "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_03"
+            test -n "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_04"
+            chunked_bundle=true
+          else
+            test -n "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64"
+          fi
           printf '%s' "$BUNDLE_SHA256" | grep -Eq '^[0-9a-f]{64}$'
           printf '%s' "$EXPECTED_ROWS" | grep -Eq '^[1-9][0-9]*$'
           test "$EXPECTED_ROWS" -le 20
@@ -73,7 +85,21 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
 
           bundle="dingtalk-history-${RUN_ID}.zip"
-          printf '%s' "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64" | tr -d '\r\n' | base64 -d > "$bundle"
+          if [ "$chunked_bundle" = true ]; then
+            printf '%s' \
+              "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_01" \
+              "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_02" \
+              "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_03" \
+              "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64_04" \
+              | tr -d '\r\n' | base64 -d > "$bundle"
+          else
+            printf '%s' "$DINGTALK_HISTORY_IMPORT_BUNDLE_B64" | tr -d '\r\n' | base64 -d > "$bundle"
+          fi
+          unset DINGTALK_HISTORY_IMPORT_BUNDLE_B64
+          unset DINGTALK_HISTORY_IMPORT_BUNDLE_B64_01
+          unset DINGTALK_HISTORY_IMPORT_BUNDLE_B64_02
+          unset DINGTALK_HISTORY_IMPORT_BUNDLE_B64_03
+          unset DINGTALK_HISTORY_IMPORT_BUNDLE_B64_04
           chmod 600 "$bundle"
           test "$(sha256sum "$bundle" | cut -d' ' -f1)" = "$BUNDLE_SHA256"
           local_check_dir="dingtalk-history-check-${RUN_ID}"
