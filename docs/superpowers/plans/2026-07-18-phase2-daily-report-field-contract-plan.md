@@ -37,11 +37,11 @@
 - Create: `backend/tests/test_daily_report_field_contract.py`
 - Modify: `backend/tests/test_core_metric_contracts.py`
 
-- [ ] **Step 1: Write the failing contract-count test**
+- [x] **Step 1: Write the failing contract-count test**
 
 Test that the template keeps 130 display fields, the normative contract contains exactly 127 unique fields, and the three template-only fields are explicitly named with non-empty reasons.
 
-- [ ] **Step 2: Run the focused test and verify the current code fails**
+- [x] **Step 2: Run the focused test and verify the current code fails**
 
 Run:
 
@@ -51,7 +51,7 @@ uv run --with-requirements backend/requirements.txt --with pytest pytest -q back
 
 Expected: FAIL because `daily_report_field_contract.py` and the 127-field contract do not exist.
 
-- [ ] **Step 3: Add the immutable field contract**
+- [x] **Step 3: Add the immutable field contract**
 
 Each `DailyReportFieldContract` must expose at least:
 
@@ -67,21 +67,21 @@ reference_role: str = "compare_only"
 
 Use runtime constants for 07:50, 10:00, 09:30 and 10:00; do not duplicate free-form time strings. Tolerances must be non-negative and at most 20; percentage and per-ton fields use at most 0.2.
 
-- [ ] **Step 4: Preserve compatibility for template callers**
+- [x] **Step 4: Preserve compatibility for template callers**
 
 `field_group()`, `fields_for_group()`, `all_contract_fields()` and `group_missing_fields()` must retain their current callable behavior. Add a clearly named normative-field accessor instead of silently changing `all_contract_fields()` from 130 to 127.
 
-- [ ] **Step 5: Make Hermes metric tolerances reuse the canonical field contract**
+- [x] **Step 5: Make Hermes metric tolerances reuse the canonical field contract**
 
 Existing source-anchor and value-kind logic in `metric_contracts.py` stays intact. The 17 Hermes metrics may be a subset, but any shared field must have the same unit and tolerance as the 127-field contract.
 
-- [ ] **Step 6: Run focused and adjacent tests**
+- [x] **Step 6: Run focused and adjacent tests**
 
 ```powershell
 uv run --with-requirements backend/requirements.txt --with pytest pytest -q backend/tests/test_daily_report_field_contract.py backend/tests/test_core_metric_contracts.py backend/tests/test_template_daily_report.py
 ```
 
-- [ ] **Step 7: Commit the canonical contract**
+- [x] **Step 7: Commit the canonical contract**
 
 ```text
 feat(report): define canonical 127-field contract

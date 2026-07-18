@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 from app.core.business_time import OWNER_DAILY_BUSINESS_DAY_START, PRODUCTION_BUSINESS_DAY_START
+from app.domain.daily_report_field_contract import daily_report_field_tolerance_for
 
 
 DAILY_REPORT_METRIC_CONTRACT_VERSION = '2026-07-11'
@@ -368,7 +369,12 @@ def daily_report_contract_for(field: str) -> DailyReportMetricContract:
 
 def daily_report_tolerance_for(field: str) -> float:
     contract = DAILY_REPORT_METRIC_CONTRACTS.get(field)
-    return contract.tolerance if contract is not None else 0.0
+    if contract is not None:
+        return contract.tolerance
+    try:
+        return daily_report_field_tolerance_for(field)
+    except KeyError:
+        return 0.0
 
 
 def metric_value_failure_reason(field_name: str, value: Any) -> str | None:
