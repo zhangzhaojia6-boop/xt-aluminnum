@@ -96,6 +96,8 @@ class MesMachineLineSource:
 
 
 class MesAdapter(ABC):
+    readonly = False
+
     @abstractmethod
     def get_tracking_card_info(self, card_no: str) -> CardInfo | None:
         raise NotImplementedError
@@ -218,6 +220,8 @@ class MesAdapter(ABC):
 
 
 class NullMesAdapter(MesAdapter):
+    readonly = True
+
     def get_tracking_card_info(self, card_no: str) -> CardInfo | None:
         return None
 

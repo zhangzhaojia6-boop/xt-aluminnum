@@ -2,7 +2,16 @@ from datetime import datetime
 
 import pytest
 
-from app.adapters.sqlserver_mes_adapter import SqlServerMesAdapter, _QUERY_BY_KEY, _ensure_read_only_query
+from app.adapters.sqlserver_mes_adapter import (
+    MesReadOnlyViolation,
+    SQLSERVER_QUERY_SPECS,
+    SqlServerMesAdapter,
+    _BETWEEN_QUERY_BY_KEY,
+    _QUERY_BY_KEY,
+    _ensure_read_only_query,
+    audit_sqlserver_readonly_contract,
+    classify_sqlserver_failure,
+)
 
 
 class _QueryRunner:
@@ -323,6 +332,7 @@ def test_sqlserver_query_guard_allows_select_only() -> None:
     [
         'UPDATE dbo.Product SET Name = Name',
         'SELECT * FROM v_CoilStatus; DELETE FROM dbo.Product',
+        'SELECT * INTO dbo.CoilStatusCopy FROM v_CoilStatus',
         'EXEC dbo.RefreshProduct',
         'DROP TABLE dbo.Product',
     ],
@@ -347,3 +357,35 @@ def test_sqlserver_default_queries_target_discovered_xtal_tables() -> None:
     assert 'SUM(FeedingWeight)' in _QUERY_BY_KEY['wip_totals']
     assert 'WMS_Stock' in _QUERY_BY_KEY['stock']
     assert all('v_CoilStatus' not in query for query in _QUERY_BY_KEY.values())
+
+
+def test_all_registered_sqlserver_queries_are_select_only() -> None:
+    audit = audit_sqlserver_readonly_contract()
+
+    assert audit['status'] == 'pass'
+    assert audit['passed'] is True
+    assert audit['issues'] == []
+    assert audit['query_count'] == len(_QUERY_BY_KEY) + len(_BETWEEN_QUERY_BY_KEY) + 2
+    assert len(audit['contract_sha256']) == 64
+    assert len({spec.probe_id for spec in SQLSERVER_QUERY_SPECS}) == len(SQLSERVER_QUERY_SPECS)
+
+
+def test_sqlserver_adapter_rejects_completion_writes() -> None:
+    adapter = SqlServerMesAdapter(query_runner=_QueryRunner({}))
+
+    assert adapter.readonly is True
+    with pytest.raises(MesReadOnlyViolation, match='mes_sqlserver_read_only'):
+        adapter.push_completion('CARD-1', 1.0, 99.0)
+
+
+@pytest.mark.parametrize(
+    ('error', 'expected'),
+    [
+        (ConnectionError('server unavailable'), 'connection_failed'),
+        (TimeoutError('query timed out'), 'query_timeout'),
+        (RuntimeError("Invalid column name 'OperateDate'"), 'schema_changed'),
+        (RuntimeError('unexpected read failure'), 'read_failed'),
+    ],
+)
+def test_sqlserver_failure_classification_is_stable(error: Exception, expected: str) -> None:
+    assert classify_sqlserver_failure(error) == expected

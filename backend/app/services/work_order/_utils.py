@@ -186,12 +186,15 @@ def _apply_mes_card_info(entity: WorkOrder, *, tracking_card_no: str) -> None:
 def _push_mes_completion_if_needed(*, work_order: WorkOrder, entry: WorkOrderEntry) -> bool:
     if getattr(work_order, 'overall_status', None) != 'completed':
         return False
+    adapter = get_mes_adapter()
+    if bool(getattr(adapter, 'readonly', False)):
+        return False
     output_weight = _to_float(entry.verified_output_weight)
     if output_weight is None:
         output_weight = _to_float(entry.output_weight)
     try:
         return bool(
-            get_mes_adapter().push_completion(
+            adapter.push_completion(
                 work_order.tracking_card_no,
                 output_weight,
                 _to_float(entry.yield_rate),

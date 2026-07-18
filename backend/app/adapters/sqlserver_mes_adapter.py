@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 import hashlib
 import json
@@ -113,8 +114,85 @@ _BETWEEN_QUERY_BY_KEY = {
 }
 
 _WRITE_SQL_PATTERN = re.compile(
-    r'\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|grant|revoke|deny|backup|restore)\b',
+    r'\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|grant|revoke|deny|backup|restore|into)\b',
     re.IGNORECASE,
+)
+
+_DATABASE_PERMISSION_QUERY = (
+    "SELECT permission_name FROM fn_my_permissions(NULL, 'DATABASE') "
+    "WHERE permission_name IN ('INSERT', 'UPDATE', 'DELETE', 'ALTER', 'CONTROL', "
+    "'CREATE TABLE', 'EXECUTE', 'TAKE OWNERSHIP') ORDER BY permission_name"
+)
+_OBJECT_PERMISSION_QUERY = (
+    "SELECT permission_name FROM fn_my_permissions(%s, 'OBJECT') "
+    "WHERE permission_name IN ('INSERT', 'UPDATE', 'DELETE', 'ALTER', 'CONTROL', "
+    "'EXECUTE', 'TAKE OWNERSHIP') ORDER BY permission_name"
+)
+
+
+class MesReadOnlyViolation(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class SqlServerQuerySpec:
+    probe_id: str
+    query_key: str
+    source_table: str
+    mode: str
+    event_time_field: str | None
+    requires_lookup: bool = False
+
+
+SQLSERVER_QUERY_SPECS = (
+    SqlServerQuerySpec('current:card_lookup', 'card_lookup', 'MES_Product', 'current', 'OperateDate', True),
+    SqlServerQuerySpec('current:dispatch', 'dispatch', 'MES_Product', 'current', 'OperateDate'),
+    SqlServerQuerySpec('current:follow_cards', 'follow_cards', 'MES_Product', 'current', 'OperateDate'),
+    SqlServerQuerySpec('current:wip_totals', 'wip_totals', 'MES_Product', 'current', None),
+    SqlServerQuerySpec(
+        'current:workshop_process_records',
+        'workshop_process_records',
+        'MES_ProductProcessRecord',
+        'current',
+        'EndDatetime',
+    ),
+    SqlServerQuerySpec('current:stock_records', 'stock_records', 'WMS_InStockDetail', 'current', 'CreateDate'),
+    SqlServerQuerySpec('current:material_records', 'material_records', 'MES_Material', 'current', 'ProductionDate'),
+    SqlServerQuerySpec('current:yield_records', 'yield_records', 'MES_ProductProcessRecord', 'current', 'OperateDate'),
+    SqlServerQuerySpec('current:stock', 'stock', 'WMS_Stock', 'current', 'OperateDate'),
+    SqlServerQuerySpec('current:devices', 'devices', 'MES_Device', 'current', 'OperateDate'),
+    SqlServerQuerySpec(
+        'window:workshop_process_records',
+        'workshop_process_records',
+        'MES_ProductProcessRecord',
+        'window',
+        'EndDatetime',
+    ),
+    SqlServerQuerySpec('window:stock_records', 'stock_records', 'WMS_InStockDetail', 'window', 'CreateDate'),
+    SqlServerQuerySpec(
+        'window:finished_inbound_records',
+        'finished_inbound_records',
+        'WMS_InStock',
+        'window',
+        'InStockDate',
+    ),
+    SqlServerQuerySpec(
+        'window:delivery_records',
+        'delivery_records',
+        'MES_DeliveryDetail',
+        'window',
+        'OperateDate',
+    ),
+    SqlServerQuerySpec(
+        'window:delivery_stock_records',
+        'delivery_stock_records',
+        'WMS_OutStockDetail',
+        'window',
+        'CreateDate',
+    ),
+    SqlServerQuerySpec('window:material_records', 'material_records', 'MES_Material', 'window', 'ProductionDate'),
+    SqlServerQuerySpec('permission:database', 'database_permissions', 'DATABASE', 'permission', None),
+    SqlServerQuerySpec('permission:object', 'object_permissions', 'REGISTERED_TABLES', 'permission', None),
 )
 
 
@@ -199,6 +277,73 @@ def _ensure_read_only_query(query: str) -> None:
     query_without_literals = re.sub(r"(?is)N?'(?:''|[^'])*'", "''", normalized)
     if _WRITE_SQL_PATTERN.search(query_without_literals):
         raise ValueError('SQL Server MES adapter rejected a non-read-only SQL keyword')
+
+
+def audit_sqlserver_readonly_contract() -> dict[str, Any]:
+    rendered_queries = {
+        **{f'current:{key}': query.format(limit=1) for key, query in _QUERY_BY_KEY.items()},
+        **{
+            f'window:{key}': query.format(limit=1, offset=0)
+            for key, query in _BETWEEN_QUERY_BY_KEY.items()
+        },
+        'permission:database': _DATABASE_PERMISSION_QUERY,
+        'permission:object': _OBJECT_PERMISSION_QUERY,
+    }
+    issues: list[str] = []
+    registered_ids = {spec.probe_id for spec in SQLSERVER_QUERY_SPECS}
+    rendered_ids = set(rendered_queries)
+    if len(registered_ids) != len(SQLSERVER_QUERY_SPECS):
+        issues.append('duplicate_probe_id')
+    for probe_id in sorted(rendered_ids - registered_ids):
+        issues.append(f'unregistered_query:{probe_id}')
+    for probe_id in sorted(registered_ids - rendered_ids):
+        issues.append(f'missing_query:{probe_id}')
+    for probe_id, query in sorted(rendered_queries.items()):
+        try:
+            _ensure_read_only_query(query)
+        except ValueError as exc:
+            issues.append(f'non_readonly_query:{probe_id}:{exc}')
+    canonical = json.dumps(rendered_queries, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
+    return {
+        'status': 'pass' if not issues else 'blocked',
+        'passed': not issues,
+        'query_count': len(rendered_queries),
+        'contract_sha256': hashlib.sha256(canonical.encode('utf-8')).hexdigest(),
+        'issues': issues,
+    }
+
+
+def classify_sqlserver_failure(exc: Exception) -> str:
+    error_type = type(exc).__name__.lower()
+    message = str(exc).lower()
+    if 'timeout' in error_type or any(token in message for token in ('timed out', 'timeout', 'time out')):
+        return 'query_timeout'
+    if isinstance(exc, ConnectionError) or any(
+        token in message
+        for token in (
+            'connection',
+            'server unavailable',
+            'login failed',
+            'network',
+            'adaptive server',
+            'db-lib error message 20002',
+            'db-lib error message 20009',
+        )
+    ):
+        return 'connection_failed'
+    if any(
+        token in message
+        for token in (
+            'invalid column name',
+            'invalid object name',
+            'unknown column',
+            'no such column',
+            'no such table',
+            'schema changed',
+        )
+    ):
+        return 'schema_changed'
+    return 'read_failed'
 
 
 def _tracking_card_no(row: Mapping[str, Any]) -> str:
@@ -293,6 +438,8 @@ class SqlServerMesAdapter(MesAdapter):
     model; management pages still read the local `mes_*` tables.
     """
 
+    readonly = True
+
     def __init__(
         self,
         *,
@@ -345,7 +492,7 @@ class SqlServerMesAdapter(MesAdapter):
 
     def push_completion(self, card_no: str, output_weight: float | None, yield_rate: float | None) -> bool:
         _ = (card_no, output_weight, yield_rate)
-        return False
+        raise MesReadOnlyViolation('mes_sqlserver_read_only')
 
     def list_follow_cards(self, *, limit: int = 200) -> list[CoilSnapshot]:
         return [_coil_snapshot_from_row(row) for row in self._query('follow_cards', limit=limit)]
