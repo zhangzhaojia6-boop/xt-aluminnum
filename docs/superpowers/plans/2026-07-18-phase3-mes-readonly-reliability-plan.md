@@ -303,7 +303,7 @@ Expected: focused and full backend suites pass; frontend tests and production bu
 
 Review the diff against issue `#37`. Block merge for any path that can issue SQL writes, any gate that treats missing as zero, raw-row leakage, a workflow that can audit a different SHA, or a fault drill that touches the real MES schema.
 
-- [ ] **Step 3: Push, open the PR, and pass required checks**
+- [x] **Step 3: Push, open the PR, and pass required checks**
 
 ```powershell
 git push -u origin feat/phase3-mes-readonly-reliability-20260718
@@ -312,19 +312,19 @@ gh pr create --base main --head feat/phase3-mes-readonly-reliability-20260718 --
 
 Wait for every required check and fix all blocking review findings before merge.
 
-- [ ] **Step 4: Merge and deploy exact SHAs**
+- [x] **Step 4: Merge and deploy exact SHAs**
 
 Merge the PR, fast-forward local `main`, then run `production-sync-status.yml` in exact-SHA deploy mode with the merged Data Hub SHA and accepted Hermes SHA. Require clean worktrees, three active services, `readyz.status=ready`, MES sync `fresh/success`, and Stream `connected/fresh`.
 
-- [ ] **Step 5: Run the real production audit**
+- [x] **Step 5: Run the real production audit**
 
 Dispatch `mes-readonly-audit-prod.yml` for the exact deployed SHAs. The JSON artifact must show three business dates, no dangerous SQL Server permissions, every registered query statically read-only, dated probes returning rows or explicit no-data reasons, lag within threshold, and all three controlled fault drills recovered.
 
-- [ ] **Step 6: Rehearse real rollback and redeploy**
+- [x] **Step 6: Rehearse real rollback and redeploy**
 
 Use `production-sync-status.yml` rollback mode to return to the previously accepted merged Data Hub SHA while keeping Hermes unchanged. Verify health, then redeploy the Phase 3 SHA and rerun the read-only audit. Do not alter or write the MES/WMS database during either operation.
 
-- [ ] **Step 7: Archive and close Phase 3**
+- [x] **Step 7: Archive and close Phase 3**
 
 Write the report with workflow links, exact SHAs, three-date query counts, no-data reasons, permission result, fault-drill result, rollback evidence, and remaining limitations. Do not include credentials, raw rows, personal data, chat text, or `D:\输出skill` contents. Merge the report PR, close issue `#37`, update parent issue `#34`, and only then advance the master plan to Phase 4.
 
