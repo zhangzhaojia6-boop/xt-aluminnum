@@ -258,7 +258,11 @@ def _run_owner_verified_backfill(
                 summary['already_confirmed'] += 1
             else:
                 summary['confirmation_rejected'] += 1
-                _record_rejection(summary, 'owner_verification_rejected')
+                _, separator, rejection_reason = confirmation_result.partition(':')
+                _record_rejection(
+                    summary,
+                    rejection_reason if separator and rejection_reason else 'owner_verification_rejected',
+                )
                 break
         if summary['confirmation_rejected']:
             db.rollback()
@@ -393,10 +397,10 @@ def _confirm_owner_verified_evidence(
     try:
         evidence_id_value = int(evidence_id)
     except (TypeError, ValueError):
-        return 'rejected'
+        return 'rejected:owner_verification_evidence_id_invalid'
     evidence = db.get(MultimodalEvidence, evidence_id_value)
     if evidence is None:
-        return 'rejected'
+        return 'rejected:owner_verification_evidence_missing'
     payload = dict(evidence.payload) if isinstance(evidence.payload, dict) else {}
     stored_text = _first_text(payload.get('message_text'), payload.get('file_text'), payload.get('attachment_text'))
     stored_hash = str(payload.get('file_hash') or '').strip().lower()
@@ -421,23 +425,46 @@ def _confirm_owner_verified_evidence(
             parse_status == 'text_captured' and repeat_visual_confirmation
         )
     required_matches = (
-        str(payload.get('source_transport') or '') == SOURCE_TRANSPORT,
-        str(payload.get('trace_id') or '') == verification.message_id,
-        str(payload.get('messageId') or payload.get('message_id') or '') == verification.message_id,
-        str(payload.get('group_id') or '') == verification.group_id,
-        str(payload.get('dingtalk_sender_id') or payload.get('senderStaffId') or '') == verification.sender_user_id,
-        str(payload.get('sender_identity_type') or payload.get('senderIdentityType') or '')
-        == verification.sender_identity_type,
-        str(payload.get('business_date') or '') == verification.business_date.isoformat(),
-        _event_times_equivalent(
-            payload.get('event_time') or payload.get('dingtalk_message_time'),
-            verification.event_time,
+        (
+            'owner_verification_source_transport_mismatch',
+            str(payload.get('source_transport') or '') == SOURCE_TRANSPORT,
         ),
-        parse_status_matches,
-        stored_hash == verification.content_sha256,
+        (
+            'owner_verification_trace_id_mismatch',
+            str(payload.get('trace_id') or '') == verification.message_id,
+        ),
+        (
+            'owner_verification_message_id_mismatch',
+            str(payload.get('messageId') or payload.get('message_id') or '') == verification.message_id,
+        ),
+        ('owner_verification_group_id_mismatch', str(payload.get('group_id') or '') == verification.group_id),
+        (
+            'owner_verification_sender_id_mismatch',
+            str(payload.get('dingtalk_sender_id') or payload.get('senderStaffId') or '')
+            == verification.sender_user_id,
+        ),
+        (
+            'owner_verification_sender_identity_type_mismatch',
+            str(payload.get('sender_identity_type') or payload.get('senderIdentityType') or '')
+            == verification.sender_identity_type,
+        ),
+        (
+            'owner_verification_business_date_mismatch',
+            str(payload.get('business_date') or '') == verification.business_date.isoformat(),
+        ),
+        (
+            'owner_verification_event_time_mismatch',
+            _event_times_equivalent(
+                payload.get('event_time') or payload.get('dingtalk_message_time'),
+                verification.event_time,
+            ),
+        ),
+        ('owner_verification_parse_status_mismatch', parse_status_matches),
+        ('owner_verification_content_hash_mismatch', stored_hash == verification.content_sha256),
     )
-    if not all(required_matches):
-        return 'rejected'
+    for rejection_reason, matches in required_matches:
+        if not matches:
+            return f'rejected:{rejection_reason}'
 
     if evidence.confirmation_status == 'confirmed':
         if (
@@ -446,7 +473,7 @@ def _confirm_owner_verified_evidence(
             and existing_verification.get('content_sha256') == owner_verification['content_sha256']
         ):
             return 'already_confirmed'
-        return 'rejected'
+        return 'rejected:owner_verification_existing_confirmation_mismatch'
     payload['conversation_id'] = verification.group_id
     payload['sender_identity_type'] = verification.sender_identity_type
     payload['owner_verification'] = owner_verification

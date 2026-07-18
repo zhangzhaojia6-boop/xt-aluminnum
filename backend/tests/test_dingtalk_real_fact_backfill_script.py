@@ -626,6 +626,7 @@ def test_owner_verified_dws_rejects_different_event_time(monkeypatch, tmp_path) 
     assert owner_verified['confirmed'] == 0
     assert owner_verified['confirmation_rejected'] == 1
     assert owner_verified['committed'] == 0
+    assert owner_verified['rejection_reasons'] == {'owner_verification_event_time_mismatch': 1}
     db = Session()
     try:
         evidence = db.query(MultimodalEvidence).one()
@@ -633,6 +634,32 @@ def test_owner_verified_dws_rejects_different_event_time(monkeypatch, tmp_path) 
         assert 'owner_verification' not in evidence.payload
     finally:
         db.close()
+
+
+def test_owner_verified_dws_reports_sender_identity_type_mismatch(monkeypatch, tmp_path) -> None:
+    module, _Session = _prepare(monkeypatch)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    input_jsonl = tmp_path / 'messages.jsonl'
+    row = _owner_verified_text_row()
+    _write_jsonl(input_jsonl, [row])
+    module.run_backfill(input_jsonl=input_jsonl, files_root=files_root, days=3)
+
+    row.pop('senderStaffId')
+    row['senderOpenDingTalkId'] = 'sender-001'
+    _write_jsonl(input_jsonl, [row])
+    owner_verified = module.run_backfill(
+        input_jsonl=input_jsonl,
+        files_root=files_root,
+        days=3,
+        confirmation_mode='owner-verified-dws-history',
+        confirmation_run_id='test-run-sender-identity-type-mismatch',
+    )
+
+    assert owner_verified['confirmed'] == 0
+    assert owner_verified['confirmation_rejected'] == 1
+    assert owner_verified['committed'] == 0
+    assert owner_verified['rejection_reasons'] == {'owner_verification_sender_identity_type_mismatch': 1}
 
 
 def test_owner_verified_dws_accepts_open_dingtalk_sender_identity(monkeypatch, tmp_path) -> None:
