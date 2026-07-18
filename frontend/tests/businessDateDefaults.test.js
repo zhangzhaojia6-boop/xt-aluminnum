@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { ownerDailyBusinessDateOptions } from '../src/utils/shiftClock.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
@@ -52,6 +53,23 @@ test('business date defaults: owner daily pages use the 09:30 owner anchor', () 
     assert.match(source, /inferOwnerDailyBusinessDate/, `${file} should use the owner daily business day`)
     assert.doesNotMatch(source, /dayjs\(\)\.format\('YYYY-MM-DD'\)/, `${file} should not default owner daily entries to calendar today`)
   }
+})
+
+test('owner daily backfill offers the current owner date and seven prior dates', () => {
+  assert.deepEqual(ownerDailyBusinessDateOptions('2026-07-19'), [
+    '2026-07-19',
+    '2026-07-18',
+    '2026-07-17',
+    '2026-07-16',
+    '2026-07-15',
+    '2026-07-14',
+    '2026-07-13',
+    '2026-07-12',
+  ])
+
+  const source = readSource('src/views/mobile/UnifiedEntryForm.vue')
+  assert.match(source, /v-model="ownerDailySelectedDate"/)
+  assert.match(source, /loadOwnerDailyEntryForDate/)
 })
 
 test('mobile entry landing separates owner daily hint from production shift hint', () => {

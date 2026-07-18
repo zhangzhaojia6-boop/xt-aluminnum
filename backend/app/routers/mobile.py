@@ -332,6 +332,7 @@ def owner_daily_detail(
 @router.post('/owner-daily', response_model=MobileOwnerDailyOut, name='mobile-owner-daily-save')
 def save_owner_daily(
     body: MobileOwnerDailyPayload,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_mobile_user),
 ) -> MobileOwnerDailyOut:
@@ -339,6 +340,8 @@ def save_owner_daily(
         db,
         payload=body.model_dump(),
         current_user=current_user,
+        ip_address=_request_ip(request),
+        user_agent=request.headers.get('user-agent'),
     )
     return MobileOwnerDailyOut(**payload)
 
