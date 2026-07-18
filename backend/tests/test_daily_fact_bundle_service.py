@@ -1923,7 +1923,7 @@ def test_dingtalk_structured_list_field_key_target_date_applies_with_trace(
     assert bundle["missing_fields"] == []
     assert bundle["status"] == "ready"
     closure_field = _fact_closure_field(bundle, "total_output_daily")
-    assert closure_field["status"] == "needs_evidence"
+    assert closure_field["status"] == "confirmed"
     assert closure_field["source"] == "dingtalk_supplement"
     assert closure_field["trace_id"] == "trace-structured"
 
@@ -2480,12 +2480,17 @@ def test_unstructured_dingtalk_evidence_with_matching_business_date_applies_to_f
     assert fact["unit"] == "吨"
     assert fact["source"] == "dingtalk_supplement"
     assert fact["freshness"] == "supplemented"
+    assert fact["evidence_status"] == "confirmed"
+    assert fact["evidence_gaps"] == []
     assert bundle["missing_fields"] == []
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_output_daily"]}]
     closure_field = _fact_closure_field(bundle, "total_output_daily")
-    assert closure_field["status"] == "needs_evidence"
+    assert closure_field["status"] == "confirmed"
     assert closure_field["source"] == "dingtalk_supplement"
     assert closure_field["trace_id"] == "trace-unstructured-output"
+    assert closure_field["business_window"] == (
+        "2026-06-19T07:50:00+08:00/2026-06-20T07:50:00+08:00"
+    )
 
 
 def test_unstructured_dingtalk_today_without_payload_date_applies_to_current_bundle_day(
@@ -2543,6 +2548,102 @@ def test_unstructured_dingtalk_today_without_payload_date_applies_to_current_bun
     assert fact["source_detail"]["business_date"] == "2026-06-19"
     assert bundle["missing_fields"] == []
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_output_daily"]}]
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "confirmed"
+
+
+def test_dingtalk_field_business_window_uses_billet_time_for_hot_roll() -> None:
+    from app.services.report import daily_fact_bundle
+
+    assert daily_fact_bundle._business_window_for_field("hot_roll_daily", date(2026, 6, 19)) == (
+        "2026-06-19T10:00:00+08:00/2026-06-20T10:00:00+08:00"
+    )
+
+
+def test_dingtalk_fact_with_wrong_unit_remains_needs_evidence(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {},
+            "sources": {},
+            "missing_fields": ["total_output_daily"],
+            "conflicts": [],
+        },
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            recognized_text="6月19日车间总产量日合计371吨。",
+            confirmation_status="confirmed",
+            payload={
+                "source": "dingtalk",
+                "business_date": "2026-06-19",
+                "trace_id": "trace-wrong-unit",
+                "parse_status": "text_captured",
+                "fact_updates": {
+                    "total_output_daily": {
+                        "value": 371,
+                        "unit": "kg",
+                    }
+                },
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 19))
+
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["evidence_status"] == "needs_evidence"
+    assert "unit_field_contract_mismatch" in fact["evidence_gaps"]
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
+
+
+def test_dingtalk_fact_before_business_window_closes_remains_needs_evidence(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {},
+            "sources": {},
+            "missing_fields": ["total_output_daily"],
+            "conflicts": [],
+        },
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            recognized_text="6月19日车间总产量日合计371吨。",
+            confirmation_status="confirmed",
+            payload={
+                "source": "dingtalk",
+                "business_date": "2026-06-19",
+                "trace_id": "trace-window-open",
+                "parse_status": "text_captured",
+            },
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+        now=datetime(2026, 6, 20, 7, 49, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["evidence_status"] == "needs_evidence"
+    assert "business_window_not_closed" in fact["evidence_gaps"]
     assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
 
 
@@ -2600,7 +2701,7 @@ def test_unstructured_dingtalk_month_day_without_payload_date_applies_to_matchin
     assert fact["source_detail"]["business_date"] == "2026-06-19"
     assert "total_electricity_kwh" not in bundle["missing_fields"]
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_electricity_kwh"]}]
-    assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "needs_evidence"
+    assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "confirmed"
 
 
 def test_same_priority_dingtalk_candidate_does_not_override_existing_dingtalk_fact(
@@ -2845,6 +2946,11 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
         "source_key": "dingtalk_group_file",
         "recognized_text": "6月19日天然气共计50578m³",
         "business_date": "2026-06-19",
+        "business_window": "2026-06-19T07:50:00+08:00/2026-06-20T07:50:00+08:00",
+        "confirmation_status": "confirmed",
+        "parse_status": "text_captured",
+        "unit": "m³",
+        "metric_contract_version": "2026-07-11",
         "trace_id": "trace-gas-dingtalk",
     }
     assert fact["source_ref"] == {
@@ -2856,6 +2962,11 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
         "source_key": "dingtalk_group_file",
         "recognized_text": "6月19日天然气共计50578m³",
         "business_date": "2026-06-19",
+        "business_window": "2026-06-19T07:50:00+08:00/2026-06-20T07:50:00+08:00",
+        "confirmation_status": "confirmed",
+        "parse_status": "text_captured",
+        "unit": "m³",
+        "metric_contract_version": "2026-07-11",
         "trace_id": "trace-gas-dingtalk",
     }
     assert bundle["sources"]["total_gas_m3"]["source"] == "dingtalk_supplement"
