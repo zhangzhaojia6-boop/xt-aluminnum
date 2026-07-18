@@ -188,7 +188,7 @@ def source_lane_for(source_type: str | None) -> str:
         return SOURCE_LANE_OUTPUT_SKILL_REFERENCE
     if normalized.startswith("dingtalk"):
         return SOURCE_LANE_DINGTALK
-    if normalized == "root_owner_correction":
+    if normalized in {"root_owner", "root_owner_correction"}:
         return SOURCE_LANE_AUTHORIZED_CORRECTION
     if (
         normalized.startswith("mes_")
@@ -207,7 +207,7 @@ def source_lane_for(source_type: str | None) -> str:
         "overhaul_daily",
     }:
         return SOURCE_LANE_SCAN_SUPPLEMENT
-    if normalized in {"historical_report", "previous_final_report"}:
+    if normalized in {"historical_report", "history_report", "previous_final_report"}:
         return SOURCE_LANE_HISTORICAL_RECORD
     if normalized == "rag":
         return SOURCE_LANE_RAG_EXPLANATION_ONLY

@@ -2,6 +2,10 @@
 
 from datetime import date
 from importlib import import_module
+import json
+
+from app.domain.daily_report_field_contract import normative_daily_report_fields
+from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 
 
 BUSINESS_DATE = date(2026, 6, 16)
@@ -251,3 +255,37 @@ def test_evaluate_day1_run_payload_prefers_stored_evidence_kind_over_truncated_s
 
     by_name = {item.name: item for item in results}
     assert by_name['dingtalk_evidence_classification'].passed is True
+
+
+def test_fallback_alignment_uses_structured_reference_na_metadata(tmp_path) -> None:
+    service = _service()
+    formal_text = _answer().split('正式日报正文\n', 1)[1].split('\n\n各车间明细', 1)[0]
+    present_fields = set(parse_output_skill_daily_report(formal_text))
+    declared_na_fields = [
+        field_name
+        for field_name in normative_daily_report_fields()
+        if field_name not in present_fields
+    ]
+    report_path = tmp_path / '2026-6-16_日报正文.txt'
+    report_path.write_text(formal_text, encoding='utf-8')
+    report_path.with_suffix('.na.json').write_text(
+        json.dumps({'not_applicable': declared_na_fields}),
+        encoding='utf-8',
+    )
+
+    built_alignment = service.build_output_skill_alignment(formal_text, tmp_path, BUSINESS_DATE)
+    reference = service.load_output_skill_daily_reference(tmp_path, BUSINESS_DATE)
+    payload = _payload()
+    payload.pop('output_skill_alignment')
+    payload['sources'].pop('output_skill_alignment')
+    results = service.evaluate_day1_run_payload(
+        payload,
+        answer=_answer(),
+        output_skill_reference=reference,
+    )
+
+    assert built_alignment['status'] == 'passed'
+    assert built_alignment['declared_na_fields'] == declared_na_fields
+    assert reference is not None
+    by_name = {item.name: item for item in results}
+    assert by_name['output_skill_alignment'].passed is True

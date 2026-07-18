@@ -336,6 +336,8 @@ def _build_brain_judgment(
     alignment = _as_mapping(sources.get('output_skill_alignment'))
     daily_fact_bundle = _as_mapping(sources.get('daily_fact_bundle'))
     source_status = _as_mapping(audit.get('source_status'))
+    reference_absent_fields = _alignment_named_fields(alignment, 'reference_absent_fields')
+    invalid_na_fields = _alignment_named_fields(alignment, 'invalid_na_fields')
     risks: list[str] = []
     audit_status = audit.get('status')
     if status != 'ready':
@@ -364,6 +366,16 @@ def _build_brain_judgment(
         difference_fields = _alignment_difference_fields(alignment)
         if difference_fields:
             risks.append(f'输出 skill 差异字段：{"、".join(difference_fields)}')
+    if reference_absent_fields:
+        risks.append(
+            f'输出 skill 答案钥匙未声明字段 {len(reference_absent_fields)} 个：'
+            f'{_join_text(reference_absent_fields)}'
+        )
+    if invalid_na_fields:
+        risks.append(
+            f'输出 skill 答案钥匙 N/A 声明无效 {len(invalid_na_fields)} 个：'
+            f'{_join_text(invalid_na_fields)}'
+        )
 
     actions = [text for item in _as_list(audit.get('suggested_actions')) if (text := _action_text(item))]
     actions.insert(0, '已生成三段式日报' if status == 'ready' else '已阻断正式正文并列出缺失字段')
@@ -374,6 +386,8 @@ def _build_brain_judgment(
         'field_match_rate': field_match_rate,
         'risks': risks,
         'missing_fields': missing_fields,
+        'reference_absent_fields': reference_absent_fields,
+        'invalid_na_fields': invalid_na_fields,
         'conflicts': conflicts,
         'source_names': _source_names(sources),
         'actions': actions,
@@ -637,6 +651,15 @@ def _alignment_difference_fields(alignment: Mapping[str, Any]) -> list[str]:
         if not isinstance(item, Mapping):
             continue
         field = str(item.get('field') or '').strip()
+        if field and field not in fields:
+            fields.append(field)
+    return fields
+
+
+def _alignment_named_fields(alignment: Mapping[str, Any], key: str) -> list[str]:
+    fields: list[str] = []
+    for item in _as_list(alignment.get(key)):
+        field = str(item).strip()
         if field and field not in fields:
             fields.append(field)
     return fields

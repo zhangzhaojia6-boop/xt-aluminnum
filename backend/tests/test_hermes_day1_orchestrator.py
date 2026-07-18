@@ -106,6 +106,15 @@ def _sources() -> dict[str, Any]:
             'char_match_rate': 99.1,
             'exact_match': False,
             'threshold': 95.0,
+            'reference_present_fields': 127,
+            'declared_na_fields': [],
+            'invalid_na_fields': [],
+            'reference_absent_fields': [],
+            'reference_absent_count': 0,
+            'normative_fields': 127,
+            'normative_denominator': 127,
+            'normative_matched_fields': 125,
+            'normative_coverage_rate': 98.425,
         },
     }
 
@@ -245,6 +254,8 @@ def test_ready_run_writes_final_fields_and_delivery_ready(monkeypatch) -> None:
         assert hermes_payload['status'] == 'ready'
         assert hermes_payload['three_part_text'] == '智能大脑判断单\n正式日报正文\n各车间明细'
         assert hermes_payload['source_status'] == {'mes': 'ok', 'hub': 'ok'}
+        assert hermes_payload['output_skill_alignment']['normative_denominator'] == 127
+        assert hermes_payload['output_skill_alignment']['normative_matched_fields'] == 125
     finally:
         db.close()
 
@@ -280,6 +291,8 @@ def test_ready_run_archives_formal_snapshot_history_and_period_rollups(monkeypat
         assert history.report_text == '6月21日正式日报正文'
         assert history.report_payload['facts']['total_output_daily']['value'] == 366
         assert history.report_payload['facts']['total_cost_10k']['value'] == 29.93
+        assert history.report_payload['output_skill_alignment']['normative_denominator'] == 127
+        assert history.report_payload['output_skill_alignment']['normative_matched_fields'] == 125
         assert {item.period_type for item in period_snapshots} == {'month', 'year'}
         assert all(history.id in item.source_daily_report_ids for item in period_snapshots)
         assert all(snapshot.id in item.source_snapshot_ids for item in period_snapshots)
@@ -513,6 +526,15 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
         'char_match_rate': 90.1,
         'exact_match': False,
         'threshold': 95.0,
+        'reference_present_fields': 124,
+        'declared_na_fields': [],
+        'invalid_na_fields': [],
+        'reference_absent_fields': ['cast_roll_active_lines', 'cast_roll_daily', 'finished_inbound_month'],
+        'reference_absent_count': 3,
+        'normative_fields': 127,
+        'normative_denominator': 127,
+        'normative_matched_fields': 104,
+        'normative_coverage_rate': 81.89,
     }
     _patch_pipeline(monkeypatch, service, sources=sources)
     _patch_audit(monkeypatch, service)
@@ -564,9 +586,23 @@ def test_agent_run_source_summary_excludes_raw_dingtalk_text(monkeypatch) -> Non
             'char_match_rate': 90.1,
             'exact_match': False,
             'threshold': 95.0,
+            'reference_present_fields': 124,
+            'declared_na_fields': [],
+            'invalid_na_fields': [],
+            'reference_absent_fields': ['cast_roll_active_lines', 'cast_roll_daily', 'finished_inbound_month'],
+            'reference_absent_count': 3,
+            'normative_fields': 127,
+            'normative_denominator': 127,
+            'normative_matched_fields': 104,
+            'normative_coverage_rate': 81.89,
         }
         assert hermes_payload['output_skill_alignment']['differences'] == [
             {'field': 'total_output_daily', 'actual': 366, 'expected': 360}
+        ]
+        assert hermes_payload['output_skill_alignment']['reference_absent_fields'] == [
+            'cast_roll_active_lines',
+            'cast_roll_daily',
+            'finished_inbound_month',
         ]
         assert '现场补充：无异常' not in payload_text
         assert '日报路线说明' not in payload_text

@@ -249,23 +249,23 @@ docs(report): publish generated field contract
 - Review all Phase 2 changes
 - Update: `docs/superpowers/reports/2026-07-18-phase2-fact-contract-baseline.md` only with newly executed evidence
 
-- [ ] **Step 1: Run focused Phase 2 regression**
+- [x] **Step 1: Run focused Phase 2 regression**
 
 Run all tests touched above plus business time, DailyFactBundle, template report, Hermes 20-question contract and alignment script tests.
 
-- [ ] **Step 2: Run backend full regression and frontend build through CI-equivalent commands**
+- [x] **Step 2: Run backend full regression and frontend build through CI-equivalent commands**
 
 Do not claim full regression from a focused subset.
 
-- [ ] **Step 3: Perform specification review**
+- [x] **Step 3: Perform specification review**
 
 An independent reviewer checks every #36 acceptance criterion against code and tests. Fix findings and repeat until approved.
 
-- [ ] **Step 4: Perform code-quality review**
+- [x] **Step 4: Perform code-quality review**
 
 A different reviewer checks source-priority regressions, import cycles, compatibility keys, unsafe answer-key adoption and missing tests. Fix findings and repeat until approved.
 
-- [ ] **Step 5: Verify idempotency and rollback locally**
+- [x] **Step 5: Verify idempotency and rollback locally**
 
 Run the generated-doc command twice and prove the second run leaves a clean diff. Run the old and new reconciliation fixtures to prove existing fields remain compatible.
 

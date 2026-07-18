@@ -3,16 +3,39 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from app.domain.daily_report_field_contract import (
+    SOURCE_LANE_DINGTALK,
+    SOURCE_LANE_HISTORICAL_RECORD,
+    SOURCE_LANE_OUTPUT_SKILL_REFERENCE,
+    SOURCE_LANE_RAG_EXPLANATION_ONLY,
+    source_lane_for,
+    source_lane_priority,
+)
 
+_SOURCE_TYPES = (
+    'dingtalk_group_content',
+    'dingtalk_specialist',
+    'authorized_correction',
+    'root_owner',
+    'root_owner_correction',
+    'mes_wms',
+    'mes_wms_readonly',
+    'owner_daily',
+    'scan_supplement',
+    'hub',
+    'data_hub',
+    'rag',
+    'history_report',
+    'output_skill',
+)
 PRIORITY = {
-    'dingtalk_group_content': 1,
-    'dingtalk_specialist': 1,
-    'mes_wms': 2,
-    'hub': 3,
-    'root_owner': 4,
-    'rag': 99,
-    'history_report': 99,
-    'output_skill': 99,
+    source_type: source_lane_priority(source_type)
+    for source_type in _SOURCE_TYPES
+}
+_NON_CURRENT_FACT_LANES = {
+    SOURCE_LANE_HISTORICAL_RECORD,
+    SOURCE_LANE_RAG_EXPLANATION_ONLY,
+    SOURCE_LANE_OUTPUT_SKILL_REFERENCE,
 }
 
 
@@ -32,7 +55,7 @@ def choose_fact_value(field_key: str, candidates: list[dict[str, Any]]) -> FactD
     current_candidates = [
         item
         for item in candidates
-        if item.get('source_type') not in {'rag', 'history_report', 'output_skill'}
+        if source_lane_for(str(item.get('source_type') or '')) not in _NON_CURRENT_FACT_LANES
     ]
     if not current_candidates:
         return FactDecision(
@@ -46,7 +69,10 @@ def choose_fact_value(field_key: str, candidates: list[dict[str, Any]]) -> FactD
             suggested_action='collect_current_fact',
         )
 
-    selected = min(current_candidates, key=lambda item: PRIORITY.get(str(item.get('source_type')), 50))
+    selected = max(
+        current_candidates,
+        key=lambda item: source_lane_priority(str(item.get('source_type') or '')),
+    )
     conflicts = [
         {
             'source_type': item.get('source_type'),
@@ -59,7 +85,7 @@ def choose_fact_value(field_key: str, candidates: list[dict[str, Any]]) -> FactD
     source_type = str(selected.get('source_type'))
     suggested_action = (
         'mark_hub_field_for_review'
-        if source_type in {'dingtalk_group_content', 'dingtalk_specialist'} and conflicts
+        if source_lane_for(source_type) == SOURCE_LANE_DINGTALK and conflicts
         else None
     )
     return FactDecision(
@@ -79,7 +105,13 @@ def _source_type_label(source_type: str) -> str:
         'dingtalk_group_content': '钉钉群内容',
         'dingtalk_specialist': '钉钉群内容',
         'mes_wms': 'MES/WMS 只读来源',
+        'mes_wms_readonly': 'MES/WMS 只读来源',
         'hub': '数据中枢投影',
-        'root_owner': '最高权限负责人修正',
+        'data_hub': '数据中枢投影',
+        'owner_daily': '扫码补录',
+        'scan_supplement': '扫码补录',
+        'authorized_correction': '授权修正',
+        'root_owner': '授权修正',
+        'root_owner_correction': '授权修正',
     }
     return labels.get(source_type, source_type)

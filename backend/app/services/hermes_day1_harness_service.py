@@ -51,6 +51,7 @@ def evaluate_day1_run_payload(
     *,
     answer: str,
     output_skill_expected_text: str | None = None,
+    output_skill_reference: Mapping[str, Any] | None = None,
     min_field_match_rate: float = 95.0,
 ) -> list[HarnessCaseResult]:
     payload_map = _as_mapping(payload)
@@ -62,6 +63,7 @@ def evaluate_day1_run_payload(
         sources=sources,
         answer=answer,
         output_skill_expected_text=output_skill_expected_text,
+        output_skill_reference=output_skill_reference,
         min_field_match_rate=min_field_match_rate,
     )
     learning = _as_mapping(payload_map.get('learning'))
@@ -331,6 +333,7 @@ def _resolve_alignment(
     sources: Mapping[str, Any],
     answer: str,
     output_skill_expected_text: str | None,
+    output_skill_reference: Mapping[str, Any] | None,
     min_field_match_rate: float,
 ) -> Mapping[str, Any]:
     direct = _as_mapping(payload.get('output_skill_alignment'))
@@ -339,13 +342,17 @@ def _resolve_alignment(
     nested = _as_mapping(sources.get('output_skill_alignment'))
     if nested:
         return nested
-    if not output_skill_expected_text:
+    reference = _as_mapping(output_skill_reference)
+    reference_text = str(reference.get('text') or output_skill_expected_text or '')
+    if not reference_text:
         return {}
     formal_text = _extract_section(answer, '正式日报正文', '各车间明细') or answer
     reconciled = reconcile_rendered_daily_report(
         formal_text,
-        output_skill_expected_text,
+        reference_text,
         normative_fields=normative_daily_report_fields(),
+        declared_na_fields=reference.get('declared_na_fields') or (),
+        invalid_na_fields=reference.get('invalid_na_fields') or (),
     )
     normative_rate = _normalise_rate(reconciled.get('normative_coverage_rate'))
     contract_blocked = bool(
@@ -359,7 +366,7 @@ def _resolve_alignment(
             if normative_rate is not None and normative_rate >= _normalise_threshold(min_field_match_rate)
             else 'review_needed'
         ),
-        'file_name': None,
+        'file_name': reference.get('file_name'),
         'field_match_rate': _normalise_rate(reconciled.get('field_match_rate')),
         'matched_fields': reconciled.get('matched_fields'),
         'expected_fields': reconciled.get('expected_fields'),
