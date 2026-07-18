@@ -44,7 +44,7 @@
 - Test: `backend/tests/test_sqlserver_mes_adapter.py`
 - Test: `backend/tests/test_work_order_service.py`
 
-- [ ] **Step 1: Write failing adapter-contract tests**
+- [x] **Step 1: Write failing adapter-contract tests**
 
 Add tests that require these public contracts:
 
@@ -63,7 +63,7 @@ def test_sqlserver_adapter_rejects_completion_writes() -> None:
 
 Also add rejection cases for `SELECT ... INTO`, stacked statements, DML, DDL, and executable procedures. Add a work-order test proving a read-only adapter is not called for completion push.
 
-- [ ] **Step 2: Run the focused tests and confirm the new tests fail**
+- [x] **Step 2: Run the focused tests and confirm the new tests fail**
 
 Run:
 
@@ -75,7 +75,7 @@ python -m pytest tests/test_sqlserver_mes_adapter.py tests/test_work_order_servi
 
 Expected: the new symbols and read-only capability are missing while existing tests remain green.
 
-- [ ] **Step 3: Implement the closed registry and hard write rejection**
+- [x] **Step 3: Implement the closed registry and hard write rejection**
 
 Implement these stable shapes in `sqlserver_mes_adapter.py`:
 
@@ -106,11 +106,11 @@ The registry must cover every entry in `_QUERY_BY_KEY` and `_BETWEEN_QUERY_BY_KE
 
 Add `readonly = True` to `SqlServerMesAdapter`; its `push_completion` raises `MesReadOnlyViolation('mes_sqlserver_read_only')`. Add `readonly = False` to the base adapter and check it before `_push_mes_completion_if_needed` calls `push_completion`.
 
-- [ ] **Step 4: Run focused tests until green**
+- [x] **Step 4: Run focused tests until green**
 
 Run the command from Step 2. Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit the read-only boundary**
+- [x] **Step 5: Commit the read-only boundary**
 
 ```powershell
 git add backend/app/adapters/mes_adapter.py backend/app/adapters/sqlserver_mes_adapter.py backend/app/services/work_order/_utils.py backend/tests/test_sqlserver_mes_adapter.py backend/tests/test_work_order_service.py
@@ -125,7 +125,7 @@ git commit -m "feat(mes): enforce sqlserver read-only boundary"
 - Create: `backend/tests/test_mes_readonly_reliability_service.py`
 - Create: `backend/tests/test_mes_readonly_reliability_script.py`
 
-- [ ] **Step 1: Write failing gate tests**
+- [x] **Step 1: Write failing gate tests**
 
 Cover these exact outcomes:
 
@@ -148,7 +148,7 @@ def test_gate_blocks_dangerous_permissions_projection_gap_and_stale_sync() -> No
 
 Add tests for a missing sync day, query failure, secret redaction, and a zero-row source query remaining missing rather than becoming numeric zero.
 
-- [ ] **Step 2: Run tests and confirm failure**
+- [x] **Step 2: Run tests and confirm failure**
 
 ```powershell
 cd backend
@@ -158,7 +158,7 @@ python -m pytest tests/test_mes_readonly_reliability_service.py tests/test_mes_r
 
 Expected: imports fail because the service and script do not exist.
 
-- [ ] **Step 3: Implement the evaluator and CLI**
+- [x] **Step 3: Implement the evaluator and CLI**
 
 Use this public service entry point:
 
@@ -178,11 +178,11 @@ For each business date, use `production_business_window` and probe the five date
 
 The CLI accepts `--days 3`, optional repeated `--business-date`, `--json`, `--output`, and `--fault-drill`. `--output` must resolve below `/var/lib/aluminum-bypass/acceptance` on Linux or an explicitly supplied test root. JSON contains only counts, statuses, source paths, schema-column names, hashes, and redacted errors.
 
-- [ ] **Step 4: Run focused tests until green**
+- [x] **Step 4: Run focused tests until green**
 
 Run the Step 2 command. Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit the reliability gate**
+- [x] **Step 5: Commit the reliability gate**
 
 ```powershell
 git add backend/app/services/mes_readonly_reliability_service.py backend/scripts/check_mes_readonly_reliability.py backend/tests/test_mes_readonly_reliability_service.py backend/tests/test_mes_readonly_reliability_script.py

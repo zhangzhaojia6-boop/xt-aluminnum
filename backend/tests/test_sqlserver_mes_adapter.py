@@ -389,3 +389,47 @@ def test_sqlserver_adapter_rejects_completion_writes() -> None:
 )
 def test_sqlserver_failure_classification_is_stable(error: Exception, expected: str) -> None:
     assert classify_sqlserver_failure(error) == expected
+
+
+def test_readonly_window_probe_uses_delivery_fallback_without_returning_values() -> None:
+    calls = []
+
+    def runner(query_key, **kwargs):
+        calls.append((query_key, kwargs))
+        if query_key == 'delivery_records':
+            return []
+        if query_key == 'delivery_stock_records':
+            return [{'Id': 7, 'CreateDate': '2026-07-17T08:00:00', 'CustomerPhone': 'hidden'}]
+        raise AssertionError(query_key)
+
+    adapter = SqlServerMesAdapter(query_runner=runner)
+    probe = adapter.probe_readonly_window(
+        'delivery_records',
+        start_at=datetime(2026, 7, 17, 7, 50),
+        end_at=datetime(2026, 7, 18, 7, 50),
+    )
+
+    assert [item[0] for item in calls] == ['delivery_records', 'delivery_stock_records']
+    assert probe['effective_query_key'] == 'delivery_stock_records'
+    assert probe['source_path'] == 'sqlserver:delivery_stock_records'
+    assert probe['observed_row_count'] == 1
+    assert probe['schema_columns'] == ['CreateDate', 'CustomerPhone', 'Id']
+    assert 'rows' not in probe
+
+
+def test_effective_permission_audit_blocks_database_write_permission() -> None:
+    def runner(query_key, **kwargs):
+        _ = kwargs
+        if query_key == 'database_permissions':
+            return [{'permission_name': 'UPDATE'}]
+        if query_key == 'object_permissions':
+            return []
+        raise AssertionError(query_key)
+
+    audit = SqlServerMesAdapter(database='XTAL', query_runner=runner).audit_effective_readonly_permissions()
+
+    assert audit['status'] == 'blocked'
+    assert audit['database_dangerous_permissions'] == ['UPDATE']
+    assert audit['dangerous_permissions'] == [
+        {'scope': 'database', 'resource': 'XTAL', 'permissions': ['UPDATE']},
+    ]

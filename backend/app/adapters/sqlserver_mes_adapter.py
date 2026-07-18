@@ -17,7 +17,7 @@ from app.adapters.mes_adapter import (
     MesWipTotal,
     ScheduleItem,
 )
-from app.core.redaction import filter_sensitive_mapping
+from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.utils.tracking_cards import tracking_card_lookup_key
 
 
@@ -600,6 +600,119 @@ class SqlServerMesAdapter(MesAdapter):
             )
             for row in self._query('devices', limit=500)
         ]
+
+    def probe_readonly_window(
+        self,
+        query_key: str,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+    ) -> dict[str, Any]:
+        if query_key not in _BETWEEN_QUERY_BY_KEY or query_key == 'delivery_stock_records':
+            raise ValueError(f'unregistered SQL Server window probe: {query_key}')
+        effective_key = query_key
+        rows = self._query_between(query_key, start_at=start_at, end_at=end_at, limit=1, offset=0)
+        if query_key == 'delivery_records' and not rows:
+            effective_key = 'delivery_stock_records'
+            rows = self._query_between(effective_key, start_at=start_at, end_at=end_at, limit=1, offset=0)
+        columns = sorted({str(key) for row in rows for key in row})
+        source_path_key = 'stock_header_records' if effective_key == 'finished_inbound_records' else effective_key
+        query = _BETWEEN_QUERY_BY_KEY[effective_key].format(limit=1, offset=0)
+        source_table = next(
+            spec.source_table
+            for spec in SQLSERVER_QUERY_SPECS
+            if spec.probe_id == f'window:{effective_key}'
+        )
+        return {
+            'query_key': query_key,
+            'effective_query_key': effective_key,
+            'source_path': f'sqlserver:{source_path_key}',
+            'source_table': source_table,
+            'query_status': 'success',
+            'observed_row_count': len(rows),
+            'observation_limit': 1,
+            'schema_columns': columns,
+            'query_sha256': hashlib.sha256(query.encode('utf-8')).hexdigest(),
+        }
+
+    def audit_effective_readonly_permissions(self) -> dict[str, Any]:
+        database_rows = self._run_permission_query('database_permissions')
+        dangerous: list[dict[str, Any]] = []
+        database_permissions = sorted(
+            {str(row.get('permission_name') or row.get('PERMISSION_NAME') or '').strip() for row in database_rows}
+            - {''}
+        )
+        if database_permissions:
+            dangerous.append(
+                {
+                    'scope': 'database',
+                    'resource': self._database or 'configured_database',
+                    'permissions': database_permissions,
+                }
+            )
+
+        object_results = []
+        source_tables = sorted(
+            {
+                spec.source_table
+                for spec in SQLSERVER_QUERY_SPECS
+                if spec.source_table not in {'DATABASE', 'REGISTERED_TABLES'}
+            }
+        )
+        for source_table in source_tables:
+            rows = self._run_permission_query('object_permissions', source_table=source_table)
+            permissions = sorted(
+                {str(row.get('permission_name') or row.get('PERMISSION_NAME') or '').strip() for row in rows}
+                - {''}
+            )
+            object_results.append({'source_table': source_table, 'dangerous_permissions': permissions})
+            if permissions:
+                dangerous.append(
+                    {
+                        'scope': 'object',
+                        'resource': source_table,
+                        'permissions': permissions,
+                    }
+                )
+        return {
+            'status': 'pass' if not dangerous else 'blocked',
+            'database_dangerous_permissions': database_permissions,
+            'object_results': object_results,
+            'dangerous_permissions': dangerous,
+        }
+
+    def _run_permission_query(
+        self,
+        query_key: str,
+        *,
+        source_table: str | None = None,
+    ) -> list[Mapping[str, Any]]:
+        if self._query_runner is not None:
+            return self._query_runner(
+                query_key,
+                source_table=source_table,
+                limit=1,
+                offset=0,
+                start_at=None,
+                end_at=None,
+                tracking_card_no=None,
+            )
+        query = _DATABASE_PERMISSION_QUERY if query_key == 'database_permissions' else _OBJECT_PERMISSION_QUERY
+        params: tuple[Any, ...] = () if source_table is None else (source_table,)
+        try:
+            return _run_pymssql_query(
+                host=self._host,
+                port=self._port,
+                database=self._database,
+                username=self._username,
+                password=self._password,
+                timeout_seconds=self._timeout_seconds,
+                encrypt=self._encrypt,
+                query=query,
+                params=params,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(redact_secret_text(str(exc))) from exc
 
     def _query(self, query_key: str, *, limit: int = 200, tracking_card_no: str | None = None) -> list[Mapping[str, Any]]:
         bounded_limit = max(1, min(int(limit), 1000))
