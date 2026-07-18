@@ -49,16 +49,39 @@ def test_mes_sync_task_initializes_configured_adapter_when_run_standalone(monkey
 
 def test_mes_sync_task_commits_failed_vendor_run_log(monkeypatch) -> None:
     session = _FakeSession()
+    published = []
     monkeypatch.setattr(mes_sync_tasks, 'get_sessionmaker', lambda: lambda: session)
+    monkeypatch.setattr(
+        mes_sync_tasks,
+        '_publish_sync_event',
+        lambda event_type, payload: published.append((event_type, payload)),
+    )
 
     def vendor_failure(_service, _session):
-        raise mes_sync_service.MesSyncVendorError('temporary vendor outage')
+        raise mes_sync_service.MesSyncVendorError(
+            'temporary vendor outage password=must-not-leak',
+            cursor_key='coil_snapshots',
+            attempt_count=3,
+            failure_kind='connection_failed',
+        )
 
     with pytest.raises(RuntimeError, match='temporary vendor outage'):
         mes_sync_tasks._run_sync_group(vendor_failure)
 
     assert session.commits == 1
     assert session.rollbacks == 0
+    assert published[0][0] == 'mes_sync_failed'
+    assert published[0][1]['steps'] == [
+        {
+            'cursor_key': 'coil_snapshots',
+            'status': 'failed',
+            'attempt_count': 3,
+            'failure_kind': 'connection_failed',
+            'recovered': False,
+            'action': 'check_mes_connection',
+        }
+    ]
+    assert 'must-not-leak' not in str(published)
 
 
 def test_mes_sync_task_rolls_back_database_errors(monkeypatch) -> None:
@@ -93,7 +116,11 @@ def test_mes_sync_task_publishes_realtime_event_after_commit(monkeypatch) -> Non
     session = _FakeSession()
     published = []
     monkeypatch.setattr(mes_sync_tasks, 'get_sessionmaker', lambda: lambda: session)
-    monkeypatch.setattr(mes_sync_tasks, '_publish_sync_event', lambda result: published.append(result))
+    monkeypatch.setattr(
+        mes_sync_tasks,
+        '_publish_sync_event',
+        lambda event_type, payload: published.append((event_type, payload)),
+    )
 
     result = mes_sync_tasks._run_sync_group(
         lambda _service, _session: {'projection': [{'cursor_key': 'mes_workshop_process_records', 'status': 'success'}]}
@@ -101,4 +128,79 @@ def test_mes_sync_task_publishes_realtime_event_after_commit(monkeypatch) -> Non
 
     assert session.commits == 1
     assert session.rollbacks == 0
-    assert published == [result]
+    assert published == [('mes_sync_completed', {'result': result})]
+
+
+def test_mes_sync_task_publishes_failed_and_recovered_signals_without_error_text(monkeypatch) -> None:
+    session = _FakeSession()
+    published = []
+    monkeypatch.setattr(mes_sync_tasks, 'get_sessionmaker', lambda: lambda: session)
+    monkeypatch.setattr(
+        mes_sync_tasks,
+        '_publish_sync_event',
+        lambda event_type, payload: published.append((event_type, payload)),
+    )
+    result = {
+        'projection': [
+            {
+                'cursor_key': 'mes_dispatch',
+                'status': 'success',
+                'attempt_count': 2,
+                'failure_kind': 'query_timeout',
+                'recovered': True,
+                'error_message': 'token=must-not-leak',
+            },
+            {
+                'cursor_key': 'mes_stock',
+                'status': 'failed',
+                'attempt_count': 3,
+                'failure_kind': 'schema_changed',
+                'recovered': False,
+                'error_message': 'password=must-not-leak',
+            },
+        ]
+    }
+
+    assert mes_sync_tasks._run_sync_group(lambda _service, _session: result) == result
+
+    assert [item[0] for item in published] == [
+        'mes_sync_completed',
+        'mes_sync_failed',
+        'mes_sync_recovered',
+    ]
+    assert published[1][1]['steps'][0]['failure_kind'] == 'schema_changed'
+    assert published[1][1]['steps'][0]['action'] == 'check_mes_schema'
+    assert published[2][1]['steps'][0]['failure_kind'] == 'query_timeout'
+    assert published[2][1]['steps'][0]['action'] == 'check_mes_timeout'
+    assert 'must-not-leak' not in str(published)
+
+
+def test_publish_sync_event_forwards_to_persistent_database_event_bus(monkeypatch) -> None:
+    from app.core import event_bus as event_bus_module
+
+    published = []
+    monkeypatch.setattr(
+        event_bus_module.event_bus,
+        'publish',
+        lambda event_type, payload: published.append((event_type, payload)),
+    )
+
+    mes_sync_tasks._publish_sync_event(
+        'mes_sync_recovered',
+        {
+            'steps': [
+                {
+                    'cursor_key': 'mes_dispatch',
+                    'status': 'success',
+                    'attempt_count': 2,
+                    'failure_kind': 'query_timeout',
+                    'recovered': True,
+                    'action': 'check_mes_timeout',
+                }
+            ]
+        },
+    )
+
+    assert published[0][0] == 'mes_sync_recovered'
+    assert published[0][1]['source'] == 'mes_projection'
+    assert published[0][1]['steps'][0]['failure_kind'] == 'query_timeout'

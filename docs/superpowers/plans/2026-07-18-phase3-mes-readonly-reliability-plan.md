@@ -197,11 +197,11 @@ git commit -m "feat(mes): add three-day readonly reliability gate"
 - Modify: `backend/tests/test_mes_sync_service.py`
 - Modify: `backend/tests/test_mes_sync_tasks.py`
 
-- [ ] **Step 1: Write failing retry and event tests**
+- [x] **Step 1: Write failing retry and event tests**
 
 Require failure kinds `connection_failed`, `query_timeout`, `schema_changed`, and `read_failed`. A first-attempt controlled failure followed by success must report `attempt_count=2` and `recovered=True`. Exhausted retries must publish `mes_sync_failed`; recovered retries must publish `mes_sync_recovered`. Event payloads may contain error class and action but no connection string or credentials.
 
-- [ ] **Step 2: Run focused tests and confirm failure**
+- [x] **Step 2: Run focused tests and confirm failure**
 
 ```powershell
 cd backend
@@ -211,7 +211,7 @@ python -m pytest tests/test_mes_sync_service.py tests/test_mes_sync_tasks.py -q
 
 Expected: the new recovery fields and events are absent.
 
-- [ ] **Step 3: Implement minimal retry metadata and persistent events**
+- [x] **Step 3: Implement minimal retry metadata and persistent events**
 
 Extend `MesSyncStats` with defaulted fields so existing callers remain compatible:
 
@@ -223,11 +223,11 @@ recovered: bool = False
 
 Set them in coil and projection paths. In `_run_sync_group`, inspect the sanitized result tree, publish `mes_sync_failed` when any step is failed or raises `MesSyncVendorError`, and publish `mes_sync_recovered` when a step succeeds after retry. Continue using the existing `DatabaseEventBus`; do not create an alert table or external message.
 
-- [ ] **Step 4: Run focused tests until green**
+- [x] **Step 4: Run focused tests until green**
 
 Run the Step 2 command. Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit failure and recovery evidence**
+- [x] **Step 5: Commit failure and recovery evidence**
 
 ```powershell
 git add backend/app/services/mes_sync_service.py backend/app/tasks/mes_sync.py backend/tests/test_mes_sync_service.py backend/tests/test_mes_sync_tasks.py

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.adapters import get_mes_adapter
 from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource, MesSourceRecord, MesWipTotal
+from app.adapters.sqlserver_mes_adapter import classify_sqlserver_failure
 from app.config import settings
 from app.core.business_time import last_completed_production_business_date, local_now, production_business_window, resolve_production_business_date
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
@@ -52,6 +53,26 @@ DEFAULT_MES_REQUIRED_ENV = SQLSERVER_MES_REQUIRED_ENV
 class MesSyncVendorError(RuntimeError):
     """External MES fetch failed after retries; keep the failed run visible."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        cursor_key: str = SYNC_CURSOR_KEY,
+        attempt_count: int = 1,
+        failure_kind: str = 'read_failed',
+    ) -> None:
+        super().__init__(message)
+        self.cursor_key = cursor_key
+        self.attempt_count = max(1, int(attempt_count))
+        self.failure_kind = failure_kind
+
+
+class _MesSyncRetryExhausted(RuntimeError):
+    def __init__(self, error: Exception, *, attempt_count: int, failure_kind: str) -> None:
+        super().__init__(redact_secret_text(str(error)))
+        self.attempt_count = max(1, int(attempt_count))
+        self.failure_kind = failure_kind
+
 
 @dataclass(slots=True)
 class MesSyncStats:
@@ -65,6 +86,9 @@ class MesSyncStats:
     last_synced_at: datetime | None
     status: str
     error_message: str | None = None
+    attempt_count: int = 1
+    failure_kind: str | None = None
+    recovered: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,6 +102,9 @@ class MesSyncStats:
             'last_synced_at': self.last_synced_at.isoformat() if self.last_synced_at else None,
             'status': self.status,
             'error_message': self.error_message,
+            'attempt_count': self.attempt_count,
+            'failure_kind': self.failure_kind,
+            'recovered': self.recovered,
         }
 
 
@@ -482,15 +509,21 @@ def _sleep_before_retry(seconds: float) -> None:
 def _run_with_adapter_retries(operation):
     attempts = 0
     retry_limit = _retry_limit()
+    failure_kind = None
     while True:
         attempts += 1
         try:
-            return operation(), attempts
+            return operation(), attempts, failure_kind
         except (NotImplementedError, SQLAlchemyError):
             raise
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            failure_kind = classify_sqlserver_failure(exc)
             if attempts > retry_limit:
-                raise
+                raise _MesSyncRetryExhausted(
+                    exc,
+                    attempt_count=attempts,
+                    failure_kind=failure_kind,
+                ) from exc
             _sleep_before_retry(_retry_backoff_seconds(attempts))
 
 
@@ -727,29 +760,38 @@ def sync_coil_snapshots(
 
     adapter = get_mes_adapter()
     try:
-        (snapshots, next_cursor), attempt_count = _run_with_adapter_retries(
+        (snapshots, next_cursor), attempt_count, failure_kind = _run_with_adapter_retries(
             lambda: adapter.list_coil_snapshots(
                 cursor=cursor.cursor_value,
                 updated_after=window_started_at,
                 limit=settings.MES_SYNC_LIMIT,
             )
         )
-    except Exception as exc:  # noqa: BLE001
+    except _MesSyncRetryExhausted as exc:
         run_log.finished_at = _utcnow()
         run_log.status = 'failed'
-        run_log.error_message = redact_secret_text(str(exc))
+        run_log.error_message = str(exc)
         metadata = run_log.metadata_json if isinstance(run_log.metadata_json, dict) else {}
         run_log.metadata_json = {
             **metadata,
-            'attempt_count': metadata.get('attempt_count', _retry_limit() + 1),
+            'attempt_count': exc.attempt_count,
             'retry_limit': _retry_limit(),
+            'failure_kind': exc.failure_kind,
+            'recovered': False,
         }
-        raise MesSyncVendorError(run_log.error_message) from exc
+        raise MesSyncVendorError(
+            run_log.error_message,
+            cursor_key=cursor_key,
+            attempt_count=exc.attempt_count,
+            failure_kind=exc.failure_kind,
+        ) from exc
 
     run_log.metadata_json = {
         **(run_log.metadata_json or {}),
         'attempt_count': attempt_count,
         'retry_limit': _retry_limit(),
+        'failure_kind': failure_kind,
+        'recovered': attempt_count > 1,
     }
     upserted_count = 0
     replayed_count = 0
@@ -798,6 +840,9 @@ def sync_coil_snapshots(
         last_event_at=last_event_at,
         last_synced_at=synced_at,
         status='success',
+        attempt_count=attempt_count,
+        failure_kind=failure_kind,
+        recovered=attempt_count > 1,
     )
 
 
@@ -810,6 +855,9 @@ def _stats(
     synced_at: datetime,
     status: str = 'success',
     error_message: str | None = None,
+    attempt_count: int = 1,
+    failure_kind: str | None = None,
+    recovered: bool = False,
 ) -> MesSyncStats:
     return MesSyncStats(
         cursor_key=cursor_key,
@@ -822,6 +870,9 @@ def _stats(
         last_synced_at=synced_at,
         status=status,
         error_message=error_message,
+        attempt_count=attempt_count,
+        failure_kind=failure_kind,
+        recovered=recovered,
     )
 
 
@@ -1443,7 +1494,10 @@ def _sync_projection_step(
     runner,
 ) -> MesSyncStats:
     try:
-        stats, _attempt_count = _run_with_adapter_retries(lambda: runner(db, now=synced_at))
+        stats, attempt_count, failure_kind = _run_with_adapter_retries(lambda: runner(db, now=synced_at))
+        stats.attempt_count = attempt_count
+        stats.failure_kind = failure_kind or stats.failure_kind
+        stats.recovered = attempt_count > 1
         return stats
     except NotImplementedError as exc:
         return _stats(
@@ -1455,13 +1509,16 @@ def _sync_projection_step(
         )
     except SQLAlchemyError:
         raise
-    except Exception as exc:  # noqa: BLE001
+    except _MesSyncRetryExhausted as exc:
         return _stats(
             cursor_key=cursor_key,
             fetched_count=0,
             synced_at=synced_at,
             status='failed',
-            error_message=redact_secret_text(str(exc)),
+            error_message=str(exc),
+            attempt_count=exc.attempt_count,
+            failure_kind=exc.failure_kind,
+            recovered=False,
         )
 
 
