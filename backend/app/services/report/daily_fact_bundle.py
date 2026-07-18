@@ -18,6 +18,7 @@ from app.domain.daily_report_field_contract import (
     daily_report_field_contract_for,
     source_lane_priority,
 )
+from app.domain.daily_report_field_names import TEMPLATE_FIELD_GROUPS
 from app.domain.metric_contracts import (
     daily_report_contract_for as daily_report_metric_contract_for,
     fact_source_failure_reason,
@@ -74,6 +75,18 @@ DINGTALK_STRUCTURED_FACT_KEYS = ("fact_updates", "daily_facts", "facts", "extrac
 DINGTALK_TEMPLATE_FIELD_ALIASES = {
     "daily_input_weight": ("cold_roll_input_daily",),
 }
+RAW_MES_EVIDENCE_ONLY_SOURCE_TYPES = frozenset(
+    {"mes_material_records", "mes_workshop_process_records"}
+)
+FINAL_WORKSHOP_OUTPUT_FIELDS = frozenset(
+    (
+        *TEMPLATE_FIELD_GROUPS["workshop_output"],
+        "cast_2_daily",
+        "cast_2_month",
+        "cast_3_daily",
+        "cast_3_month",
+    )
+)
 DINGTALK_TEXT_KEYS = (
     "recognized_text",
     "recognized",
@@ -471,6 +484,11 @@ def _direct_source_evidence_gaps(
     )
     if not has_projection_read or not has_valid_sync:
         gaps.append("missing_read_evidence")
+    if (
+        source_type in RAW_MES_EVIDENCE_ONLY_SOURCE_TYPES
+        and field_name in FINAL_WORKSHOP_OUTPUT_FIELDS
+    ):
+        gaps.append("raw_mes_process_is_evidence_only")
     return gaps
 
 

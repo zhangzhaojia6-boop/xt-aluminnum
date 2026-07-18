@@ -727,7 +727,7 @@ def test_daily_fact_bundle_does_not_confirm_unclosed_1000_business_window(
     assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
 
 
-def test_daily_fact_bundle_preserves_direct_source_unit_after_1000_window_closes(
+def test_daily_fact_bundle_keeps_raw_mes_material_as_evidence_only_after_window_closes(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -773,10 +773,11 @@ def test_daily_fact_bundle_preserves_direct_source_unit_after_1000_window_closes
 
     fact = bundle["facts"]["hot_roll_daily"]
     assert fact["unit"] == "吨"
-    assert fact["evidence_status"] == "confirmed"
+    assert fact["evidence_status"] == "needs_evidence"
+    assert "raw_mes_process_is_evidence_only" in fact["evidence_gaps"]
 
 
-def test_daily_fact_bundle_confirms_projection_trace_generated_from_real_query(
+def test_daily_fact_bundle_keeps_generated_raw_material_trace_as_evidence_only(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -815,7 +816,9 @@ def test_daily_fact_bundle_confirms_projection_trace_generated_from_real_query(
 
     assert generated_source["latest_row_id"] == row.id
     assert generated_source["trace_id"] == f"projection-read:mes_material_records:{row.id}:1"
-    assert bundle["facts"]["hot_roll_daily"]["evidence_status"] == "confirmed"
+    fact = bundle["facts"]["hot_roll_daily"]
+    assert fact["evidence_status"] == "needs_evidence"
+    assert "raw_mes_process_is_evidence_only" in fact["evidence_gaps"]
 
 
 def test_daily_fact_bundle_confirms_packaging_projection_only_for_exact_field_query(
@@ -1078,7 +1081,7 @@ def test_daily_fact_bundle_rejects_invented_local_wms_detail_path(
 @pytest.mark.parametrize(
     ("workshop_name", "expected_status"),
     [
-        ("熔铸车间", "confirmed"),
+        ("熔铸车间", "needs_evidence"),
         ("冷轧1650", "needs_evidence"),
     ],
 )
@@ -1483,7 +1486,11 @@ def test_daily_fact_bundle_caches_shared_projection_contract_queries(
         for statement in statements
         if statement.lstrip().upper().startswith("SELECT") and "FROM mes_material_records" in statement
     ]
-    assert all(bundle["facts"][field]["evidence_status"] == "confirmed" for field in fields)
+    assert all(bundle["facts"][field]["evidence_status"] == "needs_evidence" for field in fields)
+    assert all(
+        "raw_mes_process_is_evidence_only" in bundle["facts"][field]["evidence_gaps"]
+        for field in fields
+    )
     assert len(projection_selects) <= 1
 
 

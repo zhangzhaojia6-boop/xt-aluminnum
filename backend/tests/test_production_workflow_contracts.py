@@ -631,7 +631,10 @@ def test_production_sync_status_reports_hermes_runtime_without_exposing_process_
     report_body = _extract_shell_function(source, 'report_hermes_runtime')
 
     assert 'systemctl show -p MainPID --value hermes-gateway' in report_body
-    assert 'readlink -f "/proc/$runtime_pid/exe"' in report_body
+    assert 'readlink -f "/proc/$runtime_pid/exe"' not in report_body
+    assert 'Path(f"/proc/{runtime_pid}/cmdline")' in report_body
+    assert 'service_args[0]' in report_body
+    assert 'args.index("-m", 1)' in report_body
     assert 'HERMES_RUNTIME_PYTHON=' in report_body
     assert 'HERMES_RUNTIME_PYTHON_VERSION=' in report_body
     assert 'HERMES_RUNTIME_PREFIX=' in report_body

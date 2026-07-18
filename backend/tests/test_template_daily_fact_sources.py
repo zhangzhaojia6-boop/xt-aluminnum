@@ -78,6 +78,43 @@ def _seed_mes_process(db, *, source_id: str, text: str, output_tons: float, pass
     )
 
 
+def _seed_mobile_output(
+    db,
+    *,
+    workshop_id: int,
+    work_order_id: int,
+    workshop_code: str,
+    workshop_name: str,
+    output_tons: float,
+    pass_count: int | None = None,
+):
+    db.add_all(
+        [
+            Workshop(
+                id=workshop_id,
+                code=workshop_code,
+                name=workshop_name,
+                workshop_type="mobile_coil",
+                is_active=True,
+            ),
+            WorkOrder(
+                id=work_order_id,
+                tracking_card_no=f"MOBILE-{work_order_id}",
+                process_route_code="mobile",
+            ),
+            WorkOrderEntry(
+                work_order_id=work_order_id,
+                workshop_id=workshop_id,
+                business_date=REPORT_DATE,
+                output_weight=output_tons * 1000,
+                entry_type="mobile_coil",
+                entry_status="submitted",
+                extra_payload={"pass_count": pass_count} if pass_count is not None else {},
+            ),
+        ]
+    )
+
+
 def _seed_mes_material(
     db,
     *,
@@ -684,7 +721,7 @@ def test_owner_daily_keeps_priority_over_datahub_final_daily_report(tmp_path, mo
     assert facts.sources["total_output_month"]["source_type"] == "datahub_final_daily_report"
 
 
-def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
+def test_owner_hot_roll_daily_wins_over_raw_mes_material_and_process_rows(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
@@ -768,17 +805,11 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
             MesMaterialRecord.source_id == "hot-in-window"
         ).scalar()
 
-    assert facts.values["hot_roll_daily"] == 70
+    assert hot_roll_row_id is not None
+    assert facts.values["hot_roll_daily"] == 275
     assert facts.sources["hot_roll_daily"] == {
-        "source_type": "mes_material_records",
-        "source_ref": "mes_material_records",
-        "source_table": "MES_Material",
-        "business_window": "2026-06-16T10:00:00+08:00/2026-06-17T10:00:00+08:00",
-        "unit": "吨",
-        "row_count": 1,
-        "latest_row_id": hot_roll_row_id,
-        "trace_id": f"projection-read:mes_material_records:{hot_roll_row_id}:1",
-        "metric_contract_version": "2026-07-11",
+        "source_type": "owner_daily",
+        "field": "hot_roll_daily",
     }
 
 
@@ -1164,7 +1195,7 @@ def test_opening_facts_use_coil_snapshot_before_partial_wip_total(tmp_path, monk
     }
 
 
-def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> None:
+def test_raw_mes_process_rows_do_not_fill_final_workshop_outputs(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
@@ -1174,38 +1205,14 @@ def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> N
 
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
-        process_row_id = db.query(MesWorkshopProcessRecord.id).filter_by(source_id="1650-1").scalar()
-        foundry_row_id = db.query(MesWorkshopProcessRecord.id).filter_by(source_id="foundry-1").scalar()
 
-    assert facts.values["cold_1650_daily"] == 143.95
-    assert facts.values["cold_1650_pass_daily"] == 55
-    assert facts.sources["cold_1650_daily"] == {
-        "source_type": "mes_workshop_process_records",
-        "source_table": "MES_ProductProcessRecord",
-        "source_ref": "mes_workshop_process_records",
-        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
-        "unit": "吨",
-        "row_count": 1,
-        "latest_row_id": process_row_id,
-        "trace_id": f"projection-read:mes_workshop_process_records:{process_row_id}:1",
-        "metric_contract_version": "2026-07-11",
-    }
-    assert facts.values["foundry_daily"] == 88
-    assert facts.values["foundry_month"] == 88
-    assert facts.sources["foundry_daily"] == {
-        "source_type": "mes_workshop_process_records",
-        "source_table": "MES_ProductProcessRecord",
-        "source_ref": "mes_workshop_process_records",
-        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
-        "unit": "吨",
-        "row_count": 1,
-        "latest_row_id": foundry_row_id,
-        "trace_id": f"projection-read:mes_workshop_process_records:{foundry_row_id}:1",
-        "metric_contract_version": "2026-07-11",
-    }
+    assert "cold_1650_daily" not in facts.values
+    assert "cold_1650_pass_daily" not in facts.values
+    assert "foundry_daily" not in facts.values
+    assert "foundry_month" not in facts.values
 
 
-def test_mes_report_mapping_uses_device_name_for_cold_roll_rows(tmp_path) -> None:
+def test_raw_mes_device_labels_do_not_promote_process_throughput_to_final_output(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
@@ -1236,11 +1243,11 @@ def test_mes_report_mapping_uses_device_name_for_cold_roll_rows(tmp_path) -> Non
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["cold_1650_daily"] == 141.74
-    assert facts.values["cold_2050_daily"] == 167.9
+    assert "cold_1650_daily" not in facts.values
+    assert "cold_2050_daily" not in facts.values
 
 
-def test_mes_process_output_wins_over_owner_daily_for_cold_roll(tmp_path) -> None:
+def test_owner_daily_final_output_wins_over_raw_mes_process_for_cold_roll(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
@@ -1260,19 +1267,27 @@ def test_mes_process_output_wins_over_owner_daily_for_cold_roll(tmp_path) -> Non
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["cold_1650_daily"] == 166.417
-    assert facts.values["cold_1850_daily"] == 99.99
-    assert facts.values["cold_2050_daily"] == 207.29
-    assert facts.sources["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
+    assert facts.values["cold_1650_daily"] == 130.01
+    assert facts.values["cold_1850_daily"] == 45.75
+    assert facts.values["cold_2050_daily"] == 80.4
+    assert facts.sources["cold_1650_daily"]["source_type"] == "owner_daily"
 
 
-def test_rolling_total_is_sum_of_report_mapped_1650_1850_2050(tmp_path) -> None:
+def test_rolling_total_is_sum_of_owner_final_1650_1850_2050(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
-        _seed_mes_process(db, source_id="1650-1", text="1650冷轧", output_tons=143.95, pass_count=55)
-        _seed_mes_process(db, source_id="1850-1", text="1850冷轧", output_tons=32.68, pass_count=15)
-        _seed_mes_process(db, source_id="2050-1", text="2050冷轧", output_tons=95.72, pass_count=33)
+        _seed_owner_daily_payload(
+            db,
+            {
+                "cold_1650_daily": 143.95,
+                "cold_1850_daily": 32.68,
+                "cold_2050_daily": 95.72,
+                "cold_1650_pass_daily": 55,
+                "cold_1850_pass_daily": 15,
+                "cold_2050_pass_daily": 33,
+            },
+        )
         db.commit()
 
     with SessionLocal() as db:
@@ -1292,47 +1307,29 @@ def test_mes_row_cannot_count_into_multiple_report_fields(tmp_path) -> None:
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    counted = [
-        facts.values.get("cold_2050_daily"),
-        facts.values.get("finishing_daily"),
-    ]
-    assert sum(1 for value in counted if value == 10) <= 1
+    assert facts.values.get("cold_2050_daily") is None
+    assert facts.values.get("finishing_daily") is None
 
 
-def test_park_finishing_mes_rows_fill_shearing_not_finishing(tmp_path) -> None:
+def test_mobile_park_finishing_alias_fills_shearing_without_double_counting_finishing(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
-        db.add_all(
-            [
-                MesWorkshopProcessRecord(
-                    source_id="jz-packaging",
-                    source_path="sqlserver",
-                    workshop_name="精整",
-                    process_name="包装",
-                    device_name="PC",
-                    output_weight_tons=84.163,
-                    business_date=REPORT_DATE,
-                ),
-                MesWorkshopProcessRecord(
-                    source_id="jz-slitting",
-                    source_path="sqlserver",
-                    workshop_name="精整",
-                    process_name="纵剪",
-                    device_name="精整纵剪（WAN）",
-                    output_weight_tons=44.5,
-                    business_date=REPORT_DATE,
-                ),
-                MesWorkshopProcessRecord(
-                    source_id="park-packaging",
-                    source_path="sqlserver",
-                    workshop_name="园区精整",
-                    process_name="包装",
-                    device_name="PC",
-                    output_weight_tons=149.976,
-                    business_date=REPORT_DATE,
-                ),
-            ]
+        _seed_mobile_output(
+            db,
+            workshop_id=3,
+            work_order_id=3,
+            workshop_code="JZ",
+            workshop_name="精整",
+            output_tons=128.663,
+        )
+        _seed_mobile_output(
+            db,
+            workshop_id=4,
+            work_order_id=4,
+            workshop_code="JQ",
+            workshop_name="园区精整",
+            output_tons=149.976,
         )
         db.commit()
 
@@ -1341,6 +1338,107 @@ def test_park_finishing_mes_rows_fill_shearing_not_finishing(tmp_path) -> None:
 
     assert facts.values["finishing_daily"] == 128.663
     assert facts.values["shearing_daily"] == 149.976
+
+
+def test_submitted_mobile_coil_fills_final_output_pass_count_and_trace(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        _seed_mobile_output(
+            db,
+            workshop_id=3,
+            work_order_id=3,
+            workshop_code="LZ1650",
+            workshop_name="1650车间",
+            output_tons=130.01,
+            pass_count=55,
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+        entry_id = db.query(WorkOrderEntry.id).filter(WorkOrderEntry.workshop_id == 3).scalar()
+
+    assert facts.values["cold_1650_daily"] == 130.01
+    assert facts.values["cold_1650_month"] == 130.01
+    assert facts.values["cold_1650_pass_daily"] == 55
+    assert facts.values["cold_1650_pass_month"] == 55
+    assert facts.sources["cold_1650_daily"] == {
+        "source_type": "manual_mobile_coil",
+        "source_ref": "work_order_entries",
+        "business_window": "2026-06-16T07:50:00+08:00/2026-06-17T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": entry_id,
+        "trace_id": f"manual-read:work_order_entries:{entry_id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
+
+
+def test_mobile_workshop_output_counts_only_latest_revision_per_work_order_day(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        db.add_all(
+            [
+                Workshop(
+                    id=3,
+                    code="LZ1650",
+                    name="冷轧1650",
+                    workshop_type="mobile_coil",
+                    is_active=True,
+                ),
+                WorkOrder(id=3, tracking_card_no="REVISION-1", process_route_code="mobile"),
+                WorkOrderEntry(
+                    work_order_id=3,
+                    workshop_id=3,
+                    business_date=REPORT_DATE,
+                    output_weight=100000,
+                    entry_type="mobile_coil",
+                    entry_status="submitted",
+                    extra_payload={"pass_count": 40},
+                    submitted_at=datetime(2026, 6, 16, 12, 0),
+                ),
+                WorkOrderEntry(
+                    work_order_id=3,
+                    workshop_id=3,
+                    business_date=REPORT_DATE,
+                    output_weight=130010,
+                    entry_type="mobile_coil",
+                    entry_status="submitted",
+                    extra_payload={"pass_count": 55},
+                    submitted_at=datetime(2026, 6, 16, 13, 0),
+                ),
+            ]
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["cold_1650_daily"] == 130.01
+    assert facts.values["cold_1650_pass_daily"] == 55
+    assert facts.sources["cold_1650_daily"]["row_count"] == 1
+
+
+def test_unmatched_mes_bucket_remains_missing_instead_of_false_zero() -> None:
+    row = MesWorkshopProcessRecord(
+        id=1,
+        source_id="only-1650",
+        workshop_name="冷轧1650",
+        process_name="冷轧",
+        output_weight_tons=10,
+    )
+
+    output, pass_count, row_count, latest_row_id = template_daily_fact_sources._bucketed_mes_output(
+        [row],
+        ("冷轧1850",),
+    )
+
+    assert output is None
+    assert pass_count is None
+    assert row_count == 0
+    assert latest_row_id is None
 
 
 def test_owner_daily_payload_aliases_fill_template_fields(tmp_path) -> None:
