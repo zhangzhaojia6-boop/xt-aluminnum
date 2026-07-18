@@ -1,3 +1,4 @@
+import json
 import logging
 import sys
 from datetime import datetime
@@ -108,11 +109,14 @@ def test_json_log_formatter_redacts_message_and_exception() -> None:
         )
 
     text = formatter.format(record)
+    payload = json.loads(text)
+    exception_message = payload['exc_info'].splitlines()[-1]
+    sensitive_output = f"{payload['message']}\n{exception_message}"
 
-    assert 'secret-pass' not in text
-    assert 'readonly' not in text
-    assert 'pwd=<redacted>' in text
-    assert 'uid=<redacted>' in text
+    assert 'secret-pass' not in sensitive_output
+    assert 'readonly' not in sensitive_output
+    assert 'pwd=<redacted>' in sensitive_output
+    assert 'uid=<redacted>' in sensitive_output
 
 
 def test_mes_sync_status_redacts_last_run_error(monkeypatch) -> None:

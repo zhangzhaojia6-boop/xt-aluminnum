@@ -284,7 +284,7 @@ git commit -m "ci(prod): add mes readonly reliability audit"
 - Modify: `docs/superpowers/plans/2026-07-16-production-readiness-master-plan.md`
 - Modify: `docs/superpowers/plans/2026-07-18-phase3-mes-readonly-reliability-plan.md`
 
-- [ ] **Step 1: Run all local gates**
+- [x] **Step 1: Run all local gates**
 
 ```powershell
 cd backend
