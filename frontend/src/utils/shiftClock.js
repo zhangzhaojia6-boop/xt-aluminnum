@@ -54,6 +54,18 @@ export function inferOwnerDailyBusinessDate(now = new Date()) {
   return inferBusinessDateAtAnchor(OWNER_DAILY_ANCHOR_MINUTES, now)
 }
 
+export function ownerDailyBusinessDateOptions(latestBusinessDate) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(latestBusinessDate || ''))
+  if (!match) return []
+  const anchor = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])))
+  if (formatUtcDate(anchor) !== latestBusinessDate) return []
+  return Array.from({ length: 8 }, (_, index) => {
+    const candidate = new Date(anchor)
+    candidate.setUTCDate(candidate.getUTCDate() - index)
+    return formatUtcDate(candidate)
+  })
+}
+
 function inferBusinessDateAtAnchor(anchorMinutes, now = new Date()) {
   const wall = nowInShanghai(now)
   const minutes = totalMinutes(wall)

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.agents.validator import validator_agent
 from app.agents.base import AgentAction, AgentDecision
 from app.config import settings
-from app.core.business_time import OWNER_DAILY_CUTOFF, PRODUCTION_BUSINESS_DAY_START
+from app.core.business_time import OWNER_DAILY_BACKFILL_LOOKBACK_DAYS, OWNER_DAILY_CUTOFF
 from app.core.permissions import assert_mobile_report_access, assert_mobile_user_access, assert_scope_access
 from app.core.scope import build_scope_summary, scope_to_dict
 from app.core.workshop_templates import resolve_workshop_type
@@ -773,6 +773,8 @@ def save_owner_daily_entry(
     *,
     payload: dict,
     current_user: User,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> dict:
     assert_mobile_user_access(current_user)
     role = current_user.role or ''
@@ -781,15 +783,26 @@ def save_owner_daily_entry(
     workshop_id = current_user.workshop_id or build_scope_summary(current_user).workshop_id
     if not workshop_id:
         raise HTTPException(status_code=400, detail='当前账号未绑定车间，请先在用户管理中设置车间归属。')
+    locked_user_id = (
+        db.query(User.id)
+        .filter(User.id == current_user.id)
+        .with_for_update()
+        .scalar()
+    )
+    if locked_user_id is None:
+        raise HTTPException(status_code=401, detail='当前填报账号不存在或已失效。')
 
     resolved_business_date = resolve_owner_daily_business_date()
     raw_business_date = payload.get('business_date')
     business_date = date.fromisoformat(raw_business_date) if isinstance(raw_business_date, str) else (raw_business_date or resolved_business_date)
     current_local = _local_now()
-    if current_local.time() < OWNER_DAILY_CUTOFF and business_date >= current_local.date():
+    if current_local.time() < OWNER_DAILY_CUTOFF and business_date == current_local.date():
         business_date = resolved_business_date
-    elif current_local.time() >= PRODUCTION_BUSINESS_DAY_START and business_date <= current_local.date():
-        business_date = resolved_business_date
+    earliest_business_date = resolved_business_date - timedelta(days=OWNER_DAILY_BACKFILL_LOOKBACK_DAYS)
+    if business_date > resolved_business_date:
+        raise HTTPException(status_code=422, detail='填报日期不能晚于当前业务日。')
+    if business_date < earliest_business_date:
+        raise HTTPException(status_code=422, detail='历史补录仅支持最近 7 天。')
     data = dict(payload.get('data') or {})
     from app.models.production import WorkOrder
 
@@ -815,6 +828,16 @@ def save_owner_daily_entry(
         )
         .first()
     )
+    old_value = (
+        {
+            'business_date': entry.business_date.isoformat(),
+            'workshop_id': entry.workshop_id,
+            'entry_status': entry.entry_status,
+            'data': dict(entry.extra_payload or {}),
+        }
+        if entry is not None
+        else None
+    )
     if entry is None:
         entry = WorkOrderEntry(
             work_order_id=work_order.id,
@@ -832,6 +855,28 @@ def save_owner_daily_entry(
     entry.extra_payload = data
     entry.entry_status = 'submitted'
     entry.submitted_at = datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE))
+    db.flush()
+    is_historical_backfill = business_date < resolved_business_date
+    action_suffix = 'update' if old_value is not None else 'create'
+    record_entity_change(
+        db,
+        user=current_user,
+        action=f"owner_daily_{'historical_' if is_historical_backfill else ''}{action_suffix}",
+        module='mobile',
+        entity_type='work_order_entries',
+        entity_id=entry.id,
+        old_value=old_value,
+        new_value={
+            'business_date': business_date.isoformat(),
+            'workshop_id': workshop_id,
+            'entry_status': 'submitted',
+            'data': data,
+        },
+        reason='owner_daily_historical_backfill' if is_historical_backfill else None,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        auto_commit=False,
+    )
     db.commit()
     db.refresh(entry)
     return _owner_daily_response(entry, workshop=db.get(Workshop, workshop_id), current_user=current_user)

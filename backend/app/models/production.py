@@ -259,6 +259,15 @@ class WorkOrderEntry(Base):
     __tablename__ = 'work_order_entries'
     __table_args__ = (
         Index('ix_work_order_entries_work_order_workshop_date', 'work_order_id', 'workshop_id', 'business_date'),
+        Index(
+            'uq_work_order_entries_owner_daily_work_order_date',
+            'work_order_id',
+            'business_date',
+            'entry_type',
+            unique=True,
+            postgresql_where=text("entry_type = 'owner_daily'"),
+            sqlite_where=text("entry_type = 'owner_daily'"),
+        ),
         UniqueConstraint(
             'work_order_id',
             'shift_id',

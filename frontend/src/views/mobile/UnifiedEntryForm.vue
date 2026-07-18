@@ -17,7 +17,19 @@
       </div>
       <div v-else-if="mode === 'owner_daily'" class="ue-person-header">
         <strong>{{ auth.displayName || roleLabel }}</strong>
-        <span>{{ businessDate }} · 每日一录</span>
+        <div class="ue-owner-date-control">
+          <label for="owner-daily-business-date">业务日期</label>
+          <select
+            id="owner-daily-business-date"
+            v-model="ownerDailySelectedDate"
+            :disabled="ownerDailyLoading || submitting"
+            @change="loadOwnerDailyEntryForDate"
+          >
+            <option v-for="dateOption in ownerDailyDateOptions" :key="dateOption" :value="dateOption">
+              {{ dateOption }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <div v-if="mode === 'per_coil' && canScan" class="ue-scan-row">
@@ -241,8 +253,8 @@
       </section>
 
       <div class="ue-actions">
-        <button class="ue-submit" data-testid="unified-entry-submit" :disabled="submitting" @click="handleSubmit">
-          {{ submitting ? '提交中…' : submitButtonText }}
+        <button class="ue-submit" data-testid="unified-entry-submit" :disabled="submitting || ownerDailyLoading" @click="handleSubmit">
+          {{ submitting ? '提交中…' : ownerDailyLoading ? '加载中…' : submitButtonText }}
         </button>
         <button
           v-if="mode === 'per_coil' && lastCoilData"
@@ -289,7 +301,7 @@ import { validateEntryWeights } from '../../utils/entryWeightValidation.js'
 import { requestErrorMessage } from '../../utils/reportStatus.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
 import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
-import { inferOwnerDailyBusinessDate } from '../../utils/shiftClock.js'
+import { inferOwnerDailyBusinessDate, ownerDailyBusinessDateOptions } from '../../utils/shiftClock.js'
 import { formatShiftLabel } from '../../utils/display.js'
 
 const auth = useAuthStore()
@@ -297,6 +309,8 @@ const auth = useAuthStore()
 const loading = ref(true)
 const error = ref('')
 const submitting = ref(false)
+const ownerDailyLoading = ref(false)
+const ownerDailySelectedDate = ref('')
 const form = reactive({})
 const specParts = reactive({})
 const lockedFieldsSnapshot = ref({})
@@ -319,7 +333,14 @@ const { canScan, scanning, scan, scanLookup } = useScanLookup()
 const shiftContext = ref(null)
 const workshopName = computed(() => shiftContext.value?.workshop_name || '')
 const shiftName = computed(() => formatShiftLabel(shiftContext.value?.shift_name || shiftContext.value?.shift_code, ''))
-const businessDate = computed(() => shiftContext.value?.business_date || '')
+const businessDate = computed(() => (
+  mode.value === 'owner_daily'
+    ? ownerDailySelectedDate.value || shiftContext.value?.business_date || ''
+    : shiftContext.value?.business_date || ''
+))
+const ownerDailyDateOptions = computed(() => ownerDailyBusinessDateOptions(
+  shiftContext.value?.business_date || inferOwnerDailyBusinessDate()
+))
 const workshopMachines = computed(() =>
   Array.isArray(shiftContext.value?.workshop_machines) ? shiftContext.value.workshop_machines : []
 )
@@ -724,8 +745,38 @@ function buildMobileReportPayload(sc) {
 
 function buildOwnerDailyPayload(sc) {
   return {
-    business_date: sc.business_date || inferOwnerDailyBusinessDate(),
+    business_date: ownerDailySelectedDate.value || sc.business_date || inferOwnerDailyBusinessDate(),
     data: normalizedFormValues(),
+  }
+}
+
+function resetOwnerDailyForm() {
+  for (const group of groups.value) {
+    for (const field of group.fields) {
+      form[field.name] = field.type === 'number' ? null : ''
+      if (field.type === 'spec') initSpecParts(field.name, '', field.spec_suffix)
+    }
+  }
+  history.value = []
+}
+
+async function loadOwnerDailyEntryForDate() {
+  const targetDate = ownerDailySelectedDate.value || shiftContext.value?.business_date
+  if (!targetDate) return
+  ownerDailyLoading.value = true
+  resetOwnerDailyForm()
+  try {
+    const existing = await fetchOwnerDailyEntry(targetDate)
+    if (existing?.data) {
+      for (const [key, value] of Object.entries(existing.data)) {
+        if (key in form && value != null) form[key] = value
+      }
+      history.value = [existing]
+    }
+  } catch (e) {
+    ElMessage.error(requestErrorMessage(e, '历史数据加载失败'))
+  } finally {
+    ownerDailyLoading.value = false
   }
 }
 
@@ -738,6 +789,13 @@ function initSpecParts(fieldName, value, suffix) {
 
 function summarize(item) {
   const d = item.data || item
+  if (mode.value === 'owner_daily') {
+    const ownerParts = groups.value
+      .flatMap(group => group.fields)
+      .filter(field => d[field.name] !== null && d[field.name] !== undefined && d[field.name] !== '')
+      .map(field => `${field.label} ${d[field.name]}${field.unit || ''}`)
+    if (ownerParts.length) return ownerParts.slice(0, 2).join(' · ')
+  }
   const parts = []
   if (d.alloy_grade) parts.push(d.alloy_grade)
   if (d.input_weight) parts.push(d.input_weight + '→')
@@ -823,15 +881,8 @@ async function loadData() {
     syncMachineEnergyRows(savedMachineEnergyRecords)
 
     if (mode.value === 'owner_daily') {
-      try {
-        const existing = await fetchOwnerDailyEntry(shift.business_date)
-        if (existing?.data) {
-          for (const [k, v] of Object.entries(existing.data)) {
-            if (k in form && v != null) form[k] = v
-          }
-          history.value = [existing]
-        }
-      } catch { /* first time, no daily owner row yet */ }
+      ownerDailySelectedDate.value = shift.business_date || inferOwnerDailyBusinessDate()
+      await loadOwnerDailyEntryForDate()
     }
 
     if (mode.value === 'per_coil') {
@@ -849,7 +900,7 @@ async function loadData() {
 }
 
 async function handleSubmit() {
-  if (submitting.value) return
+  if (submitting.value || ownerDailyLoading.value) return
   const sc = shiftContext.value
   if (!sc || (submitTarget.value !== 'owner_daily' && !sc.shift_id)) return
   if (!validateVisibleRequiredFields()) return
@@ -872,6 +923,7 @@ async function handleSubmit() {
       resetQuality()
     } else if (submitTarget.value === 'owner_daily') {
       const saved = await saveOwnerDailyEntry(buildOwnerDailyPayload(sc), { skipErrorToast: true })
+      if (saved?.business_date) ownerDailySelectedDate.value = saved.business_date
       ElMessage.success('提交成功')
       history.value = saved ? [saved] : []
     } else {
@@ -1053,6 +1105,30 @@ onMounted(loadData)
 .ue-person-header span {
   font-size: 13px;
   color: var(--xt-text-secondary);
+}
+
+.ue-owner-date-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ue-owner-date-control label {
+  color: var(--xt-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ue-owner-date-control select {
+  min-width: 148px;
+  min-height: 40px;
+  padding: 0 34px 0 12px;
+  border: 1px solid color-mix(in srgb, var(--role-color), transparent 56%);
+  border-radius: 8px;
+  background: rgba(4, 18, 32, 0.88);
+  color: var(--xt-text);
+  font: inherit;
 }
 
 .ue-scan-row {
