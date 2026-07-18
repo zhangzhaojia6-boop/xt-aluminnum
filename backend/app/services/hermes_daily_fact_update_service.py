@@ -188,7 +188,7 @@ def _plan_contract_candidates(raw_text: str, *, trace_id: str) -> list[dict[str,
         "trace_id": trace_id,
         "raw_text": raw_text,
     }
-    return [
+    candidates = [
         {
             **common,
             "field": "daily_input_weight",
@@ -197,6 +197,17 @@ def _plan_contract_candidates(raw_text: str, *, trace_id: str) -> list[dict[str,
             "source_ref": {
                 "parser": PLAN_CONTRACT_PARSER,
                 "components": parsed["components"],
+                "matched_segments": parsed["matched_segments"],
+            },
+        },
+        {
+            **common,
+            "field": "cold_roll_input_daily",
+            "value": parsed["cold_roll_input_weight"],
+            "reason": "钉钉计划科合同消息冷轧投料分项求和",
+            "source_ref": {
+                "parser": PLAN_CONTRACT_PARSER,
+                "components": parsed["cold_roll_components"],
                 "matched_segments": parsed["matched_segments"],
             },
         },
@@ -212,6 +223,43 @@ def _plan_contract_candidates(raw_text: str, *, trace_id: str) -> list[dict[str,
             },
         },
     ]
+    for field_name, component_name in (
+        ("cold_2050_input_daily", "2050_input"),
+        ("cold_1850_input_daily", "1850_input"),
+        ("outsourced_input_daily", "external_processing"),
+        ("medium_plate_input_daily", "medium_plate"),
+    ):
+        candidates.append(
+            {
+                **common,
+                "field": field_name,
+                "value": parsed["components"][component_name],
+                "reason": "钉钉计划科合同消息明确投料分项",
+                "source_ref": {
+                    "parser": PLAN_CONTRACT_PARSER,
+                    "component": component_name,
+                    "matched_segment": parsed["matched_segments"][component_name],
+                },
+            }
+        )
+    for field_name, context_name in (
+        ("daily_contract_weight", "daily_contract"),
+        ("daily_hot_roll_contract_weight", "hot_rolling_contract"),
+    ):
+        candidates.append(
+            {
+                **common,
+                "field": field_name,
+                "value": parsed["context_values"][context_name],
+                "reason": "钉钉计划科合同消息明确合同字段",
+                "source_ref": {
+                    "parser": PLAN_CONTRACT_PARSER,
+                    "context_field": context_name,
+                    "matched_segment": parsed["matched_segments"][context_name],
+                },
+            }
+        )
+    return candidates
 
 
 def _value_near_any_phrase(

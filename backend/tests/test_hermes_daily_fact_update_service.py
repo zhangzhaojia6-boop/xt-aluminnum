@@ -167,7 +167,14 @@ def test_plan_contract_message_produces_component_sum_and_remaining_contract_can
 
     assert [(item["field"], item["value"], item["unit"]) for item in candidates] == [
         ("daily_input_weight", 525, "吨"),
+        ("cold_roll_input_daily", 525, "吨"),
         ("remaining_contract_weight", 2765, "吨"),
+        ("cold_2050_input_daily", 463, "吨"),
+        ("cold_1850_input_daily", 0, "吨"),
+        ("outsourced_input_daily", 62, "吨"),
+        ("medium_plate_input_daily", 0, "吨"),
+        ("daily_contract_weight", 443, "吨"),
+        ("daily_hot_roll_contract_weight", 436, "吨"),
     ]
     assert all(item["trace_id"] == "plan-contract-trace" for item in candidates)
     assert all(item["source_ref"]["parser"] == "plan_contract_message_v1" for item in candidates)

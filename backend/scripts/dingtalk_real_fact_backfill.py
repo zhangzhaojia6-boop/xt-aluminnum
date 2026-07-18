@@ -333,7 +333,23 @@ def _visual_attachment_text(fact_updates: Mapping[str, Mapping[str, Any]]) -> st
         raise ValueError('owner_verified_visual_fact_missing_source_ref')
     value = item.get('value')
     reported_date = str(source_ref.get('reported_date') or '').strip()
-    return f'汇总/在制料：{value}吨（报表日期 {reported_date}）'
+    if len(fact_updates) == 1:
+        return f'汇总/在制料：{value}吨（报表日期 {reported_date}）'
+
+    lines: list[str] = []
+    for update in fact_updates.values():
+        if not isinstance(update, Mapping):
+            raise ValueError('owner_verified_visual_fact_invalid_update')
+        update_source_ref = update.get('source_ref')
+        if not isinstance(update_source_ref, Mapping):
+            raise ValueError('owner_verified_visual_fact_missing_source_ref')
+        row_label = str(update_source_ref.get('row_label') or '').strip()
+        column_label = str(update_source_ref.get('column_label') or '').strip()
+        if not row_label or not column_label:
+            raise ValueError('owner_verified_visual_fact_missing_cell_label')
+        lines.append(f"{row_label}/{column_label}：{update.get('value')}吨")
+    lines.append(f'报表日期：{reported_date}')
+    return '\n'.join(lines)
 
 
 def _confirm_owner_verified_evidence(
