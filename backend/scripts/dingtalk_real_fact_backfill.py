@@ -429,7 +429,10 @@ def _confirm_owner_verified_evidence(
         str(payload.get('sender_identity_type') or payload.get('senderIdentityType') or '')
         == verification.sender_identity_type,
         str(payload.get('business_date') or '') == verification.business_date.isoformat(),
-        str(payload.get('event_time') or payload.get('dingtalk_message_time') or '') == verification.event_time,
+        _event_times_equivalent(
+            payload.get('event_time') or payload.get('dingtalk_message_time'),
+            verification.event_time,
+        ),
         parse_status_matches,
         stored_hash == verification.content_sha256,
     )
@@ -488,6 +491,24 @@ def _parse_event_time(value: str) -> datetime | None:
         return datetime.fromisoformat(clean.replace('Z', '+00:00'))
     except ValueError:
         return None
+
+
+def _event_times_equivalent(stored: Any, expected: Any) -> bool:
+    stored_text = str(stored or '').strip()
+    expected_text = str(expected or '').strip()
+    if not stored_text or not expected_text:
+        return False
+    if stored_text == expected_text:
+        return True
+    stored_time = _parse_event_time(stored_text)
+    expected_time = _parse_event_time(expected_text)
+    if stored_time is None or expected_time is None:
+        return False
+    if stored_time.tzinfo is None and expected_time.tzinfo is not None:
+        stored_time = stored_time.replace(tzinfo=expected_time.tzinfo)
+    elif expected_time.tzinfo is None and stored_time.tzinfo is not None:
+        expected_time = expected_time.replace(tzinfo=stored_time.tzinfo)
+    return stored_time == expected_time
 
 
 def _read_jsonl(path: str | Path) -> list[Mapping[str, Any]]:
