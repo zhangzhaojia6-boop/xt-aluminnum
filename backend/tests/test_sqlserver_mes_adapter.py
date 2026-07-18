@@ -2,7 +2,16 @@ from datetime import datetime
 
 import pytest
 
-from app.adapters.sqlserver_mes_adapter import SqlServerMesAdapter, _QUERY_BY_KEY, _ensure_read_only_query
+from app.adapters.sqlserver_mes_adapter import (
+    MesReadOnlyViolation,
+    SQLSERVER_QUERY_SPECS,
+    SqlServerMesAdapter,
+    _BETWEEN_QUERY_BY_KEY,
+    _QUERY_BY_KEY,
+    _ensure_read_only_query,
+    audit_sqlserver_readonly_contract,
+    classify_sqlserver_failure,
+)
 
 
 class _QueryRunner:
@@ -323,6 +332,7 @@ def test_sqlserver_query_guard_allows_select_only() -> None:
     [
         'UPDATE dbo.Product SET Name = Name',
         'SELECT * FROM v_CoilStatus; DELETE FROM dbo.Product',
+        'SELECT * INTO dbo.CoilStatusCopy FROM v_CoilStatus',
         'EXEC dbo.RefreshProduct',
         'DROP TABLE dbo.Product',
     ],
@@ -347,3 +357,134 @@ def test_sqlserver_default_queries_target_discovered_xtal_tables() -> None:
     assert 'SUM(FeedingWeight)' in _QUERY_BY_KEY['wip_totals']
     assert 'WMS_Stock' in _QUERY_BY_KEY['stock']
     assert all('v_CoilStatus' not in query for query in _QUERY_BY_KEY.values())
+
+
+def test_all_registered_sqlserver_queries_are_select_only() -> None:
+    audit = audit_sqlserver_readonly_contract()
+
+    assert audit['status'] == 'pass'
+    assert audit['passed'] is True
+    assert audit['issues'] == []
+    assert audit['query_count'] == len(_QUERY_BY_KEY) + len(_BETWEEN_QUERY_BY_KEY) + 4
+    assert len(audit['contract_sha256']) == 64
+    assert len({spec.probe_id for spec in SQLSERVER_QUERY_SPECS}) == len(SQLSERVER_QUERY_SPECS)
+
+
+def test_sqlserver_adapter_rejects_completion_writes() -> None:
+    adapter = SqlServerMesAdapter(query_runner=_QueryRunner({}))
+
+    assert adapter.readonly is True
+    with pytest.raises(MesReadOnlyViolation, match='mes_sqlserver_read_only'):
+        adapter.push_completion('CARD-1', 1.0, 99.0)
+
+
+@pytest.mark.parametrize(
+    ('error', 'expected'),
+    [
+        (ConnectionError('server unavailable'), 'connection_failed'),
+        (TimeoutError('query timed out'), 'query_timeout'),
+        (RuntimeError("Invalid column name 'OperateDate'"), 'schema_changed'),
+        (RuntimeError('unexpected read failure'), 'read_failed'),
+    ],
+)
+def test_sqlserver_failure_classification_is_stable(error: Exception, expected: str) -> None:
+    assert classify_sqlserver_failure(error) == expected
+
+
+def test_readonly_window_probe_uses_delivery_fallback_without_returning_values() -> None:
+    calls = []
+
+    def runner(query_key, **kwargs):
+        calls.append((query_key, kwargs))
+        if query_key == 'delivery_records':
+            return []
+        if query_key == 'delivery_stock_records':
+            return [{'Id': 7, 'CreateDate': '2026-07-17T08:00:00', 'CustomerPhone': 'hidden'}]
+        raise AssertionError(query_key)
+
+    adapter = SqlServerMesAdapter(query_runner=runner)
+    probe = adapter.probe_readonly_window(
+        'delivery_records',
+        start_at=datetime(2026, 7, 17, 7, 50),
+        end_at=datetime(2026, 7, 18, 7, 50),
+    )
+
+    assert [item[0] for item in calls] == ['delivery_records', 'delivery_stock_records']
+    assert probe['effective_query_key'] == 'delivery_stock_records'
+    assert probe['source_path'] == 'sqlserver:delivery_stock_records'
+    assert probe['event_time_field'] == 'CreateDate'
+    assert probe['window_start_at'] == '2026-07-17T07:50:00'
+    assert probe['window_end_at'] == '2026-07-18T07:50:00'
+    assert probe['observed_row_count'] == 1
+    assert probe['schema_columns'] == ['CreateDate', 'CustomerPhone', 'Id']
+    assert 'rows' not in probe
+
+
+def test_effective_permission_audit_blocks_database_write_permission() -> None:
+    def runner(query_key, **kwargs):
+        _ = kwargs
+        if query_key == 'database_permissions':
+            return [{'permission_name': 'UPDATE'}]
+        if query_key == 'object_permissions':
+            return []
+        if query_key == 'schema_permissions':
+            return []
+        if query_key == 'database_roles':
+            return []
+        raise AssertionError(query_key)
+
+    audit = SqlServerMesAdapter(database='XTAL', query_runner=runner).audit_effective_readonly_permissions()
+
+    assert audit['status'] == 'blocked'
+    assert audit['database_dangerous_permissions'] == ['UPDATE']
+    assert audit['dangerous_permissions'] == [
+        {'scope': 'database', 'resource': 'XTAL', 'permissions': ['UPDATE']},
+    ]
+
+
+def test_effective_permission_audit_blocks_schema_permission_and_dangerous_role() -> None:
+    def runner(query_key, **kwargs):
+        _ = kwargs
+        if query_key in {'database_permissions', 'object_permissions'}:
+            return []
+        if query_key == 'schema_permissions':
+            return [{'permission_name': 'ALTER'}]
+        if query_key == 'database_roles':
+            return [{'role_name': 'db_datawriter'}]
+        raise AssertionError(query_key)
+
+    audit = SqlServerMesAdapter(database='XTAL', query_runner=runner).audit_effective_readonly_permissions()
+
+    assert audit['status'] == 'blocked'
+    assert audit['schema_results'] == [
+        {'source_schema': 'dbo', 'dangerous_permissions': ['ALTER']},
+    ]
+    assert audit['dangerous_database_roles'] == ['db_datawriter']
+    assert audit['dangerous_permissions'][-2:] == [
+        {'scope': 'schema', 'resource': 'dbo', 'permissions': ['ALTER']},
+        {'scope': 'database_role', 'resource': 'XTAL', 'permissions': ['db_datawriter']},
+    ]
+
+
+def test_effective_permission_audit_scans_only_registered_source_tables() -> None:
+    object_targets = []
+
+    def runner(query_key, **kwargs):
+        if query_key == 'object_permissions':
+            object_targets.append(kwargs['source_table'])
+        return []
+
+    SqlServerMesAdapter(query_runner=runner).audit_effective_readonly_permissions()
+
+    assert object_targets == [
+        'MES_DeliveryDetail',
+        'MES_Device',
+        'MES_Material',
+        'MES_Product',
+        'MES_ProductProcessRecord',
+        'WMS_InStock',
+        'WMS_InStockDetail',
+        'WMS_OutStockDetail',
+        'WMS_Stock',
+    ]
+    assert not {'DATABASE', 'REGISTERED_TABLES', 'REGISTERED_SCHEMAS', 'DATABASE_ROLES'} & set(object_targets)

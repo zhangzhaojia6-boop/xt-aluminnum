@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime
 import hashlib
 import json
@@ -16,7 +17,7 @@ from app.adapters.mes_adapter import (
     MesWipTotal,
     ScheduleItem,
 )
-from app.core.redaction import filter_sensitive_mapping
+from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.utils.tracking_cards import tracking_card_lookup_key
 
 
@@ -113,8 +114,97 @@ _BETWEEN_QUERY_BY_KEY = {
 }
 
 _WRITE_SQL_PATTERN = re.compile(
-    r'\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|grant|revoke|deny|backup|restore)\b',
+    r'\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|grant|revoke|deny|backup|restore|into)\b',
     re.IGNORECASE,
+)
+
+_DATABASE_PERMISSION_QUERY = (
+    "SELECT permission_name FROM fn_my_permissions(NULL, 'DATABASE') "
+    "WHERE permission_name IN ('INSERT', 'UPDATE', 'DELETE', 'ALTER', 'CONTROL', "
+    "'CREATE TABLE', 'EXECUTE', 'TAKE OWNERSHIP') ORDER BY permission_name"
+)
+_OBJECT_PERMISSION_QUERY = (
+    "SELECT permission_name FROM fn_my_permissions(%s, 'OBJECT') "
+    "WHERE permission_name IN ('INSERT', 'UPDATE', 'DELETE', 'ALTER', 'CONTROL', "
+    "'EXECUTE', 'TAKE OWNERSHIP') ORDER BY permission_name"
+)
+_SCHEMA_PERMISSION_QUERY = (
+    "SELECT permission_name FROM fn_my_permissions(%s, 'SCHEMA') "
+    "WHERE permission_name IN ('INSERT', 'UPDATE', 'DELETE', 'ALTER', 'CONTROL', "
+    "'EXECUTE', 'TAKE OWNERSHIP') ORDER BY permission_name"
+)
+_DATABASE_ROLE_QUERY = (
+    "SELECT role_name FROM (VALUES ('db_owner'), ('db_ddladmin'), ('db_datawriter'), "
+    "('db_securityadmin')) AS roles(role_name) "
+    "WHERE IS_ROLEMEMBER(role_name) = 1 ORDER BY role_name"
+)
+
+
+class MesReadOnlyViolation(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class SqlServerQuerySpec:
+    probe_id: str
+    query_key: str
+    source_table: str
+    mode: str
+    event_time_field: str | None
+    requires_lookup: bool = False
+
+
+SQLSERVER_QUERY_SPECS = (
+    SqlServerQuerySpec('current:card_lookup', 'card_lookup', 'MES_Product', 'current', 'OperateDate', True),
+    SqlServerQuerySpec('current:dispatch', 'dispatch', 'MES_Product', 'current', 'OperateDate'),
+    SqlServerQuerySpec('current:follow_cards', 'follow_cards', 'MES_Product', 'current', 'OperateDate'),
+    SqlServerQuerySpec('current:wip_totals', 'wip_totals', 'MES_Product', 'current', None),
+    SqlServerQuerySpec(
+        'current:workshop_process_records',
+        'workshop_process_records',
+        'MES_ProductProcessRecord',
+        'current',
+        'EndDatetime',
+    ),
+    SqlServerQuerySpec('current:stock_records', 'stock_records', 'WMS_InStockDetail', 'current', 'CreateDate'),
+    SqlServerQuerySpec('current:material_records', 'material_records', 'MES_Material', 'current', 'ProductionDate'),
+    SqlServerQuerySpec('current:yield_records', 'yield_records', 'MES_ProductProcessRecord', 'current', 'OperateDate'),
+    SqlServerQuerySpec('current:stock', 'stock', 'WMS_Stock', 'current', 'OperateDate'),
+    SqlServerQuerySpec('current:devices', 'devices', 'MES_Device', 'current', 'OperateDate'),
+    SqlServerQuerySpec(
+        'window:workshop_process_records',
+        'workshop_process_records',
+        'MES_ProductProcessRecord',
+        'window',
+        'EndDatetime',
+    ),
+    SqlServerQuerySpec('window:stock_records', 'stock_records', 'WMS_InStockDetail', 'window', 'CreateDate'),
+    SqlServerQuerySpec(
+        'window:finished_inbound_records',
+        'finished_inbound_records',
+        'WMS_InStock',
+        'window',
+        'InStockDate',
+    ),
+    SqlServerQuerySpec(
+        'window:delivery_records',
+        'delivery_records',
+        'MES_DeliveryDetail',
+        'window',
+        'OperateDate',
+    ),
+    SqlServerQuerySpec(
+        'window:delivery_stock_records',
+        'delivery_stock_records',
+        'WMS_OutStockDetail',
+        'window',
+        'CreateDate',
+    ),
+    SqlServerQuerySpec('window:material_records', 'material_records', 'MES_Material', 'window', 'ProductionDate'),
+    SqlServerQuerySpec('permission:database', 'database_permissions', 'DATABASE', 'permission', None),
+    SqlServerQuerySpec('permission:object', 'object_permissions', 'REGISTERED_TABLES', 'permission', None),
+    SqlServerQuerySpec('permission:schema', 'schema_permissions', 'REGISTERED_SCHEMAS', 'permission', None),
+    SqlServerQuerySpec('permission:database_role', 'database_roles', 'DATABASE_ROLES', 'permission', None),
 )
 
 
@@ -199,6 +289,75 @@ def _ensure_read_only_query(query: str) -> None:
     query_without_literals = re.sub(r"(?is)N?'(?:''|[^'])*'", "''", normalized)
     if _WRITE_SQL_PATTERN.search(query_without_literals):
         raise ValueError('SQL Server MES adapter rejected a non-read-only SQL keyword')
+
+
+def audit_sqlserver_readonly_contract() -> dict[str, Any]:
+    rendered_queries = {
+        **{f'current:{key}': query.format(limit=1) for key, query in _QUERY_BY_KEY.items()},
+        **{
+            f'window:{key}': query.format(limit=1, offset=0)
+            for key, query in _BETWEEN_QUERY_BY_KEY.items()
+        },
+        'permission:database': _DATABASE_PERMISSION_QUERY,
+        'permission:object': _OBJECT_PERMISSION_QUERY,
+        'permission:schema': _SCHEMA_PERMISSION_QUERY,
+        'permission:database_role': _DATABASE_ROLE_QUERY,
+    }
+    issues: list[str] = []
+    registered_ids = {spec.probe_id for spec in SQLSERVER_QUERY_SPECS}
+    rendered_ids = set(rendered_queries)
+    if len(registered_ids) != len(SQLSERVER_QUERY_SPECS):
+        issues.append('duplicate_probe_id')
+    for probe_id in sorted(rendered_ids - registered_ids):
+        issues.append(f'unregistered_query:{probe_id}')
+    for probe_id in sorted(registered_ids - rendered_ids):
+        issues.append(f'missing_query:{probe_id}')
+    for probe_id, query in sorted(rendered_queries.items()):
+        try:
+            _ensure_read_only_query(query)
+        except ValueError as exc:
+            issues.append(f'non_readonly_query:{probe_id}:{exc}')
+    canonical = json.dumps(rendered_queries, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
+    return {
+        'status': 'pass' if not issues else 'blocked',
+        'passed': not issues,
+        'query_count': len(rendered_queries),
+        'contract_sha256': hashlib.sha256(canonical.encode('utf-8')).hexdigest(),
+        'issues': issues,
+    }
+
+
+def classify_sqlserver_failure(exc: Exception) -> str:
+    error_type = type(exc).__name__.lower()
+    message = str(exc).lower()
+    if 'timeout' in error_type or any(token in message for token in ('timed out', 'timeout', 'time out')):
+        return 'query_timeout'
+    if isinstance(exc, ConnectionError) or any(
+        token in message
+        for token in (
+            'connection',
+            'server unavailable',
+            'login failed',
+            'network',
+            'adaptive server',
+            'db-lib error message 20002',
+            'db-lib error message 20009',
+        )
+    ):
+        return 'connection_failed'
+    if any(
+        token in message
+        for token in (
+            'invalid column name',
+            'invalid object name',
+            'unknown column',
+            'no such column',
+            'no such table',
+            'schema changed',
+        )
+    ):
+        return 'schema_changed'
+    return 'read_failed'
 
 
 def _tracking_card_no(row: Mapping[str, Any]) -> str:
@@ -293,6 +452,8 @@ class SqlServerMesAdapter(MesAdapter):
     model; management pages still read the local `mes_*` tables.
     """
 
+    readonly = True
+
     def __init__(
         self,
         *,
@@ -345,7 +506,7 @@ class SqlServerMesAdapter(MesAdapter):
 
     def push_completion(self, card_no: str, output_weight: float | None, yield_rate: float | None) -> bool:
         _ = (card_no, output_weight, yield_rate)
-        return False
+        raise MesReadOnlyViolation('mes_sqlserver_read_only')
 
     def list_follow_cards(self, *, limit: int = 200) -> list[CoilSnapshot]:
         return [_coil_snapshot_from_row(row) for row in self._query('follow_cards', limit=limit)]
@@ -453,6 +614,181 @@ class SqlServerMesAdapter(MesAdapter):
             )
             for row in self._query('devices', limit=500)
         ]
+
+    def probe_readonly_window(
+        self,
+        query_key: str,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+    ) -> dict[str, Any]:
+        if query_key not in _BETWEEN_QUERY_BY_KEY or query_key == 'delivery_stock_records':
+            raise ValueError(f'unregistered SQL Server window probe: {query_key}')
+        effective_key = query_key
+        rows = self._query_between(query_key, start_at=start_at, end_at=end_at, limit=1, offset=0)
+        if query_key == 'delivery_records' and not rows:
+            effective_key = 'delivery_stock_records'
+            rows = self._query_between(effective_key, start_at=start_at, end_at=end_at, limit=1, offset=0)
+        columns = sorted({str(key) for row in rows for key in row})
+        source_path_key = 'stock_header_records' if effective_key == 'finished_inbound_records' else effective_key
+        query = _BETWEEN_QUERY_BY_KEY[effective_key].format(limit=1, offset=0)
+        source_table = next(
+            spec.source_table
+            for spec in SQLSERVER_QUERY_SPECS
+            if spec.probe_id == f'window:{effective_key}'
+        )
+        event_time_field = next(
+            spec.event_time_field
+            for spec in SQLSERVER_QUERY_SPECS
+            if spec.probe_id == f'window:{effective_key}'
+        )
+        return {
+            'query_key': query_key,
+            'effective_query_key': effective_key,
+            'source_path': f'sqlserver:{source_path_key}',
+            'source_table': source_table,
+            'event_time_field': event_time_field,
+            'window_start_at': start_at.isoformat(),
+            'window_end_at': end_at.isoformat(),
+            'query_status': 'success',
+            'observed_row_count': len(rows),
+            'observation_limit': 1,
+            'schema_columns': columns,
+            'query_sha256': hashlib.sha256(query.encode('utf-8')).hexdigest(),
+        }
+
+    def audit_effective_readonly_permissions(self) -> dict[str, Any]:
+        database_rows = self._run_permission_query('database_permissions')
+        dangerous: list[dict[str, Any]] = []
+        database_permissions = sorted(
+            {str(row.get('permission_name') or row.get('PERMISSION_NAME') or '').strip() for row in database_rows}
+            - {''}
+        )
+        if database_permissions:
+            dangerous.append(
+                {
+                    'scope': 'database',
+                    'resource': self._database or 'configured_database',
+                    'permissions': database_permissions,
+                }
+            )
+
+        object_results = []
+        source_tables = sorted(
+            {
+                spec.source_table
+                for spec in SQLSERVER_QUERY_SPECS
+                if spec.mode in {'current', 'window'}
+            }
+        )
+        for source_table in source_tables:
+            rows = self._run_permission_query('object_permissions', source_table=source_table)
+            permissions = sorted(
+                {str(row.get('permission_name') or row.get('PERMISSION_NAME') or '').strip() for row in rows}
+                - {''}
+            )
+            object_results.append({'source_table': source_table, 'dangerous_permissions': permissions})
+            if permissions:
+                dangerous.append(
+                    {
+                        'scope': 'object',
+                        'resource': source_table,
+                        'permissions': permissions,
+                    }
+                )
+
+        schema_results = []
+        source_schemas = sorted(
+            {
+                source_table.split('.', 1)[0] if '.' in source_table else 'dbo'
+                for source_table in source_tables
+            }
+        )
+        for source_schema in source_schemas:
+            rows = self._run_permission_query('schema_permissions', source_schema=source_schema)
+            permissions = sorted(
+                {str(row.get('permission_name') or row.get('PERMISSION_NAME') or '').strip() for row in rows}
+                - {''}
+            )
+            schema_results.append({'source_schema': source_schema, 'dangerous_permissions': permissions})
+            if permissions:
+                dangerous.append(
+                    {
+                        'scope': 'schema',
+                        'resource': source_schema,
+                        'permissions': permissions,
+                    }
+                )
+
+        role_rows = self._run_permission_query('database_roles')
+        dangerous_database_roles = sorted(
+            {str(row.get('role_name') or row.get('ROLE_NAME') or '').strip() for row in role_rows}
+            - {''}
+        )
+        if dangerous_database_roles:
+            dangerous.append(
+                {
+                    'scope': 'database_role',
+                    'resource': self._database or 'configured_database',
+                    'permissions': dangerous_database_roles,
+                }
+            )
+        return {
+            'status': 'pass' if not dangerous else 'blocked',
+            'database_dangerous_permissions': database_permissions,
+            'object_results': object_results,
+            'schema_results': schema_results,
+            'dangerous_database_roles': dangerous_database_roles,
+            'dangerous_permissions': dangerous,
+        }
+
+    def _run_permission_query(
+        self,
+        query_key: str,
+        *,
+        source_table: str | None = None,
+        source_schema: str | None = None,
+    ) -> list[Mapping[str, Any]]:
+        if self._query_runner is not None:
+            return self._query_runner(
+                query_key,
+                source_table=source_table,
+                source_schema=source_schema,
+                limit=1,
+                offset=0,
+                start_at=None,
+                end_at=None,
+                tracking_card_no=None,
+            )
+        queries = {
+            'database_permissions': _DATABASE_PERMISSION_QUERY,
+            'object_permissions': _OBJECT_PERMISSION_QUERY,
+            'schema_permissions': _SCHEMA_PERMISSION_QUERY,
+            'database_roles': _DATABASE_ROLE_QUERY,
+        }
+        if query_key not in queries:
+            raise ValueError(f'unregistered SQL Server permission probe: {query_key}')
+        query = queries[query_key]
+        if source_table is not None:
+            params: tuple[Any, ...] = (source_table,)
+        elif source_schema is not None:
+            params = (source_schema,)
+        else:
+            params = ()
+        try:
+            return _run_pymssql_query(
+                host=self._host,
+                port=self._port,
+                database=self._database,
+                username=self._username,
+                password=self._password,
+                timeout_seconds=self._timeout_seconds,
+                encrypt=self._encrypt,
+                query=query,
+                params=params,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(redact_secret_text(str(exc))) from exc
 
     def _query(self, query_key: str, *, limit: int = 200, tracking_card_no: str | None = None) -> list[Mapping[str, Any]]:
         bounded_limit = max(1, min(int(limit), 1000))

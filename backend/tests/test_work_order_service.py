@@ -595,6 +595,20 @@ def test_submit_entry_pushes_completion_to_mes_when_work_order_completed(monkeyp
     assert pushed == [('RA260001', 9220.0, 97.2)]
 
 
+def test_completed_work_order_does_not_call_readonly_mes_adapter(monkeypatch) -> None:
+    class _ReadonlyMesAdapter:
+        readonly = True
+
+        def push_completion(self, *_args, **_kwargs):
+            raise AssertionError('read-only adapter must not be called')
+
+    monkeypatch.setattr('app.services.work_order_service.get_mes_adapter', lambda: _ReadonlyMesAdapter())
+    work_order = SimpleNamespace(tracking_card_no='RA260001', overall_status='completed')
+    entry = SimpleNamespace(verified_output_weight=None, output_weight=9220, yield_rate=97.2)
+
+    assert work_order_service._push_mes_completion_if_needed(work_order=work_order, entry=entry) is False
+
+
 def test_owner_only_roles_can_submit_work_order_entries(monkeypatch) -> None:
     for role in ('contracts', 'inventory_keeper', 'utility_manager'):
         db = _DummyWorkOrderDB()

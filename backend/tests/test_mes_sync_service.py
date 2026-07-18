@@ -111,6 +111,8 @@ def test_sync_coil_snapshots_updates_cursor_and_stats(monkeypatch):
     assert payload.upserted_count == 1
     assert payload.next_cursor == 'cursor-2'
     assert cursor.cursor_value == 'cursor-2'
+    run_log = next(item for item in db.added if item.__class__.__name__ == 'MesSyncRunLog')
+    assert run_log.metadata_json['target_business_date'] == '2026-04-11'
 
 
 def test_upsert_snapshot_projects_mvc_fields_and_prefers_mes_product_id():
@@ -646,12 +648,17 @@ def test_sync_coil_snapshots_marks_run_failed_without_deleting_projection(monkey
 
     monkeypatch.setattr('app.services.mes_sync_service._ensure_cursor', lambda _db, *, cursor_key: cursor)
     monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: SimpleNamespace(list_coil_snapshots=fail))
+    monkeypatch.setattr('app.services.mes_sync_service.settings.MES_SYNC_RETRY_LIMIT', 0)
 
-    with pytest.raises(RuntimeError, match='mes offline'):
+    with pytest.raises(mes_sync_service.MesSyncVendorError, match='mes offline') as raised:
         mes_sync_service.sync_coil_snapshots(db, now=datetime(2026, 5, 2, 8, 35, tzinfo=UTC))
 
     run_log = next(item for item in db.added if item.__class__.__name__ == 'MesSyncRunLog')
     assert run_log.status == 'failed'
+    assert run_log.metadata_json['attempt_count'] == 1
+    assert run_log.metadata_json['failure_kind'] == 'read_failed'
+    assert raised.value.attempt_count == 1
+    assert raised.value.failure_kind == 'read_failed'
     assert db.deleted == []
 
 
@@ -687,6 +694,11 @@ def test_sync_coil_snapshots_retries_transient_adapter_failures(monkeypatch):
     assert calls['count'] == 2
     assert run_log.status == 'success'
     assert run_log.metadata_json['attempt_count'] == 2
+    assert run_log.metadata_json['failure_kind'] == 'query_timeout'
+    assert run_log.metadata_json['recovered'] is True
+    assert payload.attempt_count == 2
+    assert payload.failure_kind == 'query_timeout'
+    assert payload.recovered is True
 
 
 def test_sync_coil_snapshots_does_not_mark_internal_write_error_as_vendor_failure(monkeypatch):
@@ -896,6 +908,39 @@ def test_sync_projection_step_retries_transient_adapter_failures(monkeypatch):
     assert stats.status == 'success'
     assert stats.upserted_count == 1
     assert calls['count'] == 2
+    assert stats.attempt_count == 2
+    assert stats.failure_kind == 'query_timeout'
+    assert stats.recovered is True
+
+
+@pytest.mark.parametrize(
+    ('error', 'expected_kind'),
+    [
+        (ConnectionError('server unavailable'), 'connection_failed'),
+        (TimeoutError('query timed out'), 'query_timeout'),
+        (RuntimeError("Invalid column name 'OperateDate'"), 'schema_changed'),
+        (RuntimeError('unexpected vendor read failure'), 'read_failed'),
+    ],
+)
+def test_sync_projection_step_classifies_exhausted_vendor_failures(monkeypatch, error, expected_kind):
+    monkeypatch.setattr('app.services.mes_sync_service.settings.MES_SYNC_RETRY_LIMIT', 0)
+
+    def broken_runner(_db, *, now):
+        _ = now
+        raise error
+
+    stats = mes_sync_service._sync_projection_step(
+        _FakeDB(),
+        cursor_key='mes_dispatch',
+        synced_at=datetime(2026, 5, 2, 8, 35, tzinfo=UTC),
+        runner=broken_runner,
+    )
+
+    assert stats.status == 'failed'
+    assert stats.attempt_count == 1
+    assert stats.failure_kind == expected_kind
+    assert stats.recovered is False
+    assert stats.to_dict()['failure_kind'] == expected_kind
 
 
 def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive_payloads(tmp_path, monkeypatch):
