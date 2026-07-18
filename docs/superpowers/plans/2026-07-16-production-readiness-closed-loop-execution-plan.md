@@ -96,11 +96,13 @@
 
 **Blocked by:** Phase 2
 
-- [ ] 验证全部日报查询键、只读 SQL、游标、同步延迟和来源 trace。
-- [ ] 验证断线、超时、模式变化和恢复告警。
-- [ ] 连续观察三个已完成业务日。
+- [x] 验证全部日报查询键、只读 SQL、游标、同步延迟和来源 trace。
+- [x] 验证断线、超时、模式变化和恢复告警。
+- [x] 连续观察三个已完成业务日。
 
 **Exit gate:** 三个业务日同步成功、零写入、关键查询均有真实记录或明确无数据原因，异常能够告警和恢复。
+
+**Evidence:** [Phase 3 MES/WMS 只读可靠性生产闭环报告](../reports/2026-07-18-phase3-mes-readonly-baseline.md)，合并 [PR #52](https://github.com/zhangzhaojia6-boop/xt-aluminnum/pull/52)，首次生产部署 [#29642217287](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29642217287)，首次三日审计 [#29642319803](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29642319803)，真实回滚 [#29642371937](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29642371937)，重新部署 [#29642477100](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29642477100)，最终三日审计 [#29642572645](https://github.com/zhangzhaojia6-boop/xt-aluminnum/actions/runs/29642572645)。日报业务匹配率仍属于 Phase 4，不把链路可靠性写成日报准确率完成。
 
 ### Phase 4: 日报事实与全字段对齐
 
