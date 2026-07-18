@@ -140,14 +140,14 @@ def test_source_priority_covers_current_template_fact_sources() -> None:
     assert missing == set()
 
 
-def test_set_value_keeps_owner_daily_when_lower_priority_mes_evidence_arrives() -> None:
+def test_set_value_prefers_mes_evidence_over_owner_daily() -> None:
     facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
 
     template_daily_fact_sources._set_value(facts, "cold_1650_daily", 130.01, "owner_daily")
     template_daily_fact_sources._set_value(facts, "cold_1650_daily", 166.417, "mes_evidence")
 
-    assert facts.values["cold_1650_daily"] == 130.01
-    assert facts.sources["cold_1650_daily"]["source_type"] == "owner_daily"
+    assert facts.values["cold_1650_daily"] == 166.417
+    assert facts.sources["cold_1650_daily"]["source_type"] == "mes_evidence"
 
 
 def test_set_value_allows_same_priority_source_to_overwrite() -> None:
@@ -160,14 +160,14 @@ def test_set_value_allows_same_priority_source_to_overwrite() -> None:
     assert facts.sources["finished_inbound_daily"]["source_type"] == "manual_workbook"
 
 
-def test_set_value_keeps_high_priority_zero_against_lower_priority_source() -> None:
+def test_set_value_prefers_mes_zero_replacement_over_scan_supplement() -> None:
     facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
 
     template_daily_fact_sources._set_value(facts, "total_output_daily", 0, "owner_daily")
     template_daily_fact_sources._set_value(facts, "total_output_daily", 999, "mes_packaging_output")
 
-    assert facts.values["total_output_daily"] == 0
-    assert facts.sources["total_output_daily"]["source_type"] == "owner_daily"
+    assert facts.values["total_output_daily"] == 999
+    assert facts.sources["total_output_daily"]["source_type"] == "mes_packaging_output"
 
 
 def test_wip_snapshot_weight_keeps_ton_values_and_converts_kg_values() -> None:
@@ -175,7 +175,7 @@ def test_wip_snapshot_weight_keeps_ton_values_and_converts_kg_values() -> None:
     assert template_daily_fact_sources._wip_snapshot_weight_tons(264254.65) == 264.25465
 
 
-def test_datahub_final_daily_report_overrides_lower_priority_projection(tmp_path, monkeypatch) -> None:
+def test_mes_readonly_fact_is_not_overridden_by_datahub_final_report(tmp_path, monkeypatch) -> None:
     SessionLocal = _session(tmp_path)
 
     def fake_overview(_db, *, target_date: date, wip_date: date | None = None):
@@ -217,10 +217,9 @@ def test_datahub_final_daily_report_overrides_lower_priority_projection(tmp_path
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["total_output_daily"] == 328
-    assert facts.values["total_output_month"] == 5014
-    assert facts.sources["total_output_daily"]["source_type"] == "datahub_final_daily_report"
-    assert facts.sources["total_output_daily"]["source_table"] == "daily_reports"
+    assert facts.values["total_output_daily"] == 111
+    assert facts.values["total_output_month"] == 111
+    assert facts.sources["total_output_daily"]["source_type"] == "mes_packaging_output"
 
 
 def test_datahub_template_daily_report_text_is_used_when_ready(tmp_path, monkeypatch) -> None:
@@ -229,7 +228,7 @@ def test_datahub_template_daily_report_text_is_used_when_ready(tmp_path, monkeyp
         template_daily_fact_sources.daily_overview_builder,
         "build_daily_production_overview",
         lambda *_args, **_kwargs: {
-            "plant_output": {"daily_output": 111, "monthly_output": 111},
+            "plant_output": {},
             "contracts": {},
             "yield_rates": {},
             "energy": {},
@@ -1241,7 +1240,7 @@ def test_mes_report_mapping_uses_device_name_for_cold_roll_rows(tmp_path) -> Non
     assert facts.values["cold_2050_daily"] == 167.9
 
 
-def test_owner_daily_wins_over_mes_process_output_for_cold_roll(tmp_path) -> None:
+def test_mes_process_output_wins_over_owner_daily_for_cold_roll(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
@@ -1261,10 +1260,10 @@ def test_owner_daily_wins_over_mes_process_output_for_cold_roll(tmp_path) -> Non
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["cold_1650_daily"] == 130.01
-    assert facts.values["cold_1850_daily"] == 45.75
-    assert facts.values["cold_2050_daily"] == 80.4
-    assert facts.sources["cold_1650_daily"]["source_type"] == "owner_daily"
+    assert facts.values["cold_1650_daily"] == 166.417
+    assert facts.values["cold_1850_daily"] == 99.99
+    assert facts.values["cold_2050_daily"] == 207.29
+    assert facts.sources["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
 
 
 def test_rolling_total_is_sum_of_report_mapped_1650_1850_2050(tmp_path) -> None:

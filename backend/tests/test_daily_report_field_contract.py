@@ -126,6 +126,34 @@ def test_source_lane_order_is_single_and_answer_key_is_not_a_fact_source() -> No
     )
     assert contract_module.source_lane_priority("output_skill") < 0
 
+    priorities = [
+        contract_module.source_lane_priority(lane)
+        for lane in contract_module.FACT_SOURCE_LANE_ORDER
+    ]
+    assert priorities == [100, 90, 80, 70, 60, 40, 30]
+    assert priorities == sorted(priorities, reverse=True)
+
+
+@pytest.mark.parametrize(
+    ("source_type", "expected_lane"),
+    (
+        ("dingtalk_supplement", contract_module.SOURCE_LANE_DINGTALK),
+        ("root_owner_correction", contract_module.SOURCE_LANE_AUTHORIZED_CORRECTION),
+        ("mes_packaging_output", contract_module.SOURCE_LANE_MES_WMS_READONLY),
+        ("wms_direct", contract_module.SOURCE_LANE_MES_WMS_READONLY),
+        ("owner_daily", contract_module.SOURCE_LANE_SCAN_SUPPLEMENT),
+        ("contract_projection", contract_module.SOURCE_LANE_DATA_HUB_PROJECTION),
+        ("previous_final_report", contract_module.SOURCE_LANE_HISTORICAL_RECORD),
+        ("rag", contract_module.SOURCE_LANE_RAG_EXPLANATION_ONLY),
+        ("official_daily_report", contract_module.SOURCE_LANE_OUTPUT_SKILL_REFERENCE),
+    ),
+)
+def test_runtime_source_types_resolve_to_the_canonical_lane(
+    source_type: str,
+    expected_lane: str,
+) -> None:
+    assert contract_module.source_lane_for(source_type) == expected_lane
+
 
 def test_unknown_normative_field_is_rejected() -> None:
     with pytest.raises(KeyError):

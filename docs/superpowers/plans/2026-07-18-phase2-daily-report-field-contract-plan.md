@@ -97,7 +97,7 @@ feat(report): define canonical 127-field contract
 - Modify: `backend/tests/test_template_daily_fact_sources.py`
 - Modify: `backend/tests/test_daily_report_field_contract.py`
 
-- [ ] **Step 1: Rewrite the contradictory tests first**
+- [x] **Step 1: Rewrite the contradictory tests first**
 
 Lock this order:
 
@@ -113,25 +113,25 @@ rag_explanation_only
 
 Add tests proving DingTalk wins over root-owner correction, MES/WMS wins over owner/scan data, RAG cannot produce a realtime number, and `output_skill` has no real-source lane.
 
-- [ ] **Step 2: Run the tests and verify they fail for the current priorities**
+- [x] **Step 2: Run the tests and verify they fail for the current priorities**
 
 Expected failures include the current `root_owner_correction=100 > dingtalk_supplement=90` and `owner_daily=100 > mes_evidence=20` behavior.
 
-- [ ] **Step 3: Implement one source-lane resolver and one score table**
+- [x] **Step 3: Implement one source-lane resolver and one score table**
 
 Both fact builders must call the same resolver. Keep source-specific trace validation; this task changes adoption order, not evidence requirements.
 
-- [ ] **Step 4: Verify conflicts remain visible**
+- [x] **Step 4: Verify conflicts remain visible**
 
 A lower-priority source must be retained in conflict/trace diagnostics even when not adopted. Do not delete conflicting facts to make tests pass.
 
-- [ ] **Step 5: Run focused and adjacent source tests**
+- [x] **Step 5: Run focused and adjacent source tests**
 
 ```powershell
 uv run --with-requirements backend/requirements.txt --with pytest pytest -q backend/tests/test_daily_report_field_contract.py backend/tests/test_template_daily_fact_sources.py backend/tests/test_daily_fact_bundle_service.py backend/tests/test_hermes_root_owner_evidence_service.py
 ```
 
-- [ ] **Step 6: Commit the priority unification**
+- [x] **Step 6: Commit the priority unification**
 
 ```text
 fix(report): enforce canonical fact-source priority
