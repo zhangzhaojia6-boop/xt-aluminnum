@@ -543,6 +543,84 @@ def test_source_diagnostics_reports_real_wip_candidates(tmp_path) -> None:
     assert diagnostics["dingtalk"]["status"] == "missing_table"
 
 
+def test_source_diagnostics_reports_known_manual_entry_coverage_without_raw_payload(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'alignment-manual-entry-diagnostics.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            script.WorkOrderEntry.__table__,
+            script.MobileShiftReport.__table__,
+        ],
+    )
+    Session = sessionmaker(bind=engine, future=True)
+    db = Session()
+    business_date = date(2026, 6, 29)
+    try:
+        db.add_all(
+            [
+                script.WorkOrderEntry(
+                    work_order_id=1,
+                    workshop_id=1,
+                    business_date=business_date,
+                    entry_type="owner_daily",
+                    entry_status="submitted",
+                    extra_payload={
+                        "cold_1650_daily": 130,
+                        "daily_input_weight": 197,
+                        "private_note": "must not be exposed",
+                    },
+                ),
+                script.WorkOrderEntry(
+                    work_order_id=2,
+                    workshop_id=1,
+                    business_date=business_date,
+                    entry_type="owner_daily",
+                    entry_status="draft",
+                    extra_payload={"cold_1850_daily": 46},
+                ),
+                script.WorkOrderEntry(
+                    work_order_id=3,
+                    workshop_id=2,
+                    business_date=business_date,
+                    entry_type="mobile_coil",
+                    entry_status="verified",
+                    output_weight=12000,
+                    energy_kwh=500,
+                ),
+                script.MobileShiftReport(
+                    business_date=business_date,
+                    shift_config_id=1,
+                    workshop_id=2,
+                    report_status="auto_confirmed",
+                    output_weight=12,
+                    electricity_daily=500,
+                    gas_daily=100,
+                ),
+            ]
+        )
+        db.commit()
+
+        diagnostics = script._source_diagnostics(db, business_date, wip_date=business_date)
+    finally:
+        db.close()
+
+    manual = diagnostics["manual_entries"]
+    assert manual["status"] == "ready"
+    assert manual["submitted_rows"] == 2
+    assert manual["rows_by_entry_type"] == {"mobile_coil": 1, "owner_daily": 1}
+    assert manual["owner_daily_rows"] == 1
+    assert manual["owner_daily_recognized_fields"] == ["cold_1650_daily", "cold_roll_input_daily"]
+    assert manual["owner_daily_recognized_field_count"] == 2
+    assert "private_note" not in json.dumps(manual)
+    assert manual["mobile_coil_rows"] == 1
+    assert manual["mobile_coil_rows_with_output_weight"] == 1
+    assert manual["mobile_coil_rows_with_energy"] == 1
+    assert manual["mobile_shift_rows"] == 1
+    assert manual["mobile_shift_rows_with_output_weight"] == 1
+    assert manual["mobile_shift_rows_with_electricity"] == 1
+    assert manual["mobile_shift_rows_with_gas"] == 1
+
+
 def test_source_diagnostics_reports_datahub_final_report_parseability(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'alignment-datahub-diagnostics.db'}", future=True)
     Base.metadata.create_all(
@@ -660,6 +738,25 @@ def test_source_diagnostics_reports_parseable_dingtalk_file_payloads(tmp_path) -
                 },
             )
         )
+        db.add(
+            script.MultimodalEvidence(
+                evidence_type="attachment",
+                file_uri="dingtalk://media/old-daily-20260628",
+                recognized_text="历史日报文件",
+                confirmation_status="confirmed",
+                created_at=datetime(2026, 6, 28, 10, 0),
+                payload={
+                    "source": "dingtalk",
+                    "file_name": "6月28日生产日报.xlsx",
+                    "file_text": (
+                        "6月28日生产日报\n"
+                        "车间总产量日合计90吨。\n"
+                        "入库成品日合计88吨。\n"
+                        "日成品率82.1%。"
+                    ),
+                },
+            )
+        )
         db.commit()
 
         diagnostics = script._source_diagnostics(db, business_date, wip_date=business_date)
@@ -668,13 +765,16 @@ def test_source_diagnostics_reports_parseable_dingtalk_file_payloads(tmp_path) -
 
     dingtalk = diagnostics["dingtalk"]
     assert dingtalk["status"] == "ready"
-    assert dingtalk["all_file_payload_rows"] == 2
-    assert dingtalk["machine_only_file_payload_rows"] == 1
-    assert dingtalk["machine_only_parseable_file_payload_rows"] == 1
+    assert dingtalk["scope"] == "business_window"
+    assert dingtalk["payload_rows_in_business_window"] == 2
+    assert dingtalk["file_payload_rows_in_business_window"] == 2
+    assert dingtalk["machine_only_file_payload_rows_in_business_window"] == 1
+    assert dingtalk["machine_only_parseable_file_payload_rows_in_business_window"] == 1
     assert dingtalk["confirmed_file_payload_rows"] == 1
     assert dingtalk["confirmed_file_payload_rows_in_business_window"] == 1
     assert dingtalk["parseable_file_payload_rows"] == 1
     assert dingtalk["parseable_file_payload_rows_in_business_window"] == 1
+    assert "all_file_payload_rows" not in dingtalk
 
 
 def test_energy_source_diagnostics_groups_rows_by_source(monkeypatch) -> None:

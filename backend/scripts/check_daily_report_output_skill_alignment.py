@@ -24,13 +24,16 @@ except ImportError:
 
 from sqlalchemy import and_, func, inspect, or_
 
-from app.core.business_time import last_completed_production_business_date, local_now, production_business_window
+from app.core.business_time import last_completed_production_business_date, production_business_window
+from app.core.report_statuses import READY_REPORT_STATUSES
 from app.database import get_sessionmaker
 from app.domain.daily_report_field_contract import normative_daily_report_fields
 from app.models.agent_communication import MultimodalEvidence
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot
+from app.models.production import MobileShiftReport, WorkOrderEntry
 from app.models.reports import DailyReport, DailyReportHistoryRecord
 from app.services import energy_service
+from app.services.report import template_daily_fact_sources, template_daily_report
 from app.services.report.daily_fact_bundle import build_daily_fact_bundle
 from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 
@@ -74,6 +77,8 @@ DINGTALK_TEXT_CONTAINER_KEYS = (
     "sheets",
 )
 NORMATIVE_FIELD_COUNT = len(normative_daily_report_fields())
+SUBMITTED_ENTRY_STATUSES = ("submitted", "verified", "approved")
+READY_MOBILE_REPORT_STATUSES = tuple(sorted(READY_REPORT_STATUSES))
 
 
 def parse_business_date(value: str) -> date:
@@ -576,9 +581,110 @@ def _source_diagnostics(db: Any, business_date: date, *, wip_date: date | None =
         "wip_date": effective_wip_date.isoformat(),
         "wip": _wip_source_diagnostics(db, effective_wip_date),
         "energy": _energy_source_diagnostics(db, business_date),
+        "manual_entries": _manual_entry_source_diagnostics(db, business_date),
         "dingtalk": _dingtalk_source_diagnostics(db, business_date),
         "datahub_final_report": _datahub_final_report_diagnostics(db, business_date),
     }
+
+
+def _manual_entry_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
+    work_order_table_exists = _table_exists(db, WorkOrderEntry.__tablename__)
+    mobile_shift_table_exists = _table_exists(db, MobileShiftReport.__tablename__)
+    result: dict[str, Any] = {
+        "status": "ready" if work_order_table_exists or mobile_shift_table_exists else "missing_table",
+        "work_order_entries_status": "ready" if work_order_table_exists else "missing_table",
+        "mobile_shift_reports_status": "ready" if mobile_shift_table_exists else "missing_table",
+        "submitted_rows": 0,
+        "rows_by_entry_type": {},
+        "owner_daily_rows": 0,
+        "owner_daily_recognized_fields": [],
+        "owner_daily_recognized_field_count": 0,
+        "mobile_coil_rows": 0,
+        "mobile_coil_rows_with_output_weight": 0,
+        "mobile_coil_rows_with_energy": 0,
+        "mobile_shift_rows": 0,
+        "mobile_shift_rows_with_output_weight": 0,
+        "mobile_shift_rows_with_electricity": 0,
+        "mobile_shift_rows_with_gas": 0,
+    }
+    try:
+        if work_order_table_exists:
+            entries = (
+                db.query(
+                    WorkOrderEntry.entry_type,
+                    WorkOrderEntry.extra_payload,
+                    WorkOrderEntry.output_weight,
+                    WorkOrderEntry.energy_kwh,
+                )
+                .filter(
+                    WorkOrderEntry.business_date == business_date,
+                    WorkOrderEntry.entry_status.in_(SUBMITTED_ENTRY_STATUSES),
+                )
+                .all()
+            )
+            result["submitted_rows"] = len(entries)
+            rows_by_entry_type: dict[str, int] = {}
+            owner_fields: set[str] = set()
+            for entry in entries:
+                entry_type = str(entry.entry_type or "unknown")
+                rows_by_entry_type[entry_type] = rows_by_entry_type.get(entry_type, 0) + 1
+                if entry_type == "owner_daily":
+                    result["owner_daily_rows"] += 1
+                    owner_fields.update(_recognized_owner_daily_fields(entry.extra_payload))
+                if entry_type == "mobile_coil":
+                    result["mobile_coil_rows"] += 1
+                    result["mobile_coil_rows_with_output_weight"] += int(_has_value(entry.output_weight))
+                    result["mobile_coil_rows_with_energy"] += int(_has_value(entry.energy_kwh))
+            result["rows_by_entry_type"] = dict(sorted(rows_by_entry_type.items()))
+            result["owner_daily_recognized_fields"] = sorted(owner_fields)
+            result["owner_daily_recognized_field_count"] = len(owner_fields)
+
+        if mobile_shift_table_exists:
+            shift_rows = (
+                db.query(
+                    MobileShiftReport.output_weight,
+                    MobileShiftReport.electricity_daily,
+                    MobileShiftReport.gas_daily,
+                )
+                .filter(
+                    MobileShiftReport.business_date == business_date,
+                    MobileShiftReport.report_status.in_(READY_MOBILE_REPORT_STATUSES),
+                )
+                .all()
+            )
+            result["mobile_shift_rows"] = len(shift_rows)
+            result["mobile_shift_rows_with_output_weight"] = sum(
+                int(_has_value(row.output_weight)) for row in shift_rows
+            )
+            result["mobile_shift_rows_with_electricity"] = sum(
+                int(_has_value(row.electricity_daily)) for row in shift_rows
+            )
+            result["mobile_shift_rows_with_gas"] = sum(int(_has_value(row.gas_daily)) for row in shift_rows)
+    except Exception as exc:
+        result["status"] = "error"
+        result["error"] = type(exc).__name__
+    return result
+
+
+def _recognized_owner_daily_fields(payload: Any) -> set[str]:
+    if not isinstance(payload, dict):
+        return set()
+    recognized: set[str] = set()
+    for target_field in template_daily_report.REQUIRED_FIELDS:
+        source_fields = (
+            target_field,
+            *template_daily_fact_sources.OWNER_FIELD_ALIASES.get(target_field, ()),
+        )
+        if any(_has_value(payload.get(source_field)) for source_field in source_fields if source_field in payload):
+            recognized.add(target_field)
+    for target_field, source_fields in template_daily_fact_sources.OWNER_MONTH_SUM_ALIASES.items():
+        if any(_has_value(payload.get(source_field)) for source_field in source_fields if source_field in payload):
+            recognized.add(target_field)
+    return recognized
+
+
+def _has_value(value: Any) -> bool:
+    return value is not None and value != ""
 
 
 def _wip_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]:
@@ -708,71 +814,59 @@ def _dingtalk_source_diagnostics(db: Any, business_date: date) -> dict[str, Any]
     try:
         confirmed_statuses = ("confirmed", "human_confirmed", "specialist_sampled")
         start_at, end_at = production_business_window(business_date)
-        all_payload_rows = (
-            db.query(MultimodalEvidence)
-            .filter(MultimodalEvidence.payload.isnot(None))
-            .all()
-        )
-        confirmed_rows = (
-            db.query(MultimodalEvidence)
+        rows = (
+            db.query(
+                MultimodalEvidence.evidence_type,
+                MultimodalEvidence.file_uri,
+                MultimodalEvidence.recognized_text,
+                MultimodalEvidence.confirmation_status,
+                MultimodalEvidence.payload,
+            )
             .filter(
                 MultimodalEvidence.payload.isnot(None),
-                MultimodalEvidence.confirmation_status.in_(confirmed_statuses),
-            )
-            .all()
-        )
-        business_window_rows = [
-            row
-            for row in confirmed_rows
-            if _created_at_in_window(row.created_at, start_at=start_at, end_at=end_at)
-        ]
-        confirmed_payload_rows = _count_query(
-            db.query(MultimodalEvidence.id).filter(
-                MultimodalEvidence.payload.isnot(None),
-                MultimodalEvidence.confirmation_status.in_(confirmed_statuses),
-            )
-        )
-        confirmed_rows_in_business_window = _count_query(
-            db.query(MultimodalEvidence.id).filter(
-                MultimodalEvidence.payload.isnot(None),
-                MultimodalEvidence.confirmation_status.in_(confirmed_statuses),
                 MultimodalEvidence.created_at >= start_at,
                 MultimodalEvidence.created_at < end_at,
+                or_(
+                    MultimodalEvidence.payload["source"].as_string() == "dingtalk",
+                    MultimodalEvidence.evidence_type.like("dingtalk/_%", escape="/"),
+                    MultimodalEvidence.file_uri.like("dingtalk://%"),
+                ),
             )
+            .all()
         )
     except Exception as exc:
         return {"status": "error", "error": type(exc).__name__}
-    all_file_rows = [row for row in all_payload_rows if _is_dingtalk_file_evidence(row)]
+    file_rows = [row for row in rows if _is_dingtalk_file_evidence(row)]
     machine_file_rows = [
         row
-        for row in all_file_rows
+        for row in file_rows
         if str(row.confirmation_status or "").strip().lower() == "machine_only"
     ]
-    file_rows = [row for row in confirmed_rows if _is_dingtalk_file_evidence(row)]
-    file_rows_in_business_window = [row for row in business_window_rows if _is_dingtalk_file_evidence(row)]
+    confirmed_rows = [
+        row for row in rows if str(row.confirmation_status or "").strip().lower() in confirmed_statuses
+    ]
+    confirmed_file_rows = [row for row in confirmed_rows if _is_dingtalk_file_evidence(row)]
+    parseable_confirmed_files = _parseable_dingtalk_file_count(confirmed_file_rows)
     return {
         "status": "ready",
-        "all_payload_rows": len(all_payload_rows),
-        "all_file_payload_rows": len(all_file_rows),
-        "machine_only_file_payload_rows": len(machine_file_rows),
-        "machine_only_parseable_file_payload_rows": _parseable_dingtalk_file_count(machine_file_rows),
-        "confirmed_payload_rows": confirmed_payload_rows,
-        "confirmed_payload_rows_in_business_window": confirmed_rows_in_business_window,
-        "confirmed_file_payload_rows": len(file_rows),
-        "confirmed_file_payload_rows_in_business_window": len(file_rows_in_business_window),
-        "parseable_file_payload_rows": _parseable_dingtalk_file_count(file_rows),
-        "parseable_file_payload_rows_in_business_window": _parseable_dingtalk_file_count(file_rows_in_business_window),
+        "scope": "business_window",
+        "business_window": f"{start_at.isoformat()}/{end_at.isoformat()}",
+        "payload_rows_in_business_window": len(rows),
+        "file_payload_rows_in_business_window": len(file_rows),
+        "machine_only_file_payload_rows_in_business_window": len(machine_file_rows),
+        "machine_only_parseable_file_payload_rows_in_business_window": _parseable_dingtalk_file_count(
+            machine_file_rows
+        ),
+        "confirmed_payload_rows": len(confirmed_rows),
+        "confirmed_payload_rows_in_business_window": len(confirmed_rows),
+        "confirmed_file_payload_rows": len(confirmed_file_rows),
+        "confirmed_file_payload_rows_in_business_window": len(confirmed_file_rows),
+        "parseable_file_payload_rows": parseable_confirmed_files,
+        "parseable_file_payload_rows_in_business_window": parseable_confirmed_files,
     }
 
 
-def _created_at_in_window(value: Any, *, start_at: datetime, end_at: datetime) -> bool:
-    if not isinstance(value, datetime):
-        return False
-    normalized = local_now(value)
-    return normalized >= start_at and normalized < end_at
-
-
-def _is_dingtalk_file_evidence(row: MultimodalEvidence) -> bool:
+def _is_dingtalk_file_evidence(row: Any) -> bool:
     evidence_type = str(row.evidence_type or "").strip().lower()
     if evidence_type in DINGTALK_FILE_EVIDENCE_TYPES:
         return True
@@ -782,7 +876,7 @@ def _is_dingtalk_file_evidence(row: MultimodalEvidence) -> bool:
     return bool(payload.get("file_name") or payload.get("dingtalk_media_id"))
 
 
-def _parseable_dingtalk_file_count(rows: Sequence[MultimodalEvidence]) -> int:
+def _parseable_dingtalk_file_count(rows: Sequence[Any]) -> int:
     count = 0
     for row in rows:
         if _parseable_field_count(_dingtalk_evidence_text(row)) >= MIN_DINGTALK_PARSEABLE_FIELDS:
@@ -793,7 +887,7 @@ def _parseable_dingtalk_file_count(rows: Sequence[MultimodalEvidence]) -> int:
 MIN_DINGTALK_PARSEABLE_FIELDS = 3
 
 
-def _dingtalk_evidence_text(row: MultimodalEvidence) -> str:
+def _dingtalk_evidence_text(row: Any) -> str:
     parts: list[str] = []
     seen: set[str] = set()
     _append_dingtalk_text_part(row.recognized_text, parts=parts, seen=seen)
@@ -1071,6 +1165,13 @@ def _render_source_diagnostics(source_diagnostics: dict[str, Any]) -> list[str]:
     energy = source_diagnostics.get("energy") if isinstance(source_diagnostics.get("energy"), dict) else {}
     if energy:
         lines.append(f"  - energy: {_source_diagnostic_item_text(energy)}")
+    manual_entries = (
+        source_diagnostics.get("manual_entries")
+        if isinstance(source_diagnostics.get("manual_entries"), dict)
+        else {}
+    )
+    if manual_entries:
+        lines.append(f"  - manual_entries: {_source_diagnostic_item_text(manual_entries)}")
     dingtalk = source_diagnostics.get("dingtalk") if isinstance(source_diagnostics.get("dingtalk"), dict) else {}
     if dingtalk:
         lines.append(f"  - dingtalk: {_source_diagnostic_item_text(dingtalk)}")

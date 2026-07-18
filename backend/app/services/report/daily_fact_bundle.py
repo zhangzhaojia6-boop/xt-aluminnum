@@ -11,13 +11,24 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import local_now
+from app.core.business_time import local_now, production_business_window
 from app.core.redaction import filter_sensitive_mapping
-from app.domain.daily_report_field_contract import source_lane_priority
+from app.domain.daily_report_field_contract import (
+    BUSINESS_TIME_BILLET,
+    daily_report_field_contract_for,
+    source_lane_priority,
+)
+from app.domain.metric_contracts import (
+    daily_report_contract_for as daily_report_metric_contract_for,
+    fact_source_failure_reason,
+    metric_unit_failure_reason,
+    metric_value_failure_reason,
+)
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
 from app.models.system import User
 from app.services.hermes_daily_fact_update_service import extract_daily_fact_update_candidates
 from app.services.hermes_dingtalk_evidence_service import (
+    ADOPTABLE_CONFIRMATION_STATUSES,
     DingTalkEvidenceItem,
     dingtalk_evidence_adoption_reason,
     query_dingtalk_evidence,
@@ -77,6 +88,65 @@ DINGTALK_TEXT_KEYS = (
     "plain_text",
     "summary",
 )
+
+
+def _business_window_for_field(field_name: str, business_date: date) -> str:
+    try:
+        business_time_scope = daily_report_field_contract_for(field_name).business_time_scope
+    except KeyError:
+        business_time_scope = None
+    workshop_name = "热轧" if business_time_scope == BUSINESS_TIME_BILLET else None
+    start_at, end_at = production_business_window(business_date, workshop_name=workshop_name)
+    return f"{start_at.isoformat()}/{end_at.isoformat()}"
+
+
+def _dingtalk_fact_evidence_gaps(
+    *,
+    field_name: str,
+    value: Any,
+    unit: Any,
+    source_detail: Mapping[str, Any],
+    now: datetime,
+) -> list[str]:
+    gaps: list[str] = []
+    value_failure = metric_value_failure_reason(field_name, value)
+    if value_failure is not None:
+        gaps.append(value_failure)
+    unit_failure = metric_unit_failure_reason(field_name, unit)
+    if unit_failure is not None:
+        gaps.append(unit_failure)
+    if source_detail.get("parse_status") != "text_captured":
+        gaps.append("parse_status_not_text_captured")
+    if source_detail.get("confirmation_status") not in ADOPTABLE_CONFIRMATION_STATUSES:
+        gaps.append("confirmation_status_not_adoptable")
+
+    business_date_text = str(source_detail.get("business_date") or "")
+    business_window = str(source_detail.get("business_window") or "")
+    expected_window = _business_window_for_field(field_name, date.fromisoformat(business_date_text))
+    if business_window != expected_window:
+        gaps.append("business_window_contract_mismatch")
+    else:
+        window_end = datetime.fromisoformat(business_window.split("/", 1)[1])
+        if window_end > now.astimezone(window_end.tzinfo):
+            gaps.append("business_window_not_closed")
+
+    trace_id = str(source_detail.get("trace_id") or "")
+    source_failure = fact_source_failure_reason(
+        field_name,
+        source_key=str(source_detail.get("source_key") or ""),
+        source_type="dingtalk_supplement",
+        source_ref=source_detail,
+        trace_id=trace_id,
+        business_date=business_date_text,
+        business_window=business_window,
+        unit=str(unit or ""),
+        metric_contract_version=str(source_detail.get("metric_contract_version") or ""),
+    )
+    if source_failure is not None:
+        gaps.append(source_failure)
+    return list(dict.fromkeys(gaps))
+
+
 DINGTALK_TEXT_CONTAINER_KEYS = (
     "file",
     "files",
@@ -134,7 +204,12 @@ def build_daily_fact_bundle(
     )
     reference_only = allow_output_skill_reference_adoption and _should_adopt_output_skill_reference()
     bundle["reference_only"] = reference_only
-    bundle = _apply_dingtalk_supplements(db, bundle=bundle, business_date=business_date)
+    bundle = _apply_dingtalk_supplements(
+        db,
+        bundle=bundle,
+        business_date=business_date,
+        now=effective_now,
+    )
     output_skill_root = _output_skill_root()
     if reference_only:
         bundle = _apply_output_skill_reference(
@@ -686,6 +761,7 @@ def _apply_dingtalk_supplements(
     *,
     bundle: dict[str, Any],
     business_date: date,
+    now: datetime,
 ) -> dict[str, Any]:
     items = query_dingtalk_evidence(
         db,
@@ -786,14 +862,24 @@ def _apply_dingtalk_supplements(
                 "source_key": item.source_key,
                 "recognized_text": candidate.get("raw_text") or _dingtalk_evidence_text(item, payload),
                 "business_date": business_date.isoformat(),
+                "business_window": _business_window_for_field(field_name, business_date),
+                "confirmation_status": item.confirmation_status,
+                "parse_status": item.parse_status,
+                "unit": new_unit,
             }
+            try:
+                metric_contract = daily_report_metric_contract_for(field_name)
+            except KeyError:
+                metric_contract = None
+            if metric_contract is not None:
+                source_detail["metric_contract_version"] = metric_contract.metric_contract_version
             field_source_ref = candidate.get("source_ref")
             if isinstance(field_source_ref, Mapping):
                 source_detail["field_source_ref"] = _json_safe(field_source_ref)
             trace_id = str(candidate.get("trace_id") or item.trace_id or "").strip()
             if trace_id:
                 source_detail["trace_id"] = trace_id
-            facts[field_name] = _fact_item(
+            fact = _fact_item(
                 value=new_value,
                 unit=new_unit,
                 source="dingtalk_supplement",
@@ -809,6 +895,16 @@ def _apply_dingtalk_supplements(
                 source_detail=source_detail,
                 source_ref=source_detail,
             )
+            evidence_gaps = _dingtalk_fact_evidence_gaps(
+                field_name=field_name,
+                value=new_value,
+                unit=new_unit,
+                source_detail=source_detail,
+                now=now,
+            )
+            fact["evidence_status"] = "confirmed" if not evidence_gaps else "needs_evidence"
+            fact["evidence_gaps"] = evidence_gaps
+            facts[field_name] = fact
             applied_fields.append(field_name)
             applied_field_names.add(field_name)
             if old_value != new_value:
