@@ -938,7 +938,8 @@ def test_promoted_energy_workbook_fills_explicit_totals_and_gas_breakdown() -> N
         assert facts.sources['total_electricity_kwh']['business_window'] == (
             f'{energy_start.isoformat()}/{energy_end.isoformat()}'
         )
-        assert facts.sources['total_electricity_kwh']['metric_contract_version'] == (
+        assert facts.sources['total_electricity_kwh']['metric_contract_version'] == '2026-07-11'
+        assert facts.sources['total_electricity_kwh']['field_contract_version'] == (
             DAILY_REPORT_FIELD_CONTRACT_VERSION
         )
         assert facts.sources['total_electricity_kwh']['row_anchors'] == [
@@ -979,6 +980,111 @@ def test_promoted_energy_workbook_fills_explicit_totals_and_gas_breakdown() -> N
             'source_ref': 'mes_stock_records',
             'trace_id': 'mes-read:mes_stock_records:2026-07-17',
         }
+    finally:
+        db.close()
+
+
+def test_legacy_furnace_field_is_reclassified_only_with_matching_promoted_records() -> None:
+    db = _session()
+    try:
+        batch = ImportBatch(
+            batch_no='IMP-ENERGY-LEGACY-FURNACE-20260717',
+            import_type='energy',
+            source_type='daily_energy_report_locked',
+            file_name='daily-energy-legacy-furnace.xlsx',
+            total_rows=2,
+            success_rows=2,
+            failed_rows=0,
+            skipped_rows=0,
+            status='completed',
+            quality_status='ready',
+            parsed_successfully=True,
+        )
+        db.add(batch)
+        db.flush()
+        east = _energy_row(1, 'gas', '热轧加热炉/1#东炉', 0)
+        west = _energy_row(2, 'gas', '热轧加热炉/1#西炉', 0)
+        for row in (east, west):
+            row.batch_id = batch.id
+            row.mapped_data['report_field'] = 'hot_roll_furnace_gas_m3'
+        db.add_all([east, west])
+        db.add_all(
+            [
+                EnergyImportRecord(
+                    import_batch_id=batch.id,
+                    business_date=REPORT_DATE,
+                    workshop_code='RZ',
+                    shift_code=None,
+                    energy_type='gas',
+                    energy_value=0,
+                    unit='m3',
+                    source_row_no=11,
+                ),
+                EnergyImportRecord(
+                    import_batch_id=batch.id,
+                    business_date=REPORT_DATE,
+                    workshop_code='RZ',
+                    shift_code=None,
+                    energy_type='gas',
+                    energy_value=0,
+                    unit='m3',
+                    source_row_no=12,
+                ),
+            ]
+        )
+        db.commit()
+
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        template_daily_fact_sources.collect_imported_energy_workbook_facts(db, facts)
+
+        assert facts.values['east_furnace_gas_m3'] == 0
+        assert facts.values['west_furnace_gas_m3'] == 0
+        assert facts.values['hot_roll_furnace_gas_m3'] == 0
+    finally:
+        db.close()
+
+
+def test_legacy_furnace_field_without_matching_promoted_record_is_rejected() -> None:
+    db = _session()
+    try:
+        batch = ImportBatch(
+            batch_no='IMP-ENERGY-UNPROVEN-LEGACY-FURNACE-20260717',
+            import_type='energy',
+            source_type='daily_energy_report_locked',
+            file_name='daily-energy-unproven-legacy-furnace.xlsx',
+            total_rows=1,
+            success_rows=1,
+            failed_rows=0,
+            skipped_rows=0,
+            status='completed',
+            quality_status='ready',
+            parsed_successfully=True,
+        )
+        db.add(batch)
+        db.flush()
+        row = _energy_row(1, 'gas', '热轧加热炉/1#东炉', 0)
+        row.batch_id = batch.id
+        row.mapped_data['report_field'] = 'hot_roll_furnace_gas_m3'
+        db.add(row)
+        db.add(
+            EnergyImportRecord(
+                import_batch_id=batch.id,
+                business_date=REPORT_DATE,
+                workshop_code='RZ',
+                shift_code=None,
+                energy_type='gas',
+                energy_value=1,
+                unit='m3',
+                source_row_no=99,
+            )
+        )
+        db.commit()
+
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        template_daily_fact_sources.collect_imported_energy_workbook_facts(db, facts)
+
+        assert 'east_furnace_gas_m3' not in facts.values
+        assert 'hot_roll_furnace_gas_m3' not in facts.values
     finally:
         db.close()
 

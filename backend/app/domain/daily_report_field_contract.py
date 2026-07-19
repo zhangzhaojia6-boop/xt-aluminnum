@@ -54,6 +54,8 @@ _SOURCE_LANE_PRIORITIES = {
 REFERENCE_ROLE_COMPARE_ONLY = "compare_only"
 
 TEMPLATE_ONLY_FIELD_REASONS = {
+    "cast_roll_active_lines": "optional_display_field_absent_from_current_canonical_reports",
+    "finished_inbound_month": "internal_fact_not_rendered_in_current_canonical_reports",
     "recovery_daily": "legacy_template_unit_not_frozen",
     "recovery_month": "legacy_template_unit_not_frozen",
     "remaining_contract_delta": "derived_display_field_outside_normative_denominator",

@@ -26,6 +26,7 @@ CRITICAL_DAILY_FACT_FIELDS = (
 )
 
 BLOCKING_STATUSES = {"missing", "mismatch", "needs_evidence"}
+EXPLICIT_EVIDENCE_STATUS_SOURCE_TYPES = {"manual_workbook"}
 
 
 def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]:
@@ -233,6 +234,11 @@ def _field_status(
     if not _has_value(value) or not source_types:
         return "missing"
     if not _is_allowed_source(field, source_types):
+        return "needs_evidence"
+    if (
+        any(source_type in EXPLICIT_EVIDENCE_STATUS_SOURCE_TYPES for source_type in source_types)
+        and evidence_status != "confirmed"
+    ):
         return "needs_evidence"
     if evidence_status == "needs_evidence":
         return "needs_evidence"

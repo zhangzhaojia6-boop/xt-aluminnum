@@ -15,18 +15,20 @@ from app.domain import metric_contracts
 from app.services.report import template_daily_field_contract
 
 
-def test_normative_contract_has_exactly_127_fields_without_shrinking_template() -> None:
+def test_normative_contract_excludes_fields_absent_from_canonical_report_text() -> None:
     template_fields = template_daily_field_contract.all_contract_fields()
     normative_fields = contract_module.normative_daily_report_fields()
 
     assert len(template_fields) == 130
-    assert len(normative_fields) == 127
+    assert len(normative_fields) == 125
     assert len(normative_fields) == len(set(normative_fields))
     assert set(normative_fields).issubset(template_fields)
     assert set(template_fields) - set(normative_fields) == set(
         contract_module.TEMPLATE_ONLY_FIELD_REASONS
     )
     assert contract_module.TEMPLATE_ONLY_FIELD_REASONS == {
+        "cast_roll_active_lines": "optional_display_field_absent_from_current_canonical_reports",
+        "finished_inbound_month": "internal_fact_not_rendered_in_current_canonical_reports",
         "recovery_daily": "legacy_template_unit_not_frozen",
         "recovery_month": "legacy_template_unit_not_frozen",
         "remaining_contract_delta": "derived_display_field_outside_normative_denominator",
@@ -83,7 +85,6 @@ def test_business_time_contract_reuses_runtime_constants() -> None:
 def test_contract_units_and_tolerances_cover_representative_field_kinds() -> None:
     expected = {
         "report_date": ("日期", 0.0),
-        "cast_roll_active_lines": ("条", 0.0),
         "cold_1650_pass_daily": ("道", 0.0),
         "roller_grind_daily": ("根", 0.0),
         "total_output_daily": ("吨", 20.0),
@@ -101,6 +102,10 @@ def test_contract_units_and_tolerances_cover_representative_field_kinds() -> Non
     for field_name, (unit, tolerance) in expected.items():
         contract = contract_module.daily_report_field_contract_for(field_name)
         assert (contract.unit, contract.tolerance) == (unit, tolerance)
+
+    for optional_field in ("cast_roll_active_lines", "finished_inbound_month"):
+        with pytest.raises(KeyError):
+            contract_module.daily_report_field_contract_for(optional_field)
 
 
 def test_existing_metric_tolerance_lookup_reuses_normative_contract() -> None:

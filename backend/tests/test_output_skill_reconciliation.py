@@ -115,8 +115,8 @@ def test_legacy_numeric_tolerance_is_accepted_but_ignored() -> None:
 
 def test_normative_denominator_does_not_shrink_for_undeclared_reference_gaps() -> None:
     normative_fields = normative_daily_report_fields()
-    reference_fields = normative_fields[:124]
-    absent_fields = list(normative_fields[124:])
+    reference_fields = normative_fields[:-3]
+    absent_fields = list(normative_fields[-3:])
     values = {field_name: index for index, field_name in enumerate(reference_fields)}
 
     result = output_skill_reconciliation.reconcile_field_values(
@@ -125,21 +125,21 @@ def test_normative_denominator_does_not_shrink_for_undeclared_reference_gaps() -
         normative_fields=normative_fields,
     )
 
-    assert result["reference_present_fields"] == 124
+    assert result["reference_present_fields"] == len(reference_fields)
     assert result["declared_na_fields"] == []
     assert result["invalid_na_fields"] == []
     assert result["reference_absent_fields"] == absent_fields
     assert result["reference_absent_count"] == 3
-    assert result["normative_fields"] == 127
-    assert result["normative_denominator"] == 127
-    assert result["normative_matched_fields"] == 124
-    assert result["normative_coverage_rate"] == 97.64
+    assert result["normative_fields"] == len(normative_fields)
+    assert result["normative_denominator"] == len(normative_fields)
+    assert result["normative_matched_fields"] == len(reference_fields)
+    assert result["normative_coverage_rate"] == round(len(reference_fields) / len(normative_fields) * 100, 2)
 
 
 def test_valid_explicit_na_reduces_normative_denominator() -> None:
     normative_fields = normative_daily_report_fields()
-    reference_fields = normative_fields[:124]
-    declared_na = list(normative_fields[124:])
+    reference_fields = normative_fields[:-3]
+    declared_na = list(normative_fields[-3:])
     values = {field_name: index for index, field_name in enumerate(reference_fields)}
 
     result = output_skill_reconciliation.reconcile_field_values(
@@ -149,21 +149,21 @@ def test_valid_explicit_na_reduces_normative_denominator() -> None:
         declared_na_fields=declared_na,
     )
 
-    assert result["reference_present_fields"] == 124
+    assert result["reference_present_fields"] == len(reference_fields)
     assert result["declared_na_fields"] == declared_na
     assert result["invalid_na_fields"] == []
     assert result["reference_absent_fields"] == []
     assert result["reference_absent_count"] == 0
-    assert result["normative_fields"] == 127
-    assert result["normative_denominator"] == 124
-    assert result["normative_matched_fields"] == 124
+    assert result["normative_fields"] == len(normative_fields)
+    assert result["normative_denominator"] == len(reference_fields)
+    assert result["normative_matched_fields"] == len(reference_fields)
     assert result["normative_coverage_rate"] == 100.0
 
 
 def test_unknown_or_duplicate_na_field_is_invalid_and_does_not_reduce_denominator() -> None:
     normative_fields = normative_daily_report_fields()
-    reference_fields = normative_fields[:124]
-    duplicate = normative_fields[124]
+    reference_fields = normative_fields[:-3]
+    duplicate = normative_fields[-3]
     values = {field_name: index for index, field_name in enumerate(reference_fields)}
 
     result = output_skill_reconciliation.reconcile_field_values(
@@ -175,6 +175,6 @@ def test_unknown_or_duplicate_na_field_is_invalid_and_does_not_reduce_denominato
 
     assert result["declared_na_fields"] == []
     assert result["invalid_na_fields"] == [duplicate, "not_a_daily_report_field"]
-    assert result["reference_absent_fields"] == list(normative_fields[124:])
-    assert result["normative_denominator"] == 127
-    assert result["normative_coverage_rate"] == 97.64
+    assert result["reference_absent_fields"] == list(normative_fields[-3:])
+    assert result["normative_denominator"] == len(normative_fields)
+    assert result["normative_coverage_rate"] == round(len(reference_fields) / len(normative_fields) * 100, 2)

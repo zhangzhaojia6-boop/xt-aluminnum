@@ -68,7 +68,7 @@ def render_contract_markdown(payload: dict[str, Any] | None = None) -> str:
     data = payload or build_contract_payload()
     lines = [
         GENERATED_NOTICE,
-        "# 鑫泰铝业日报 127 字段合同",
+        f"# 鑫泰铝业日报 {data['normative_field_count']} 字段合同",
         "",
         f"> 合同版本：`{data['contract_version']}`。`D:\\输出skill` 仅作为 compare-only 答案钥匙，不能作为事实源填数。",
         "> RAG 只用于解释和检索，不能生成实时数字，也不能覆盖钉钉、授权纠正、MES/WMS 或扫码补录事实。",
@@ -96,7 +96,7 @@ def render_contract_markdown(payload: dict[str, Any] | None = None) -> str:
             "",
             f"`output_skill_reference` 分值为 `{data['output_skill_reference_priority']}`，不属于事实来源顺序。",
             "",
-            "## 127 个规范字段",
+            f"## {data['normative_field_count']} 个规范字段",
             "",
             "| # | 字段 | 分组 | 单位 | 业务时间 | 允许误差 | 答案钥匙角色 |",
             "|---:|---|---|---|---|---:|---|",
@@ -120,7 +120,7 @@ def render_contract_markdown(payload: dict[str, Any] | None = None) -> str:
             "",
             "## 仅模板展示字段",
             "",
-            "以下字段保留在 130 字段展示模板中，但不进入 127 字段规范分母。",
+            f"以下字段保留在 130 字段展示模板中，但不进入 {data['normative_field_count']} 字段规范分母。",
             "",
             "| 字段 | 原因 |",
             "|---|---|",
@@ -144,7 +144,7 @@ def contract_document_is_current(output_path: Path = DEFAULT_OUTPUT_PATH) -> boo
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Render the canonical 127-field daily report contract.")
+    parser = argparse.ArgumentParser(description="Render the canonical daily report field contract.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
     parser.add_argument("--check", action="store_true", help="Exit non-zero when the committed document is stale.")
     return parser
