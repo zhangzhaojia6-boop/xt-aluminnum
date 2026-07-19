@@ -1,6 +1,6 @@
-﻿from datetime import datetime
+﻿from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, json_object_type
@@ -45,6 +45,41 @@ class ImportRow(Base, TimestampMixin):
     error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     batch: Mapped['ImportBatch'] = relationship(back_populates='rows')
+
+
+class ImportedDailyMetricFact(Base, TimestampMixin):
+    __tablename__ = 'imported_daily_metric_facts'
+    __table_args__ = (
+        Index(
+            'uq_imported_daily_metric_active_key',
+            'business_date',
+            'field_name',
+            'source_kind',
+            unique=True,
+            postgresql_where=text("data_status = 'confirmed'"),
+            sqlite_where=text("data_status = 'confirmed'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    field_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    metric_value: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    unit: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_kind: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    import_batch_id: Mapped[int] = mapped_column(ForeignKey('import_batches.id'), nullable=False, index=True)
+    import_row_id: Mapped[int] = mapped_column(ForeignKey('import_rows.id'), nullable=False, index=True)
+    source_anchors: Mapped[list] = mapped_column(json_object_type, nullable=False, default=list)
+    lineage_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    metric_contract_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    data_status: Mapped[str] = mapped_column(String(16), nullable=False, default='confirmed', index=True)
+    version_no: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    superseded_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey('imported_daily_metric_facts.id'), nullable=True, index=True
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    voided_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class FieldMappingTemplate(Base, TimestampMixin):

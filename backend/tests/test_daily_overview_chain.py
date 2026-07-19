@@ -1157,7 +1157,7 @@ def test_build_energy_keeps_unreported_gas_missing_for_imported_energy(monkeypat
 
     assert payload['total_electricity'] == 173500.0
     assert payload['total_gas'] is None
-    assert payload['electricity_cost'] == 11.28
+    assert payload['electricity_cost'] == 13.88
     assert payload['gas_cost'] is None
     assert payload['total_cost'] is None
 

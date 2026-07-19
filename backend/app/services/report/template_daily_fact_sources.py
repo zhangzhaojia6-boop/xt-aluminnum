@@ -4,7 +4,7 @@ import copy
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import math
 from typing import Any, Callable
 
@@ -19,7 +19,7 @@ from app.domain.daily_report_field_contract import (
     source_lane_priority,
 )
 from app.models.energy import EnergyImportRecord
-from app.models.imports import ImportBatch, ImportRow
+from app.models.imports import ImportBatch, ImportedDailyMetricFact, ImportRow
 from app.models.master import Equipment, Workshop
 from app.models.mes import (
     MesCoilSnapshot,
@@ -1495,10 +1495,176 @@ def _production_metric_matches(
     )
 
 
+def _promoted_report_metric_matches(
+    fact: ImportedDailyMetricFact,
+    import_row: ImportRow | None,
+) -> bool:
+    if import_row is None or import_row.batch_id != fact.import_batch_id or import_row.status != "success":
+        return False
+    mapped = import_row.mapped_data if isinstance(import_row.mapped_data, dict) else {}
+    if (
+        not daily_production_lineage_is_valid(mapped)
+        or str(mapped.get("lineage_hash") or "") != fact.lineage_hash
+        or str(mapped.get("business_date") or "") != fact.business_date.isoformat()
+        or str(mapped.get("quality_status") or "").strip().lower() not in {"ready", "warning"}
+        or fact.metric_contract_version != DAILY_REPORT_FIELD_CONTRACT_VERSION
+    ):
+        return False
+    matches = [
+        item
+        for item in mapped.get("report_metrics") or []
+        if isinstance(item, dict) and str(item.get("field_name") or "") == fact.field_name
+    ]
+    if len(matches) != 1:
+        return False
+    metric = matches[0]
+    try:
+        staged_value = float(metric.get("value"))
+        promoted_value = float(fact.metric_value)
+    except (TypeError, ValueError):
+        return False
+    return (
+        math.isfinite(staged_value)
+        and math.isfinite(promoted_value)
+        and math.isclose(staged_value, promoted_value, rel_tol=0.0, abs_tol=0.000001)
+        and str(metric.get("unit") or "") == fact.unit
+        and metric.get("source_anchors") == fact.source_anchors
+    )
+
+
+def _report_metric_value(field_name: str, unit: str, value: Any) -> float:
+    decimal_value = Decimal(str(value))
+    if field_name == "cost_basis_weight":
+        return float(decimal_value.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP))
+    if unit in {"吨", "道"}:
+        return float(decimal_value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    if unit in {"kWh/吨", "m³/吨"}:
+        return float(decimal_value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+    return float(decimal_value)
+
+
+def _report_metric_business_window(field_name: str, business_date: date) -> str:
+    start_date = business_date.replace(day=1) if field_name.endswith("_month") else business_date
+    window_start, _unused = production_business_window(start_date)
+    _unused, window_end = production_business_window(business_date)
+    return f"{window_start.isoformat()}/{window_end.isoformat()}"
+
+
+def _set_promoted_report_metric(
+    facts: TemplateDailyFacts,
+    fact: ImportedDailyMetricFact,
+    *,
+    file_name: str,
+) -> None:
+    source_extra: dict[str, Any] = {
+        "source_ref": ImportedDailyMetricFact.__tablename__,
+        "metric_fact_id": fact.id,
+        "import_batch_id": fact.import_batch_id,
+        "import_row_id": fact.import_row_id,
+        "business_date": fact.business_date.isoformat(),
+        "business_window": _report_metric_business_window(fact.field_name, fact.business_date),
+        "unit": fact.unit,
+        "file_name": file_name,
+        "row_anchors": fact.source_anchors,
+        "metric_contract_version": fact.metric_contract_version,
+        "trace_id": (
+            f"import-read:{ImportedDailyMetricFact.__tablename__}:{fact.id}:"
+            f"{fact.field_name}:{fact.lineage_hash[:12]}"
+        ),
+    }
+    existing_source = facts.sources.get(fact.field_name) or {}
+    if (
+        fact.field_name in {"total_output_daily", "total_output_month", "cost_basis_weight"}
+        and existing_source.get("source_type") == "mes_packaging_output"
+    ):
+        source_extra["replaced_proxy_source"] = {
+            key: existing_source.get(key)
+            for key in ("source_type", "source_ref", "trace_id", "business_window")
+            if existing_source.get(key) is not None
+        }
+        facts.values.pop(fact.field_name, None)
+        facts.sources.pop(fact.field_name, None)
+    _set_value(
+        facts,
+        fact.field_name,
+        _report_metric_value(fact.field_name, fact.unit, fact.metric_value),
+        "manual_workbook",
+        **source_extra,
+    )
+
+
+def _validated_promoted_report_metrics(
+    db: Session,
+    *,
+    batch: ImportBatch,
+    target_date: date,
+    facts: TemplateDailyFacts,
+) -> list[ImportedDailyMetricFact]:
+    metric_facts = (
+        db.query(ImportedDailyMetricFact)
+        .filter(
+            ImportedDailyMetricFact.import_batch_id == batch.id,
+            ImportedDailyMetricFact.business_date == target_date,
+            ImportedDailyMetricFact.source_kind == "daily_production_report",
+            ImportedDailyMetricFact.data_status == "confirmed",
+        )
+        .order_by(ImportedDailyMetricFact.id.asc())
+        .all()
+    )
+    import_rows = {
+        row.id: row
+        for row in db.query(ImportRow)
+        .filter(ImportRow.id.in_({fact.import_row_id for fact in metric_facts}))
+        .all()
+    } if metric_facts else {}
+    accepted: list[ImportedDailyMetricFact] = []
+    for fact in metric_facts:
+        if _promoted_report_metric_matches(fact, import_rows.get(fact.import_row_id)):
+            accepted.append(fact)
+            continue
+        conflict = {
+            "field": fact.field_name,
+            "reason": "promoted_metric_lineage_mismatch",
+            "import_batch_id": batch.id,
+            "metric_fact_id": fact.id,
+        }
+        if conflict not in facts.conflicts:
+            facts.conflicts.append(conflict)
+    return accepted
+
+
+def _previous_promoted_total_output_metric(
+    db: Session,
+    *,
+    target_date: date,
+) -> tuple[ImportedDailyMetricFact, ImportBatch] | None:
+    result = (
+        db.query(ImportedDailyMetricFact, ImportBatch)
+        .join(ImportBatch, ImportBatch.id == ImportedDailyMetricFact.import_batch_id)
+        .filter(
+            ImportedDailyMetricFact.business_date == target_date,
+            ImportedDailyMetricFact.field_name == "total_output_daily",
+            ImportedDailyMetricFact.source_kind == "daily_production_report",
+            ImportedDailyMetricFact.data_status == "confirmed",
+            ImportBatch.source_type == "daily_production_report_locked",
+            ImportBatch.parsed_successfully.is_(True),
+            ImportBatch.quality_status != "blocked",
+        )
+        .order_by(ImportedDailyMetricFact.id.desc())
+        .first()
+    )
+    if result is None:
+        return None
+    fact, batch = result
+    import_row = db.get(ImportRow, fact.import_row_id)
+    return (fact, batch) if _promoted_report_metric_matches(fact, import_row) else None
+
+
 def collect_imported_daily_production_facts(db: Session, facts: TemplateDailyFacts) -> None:
     required_tables = (
         ImportBatch.__tablename__,
         ImportRow.__tablename__,
+        ImportedDailyMetricFact.__tablename__,
         ShiftProductionData.__tablename__,
         Workshop.__tablename__,
         Equipment.__tablename__,
@@ -1644,6 +1810,70 @@ def collect_imported_daily_production_facts(db: Session, facts: TemplateDailyFac
                 ),
             )
 
+    promoted_metrics = _validated_promoted_report_metrics(
+        db,
+        batch=batch,
+        target_date=facts.target_date,
+        facts=facts,
+    )
+    for metric_fact in promoted_metrics:
+        _set_promoted_report_metric(facts, metric_fact, file_name=batch.file_name)
+
+    current_total = next(
+        (fact for fact in promoted_metrics if fact.field_name == "total_output_daily"),
+        None,
+    )
+    retained_total_source = facts.sources.get("total_output_daily") or {}
+    if (
+        current_total is not None
+        and retained_total_source.get("metric_fact_id") == current_total.id
+    ):
+        previous = _previous_promoted_total_output_metric(
+            db,
+            target_date=facts.target_date - timedelta(days=1),
+        )
+        if previous is not None:
+            previous_fact, previous_batch = previous
+            current_value = _report_metric_value(
+                current_total.field_name,
+                current_total.unit,
+                current_total.metric_value,
+            )
+            previous_value = _report_metric_value(
+                previous_fact.field_name,
+                previous_fact.unit,
+                previous_fact.metric_value,
+            )
+            delta_start, _unused = production_business_window(previous_fact.business_date)
+            _unused, delta_end = production_business_window(current_total.business_date)
+            _set_value(
+                facts,
+                "total_output_delta",
+                current_value - previous_value,
+                "computed",
+                source_ref=ImportedDailyMetricFact.__tablename__,
+                business_date=facts.target_date.isoformat(),
+                business_window=f"{delta_start.isoformat()}/{delta_end.isoformat()}",
+                trace_id=(
+                    f"computed:imported-total-output-delta:{previous_fact.id}:"
+                    f"{current_total.id}"
+                ),
+                formula="rounded_total_output_daily - rounded_previous_total_output_daily",
+                components=[
+                    {
+                        "metric_fact_id": previous_fact.id,
+                        "import_batch_id": previous_batch.id,
+                        "business_date": previous_fact.business_date.isoformat(),
+                    },
+                    {
+                        "metric_fact_id": current_total.id,
+                        "import_batch_id": batch.id,
+                        "business_date": current_total.business_date.isoformat(),
+                    },
+                ],
+                metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+            )
+
 
 def _latest_promoted_energy_batch(db: Session, target_date: date) -> ImportBatch | None:
     return (
@@ -1701,6 +1931,12 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
         grouped["cast_roll_gas_m3"] = [
             *grouped.get("cast_2_gas_m3", []),
             *grouped.get("cast_3_gas_m3", []),
+        ]
+    if "east_furnace_gas_m3" in grouped or "west_furnace_gas_m3" in grouped:
+        grouped["hot_roll_furnace_gas_m3"] = [
+            *grouped.get("hot_roll_furnace_gas_m3", []),
+            *grouped.get("east_furnace_gas_m3", []),
+            *grouped.get("west_furnace_gas_m3", []),
         ]
 
     energy_start, energy_end = production_business_window(facts.target_date)
@@ -1764,13 +2000,15 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             for key in component_source_keys
             if source.get(key) is not None
         }
+    electricity_cost_raw = None
+    gas_cost_raw = None
     electricity_cost = None
     gas_cost = None
     if electricity is not None:
-        electricity_cost = round(
-            _to_float(electricity) * daily_overview_builder.DEFAULT_ELECTRICITY_PRICE / 10000,
-            2,
+        electricity_cost_raw = (
+            _to_float(electricity) * daily_overview_builder.DEFAULT_ELECTRICITY_PRICE / 10000
         )
+        electricity_cost = round(electricity_cost_raw, 2)
         _set_value(
             facts,
             "electricity_cost_10k",
@@ -1787,7 +2025,8 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
         )
     if gas is not None:
-        gas_cost = round(_to_float(gas) * daily_overview_builder.DEFAULT_GAS_PRICE / 10000, 2)
+        gas_cost_raw = _to_float(gas) * daily_overview_builder.DEFAULT_GAS_PRICE / 10000
+        gas_cost = round(gas_cost_raw, 2)
         _set_value(
             facts,
             "gas_cost_10k",
@@ -1803,7 +2042,7 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             unit_prices={"gas": daily_overview_builder.DEFAULT_GAS_PRICE},
             metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
         )
-    if electricity_cost is None or gas_cost is None:
+    if electricity_cost_raw is None or gas_cost_raw is None:
         return
     electricity_source = facts.sources.get("total_electricity_kwh") or {}
     gas_source = facts.sources.get("total_gas_m3") or {}
@@ -1823,7 +2062,8 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             if conflict not in facts.conflicts:
                 facts.conflicts.append(conflict)
         return
-    total_cost = round(electricity_cost + gas_cost, 2)
+    total_cost_raw = electricity_cost_raw + gas_cost_raw
+    total_cost = round(total_cost_raw, 2)
     total_cost_trace_id = f"computed:energy-cost:total:{batch.id}:{facts.target_date.isoformat()}"
     _set_value(
         facts,
@@ -1858,11 +2098,8 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             return
         basis_source = facts.sources.get("cost_basis_weight") or {}
         cost_per_ton_component_sources = {
-            "total_cost_10k": {
-                key: facts.sources["total_cost_10k"].get(key)
-                for key in component_source_keys
-                if facts.sources["total_cost_10k"].get(key) is not None
-            },
+            "total_electricity_kwh": component_sources["total_electricity_kwh"],
+            "total_gas_m3": component_sources["total_gas_m3"],
             "cost_basis_weight": {
                 key: basis_source.get(key)
                 for key in component_source_keys
@@ -1872,16 +2109,24 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
         _set_value(
             facts,
             "cost_per_ton",
-            round(total_cost * 10000 / _to_float(basis_weight), 0),
+            round(total_cost_raw * 10000 / _to_float(basis_weight), 0),
             "computed",
             source_ref="template_daily_facts",
             import_batch_id=batch.id,
             business_date=facts.target_date.isoformat(),
             business_window=energy_business_window,
             trace_id=f"computed:energy-cost:per-ton:{batch.id}:{facts.target_date.isoformat()}",
-            formula="total_cost_10k * 10000 / cost_basis_weight",
-            components=["total_cost_10k", "cost_basis_weight"],
+            formula=(
+                "(total_electricity_kwh * electricity_unit_price + "
+                "total_gas_m3 * gas_unit_price) / cost_basis_weight"
+            ),
+            components=["total_electricity_kwh", "total_gas_m3", "cost_basis_weight"],
             component_sources=cost_per_ton_component_sources,
+            unit_prices={
+                "electricity": daily_overview_builder.DEFAULT_ELECTRICITY_PRICE,
+                "gas": daily_overview_builder.DEFAULT_GAS_PRICE,
+            },
+            unrounded_total_cost_10k=round(total_cost_raw, 6),
             metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
         )
 

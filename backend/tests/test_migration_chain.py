@@ -27,10 +27,18 @@ def _run_alembic(command: str, database_url: str) -> subprocess.CompletedProcess
 def test_alembic_sqlite_upgrade_downgrade_upgrade_from_empty_database(tmp_path) -> None:
     database_url = f"sqlite:///{(tmp_path / 'migration_chain.db').as_posix()}"
 
-    for command in ('upgrade head', 'downgrade -1', 'upgrade head'):
-        result = _run_alembic(command, database_url)
+    upgrade = _run_alembic('upgrade head', database_url)
+    assert upgrade.returncode == 0, upgrade.stderr
 
-        assert result.returncode == 0, result.stderr
+    downgrade = _run_alembic('downgrade -1', database_url)
+    assert downgrade.returncode == 0, downgrade.stderr
+    engine = create_engine(database_url, future=True)
+    shift_indexes = {item['name']: item for item in inspect(engine).get_indexes('shift_production_data')}
+    shift_where = shift_indexes['uq_shift_production_active_key']['dialect_options']['sqlite_where']
+    assert str(shift_where) == "data_status <> 'voided'"
+
+    second_upgrade = _run_alembic('upgrade head', database_url)
+    assert second_upgrade.returncode == 0, second_upgrade.stderr
 
 
 def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
@@ -41,13 +49,20 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0056_owner_daily_entry_dedupe' in current.stdout
+    assert '0057_imported_daily_metric_facts' in current.stdout
 
     engine = create_engine(database_url, future=True)
     columns = {item['name']: item for item in inspect(engine).get_columns('chat_inbox')}
     assert columns['inbound_dedupe_key']['nullable'] is True
     indexes = {item['name']: item for item in inspect(engine).get_indexes('chat_inbox')}
     assert bool(indexes['ix_chat_inbox_inbound_dedupe_key']['unique']) is True
+    metric_indexes = {
+        item['name']: item for item in inspect(engine).get_indexes('imported_daily_metric_facts')
+    }
+    assert bool(metric_indexes['uq_imported_daily_metric_active_key']['unique']) is True
+    shift_indexes = {item['name']: item for item in inspect(engine).get_indexes('shift_production_data')}
+    shift_where = shift_indexes['uq_shift_production_active_key']['dialect_options']['sqlite_where']
+    assert str(shift_where) == "data_status <> 'voided'"
 
 
 def _create_residual_dingtalk_inbound_receipts(
@@ -108,7 +123,7 @@ def test_0054_adopts_compatible_residual_table_without_deleting_receipts(tmp_pat
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0056_owner_daily_entry_dedupe' in current.stdout
+    assert '0057_imported_daily_metric_facts' in current.stdout
     with engine.connect() as conn:
         receipt = conn.execute(
             text(

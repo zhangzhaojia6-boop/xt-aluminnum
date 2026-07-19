@@ -19,6 +19,7 @@ class ShiftProductionData(Base):
             'equipment_id',
             unique=True,
             postgresql_where=text("data_status <> 'voided'"),
+            sqlite_where=text("data_status <> 'voided'"),
         ),
     )
 

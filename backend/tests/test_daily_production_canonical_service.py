@@ -5,6 +5,7 @@ from datetime import date
 import pandas as pd
 
 from app.services.daily_production_canonical_service import (
+    daily_production_lineage_is_valid,
     daily_production_row_summary_fields,
     parse_daily_production_sheet,
     parse_daily_production_workbook,
@@ -196,6 +197,37 @@ def test_parse_daily_production_workbook_only_uses_summary_sheet(tmp_path) -> No
     assert parsed[0].mapped_data['daily_output_tons'] == 90.0
 
 
+def test_parse_daily_production_workbook_prefers_locked_date_sheet_over_generic_mirror(tmp_path) -> None:
+    workbook = tmp_path / 'daily-with-mirror.xlsx'
+    dated_mirror = pd.DataFrame(
+        [
+            ['河南鑫泰铝业生产系统综合日报表               2026年7月17日', None, None, None, None, None],
+            ['车间   项目', None, '投料量', None, '日产量', None],
+            [None, None, '日合', '累计', '日合', '累计'],
+            ['热轧', None, 110, 500, 99, 450],
+        ]
+    )
+    named_summary = dated_mirror.copy()
+    named_summary.iat[3, 4] = 90
+    with pd.ExcelWriter(workbook, engine='openpyxl') as writer:
+        dated_mirror.to_excel(writer, sheet_name='2026-7-17', header=False, index=False)
+        named_summary.to_excel(writer, sheet_name='综合报表', header=False, index=False)
+
+    parsed = parse_daily_production_workbook(
+        workbook,
+        year_hint=2026,
+        report_date_override=date(2026, 7, 17),
+    )
+
+    assert [item.sheet_name for item in parsed] == ['2026-7-17']
+    assert parsed[0].mapped_data['daily_output_tons'] == 99.0
+    assert {
+        'code': 'ignored_duplicate_summary_sheet',
+        'selected_sheet': '2026-7-17',
+        'ignored_sheets': ['综合报表'],
+    } in parsed[0].mapped_data['issues']
+
+
 def test_parse_daily_production_sheet_stops_before_total_and_energy_sections() -> None:
     frame = pd.DataFrame(
         [
@@ -216,3 +248,88 @@ def test_parse_daily_production_sheet_stops_before_total_and_energy_sections() -
     assert parsed.mapped_data['daily_input_tons'] == 52.814
     assert parsed.mapped_data['daily_output_tons'] == 49.483
     assert parsed.mapped_data['daily_scrap_tons'] == 3.331
+
+
+def test_parse_workbook_extracts_auditable_report_metrics_from_summary_and_outsourcing(tmp_path) -> None:
+    report_date = date(2026, 7, 17)
+    summary = pd.DataFrame('', index=range(61), columns=range(34))
+    summary.iat[0, 0] = '河南鑫泰铝业生产系统综合日报表               2026年7月17日'
+    summary.iloc[1, :12] = ['车间   项目', '', '投料量', '', '日产量', '', '日均', '产生废料', '', '月成品率', '指标', '对比']
+    summary.iloc[2, :12] = ['', '', '日合', '累计', '日合', '累计', '', '日合', '累计', '', '', '']
+    summary.iloc[3, :12] = ['铸锭', '', 313.55, 5009.364, 309.806, 4788.837, '', '', 220.527, 0.956, 0.978, -0.022]
+    summary.iat[39, 0] = '合计'
+    summary.iat[1, 26] = '产量'
+    summary.iat[2, 26] = '日合计'
+    summary.iat[2, 27] = '月累计'
+    summary.iat[39, 26] = 285.545
+    summary.iat[39, 27] = 5185.177
+    summary.iloc[47, :18] = [
+        '', '日产量', '月累计产量', '日道次', '月累计道次', '日电度', '', '月电度', '', '',
+        '日吨电耗', '月吨电耗', '指标', '日燃气', '月燃气', '日吨燃气', '月吨燃气', '指标',
+    ]
+    summary.iloc[48, :18] = [
+        '铸轧分厂', 80.52, 1607.09, '', '', 6771, '', 130222, '', '', 84.0909, 81.0297, '',
+        11055, 192117, 137.2951, 119.5434, '',
+    ]
+    summary.iloc[49, :18] = [
+        '铸锭', 309.806, 4788.837, '', '', 8850, '', 148000, '', '', 28.5663, 30.9052, 30,
+        24524, 451382, 79.1592, 94.2571, 75,
+    ]
+    summary.iloc[50, :18] = [
+        '热轧', 346.32, 4250.62, '', '', 44480, '', 580160, '', '', 128.4361, 136.4883, 170,
+        9922, 126466, 28.6498, 29.7524, 31,
+    ]
+    summary.iloc[51, :13] = ['1650', 90.43, 2486.133, 34, 894, 10030, '', 249196, '', '', 110.9145, 100.2344, '']
+    summary.iloc[58, :18] = ['彩涂', 0, 0, '', '', 0, '', 0, '', '', 0, 0, 80, 0, 0, 0, 0, 50]
+    summary.iloc[59, :5] = ['轧机', 188.09, 5352.493, 125, 2698]
+
+    outsourced = pd.DataFrame('', index=range(8), columns=range(33))
+    outsourced.iat[0, 1] = '外加工'
+    outsourced.iat[1, 0] = '车间'
+    for day in range(1, 32):
+        outsourced.iat[1, day] = date(2026, 7, day)
+    outsourced.iat[2, 0] = '拉矫铸轧'
+    outsourced.iat[2, 15] = 6.189
+    outsourced.iat[2, 16] = 5.164
+    outsourced.iat[2, 17] = 13.068
+    outsourced.iat[5, 0] = '园区剪切'
+    outsourced.iat[5, 15] = 19.334
+    outsourced.iat[5, 16] = 70.554
+    outsourced.iat[5, 17] = 25.823
+    outsourced.iat[6, 0] = '合计：'
+
+    workbook = tmp_path / 'daily-production.xlsx'
+    with pd.ExcelWriter(workbook, engine='openpyxl') as writer:
+        summary.to_excel(writer, sheet_name='综合报表', header=False, index=False)
+        outsourced.to_excel(writer, sheet_name='外加工', header=False, index=False)
+
+    parsed = parse_daily_production_workbook(
+        workbook,
+        year_hint=2026,
+        report_date_override=report_date,
+    )
+    metrics = {item['field_name']: item for item in parsed[0].mapped_data['report_metrics']}
+
+    assert daily_production_lineage_is_valid(parsed[0].mapped_data) is True
+    assert metrics['total_output_daily']['value'] == 285.545
+    assert metrics['total_output_month']['value'] == 5185.177
+    assert metrics['cost_basis_weight']['value'] == 285.545
+    assert metrics['cast_roll_month']['value'] == 1607.09
+    assert metrics['cold_1650_pass_daily']['value'] == 34
+    assert metrics['cold_1650_pass_month']['value'] == 894
+    assert metrics['foundry_gas_per_ton_daily']['value'] == 79.1592
+    assert metrics['hot_roll_gas_per_ton_month']['value'] == 29.7524
+    assert metrics['coating_daily']['value'] == 0
+    assert metrics['coating_gas_per_ton_month']['value'] == 0
+    assert metrics['outsourced_daily']['value'] == 38.891
+    assert metrics['outsourced_month']['value'] == 140.132
+    assert metrics['outsourced_daily']['source_anchors'] == [
+        {'sheet_name': '外加工', 'row_index': 2, 'column_index': 17},
+        {'sheet_name': '外加工', 'row_index': 5, 'column_index': 17},
+    ]
+
+    inferred = parse_daily_production_workbook(workbook, year_hint=2026)
+    inferred_metrics = {item['field_name']: item for item in inferred[0].mapped_data['report_metrics']}
+    assert inferred[0].mapped_data['business_date'] == report_date.isoformat()
+    assert inferred_metrics['outsourced_daily']['value'] == 38.891
+    assert inferred_metrics['outsourced_month']['value'] == 140.132
