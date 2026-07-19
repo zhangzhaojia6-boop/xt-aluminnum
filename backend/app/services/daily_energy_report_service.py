@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+import math
 from pathlib import Path
 import re
 from typing import Any
@@ -96,6 +97,7 @@ class ParsedDailyEnergyRow:
             'energy_value': self.energy_value,
             'unit': self.unit,
             'status': self.status,
+            'report_field': daily_energy_report_fact_field(self.energy_type, self.source_label),
         }
 
 
@@ -110,6 +112,7 @@ def daily_energy_row_summary_fields() -> list[str]:
         'energy_value',
         'unit',
         'status',
+        'report_field',
     ]
 
 
@@ -135,15 +138,52 @@ def _normalize_label(value: object | None) -> str:
     return re.sub(r'\s+', '', text)
 
 
+def daily_energy_report_fact_field(energy_type: str, source_label: str) -> str | None:
+    label = _normalize_label(source_label)
+    normalized_type = str(energy_type or '').strip().lower()
+    if normalized_type == 'electricity':
+        if label == '高压合计':
+            return 'total_electricity_kwh'
+        if label == '合计':
+            return 'subitem_electricity_kwh'
+        return None
+    if normalized_type != 'gas':
+        return None
+
+    exact = {
+        '铸锭': 'smelting_gas_m3',
+        '回收': 'recovery_gas_m3',
+        '铸二': 'cast_2_gas_m3',
+        '铸三': 'cast_3_gas_m3',
+        '北线': 'new_north_gas_m3',
+        '南线': 'new_south_gas_m3',
+        '彩涂': 'coating_gas_m3',
+        '餐厅': 'canteen_gas_m3',
+        '合计': 'total_gas_m3',
+    }
+    if label in exact:
+        return exact[label]
+    if '热轧' in label and '加热炉' in label:
+        return 'hot_roll_furnace_gas_m3'
+    if '热轧' in label and '锅炉' in label:
+        return 'hot_roll_boiler_gas_m3'
+    if '拉矫' in label and '退火炉' in label:
+        return 'anneal_gas_m3'
+    if '拉矫' in label and '锅炉' in label:
+        return 'straightening_boiler_gas_m3'
+    return None
+
+
 def _to_float(value: object | None) -> float | None:
     if _is_blank(value):
         return None
     if isinstance(value, str):
         value = value.replace(',', '').strip()
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    return number if math.isfinite(number) else None
 
 
 def _day_number(value: object | None) -> int | None:
@@ -269,7 +309,9 @@ def parse_workshop_electricity_workbook(
         for row_index in range(header_row + 1, len(frame)):
             source_label = _normalize_label(frame.iat[row_index, 0] if frame.shape[1] else None)
             value = _to_float(frame.iat[row_index, day_col] if day_col < frame.shape[1] else None)
-            if not source_label or value is None or value == 0:
+            if not source_label or value is None:
+                continue
+            if value == 0 and daily_energy_report_fact_field('electricity', source_label) is None:
                 continue
             rows.append(
                 _row_for_value(
@@ -330,9 +372,11 @@ def parse_workshop_gas_workbook(
             mapping_label = current_label
             sub_label = _normalize_label(frame.iat[subheader_row, col_index])
             value = _to_float(frame.iat[day_row, col_index])
-            if not mapping_label or value is None or value == 0:
+            if not mapping_label or value is None:
                 continue
             source_label = f'{mapping_label}/{sub_label}' if sub_label else mapping_label
+            if value == 0 and daily_energy_report_fact_field('gas', source_label) is None:
+                continue
             rows.append(
                 _row_for_value(
                     business_date=report_date,

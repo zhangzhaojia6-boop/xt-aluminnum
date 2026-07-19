@@ -1130,6 +1130,38 @@ def test_build_energy_returns_none_when_no_real_energy_rows(monkeypatch) -> None
     assert payload['total_cost'] is None
 
 
+def test_build_energy_keeps_unreported_gas_missing_for_imported_energy(monkeypatch) -> None:
+    monkeypatch.setattr(
+        daily_overview_builder.energy_service,
+        'summarize_energy_for_date',
+        lambda *_args, **_kwargs: {
+            'electricity_value': 173500.0,
+            'gas_value': 0.0,
+            'primary_source': 'energy_import',
+            'available_energy_types': ['electricity'],
+            'rows': [
+                {
+                    'source': 'energy_import',
+                    'electricity_value': 173500.0,
+                    'gas_value': 0.0,
+                }
+            ],
+            'owner_totals': {'row_count': 0},
+            'mobile_totals': {'row_count': 0},
+            'system_totals': {'row_count': 1},
+            'energy_per_ton': None,
+        },
+    )
+
+    payload = daily_overview_builder._build_energy(None, date(2026, 7, 17))
+
+    assert payload['total_electricity'] == 173500.0
+    assert payload['total_gas'] is None
+    assert payload['electricity_cost'] == 11.28
+    assert payload['gas_cost'] is None
+    assert payload['total_cost'] is None
+
+
 def test_build_timeseries_uses_mes_packaging_plant_output(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,

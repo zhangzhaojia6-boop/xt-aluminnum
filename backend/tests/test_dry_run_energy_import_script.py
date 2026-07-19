@@ -77,12 +77,42 @@ def test_daily_energy_dry_run_maps_real_monthly_wide_tables(tmp_path: Path) -> N
     assert payload['business_date'] == '2026-05-05'
     assert payload['totals']['electricity_value'] == 56004.0
     assert payload['totals']['gas_value'] == 43130.0
-    assert payload['mapping']['ready_rows'] == 12
+    assert payload['mapping']['ready_rows'] == 15
     assert payload['mapping']['skipped_rows'] == 4
     assert payload['blocking_issues'] == []
 
     skipped_labels = {row['source_label'] for row in payload['mapping']['rows'] if row['status'] == 'skipped'}
     assert {'铸五制水房', '合计', '回收'} <= skipped_labels
+    report_fields = {
+        (row['energy_type'], row['source_label']): row.get('report_field')
+        for row in payload['mapping']['rows']
+    }
+    assert report_fields[('electricity', '合计')] == 'subitem_electricity_kwh'
+    assert report_fields[('gas', '合计')] == 'total_gas_m3'
+    assert report_fields[('gas', '回收')] == 'recovery_gas_m3'
+
+
+def test_daily_energy_parser_preserves_explicit_zero_report_total(tmp_path: Path) -> None:
+    from app.services.daily_energy_report_service import parse_workshop_electricity_workbook
+
+    electricity = tmp_path / 'zero-energy-total.xlsx'
+    frame = pd.DataFrame(
+        [
+            ['各车间能耗统计表（26年5月）', '', ''],
+            ['车间/日期', '5日', '6日'],
+            ['高压合计', 0, 1],
+            ['合计', float('inf'), 1],
+        ]
+    )
+    with pd.ExcelWriter(electricity, engine='openpyxl') as writer:
+        frame.to_excel(writer, index=False, header=False, sheet_name='用量')
+
+    rows = parse_workshop_electricity_workbook(electricity, report_date=date(2026, 5, 5))
+
+    assert len(rows) == 1
+    assert rows[0].status == 'skipped'
+    assert rows[0].energy_value == 0.0
+    assert rows[0].mapped_data['report_field'] == 'total_electricity_kwh'
 
 
 def test_daily_energy_parser_maps_online_annealing_split_labels(tmp_path: Path) -> None:
@@ -131,7 +161,7 @@ def test_daily_energy_gas_parser_does_not_treat_year_26_as_day_26(tmp_path: Path
 
     assert payload['hard_gate_passed'] is True
     assert payload['totals']['gas_value'] == 49221.0
-    assert payload['mapping']['ready_rows'] == 9
+    assert payload['mapping']['ready_rows'] == 10
 
 
 def test_stage_and_promote_daily_energy_batch_writes_summary_records(tmp_path: Path) -> None:
@@ -154,7 +184,7 @@ def test_stage_and_promote_daily_energy_batch_writes_summary_records(tmp_path: P
         )
 
         assert staged['staging_write']['committed'] is True
-        assert staged['staging_write']['rows_written'] == 16
+        assert staged['staging_write']['rows_written'] == 19
         assert staged['staging_write']['energy_record_rows_written'] == 0
 
         dry_run = module.promote_daily_energy_batch(
@@ -163,7 +193,7 @@ def test_stage_and_promote_daily_energy_batch_writes_summary_records(tmp_path: P
             commit=False,
         )
         assert dry_run['committed'] is False
-        assert dry_run['projected_record_rows'] == 12
+        assert dry_run['projected_record_rows'] == 15
         assert db.query(EnergyImportRecord).count() == 0
 
         promoted = module.promote_daily_energy_batch(
@@ -172,7 +202,7 @@ def test_stage_and_promote_daily_energy_batch_writes_summary_records(tmp_path: P
             commit=True,
         )
         assert promoted['committed'] is True
-        assert promoted['record_rows_written'] == 12
+        assert promoted['record_rows_written'] == 15
 
         rows = {row['workshop_code']: row for row in energy_service.get_energy_summary(db, business_date=date(2026, 5, 5))}
         assert rows['ZD']['electricity_value'] == 7950.0

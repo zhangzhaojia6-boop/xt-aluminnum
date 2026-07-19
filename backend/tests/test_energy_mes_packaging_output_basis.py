@@ -106,3 +106,41 @@ def test_energy_summary_uses_mes_packaging_output_when_shift_output_is_empty(tmp
     assert basis_row['total_energy'] == 0
     assert basis_row['energy_per_ton'] == 10
     assert EnergySummaryOut(**basis_row).source_label == '全厂包装'
+
+
+def test_imported_energy_summary_exposes_only_recorded_energy_types(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        batch = ImportBatch(
+            batch_no='IMP-ENERGY-TYPE-PRESENCE',
+            import_type='energy',
+            source_type='daily_energy_report_locked',
+            file_name='electricity-only.xlsx',
+            total_rows=1,
+            success_rows=1,
+            failed_rows=0,
+            status='completed',
+            quality_status='ready',
+            parsed_successfully=True,
+        )
+        db.add(batch)
+        db.flush()
+        db.add(
+            EnergyImportRecord(
+                import_batch_id=batch.id,
+                business_date=BUSINESS_DATE,
+                workshop_code='JZ',
+                shift_code=None,
+                energy_type='electricity',
+                energy_value=173500,
+                unit='kWh',
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        summary = energy_service.summarize_energy_for_date(db, business_date=BUSINESS_DATE)
+
+    assert summary['electricity_value'] == 173500
+    assert summary['gas_value'] == 0
+    assert summary['available_energy_types'] == ['electricity']

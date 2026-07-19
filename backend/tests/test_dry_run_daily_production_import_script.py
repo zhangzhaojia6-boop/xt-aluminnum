@@ -34,6 +34,20 @@ def _write_daily_workbook(path: Path, *, cold_rolling_output: float = 224.54) ->
         frame.to_excel(writer, index=False, header=False, sheet_name='综合报表')
 
 
+def _write_zero_daily_workbook(path: Path) -> None:
+    frame = pd.DataFrame(
+        [
+            ['生产系统综合日报表2026年5月5日', '', '', '', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', '', '', '', ''],
+            ['车间', '项目', '投入', '月累计投入', '产出', '月累计产出', '', '废料', '月累计废料', '成品率', '指标'],
+            ['铸锭', '', 0, 1000.0, 0, 900.0, '', 0, 20.0, 0, 97.0],
+            ['合计', '', '', '', '', '', '', '', '', '', ''],
+        ]
+    )
+    with pd.ExcelWriter(path, engine='openpyxl') as writer:
+        frame.to_excel(writer, index=False, header=False, sheet_name='综合报表')
+
+
 def test_dry_run_daily_production_import_uses_locked_date_and_real_master_mapping(tmp_path: Path) -> None:
     module = _load_script_module()
     workbook = tmp_path / 'daily.xlsx'
@@ -168,6 +182,42 @@ def test_promote_daily_production_batch_writes_confirmed_ton_facts(tmp_path: Pat
         assert {item.data_source for item in facts} == {'daily_production_report'}
         assert {item.data_status for item in facts} == {'confirmed'}
         assert {item.import_batch_id for item in facts} == {staged['staging_write']['batch_id']}
+    finally:
+        db.close()
+
+
+def test_promote_daily_production_batch_preserves_explicit_zero_fact(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily-zero.xlsx'
+    _write_zero_daily_workbook(workbook)
+    db = module._create_dry_run_session()
+    try:
+        from app.services.bootstrap import seed_shift_configs
+
+        seed_shift_configs(db)
+        module.seed_real_master_data(db)
+        staged = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+        promoted = module.promote_daily_production_batch(
+            db,
+            batch_id=staged['staging_write']['batch_id'],
+            shift_code='A',
+            duplicate_strategy='reject',
+            commit=True,
+        )
+
+        assert promoted['committed'] is True
+        assert promoted['fact_rows_written'] == 1
+        assert promoted['total_output_tons'] == 0.0
+        fact = db.query(ShiftProductionData).one()
+        assert float(fact.input_weight) == 0.0
+        assert float(fact.output_weight) == 0.0
+        assert float(fact.scrap_weight) == 0.0
     finally:
         db.close()
 

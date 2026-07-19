@@ -694,6 +694,16 @@ def _build_energy(db: Session, target_date: date) -> dict:
 
     elec = _to_float(summary.get('electricity_value'))
     gas = _to_float(summary.get('gas_value'))
+    available_energy_types = {
+        str(energy_type).strip().lower()
+        for energy_type in summary.get('available_energy_types') or []
+        if energy_type
+    }
+    if available_energy_types:
+        if 'electricity' not in available_energy_types:
+            elec = None
+        if 'gas' not in available_energy_types:
+            gas = None
     owner_totals = summary.get('owner_totals') or {}
     mobile_totals = summary.get('mobile_totals') or {}
     system_totals = summary.get('system_totals') or {}
@@ -727,7 +737,7 @@ def _build_energy(db: Session, target_date: date) -> dict:
         'energy_per_ton': _round2(_to_float(summary.get('energy_per_ton'))) if has_energy_data else None,
         'electricity_cost': elec_cost,
         'gas_cost': gas_cost,
-        'total_cost': round((elec_cost or 0) + (gas_cost or 0), 2) if elec_cost is not None or gas_cost is not None else None,
+        'total_cost': round(elec_cost + gas_cost, 2) if elec_cost is not None and gas_cost is not None else None,
         'data_available': has_energy_data,
         'by_workshop': by_workshop,
     }
@@ -774,7 +784,7 @@ def _build_contracts(db: Session, target_date: date) -> dict:
 def _build_cost(total_output: float, energy: dict) -> dict:
     elec_cost = energy.get('electricity_cost')
     gas_cost = energy.get('gas_cost')
-    total = round((elec_cost or 0) + (gas_cost or 0), 2) if elec_cost is not None or gas_cost is not None else None
+    total = round(elec_cost + gas_cost, 2) if elec_cost is not None and gas_cost is not None else None
     cost_per_ton = round(total * 10000 / total_output, 0) if total is not None and total_output > 0 else None
     return {
         'electricity_cost': elec_cost,
