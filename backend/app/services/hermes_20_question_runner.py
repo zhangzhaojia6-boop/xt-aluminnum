@@ -316,6 +316,7 @@ def _build_fact_answer(
                 or "missing"
             ).strip().lower()
         reason = _fact_reason(
+            field_name=field_name,
             status=status,
             conflict=conflict,
             missing_sources=evidence.get("missing_sources"),
@@ -433,6 +434,7 @@ def _conflict_for_field(value: Any, field_name: str) -> Mapping[str, Any] | None
 
 def _fact_reason(
     *,
+    field_name: str,
     status: str,
     conflict: Mapping[str, Any] | None,
     missing_sources: Any,
@@ -442,7 +444,9 @@ def _fact_reason(
     if status != "missing":
         return None
     missing = _string_list(missing_sources)
-    return f"missing_sources:{','.join(missing)}" if missing else None
+    if missing:
+        return f"missing_sources:{','.join(missing)}"
+    return f"checked_fact_candidates_missing_field:{field_name}"
 
 
 def _fact_action(

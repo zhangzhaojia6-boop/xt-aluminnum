@@ -33,6 +33,18 @@ _TYPO_REPLACEMENTS = {
 _DOMAIN_CLARIFICATION_QUESTION = "你想看生产、库存、能耗还是异常？"
 _DATE_CLARIFICATION_QUESTION = "你想看哪一天？"
 _WHY_TERMS = ("为什么", "为啥")
+_CAUSE_TERMS = (
+    *_WHY_TERMS,
+    "为何",
+    "什么原因",
+    "啥原因",
+    "什么造成",
+    "啥造成",
+    "怎么造成",
+    "什么导致",
+    "啥导致",
+    "怎么导致",
+)
 _CONFLICT_TERMS = ("对不上", "不一致", "差异")
 _BUSINESS_MISSING_TERMS = ("缺数据", "缺来源", "缺口", "缺报")
 
@@ -161,6 +173,7 @@ def understand_root_owner_message(
         intent, metric_keys = _DOMAIN_INTENT[explicit_domain]
         if _looks_like_conflict_explanation(normalized):
             intent = "conflict_explanation"
+            metric_keys = _with_anomaly_explanation(metric_keys)
         return RootOwnerMessagePlan(
             raw_text=raw_text,
             normalized_text=normalized,
@@ -234,6 +247,7 @@ def understand_root_owner_message(
         intent, metric_keys = _DOMAIN_INTENT[domain]
         if _looks_like_conflict_explanation(normalized, scored):
             intent = "conflict_explanation"
+            metric_keys = _with_anomaly_explanation(metric_keys)
         return RootOwnerMessagePlan(
             raw_text=raw_text,
             normalized_text=normalized,
@@ -422,12 +436,18 @@ def _looks_like_output_inbound_conflict(text: str) -> bool:
 def _looks_like_conflict_explanation(text: str, scores: dict[str, int] | None = None) -> bool:
     if _has_any(text, _CONFLICT_TERMS):
         return True
-    if not _has_any(text, _WHY_TERMS):
+    if not _has_any(text, _CAUSE_TERMS):
         return False
     if _has_any(text, _BUSINESS_MISSING_TERMS):
         return True
     domain_scores = scores if scores is not None else _score_domains(text)
     return any(score > 0 for domain, score in domain_scores.items() if domain != "anomaly")
+
+
+def _with_anomaly_explanation(metric_keys: tuple[str, ...]) -> tuple[str, ...]:
+    if "anomaly_explanation_daily" in metric_keys:
+        return metric_keys
+    return (*metric_keys, "anomaly_explanation_daily")
 
 
 def _join_reasons(*items: object) -> str:

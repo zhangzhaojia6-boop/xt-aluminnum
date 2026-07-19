@@ -209,6 +209,19 @@ def test_business_anchored_why_can_request_conflict_explanation() -> None:
     assert plan.needs_clarification is False
 
 
+def test_energy_cause_question_keeps_energy_facts_and_requests_anomaly_evidence() -> None:
+    plan = understand_root_owner_message(
+        "电耗升高可能由什么造成？",
+        default_business_date=date(2026, 6, 27),
+    )
+
+    assert plan.domain == "energy"
+    assert plan.intent == "conflict_explanation"
+    assert "electricity_per_ton" in plan.metric_keys
+    assert "anomaly_explanation_daily" in plan.metric_keys
+    assert plan.needs_clarification is False
+
+
 def test_understands_20_question_metric_phrases_without_hard_exact_sentence() -> None:
     cases = (
         ("今天成品率是多少？分子分母是什么？", "quality", ("daily_yield_rate",)),
