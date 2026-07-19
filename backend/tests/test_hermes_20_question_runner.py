@@ -13,6 +13,7 @@ from app.models.agent_communication import AgentRun, AgentOutboxMessage, Externa
 from app.models.system import User
 from app.services import dingtalk_service
 from app.services import hermes_20_question_runner as runner
+from app.services.hermes_20_question_acceptance import HermesAcceptanceQuestion
 from app.services.hermes_20_question_runner import (
     DingTalkDeliveryTarget,
     build_snapshot_from_turn,
@@ -38,10 +39,18 @@ def _user() -> User:
     )
 
 
-def _install_fake_turn(monkeypatch, db: Session, *, seen_questions: list[str] | None = None) -> None:
+def _install_fake_turn(
+    monkeypatch,
+    db: Session,
+    *,
+    seen_questions: list[str] | None = None,
+    seen_calls: list[dict] | None = None,
+) -> None:
     def fake_turn(**kwargs):
         if seen_questions is not None:
             seen_questions.append(kwargs["text"])
+        if seen_calls is not None:
+            seen_calls.append(dict(kwargs))
         trace_id = kwargs["trace_id"]
         outbox = AgentOutboxMessage(
             dispatch_key=f"dispatch-{trace_id}",
@@ -108,6 +117,45 @@ def _install_fake_turn(monkeypatch, db: Session, *, seen_questions: list[str] | 
         )
 
     monkeypatch.setattr(runner, "run_root_owner_production_turn", lambda *args, **kwargs: fake_turn(**kwargs))
+
+
+def test_acceptance_scopes_context_to_one_run_and_preserves_relative_date_target(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_user())
+    db.commit()
+    seen_calls: list[dict] = []
+    _install_fake_turn(monkeypatch, db, seen_calls=seen_calls)
+    monkeypatch.setattr(
+        runner,
+        "build_20_question_catalog",
+        lambda: (
+            HermesAcceptanceQuestion(
+                1,
+                "今天全厂总产量是多少？",
+                ("total_output_daily",),
+                "production",
+                True,
+                True,
+                follow_up_utterances=("接着上一个问题，把证据编号给我",),
+                default_business_date_offset_days=1,
+            ),
+        ),
+    )
+
+    run_20_question_acceptance(
+        db,
+        current_user=db.get(User, 1),
+        sender_external_id="dt-root-001",
+        business_date=date(2026, 6, 27),
+    )
+
+    context_scope_ids = [call["context_scope_id"] for call in seen_calls]
+    assert context_scope_ids[0]
+    assert context_scope_ids[0] == context_scope_ids[1]
+    assert [call["default_business_date"] for call in seen_calls] == [
+        date(2026, 6, 28),
+        date(2026, 6, 28),
+    ]
 
 
 def test_runner_builds_snapshots_from_existing_turn_outputs(monkeypatch) -> None:
@@ -778,6 +826,118 @@ def test_snapshot_builds_one_fact_record_per_recognized_field() -> None:
         "projection-read:mes_workshop_process_records:118:1",
         "projection-read:mes_stock_records:110:1",
     ]
+
+
+def test_fact_answer_selects_highest_priority_candidate_per_field() -> None:
+    business_window = "2026-06-27T07:50:00+08:00/2026-06-28T07:50:00+08:00"
+    dingtalk_trace = "dingtalk-fact-input-71"
+    projection_trace = "projection-read:mes_workshop_process_records:118:13"
+
+    records = runner._build_fact_answer(
+        question_id=99,
+        turn_trace_id="turn-per-field-evidence",
+        recognition={
+            "metric_keys": ["daily_input_weight", "total_output_daily"],
+            "business_date": "2026-06-27",
+        },
+        evidence={
+            "primary": {
+                "source_key": "dingtalk_group_content",
+                "source_type": "dingtalk_supplement",
+                "status": "ok",
+                "value": {
+                    "daily_input_weight": {
+                        "value": 560.0,
+                        "source_key": "dingtalk_group_content",
+                        "source_type": "dingtalk_supplement",
+                        "source_ref": {
+                            "source_key": "dingtalk_group_content",
+                            "evidence_id": 71,
+                            "trace_id": dingtalk_trace,
+                            "business_date": "2026-06-27",
+                        },
+                        "business_date": "2026-06-27",
+                        "business_window": business_window,
+                        "unit": "吨",
+                        "metric_contract_version": "2026-07-11",
+                        "trace_id": dingtalk_trace,
+                        "status": "ok",
+                    }
+                },
+                "trace_ref": {},
+            },
+            "candidate_facts": [
+                {
+                    "source_key": "dingtalk_group_content",
+                    "source_type": "dingtalk_supplement",
+                    "status": "ok",
+                    "value": {
+                        "daily_input_weight": {
+                            "value": 560.0,
+                            "source_key": "dingtalk_group_content",
+                            "source_type": "dingtalk_supplement",
+                            "source_ref": {
+                                "source_key": "dingtalk_group_content",
+                                "evidence_id": 71,
+                                "trace_id": dingtalk_trace,
+                                "business_date": "2026-06-27",
+                            },
+                            "business_date": "2026-06-27",
+                            "business_window": business_window,
+                            "unit": "吨",
+                            "metric_contract_version": "2026-07-11",
+                            "trace_id": dingtalk_trace,
+                            "status": "ok",
+                        }
+                    },
+                    "trace_ref": {},
+                },
+                {
+                    "source_key": "data_hub_projection",
+                    "source_type": "mes_packaging_output",
+                    "status": "ok",
+                    "value": {
+                        "total_output_daily": {
+                            "value": 286.0,
+                            "source_key": "data_hub_projection",
+                            "source_type": "mes_packaging_output",
+                            "source_ref": {
+                                "source_ref": "mes_workshop_process_records",
+                                "source_table": "MES_ProductProcessRecord",
+                                "business_date": "2026-06-27",
+                                "business_window": business_window,
+                                "unit": "吨",
+                                "metric_contract_version": "2026-07-11",
+                                "row_count": 13,
+                                "latest_row_id": 118,
+                                "trace_id": projection_trace,
+                            },
+                            "business_date": "2026-06-27",
+                            "business_window": business_window,
+                            "unit": "吨",
+                            "metric_contract_version": "2026-07-11",
+                            "trace_id": projection_trace,
+                            "status": "ok",
+                        }
+                    },
+                    "trace_ref": {},
+                },
+            ],
+            "conflicts": [],
+            "missing_sources": [],
+        },
+    )
+
+    assert [record["field"] for record in records] == [
+        "daily_input_weight",
+        "total_output_daily",
+    ]
+    assert [record["status"] for record in records] == ["confirmed", "confirmed"]
+    assert [record["source_key"] for record in records] == [
+        "dingtalk_group_content",
+        "data_hub_projection",
+    ]
+    assert [record["value"] for record in records] == [560.0, 286.0]
 
 
 def test_runner_rejects_unsupported_delivery_target_channel_type(monkeypatch) -> None:

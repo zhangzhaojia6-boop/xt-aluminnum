@@ -13,7 +13,10 @@ from app.models.agent_communication import (
 )
 from app.models.system import User
 from app.services.hermes_root_owner_evidence_service import EvidenceCandidate, EvidenceDecision
-from app.services.hermes_root_owner_production_orchestrator import run_root_owner_production_turn
+from app.services.hermes_root_owner_production_orchestrator import (
+    _evidence_payload,
+    run_root_owner_production_turn,
+)
 
 
 _FORBIDDEN_PUBLIC_IDENTITY_TERMS = ("Codex", "Factory Brain", "root_owner", "trace_id", "developer", "engineer")
@@ -197,7 +200,7 @@ def test_private_evidence_follow_up_recovers_previous_production_fact_context(mo
     )
 
     try:
-        first = run_root_owner_production_turn(
+        stale = run_root_owner_production_turn(
             db,
             text="昨天一共出了多少？",
             current_user=db.get(User, 1),
@@ -205,6 +208,17 @@ def test_private_evidence_follow_up_recovers_previous_production_fact_context(mo
             trace_id="trace-root-turn-first",
             source_payload={},
             default_business_date=date(2026, 6, 27),
+            context_scope_id="acceptance-run-stale",
+        )
+        first = run_root_owner_production_turn(
+            db,
+            text="今天一共出了多少？",
+            current_user=db.get(User, 1),
+            sender_external_id="dt-root-001",
+            trace_id="trace-root-turn-current",
+            source_payload={},
+            default_business_date=date(2026, 6, 27),
+            context_scope_id="acceptance-run-current",
         )
         second = run_root_owner_production_turn(
             db,
@@ -214,8 +228,10 @@ def test_private_evidence_follow_up_recovers_previous_production_fact_context(mo
             trace_id="trace-root-turn-follow-up",
             source_payload={},
             default_business_date=date(2026, 6, 27),
+            context_scope_id="acceptance-run-current",
         )
 
+        assert stale.status == "answered"
         assert first.status == "answered"
         assert second.status == "answered"
         assert seen_plans == [
@@ -228,12 +244,20 @@ def test_private_evidence_follow_up_recovers_previous_production_fact_context(mo
                 date(2026, 6, 26),
             ),
             (
+                "trace-root-turn-current",
+                "今天一共出了多少？",
+                "production",
+                ("total_output_daily",),
+                "production_summary",
+                date(2026, 6, 27),
+            ),
+            (
                 "trace-root-turn-follow-up",
                 "接着上一个问题，把证据编号给我",
                 "production",
                 ("total_output_daily",),
                 "evidence_follow_up",
-                date(2026, 6, 26),
+                date(2026, 6, 27),
             ),
         ]
 
@@ -245,13 +269,53 @@ def test_private_evidence_follow_up_recovers_previous_production_fact_context(mo
         recognition = follow_up_run.result_payload["recognition"]
         assert recognition["domain"] == "production"
         assert recognition["metric_keys"] == ["total_output_daily"]
-        assert recognition["business_date"] == "2026-06-26"
+        assert recognition["business_date"] == "2026-06-27"
         assert recognition["intent"] == "evidence_follow_up"
         assert recognition["needs_clarification"] is False
         assert "context_follow_up" in recognition["recognition_reason"]
         assert follow_up_run.result_payload["evidence"]["primary_source"] == "dingtalk_group_chat"
     finally:
         db.close()
+
+
+def test_evidence_payload_keeps_ordered_sanitized_candidate_facts() -> None:
+    first = EvidenceCandidate(
+        source_key="dingtalk_group_chat",
+        source_type="dingtalk_group_content",
+        domain="production",
+        priority=10,
+        status="ok",
+        value={"daily_input_weight": 560.0, "api_token": "must-not-persist"},
+        summary="钉钉投料事实",
+        trace_ref={"trace_id": "ding-71"},
+    )
+    second = EvidenceCandidate(
+        source_key="data_hub_projection",
+        source_type="mes_packaging_output",
+        domain="production",
+        priority=40,
+        status="ok",
+        value={"total_output_daily": 286.0},
+        summary="MES 投影产量事实",
+        trace_ref={"trace_id": "projection-118"},
+    )
+
+    payload = _evidence_payload(
+        EvidenceDecision(
+            primary=first,
+            candidates=(first, second),
+            conflicts=(),
+            missing_sources=[],
+            trace={},
+        )
+    )
+
+    assert [candidate["source_key"] for candidate in payload["candidate_facts"]] == [
+        "dingtalk_group_chat",
+        "data_hub_projection",
+    ]
+    assert payload["candidate_facts"][0]["value"]["daily_input_weight"] == 560.0
+    assert "api_token" not in repr(payload)
 
 
 def test_turn_asks_short_clarification_for_unclear_message(monkeypatch) -> None:

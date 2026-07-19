@@ -24,6 +24,7 @@ class HermesAcceptanceQuestion:
     status_hint: str = "confirmed"
     utterance: str | None = None
     follow_up_utterances: tuple[str, ...] = ()
+    default_business_date_offset_days: int = 0
 
     @property
     def execution_utterances(self) -> tuple[str, ...]:
@@ -192,7 +193,16 @@ _NON_LANGUAGE_TOKENS = (
 
 def build_20_question_catalog() -> tuple[HermesAcceptanceQuestion, ...]:
     return (
-        HermesAcceptanceQuestion(1, "今天全厂总产量是多少？", ("total_output_daily",), "production", True, True, utterance="昨天一共出了多少？"),
+        HermesAcceptanceQuestion(
+            1,
+            "今天全厂总产量是多少？",
+            ("total_output_daily",),
+            "production",
+            True,
+            True,
+            utterance="昨天一共出了多少？",
+            default_business_date_offset_days=1,
+        ),
         HermesAcceptanceQuestion(2, "今天各车间产量分别是多少？", ("workshop_output_daily",), "production", True, False),
         HermesAcceptanceQuestion(3, "今天成品入库多少？", ("finished_inbound_daily",), "inventory", True, True, utterance="那入库呢？"),
         HermesAcceptanceQuestion(4, "今天投料量是多少？", ("daily_input_weight",), "production", True, False),
@@ -600,7 +610,12 @@ def _source_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSna
             and _healthy_dingtalk_source_was_checked(source_status)
             and _has_confirmed_priority_dingtalk_fact(question, snapshot)
         )
-        if not mes_current_fact_is_usable and not priority_dingtalk_fact_is_usable:
+        verified_direct_mes_read_is_usable = _verified_nonempty_mes_read(source_status)
+        if (
+            not mes_current_fact_is_usable
+            and not priority_dingtalk_fact_is_usable
+            and not verified_direct_mes_read_is_usable
+        ):
             return LayerGateResult("source", False, "mes_readonly_source_not_usable")
     if not source_order and not source_status:
         return LayerGateResult("source", False, "no_real_source_trace")
@@ -611,6 +626,17 @@ def _source_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSna
 
 
 def _fact_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:
+    recognition_business_date = str(
+        (snapshot.recognition or {}).get("business_date") or ""
+    ).strip()
+    if recognition_business_date and any(
+        isinstance(answer, Mapping)
+        and str(answer.get("field") or "") in question.metric_keys
+        and str(answer.get("status") or "").strip().lower() == "confirmed"
+        and str(answer.get("business_date") or "").strip() != recognition_business_date
+        for answer in snapshot.fact_answer or []
+    ):
+        return LayerGateResult("fact", False, "fact_business_date_mismatch")
     result = _evaluate_answers_for_questions(snapshot.fact_answer or [], (question,))
     if result["passed"]:
         return LayerGateResult("fact", True, "ok")
@@ -664,6 +690,39 @@ def _mes_was_checked_without_current_fact(source_status: Mapping[str, Any]) -> b
     status = str(payload.get("status") or "").strip().lower()
     reason = str(payload.get("reason") or "").strip().lower()
     return status == "ok" and reason == "no_current_metric_fact"
+
+
+def _verified_nonempty_mes_read(source_status: Mapping[str, Any]) -> bool:
+    payload = source_status.get("mes_readonly")
+    if not isinstance(payload, Mapping):
+        return False
+    if str(payload.get("status") or "").strip().lower() in _SOURCE_FAILURE_STATUSES:
+        return False
+    source_errors = payload.get("source_errors")
+    if isinstance(source_errors, Mapping) and source_errors:
+        return False
+    upstream = payload.get("source_status")
+    if not isinstance(upstream, Mapping):
+        return False
+    if str(upstream.get("mes") or "").strip().lower() not in _SOURCE_HEALTHY_STATUSES:
+        return False
+    query_keys = _list_value(payload.get("query_keys"))
+    sources = upstream.get("sources")
+    if not query_keys or not isinstance(sources, Mapping):
+        return False
+    for query_key in query_keys:
+        query_status = sources.get(query_key)
+        if not isinstance(query_status, Mapping):
+            return False
+        if str(query_status.get("status") or "").strip().lower() not in _SOURCE_HEALTHY_STATUSES:
+            return False
+        try:
+            record_count = int(query_status.get("count"))
+        except (TypeError, ValueError):
+            return False
+        if record_count <= 0:
+            return False
+    return True
 
 
 def _healthy_dingtalk_source_was_checked(source_status: Mapping[str, Any]) -> bool:

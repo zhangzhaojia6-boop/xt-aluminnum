@@ -224,10 +224,11 @@ def choose_primary_evidence(candidates: list[EvidenceCandidate], *, domain: str)
     conflicts: list[dict[str, Any]] = []
     if primary is not None:
         for candidate in sorted_candidates[1:]:
-            if _candidate_value_differs(primary.value, candidate.value):
+            for field_name in _conflicting_candidate_fields(primary.value, candidate.value):
                 conflicts.append(
                     {
                         "domain": domain,
+                        "field": field_name,
                         "chosen_source": primary.source_key,
                         "lower_source": candidate.source_key,
                         "chosen_priority": primary.priority,
@@ -723,6 +724,20 @@ def _candidate_value_differs(left: Any, right: Any) -> bool:
     if left is None or right is None:
         return False
     return _comparable_candidate_value(left) != _comparable_candidate_value(right)
+
+
+def _conflicting_candidate_fields(left: Any, right: Any) -> tuple[str, ...]:
+    if not isinstance(left, Mapping) or not isinstance(right, Mapping):
+        return ()
+    shared_fields = set(left).intersection(right)
+    return tuple(
+        str(field_name)
+        for field_name in sorted(shared_fields, key=str)
+        if _candidate_value_differs(
+            {field_name: left[field_name]},
+            {field_name: right[field_name]},
+        )
+    )
 
 
 def _comparable_candidate_value(value: Any) -> Any:
