@@ -30,6 +30,8 @@ class MappingCandidate:
 
 @dataclass(frozen=True, slots=True)
 class DailyProductionMappingRow:
+    import_row_id: int | None
+    import_row_number: int | None
     row_index: int | None
     business_date: str | None
     source_unit: str | None
@@ -82,6 +84,7 @@ DAILY_PRODUCTION_MAPPING_RULES: dict[tuple[str, str], MappingRule] = {
     ('热轧', '锯床'): MappingRule(workshop_code='RZ', equipment_code='RZ-JC', equipment_required=True),
     ('热轧', '热轧'): MappingRule(workshop_code='RZ', equipment_code='RZ-ZJ', equipment_required=True),
     ('热轧', '中厚板'): MappingRule(workshop_code='RZ', equipment_code='RZ-MED', equipment_required=True),
+    ('热轧', '铣床'): MappingRule(workshop_code='RZ'),
     ('冷轧', '2050'): MappingRule(workshop_code='LZ2050', equipment_code='LZ2050-1', equipment_required=True),
     ('冷轧', '1850'): MappingRule(workshop_code='LZ1850', equipment_code='LZ1850-1', equipment_required=True),
     ('冷轧', '1650'): MappingRule(workshop_code='LZ1650', equipment_code='LZ1650-1', equipment_required=True),
@@ -89,6 +92,7 @@ DAILY_PRODUCTION_MAPPING_RULES: dict[tuple[str, str], MappingRule] = {
     ('精整', '新19辊'): MappingRule(workshop_code='JZ', equipment_code='JZ-19N', equipment_required=True),
     ('精整', '纵剪'): MappingRule(workshop_code='JZ', equipment_code='JZ-ZJ-Z', equipment_required=True),
     ('精整', '包装'): MappingRule(workshop_code='JZ'),
+    ('精整', '剪子'): MappingRule(workshop_code='JZ'),
     ('拉矫', '拉矫'): MappingRule(workshop_code='LJ', equipment_code='JQ-LJ', equipment_required=True),
     ('拉矫', '洗拉'): MappingRule(workshop_code='LJ', equipment_code='JQ-LJ', equipment_required=True),
     ('拉矫', '退火炉'): MappingRule(workshop_code='LJ', equipment_code='JQ-TH', equipment_required=True),
@@ -118,6 +122,7 @@ DAILY_PRODUCTION_MAPPING_RULES: dict[tuple[str, str], MappingRule] = {
     ('剪切', '4#'): MappingRule(workshop_code='JQ', equipment_code='JQ-4', equipment_required=True),
     ('剪切', '重卷'): MappingRule(workshop_code='JQ', equipment_code='JQ-ZJ', equipment_required=True),
     ('剪切', ''): MappingRule(workshop_code='JQ'),
+    ('园区剪切', ''): MappingRule(workshop_code='JQ'),
     ('重卷', '1650'): MappingRule(workshop_code='LZ1650'),
     ('重卷', ''): MappingRule(workshop_code='JQ', equipment_code='JQ-ZJ', equipment_required=True),
     ('六面铣', ''): MappingRule(workshop_code='RZ', equipment_code='RZ-FM', equipment_required=True),
@@ -202,8 +207,18 @@ def _latest_daily_production_batch(db: Session) -> ImportBatch | None:
     )
 
 
-def _batch_rows(db: Session, batch_id: int) -> list[ImportRow]:
-    return db.query(ImportRow).filter(ImportRow.batch_id == batch_id).order_by(ImportRow.row_number.asc()).all()
+def _batch_rows(
+    db: Session,
+    batch_id: int,
+    *,
+    import_row_ids: set[int] | None = None,
+) -> list[ImportRow]:
+    query = db.query(ImportRow).filter(ImportRow.batch_id == batch_id)
+    if import_row_ids is not None:
+        if not import_row_ids:
+            return []
+        query = query.filter(ImportRow.id.in_(import_row_ids))
+    return query.order_by(ImportRow.row_number.asc()).all()
 
 
 def _workshops_by_code(db: Session) -> dict[str, Workshop]:
@@ -219,6 +234,8 @@ def _equipment_by_code(db: Session) -> dict[str, Equipment]:
 def _resolve_row(
     row_payload: dict[str, Any],
     *,
+    import_row_id: int | None,
+    import_row_number: int | None,
     source_business_date: str | None,
     source_unit: str | None,
     workshops: dict[str, Workshop],
@@ -266,6 +283,8 @@ def _resolve_row(
         candidate_equipment = _candidate_equipment(project_label, equipment, workshops)
 
     return DailyProductionMappingRow(
+        import_row_id=import_row_id,
+        import_row_number=import_row_number,
         row_index=row_payload.get('row_index'),
         business_date=source_business_date,
         source_unit=source_unit,
@@ -293,7 +312,10 @@ def _resolve_row(
 
 
 def build_daily_production_mapping_preview(
-    db: Session, *, batch_id: int | None = None
+    db: Session,
+    *,
+    batch_id: int | None = None,
+    import_row_ids: set[int] | None = None,
 ) -> DailyProductionMappingPreview:
     batch = db.get(ImportBatch, batch_id) if batch_id is not None else _latest_daily_production_batch(db)
     if batch is None:
@@ -315,7 +337,7 @@ def build_daily_production_mapping_preview(
     business_date = None
     source_unit = None
 
-    for import_row in _batch_rows(db, batch.id):
+    for import_row in _batch_rows(db, batch.id, import_row_ids=import_row_ids):
         mapped_data = import_row.mapped_data if isinstance(import_row.mapped_data, dict) else {}
         business_date = business_date or mapped_data.get('business_date')
         source_unit = source_unit or mapped_data.get('source_unit')
@@ -324,6 +346,8 @@ def build_daily_production_mapping_preview(
                 resolved_rows.append(
                     _resolve_row(
                         row_payload,
+                        import_row_id=import_row.id,
+                        import_row_number=import_row.row_number,
                         source_business_date=mapped_data.get('business_date'),
                         source_unit=mapped_data.get('source_unit'),
                         workshops=workshops,

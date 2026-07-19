@@ -167,6 +167,33 @@ def test_daily_production_mapping_preview_resolves_only_high_confidence_rows():
     assert rows[('冷轧', '1650')].equipment_id is None
 
 
+def test_daily_production_mapping_preview_resolves_stable_workshop_level_labels():
+    db = _session()
+    hot_roll = _workshop('RZ', '热轧车间')
+    finishing = _workshop('JZ', '精整车间')
+    shearing = _workshop('JQ', '剪切车间')
+    db.add_all([hot_roll, finishing, shearing])
+    db.flush()
+    _seed_batch(
+        db,
+        workshop_rows=[
+            {'row_index': 9, 'workshop_label': '热轧', 'project_label': '铣床', 'daily_output_tons': 281.22},
+            {'row_index': 16, 'workshop_label': '精整', 'project_label': '剪子', 'daily_output_tons': 76.289},
+            {'row_index': 33, 'workshop_label': '园区剪切', 'project_label': None, 'daily_output_tons': 53.37},
+        ],
+    )
+
+    preview = build_daily_production_mapping_preview(db)
+
+    assert preview.ready_rows == 3
+    assert preview.unresolved_rows == 0
+    rows = {(row.workshop_label, row.project_label): row for row in preview.rows}
+    assert rows[('热轧', '铣床')].workshop_code == 'RZ'
+    assert rows[('精整', '剪子')].workshop_code == 'JZ'
+    assert rows[('园区剪切', None)].workshop_code == 'JQ'
+    assert all(row.equipment_id is None for row in rows.values())
+
+
 def test_daily_production_mapping_preview_marks_missing_equipment_mapping():
     db = _session()
     rz = _workshop('RZ', '热轧')

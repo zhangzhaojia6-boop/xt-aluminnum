@@ -396,10 +396,7 @@ def _daily_fact_buckets(mapping_rows: list[dict[str, Any]]) -> list[dict[str, An
     return [
         bucket
         for bucket in buckets.values()
-        if any(
-            _metric_value(bucket[f"{metric}_total"], bucket[f"{metric}_seen"]) not in (None, 0.0)
-            for metric in ("input", "output", "scrap")
-        )
+        if any(bucket[f"{metric}_seen"] for metric in ("input", "output", "scrap"))
     ]
 
 

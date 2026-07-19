@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import copy
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
-from typing import Any
+from decimal import Decimal
+import math
+from typing import Any, Callable
 
 from sqlalchemy import and_, func, inspect, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -10,8 +14,13 @@ from sqlalchemy.orm import Session
 
 from app.core.active_workshops import normalize_workshop_name
 from app.core.business_time import local_now, production_business_window
-from app.domain.daily_report_field_contract import source_lane_priority
-from app.models.master import Workshop
+from app.domain.daily_report_field_contract import (
+    DAILY_REPORT_FIELD_CONTRACT_VERSION,
+    source_lane_priority,
+)
+from app.models.energy import EnergyImportRecord
+from app.models.imports import ImportBatch, ImportRow
+from app.models.master import Equipment, Workshop
 from app.models.mes import (
     MesCoilSnapshot,
     MesDailyWipSnapshot,
@@ -19,9 +28,15 @@ from app.models.mes import (
     MesWipTotalSnapshot,
     MesWorkshopProcessRecord,
 )
-from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
+from app.models.production import OverhaulDaily, RecoveryDaily, ShiftProductionData, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport, DailyReportHistoryRecord
+from app.services.daily_energy_report_service import daily_energy_report_fact_field
+from app.services.daily_production_canonical_service import daily_production_lineage_is_valid
+from app.services.daily_production_mapping_service import (
+    DailyProductionMappingRow,
+    build_daily_production_mapping_preview,
+)
 from app.services.report import daily_overview_builder
 from app.services.report._utils import _to_float
 from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
@@ -126,6 +141,24 @@ PASS_FIELDS_BY_DAILY_FIELD = {
     "cold_2050_daily": ("cold_2050_pass_daily", "cold_2050_pass_month"),
 }
 
+IMPORTED_PRODUCTION_FIELD_BY_EQUIPMENT = {
+    "RZ-ZJ": "hot_roll_daily",
+    "LZ1650-1": "cold_1650_daily",
+    "LZ1850-1": "cold_1850_daily",
+    "LZ2050-1": "cold_2050_daily",
+    "JQ-LJ": "straightening_daily",
+    "ZXTF-1": "online_anneal_daily",
+    "ZXTF-2": "online_anneal_daily",
+    "ZXTF-3": "online_anneal_daily",
+    "ZXTF-4": "online_anneal_daily",
+}
+
+IMPORTED_PRODUCTION_FIELD_BY_WORKSHOP = {
+    "ZD": "foundry_daily",
+    "ZR2": "cast_2_daily",
+    "ZR3": "cast_3_daily",
+}
+
 OWNER_FIELD_ALIASES = {
     "daily_yield_rate": ("daily_yield_rate", "plant_wide_yield_rate"),
     "hot_roll_furnace_gas_m3": ("hot_roll_furnace_gas_m3", "heating_furnace_gas_m3"),
@@ -201,6 +234,10 @@ def _has_table(db: Session, table_name: str) -> bool:
 
 def _set_value(facts: TemplateDailyFacts, key: str, value: Any, source_type: str, **source_extra: Any) -> None:
     if value is None or value == "":
+        return
+    if isinstance(value, Decimal) and not value.is_finite():
+        return
+    if isinstance(value, float) and not math.isfinite(value):
         return
     if not should_replace_source(facts.sources.get(key), source_type):
         return
@@ -1393,6 +1430,462 @@ def collect_manual_workshop_facts(db: Session, facts: TemplateDailyFacts) -> Non
             )
 
 
+def _latest_promoted_daily_production_batch(db: Session, target_date: date) -> ImportBatch | None:
+    return (
+        db.query(ImportBatch)
+        .join(ShiftProductionData, ShiftProductionData.import_batch_id == ImportBatch.id)
+        .filter(
+            ImportBatch.import_type == "daily_production_report",
+            ImportBatch.source_type == "daily_production_report_locked",
+            ImportBatch.parsed_successfully.is_(True),
+            ImportBatch.quality_status != "blocked",
+            ShiftProductionData.business_date == target_date,
+            ShiftProductionData.data_source == "daily_production_report",
+            ShiftProductionData.data_status == "confirmed",
+        )
+        .order_by(ImportBatch.id.desc())
+        .first()
+    )
+
+
+def _imported_production_field(row: Any) -> str | None:
+    equipment_code = str(row.equipment_code or "").strip().upper()
+    if equipment_code in IMPORTED_PRODUCTION_FIELD_BY_EQUIPMENT:
+        return IMPORTED_PRODUCTION_FIELD_BY_EQUIPMENT[equipment_code]
+
+    workshop_code = str(row.workshop_code or "").strip().upper()
+    if workshop_code in IMPORTED_PRODUCTION_FIELD_BY_WORKSHOP:
+        return IMPORTED_PRODUCTION_FIELD_BY_WORKSHOP[workshop_code]
+
+    project_label = str(row.project_label or "").strip().replace(" ", "")
+    workshop_label = str(row.workshop_label or "").strip().replace(" ", "")
+    if workshop_code == "JZ" and row.equipment_id is None and project_label == "剪子":
+        return "finishing_daily"
+    if workshop_code == "JQ" and row.equipment_id is None and workshop_label in {"园区剪切", "剪切"}:
+        return "shearing_daily"
+    return None
+
+
+def _production_bucket_key(row: DailyProductionMappingRow) -> tuple[date, int, int | None] | None:
+    if row.business_date is None or row.workshop_id is None:
+        return None
+    try:
+        business_date = date.fromisoformat(str(row.business_date))
+    except ValueError:
+        return None
+    return business_date, int(row.workshop_id), int(row.equipment_id) if row.equipment_id is not None else None
+
+
+def _production_metric_matches(
+    rows: list[DailyProductionMappingRow],
+    attribute: str,
+    promoted_value: Any,
+) -> bool:
+    values = [getattr(row, attribute) for row in rows if getattr(row, attribute) is not None]
+    expected = round(sum(float(value) for value in values), 3) if values else None
+    if expected is None:
+        return promoted_value is None
+    if promoted_value is None:
+        return False
+    actual = float(promoted_value)
+    return math.isfinite(expected) and math.isfinite(actual) and math.isclose(
+        expected,
+        actual,
+        abs_tol=0.001,
+    )
+
+
+def collect_imported_daily_production_facts(db: Session, facts: TemplateDailyFacts) -> None:
+    required_tables = (
+        ImportBatch.__tablename__,
+        ImportRow.__tablename__,
+        ShiftProductionData.__tablename__,
+        Workshop.__tablename__,
+        Equipment.__tablename__,
+    )
+    if not all(_has_table(db, table_name) for table_name in required_tables):
+        return
+    batch = _latest_promoted_daily_production_batch(db, facts.target_date)
+    if batch is None:
+        return
+    trusted_import_rows = (
+        db.query(ImportRow)
+        .filter(
+            ImportRow.batch_id == batch.id,
+            ImportRow.status == "success",
+        )
+        .order_by(ImportRow.row_number.asc())
+        .all()
+    )
+    trusted_import_row_ids = {
+        row.id
+        for row in trusted_import_rows
+        if isinstance(row.mapped_data, dict)
+        and daily_production_lineage_is_valid(row.mapped_data)
+        and str(row.mapped_data.get("business_date") or "") == facts.target_date.isoformat()
+        and str(row.mapped_data.get("quality_status") or "").strip().lower() in {"ready", "warning"}
+    }
+    if not trusted_import_row_ids:
+        return
+    preview = build_daily_production_mapping_preview(
+        db,
+        batch_id=batch.id,
+        import_row_ids=trusted_import_row_ids,
+    )
+
+    preview_buckets: dict[tuple[date, int, int | None], list[DailyProductionMappingRow]] = {}
+    for row in preview.rows:
+        key = _production_bucket_key(row) if row.status == "ready" else None
+        if key is not None:
+            preview_buckets.setdefault(key, []).append(row)
+    promoted_rows = (
+        db.query(ShiftProductionData)
+        .filter(
+            ShiftProductionData.import_batch_id == batch.id,
+            ShiftProductionData.business_date == facts.target_date,
+            ShiftProductionData.data_source == "daily_production_report",
+            ShiftProductionData.data_status == "confirmed",
+        )
+        .order_by(ShiftProductionData.id.asc())
+        .all()
+    )
+    promoted_by_bucket: dict[tuple[date, int, int | None], list[ShiftProductionData]] = {}
+    for promoted in promoted_rows:
+        key = (
+            promoted.business_date,
+            int(promoted.workshop_id),
+            int(promoted.equipment_id) if promoted.equipment_id is not None else None,
+        )
+        promoted_by_bucket.setdefault(key, []).append(promoted)
+
+    accepted_rows: list[DailyProductionMappingRow] = []
+    promoted_fact_ids_by_anchor: dict[tuple[int | None, int | None], int] = {}
+    mismatched_bucket_count = 0
+    for key, rows in preview_buckets.items():
+        matching_facts = promoted_by_bucket.get(key) or []
+        if len(matching_facts) != 1:
+            mismatched_bucket_count += 1
+            continue
+        promoted = matching_facts[0]
+        if not all(
+            (
+                _production_metric_matches(rows, "daily_input_tons", promoted.input_weight),
+                _production_metric_matches(rows, "daily_output_tons", promoted.output_weight),
+                _production_metric_matches(rows, "daily_scrap_tons", promoted.scrap_weight),
+            )
+        ):
+            mismatched_bucket_count += 1
+            continue
+        accepted_rows.extend(rows)
+        for row in rows:
+            promoted_fact_ids_by_anchor[(row.import_row_id, row.row_index)] = promoted.id
+    if mismatched_bucket_count:
+        facts.conflicts.append(
+            {
+                "field": "daily_production_workbook",
+                "reason": "promoted_lineage_mismatch",
+                "import_batch_id": batch.id,
+                "bucket_count": mismatched_bucket_count,
+            }
+        )
+
+    grouped: dict[str, list[DailyProductionMappingRow]] = {}
+    for row in accepted_rows:
+        field_name = _imported_production_field(row)
+        if field_name is not None:
+            grouped.setdefault(field_name, []).append(row)
+
+    for field_name, rows in grouped.items():
+        daily_values = [row.daily_output_tons for row in rows if row.daily_output_tons is not None]
+        row_anchors = [
+            {
+                "import_row_id": row.import_row_id,
+                "import_row_number": row.import_row_number,
+                "workbook_row_index": row.row_index,
+            }
+            for row in rows
+        ]
+        workshop_name = next((row.workshop_name for row in rows if row.workshop_name), None)
+        daily_start, daily_end = production_business_window(
+            facts.target_date,
+            workshop_name=workshop_name,
+        )
+        anchor_token = ",".join(
+            f"{row.import_row_id}.{row.row_index}"
+            for row in rows
+        )
+        source_base = {
+            "source_ref": ImportRow.__tablename__,
+            "import_batch_id": batch.id,
+            "file_name": batch.file_name,
+            "business_date": facts.target_date.isoformat(),
+            "unit": "吨",
+            "row_count": len(rows),
+            "row_anchors": row_anchors,
+            "promoted_fact_ids": sorted(
+                {
+                    promoted_fact_ids_by_anchor[(row.import_row_id, row.row_index)]
+                    for row in rows
+                }
+            ),
+            "metric_contract_version": DAILY_REPORT_FIELD_CONTRACT_VERSION,
+        }
+        if daily_values:
+            _set_value(
+                facts,
+                field_name,
+                sum(float(value) for value in daily_values),
+                "manual_workbook",
+                **source_base,
+                business_window=f"{daily_start.isoformat()}/{daily_end.isoformat()}",
+                trace_id=(
+                    f"import-read:{ImportRow.__tablename__}:{batch.id}:"
+                    f"{field_name}:{anchor_token}"
+                ),
+            )
+
+
+def _latest_promoted_energy_batch(db: Session, target_date: date) -> ImportBatch | None:
+    return (
+        db.query(ImportBatch)
+        .join(EnergyImportRecord, EnergyImportRecord.import_batch_id == ImportBatch.id)
+        .filter(
+            ImportBatch.import_type == "energy",
+            ImportBatch.source_type == "daily_energy_report_locked",
+            ImportBatch.parsed_successfully.is_(True),
+            ImportBatch.quality_status != "blocked",
+            EnergyImportRecord.business_date == target_date,
+        )
+        .order_by(ImportBatch.id.desc())
+        .first()
+    )
+
+
+def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFacts) -> None:
+    required_tables = (ImportBatch.__tablename__, ImportRow.__tablename__, EnergyImportRecord.__tablename__)
+    if not all(_has_table(db, table_name) for table_name in required_tables):
+        return
+    batch = _latest_promoted_energy_batch(db, facts.target_date)
+    if batch is None:
+        return
+    import_rows = (
+        db.query(ImportRow)
+        .filter(
+            ImportRow.batch_id == batch.id,
+            ImportRow.status.in_(("success", "skipped")),
+        )
+        .order_by(ImportRow.row_number.asc())
+        .all()
+    )
+
+    grouped: dict[str, list[tuple[float, ImportRow, dict[str, Any]]]] = {}
+    for row in import_rows:
+        mapped = row.mapped_data if isinstance(row.mapped_data, dict) else {}
+        if str(mapped.get("business_date") or "") != facts.target_date.isoformat():
+            continue
+        try:
+            value = float(mapped.get("energy_value"))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(value):
+            continue
+        field_name = daily_energy_report_fact_field(
+            str(mapped.get("energy_type") or "").strip().lower(),
+            str(mapped.get("source_label") or ""),
+        )
+        if field_name is None or mapped.get("report_field") != field_name:
+            continue
+        grouped.setdefault(field_name, []).append((value, row, mapped))
+
+    if "cast_2_gas_m3" in grouped or "cast_3_gas_m3" in grouped:
+        grouped["cast_roll_gas_m3"] = [
+            *grouped.get("cast_2_gas_m3", []),
+            *grouped.get("cast_3_gas_m3", []),
+        ]
+
+    energy_start, energy_end = production_business_window(facts.target_date)
+    energy_business_window = f"{energy_start.isoformat()}/{energy_end.isoformat()}"
+    for field_name, values in grouped.items():
+        row_anchors = [
+            {
+                "import_row_id": row.id,
+                "import_row_number": row.row_number,
+                "workbook_row_number": mapped.get("source_row_no"),
+                "source_file": mapped.get("source_file"),
+                "source_sheet": mapped.get("source_sheet"),
+                "source_label": mapped.get("source_label"),
+            }
+            for _value, row, mapped in values
+        ]
+        anchor_token = ",".join(str(row.id) for _value, row, _mapped in values)
+        _set_value(
+            facts,
+            field_name,
+            sum(value for value, _row, _mapped in values),
+            "manual_workbook",
+            source_ref=ImportRow.__tablename__,
+            import_batch_id=batch.id,
+            file_name=batch.file_name,
+            business_date=facts.target_date.isoformat(),
+            business_window=energy_business_window,
+            row_count=len(values),
+            row_anchors=row_anchors,
+            metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+            trace_id=(
+                f"import-read:{ImportRow.__tablename__}:{batch.id}:"
+                f"{field_name}:{anchor_token}"
+            ),
+        )
+
+    electricity = facts.values.get("total_electricity_kwh")
+    gas = facts.values.get("total_gas_m3")
+    if electricity is None and gas is None:
+        return
+    component_fields = [
+        field_name
+        for field_name in ("total_electricity_kwh", "total_gas_m3")
+        if facts.values.get(field_name) is not None
+    ]
+    component_source_keys = (
+        "source_type",
+        "source_ref",
+        "trace_id",
+        "business_date",
+        "business_window",
+        "import_batch_id",
+        "row_anchors",
+        "metric_contract_version",
+    )
+    component_sources: dict[str, dict[str, Any]] = {}
+    for field_name in component_fields:
+        source = facts.sources.get(field_name) or {}
+        component_sources[field_name] = {
+            key: source.get(key)
+            for key in component_source_keys
+            if source.get(key) is not None
+        }
+    electricity_cost = None
+    gas_cost = None
+    if electricity is not None:
+        electricity_cost = round(
+            _to_float(electricity) * daily_overview_builder.DEFAULT_ELECTRICITY_PRICE / 10000,
+            2,
+        )
+        _set_value(
+            facts,
+            "electricity_cost_10k",
+            electricity_cost,
+            "computed",
+            source_ref="template_daily_facts",
+            business_date=facts.target_date.isoformat(),
+            business_window=energy_business_window,
+            trace_id=f"computed:energy-cost:electricity:{facts.target_date.isoformat()}",
+            formula="total_electricity_kwh * electricity_unit_price / 10000",
+            components=["total_electricity_kwh"],
+            component_sources={"total_electricity_kwh": component_sources["total_electricity_kwh"]},
+            unit_prices={"electricity": daily_overview_builder.DEFAULT_ELECTRICITY_PRICE},
+            metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+        )
+    if gas is not None:
+        gas_cost = round(_to_float(gas) * daily_overview_builder.DEFAULT_GAS_PRICE / 10000, 2)
+        _set_value(
+            facts,
+            "gas_cost_10k",
+            gas_cost,
+            "computed",
+            source_ref="template_daily_facts",
+            business_date=facts.target_date.isoformat(),
+            business_window=energy_business_window,
+            trace_id=f"computed:energy-cost:gas:{facts.target_date.isoformat()}",
+            formula="total_gas_m3 * gas_unit_price / 10000",
+            components=["total_gas_m3"],
+            component_sources={"total_gas_m3": component_sources["total_gas_m3"]},
+            unit_prices={"gas": daily_overview_builder.DEFAULT_GAS_PRICE},
+            metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+        )
+    if electricity_cost is None or gas_cost is None:
+        return
+    electricity_source = facts.sources.get("total_electricity_kwh") or {}
+    gas_source = facts.sources.get("total_gas_m3") or {}
+    same_promoted_workbook_batch = (
+        electricity_source.get("source_type") == "manual_workbook"
+        and gas_source.get("source_type") == "manual_workbook"
+        and electricity_source.get("import_batch_id") == batch.id
+        and gas_source.get("import_batch_id") == batch.id
+    )
+    if not same_promoted_workbook_batch:
+        if facts.values.get("total_cost_10k") is None:
+            conflict = {
+                "field": "total_cost_10k",
+                "reason": "mixed_energy_source_batch",
+                "component_fields": ["total_electricity_kwh", "total_gas_m3"],
+            }
+            if conflict not in facts.conflicts:
+                facts.conflicts.append(conflict)
+        return
+    total_cost = round(electricity_cost + gas_cost, 2)
+    total_cost_trace_id = f"computed:energy-cost:total:{batch.id}:{facts.target_date.isoformat()}"
+    _set_value(
+        facts,
+        "total_cost_10k",
+        total_cost,
+        "computed",
+        source_ref="template_daily_facts",
+        import_batch_id=batch.id,
+        business_date=facts.target_date.isoformat(),
+        business_window=energy_business_window,
+        trace_id=total_cost_trace_id,
+        formula="electricity_cost_10k + gas_cost_10k",
+        components=["total_electricity_kwh", "total_gas_m3"],
+        component_sources=component_sources,
+        unit_prices={
+            "electricity": daily_overview_builder.DEFAULT_ELECTRICITY_PRICE,
+            "gas": daily_overview_builder.DEFAULT_GAS_PRICE,
+        },
+        metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+    )
+    basis_weight = facts.values.get("cost_basis_weight")
+    if basis_weight is not None and _to_float(basis_weight) > 0:
+        retained_total_source = facts.sources.get("total_cost_10k") or {}
+        if retained_total_source.get("trace_id") != total_cost_trace_id:
+            conflict = {
+                "field": "cost_per_ton",
+                "reason": "total_cost_source_rejected_workbook_value",
+                "component_fields": ["total_cost_10k", "cost_basis_weight"],
+            }
+            if conflict not in facts.conflicts:
+                facts.conflicts.append(conflict)
+            return
+        basis_source = facts.sources.get("cost_basis_weight") or {}
+        cost_per_ton_component_sources = {
+            "total_cost_10k": {
+                key: facts.sources["total_cost_10k"].get(key)
+                for key in component_source_keys
+                if facts.sources["total_cost_10k"].get(key) is not None
+            },
+            "cost_basis_weight": {
+                key: basis_source.get(key)
+                for key in component_source_keys
+                if basis_source.get(key) is not None
+            },
+        }
+        _set_value(
+            facts,
+            "cost_per_ton",
+            round(total_cost * 10000 / _to_float(basis_weight), 0),
+            "computed",
+            source_ref="template_daily_facts",
+            import_batch_id=batch.id,
+            business_date=facts.target_date.isoformat(),
+            business_window=energy_business_window,
+            trace_id=f"computed:energy-cost:per-ton:{batch.id}:{facts.target_date.isoformat()}",
+            formula="total_cost_10k * 10000 / cost_basis_weight",
+            components=["total_cost_10k", "cost_basis_weight"],
+            component_sources=cost_per_ton_component_sources,
+            metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+        )
+
+
 def collect_mes_material_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
     month_start = facts.target_date.replace(day=1)
     for key, tokens in MES_MATERIAL_OUTPUT_WORKSHOPS.items():
@@ -1695,6 +2188,33 @@ def _datahub_template_daily_report_reference(row: DailyReport | None) -> dict[st
     }
 
 
+def _collect_optional_workbook_facts(
+    db: Session,
+    facts: TemplateDailyFacts,
+    collector: Callable[[Session, TemplateDailyFacts], None],
+    *,
+    source_name: str,
+) -> None:
+    candidate = copy.deepcopy(facts)
+    try:
+        transaction = db.begin_nested() if callable(getattr(db, "begin_nested", None)) else nullcontext()
+        with transaction:
+            collector(db, candidate)
+    except (OperationalError, ProgrammingError) as exc:
+        conflict = {
+            "field": source_name,
+            "reason": "optional_source_unavailable",
+            "error_type": type(exc).__name__,
+        }
+        if conflict not in facts.conflicts:
+            facts.conflicts.append(conflict)
+        return
+    facts.values = candidate.values
+    facts.sources = candidate.sources
+    facts.missing_fields = candidate.missing_fields
+    facts.conflicts = candidate.conflicts
+
+
 def collect_template_daily_facts(
     db: Session,
     *,
@@ -1710,6 +2230,18 @@ def collect_template_daily_facts(
     collect_manual_workshop_facts(db, facts)
     _copy_owner_values(facts, _owner_daily_payload_values(db, target_date=target_date), required_fields)
     collect_owner_rollup_facts(db, facts)
+    _collect_optional_workbook_facts(
+        db,
+        facts,
+        collect_imported_daily_production_facts,
+        source_name="daily_production_workbook",
+    )
+    _collect_optional_workbook_facts(
+        db,
+        facts,
+        collect_imported_energy_workbook_facts,
+        source_name="daily_energy_workbook",
+    )
     collect_workshop_rollup_facts(facts)
     collect_recovery_and_overhaul_facts(db, facts)
     collect_quality_yield_facts(db, facts)

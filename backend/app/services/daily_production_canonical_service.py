@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 import hashlib
+import hmac
 import importlib
 import json
 import re
@@ -75,9 +76,17 @@ def _round_tons(value: float) -> float:
     return round(value, 3)
 
 
-def _build_lineage_hash(payload: dict[str, Any]) -> str:
+def build_daily_production_lineage_hash(payload: dict[str, Any]) -> str:
     canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
     return hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+
+
+def daily_production_lineage_is_valid(mapped_data: dict[str, Any]) -> bool:
+    expected = str(mapped_data.get('lineage_hash') or '').strip().lower()
+    if len(expected) != 64:
+        return False
+    payload = {key: value for key, value in mapped_data.items() if key != 'lineage_hash'}
+    return hmac.compare_digest(expected, build_daily_production_lineage_hash(payload))
 
 
 def _detect_business_date(sheet_name: str, frame: pd.DataFrame, *, year_hint: int | None) -> date | None:
@@ -250,7 +259,7 @@ def parse_daily_production_sheet(
     }
     mapped_data = {
         **draft_payload,
-        'lineage_hash': _build_lineage_hash(draft_payload),
+        'lineage_hash': build_daily_production_lineage_hash(draft_payload),
     }
     raw_data = {
         'sheet_name': str(sheet_name),

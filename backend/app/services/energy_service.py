@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+import math
 
 from fastapi import UploadFile
 from sqlalchemy import func
@@ -46,11 +47,12 @@ def _to_float(value) -> float | None:
     if value is None:
         return None
     if isinstance(value, Decimal):
-        return float(value)
+        return float(value) if value.is_finite() else None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    return number if math.isfinite(number) else None
 
 
 _KG_DATA_SOURCES = {'mobile_coil_agg'}
@@ -762,6 +764,7 @@ def get_energy_summary(
                 'gas_value': 0.0,
                 'water_value': 0.0,
                 'total_energy': 0.0,
+                'available_energy_types': [],
                 'output_weight': 0.0,
                 'energy_per_ton': None,
                 'source': 'energy_import',
@@ -774,6 +777,8 @@ def get_energy_summary(
             payload['gas_value'] += energy_val
         elif item.energy_type == 'water':
             payload['water_value'] += energy_val
+        if item.energy_type not in payload['available_energy_types']:
+            payload['available_energy_types'].append(item.energy_type)
         payload['total_energy'] += energy_val
 
     for key, payload in grouped.items():
@@ -813,6 +818,14 @@ def summarize_energy_for_date(
     mobile_rows = [item for item in rows if item.get('source') == 'mobile_shift_report']
     system_rows = [item for item in rows if item.get('source') == 'energy_import' or item.get('source') is None]
     primary_rows = _primary_energy_rows(mobile_rows=mobile_rows, system_rows=system_rows, owner_rows=owner_rows)
+    available_energy_types = sorted(
+        {
+            str(energy_type)
+            for item in primary_rows
+            for energy_type in item.get('available_energy_types', [])
+            if energy_type
+        }
+    )
 
     electricity_value = sum(_to_float(item.get('electricity_value')) or 0.0 for item in primary_rows)
     gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in primary_rows)
@@ -858,6 +871,7 @@ def summarize_energy_for_date(
         'output_basis': output_basis,
         'energy_per_ton': energy_per_ton,
         'primary_source': primary_source,
+        'available_energy_types': available_energy_types,
         'system_totals': {
             'total_energy': system_total_energy,
             'total_output_weight': system_total_output,

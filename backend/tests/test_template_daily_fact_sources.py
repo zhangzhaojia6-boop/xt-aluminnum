@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
+from unittest.mock import MagicMock
 
 import sqlalchemy as sa
 from sqlalchemy import create_engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
@@ -18,6 +20,36 @@ from app.services.report.template_daily_report import REQUIRED_FIELDS
 
 
 REPORT_DATE = date(2026, 6, 16)
+
+
+def test_optional_workbook_failure_keeps_existing_facts_without_global_rollback() -> None:
+    db = MagicMock()
+    facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+    facts.values['foundry_daily'] = 10.0
+    facts.sources['foundry_daily'] = {'source_type': 'owner_daily'}
+
+    def broken_collector(_db, candidate) -> None:
+        candidate.values['hot_roll_daily'] = 999.0
+        raise OperationalError('SELECT import_rows', {}, RuntimeError('temporary read failure'))
+
+    template_daily_fact_sources._collect_optional_workbook_facts(
+        db,
+        facts,
+        broken_collector,
+        source_name='daily_production_workbook',
+    )
+
+    assert facts.values == {'foundry_daily': 10.0}
+    assert facts.sources == {'foundry_daily': {'source_type': 'owner_daily'}}
+    assert facts.conflicts == [
+        {
+            'field': 'daily_production_workbook',
+            'reason': 'optional_source_unavailable',
+            'error_type': 'OperationalError',
+        }
+    ]
+    db.begin_nested.assert_called_once_with()
+    db.rollback.assert_not_called()
 
 
 def _session(tmp_path):
@@ -844,6 +876,8 @@ def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> N
     monkeypatch.setattr(template_daily_fact_sources, "_copy_owner_values", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_owner_rollup_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_manual_workshop_facts", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_imported_daily_production_facts", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_imported_energy_workbook_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_mes_workshop_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_recovery_and_overhaul_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_quality_yield_facts", lambda *_args, **_kwargs: None)
