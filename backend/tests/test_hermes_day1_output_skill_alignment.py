@@ -64,14 +64,14 @@ def test_build_output_skill_alignment_returns_100_with_fixture() -> None:
         'char_match_rate': 100.0,
         'exact_match': True,
         'threshold': 95.0,
-        'reference_present_fields': 125,
+        'reference_present_fields': 127,
         'declared_na_fields': [],
         'invalid_na_fields': [],
         'reference_absent_fields': [],
         'reference_absent_count': 0,
-        'normative_fields': 125,
-        'normative_denominator': 125,
-        'normative_matched_fields': 125,
+        'normative_fields': 127,
+        'normative_denominator': 127,
+        'normative_matched_fields': 127,
         'normative_coverage_rate': 100.0,
         'field_tolerances': None,
     }
@@ -126,7 +126,7 @@ def test_build_output_skill_alignment_returns_missing_when_root_missing() -> Non
         'invalid_na_fields': [],
         'reference_absent_fields': [],
         'reference_absent_count': None,
-        'normative_fields': 125,
+        'normative_fields': 127,
         'normative_denominator': None,
         'normative_matched_fields': None,
         'normative_coverage_rate': None,
@@ -148,7 +148,7 @@ def test_alignment_blocks_undeclared_reference_gaps_and_accepts_explicit_na(tmp_
     assert blocked['reference_present_fields'] == len(normative_fields) - len(absent_fields)
     assert blocked['reference_absent_fields'] == absent_fields
     assert blocked['reference_absent_count'] == len(absent_fields)
-    assert blocked['normative_denominator'] == 125
+    assert blocked['normative_denominator'] == 127
 
     sidecar = report_path.with_suffix('.na.json')
     sidecar.write_text(json.dumps({'not_applicable': absent_fields}), encoding='utf-8')

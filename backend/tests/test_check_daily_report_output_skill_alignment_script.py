@@ -324,10 +324,17 @@ def test_run_alignment_checks_truncates_differences_by_default(tmp_path) -> None
 
 
 def test_checks_passed_requires_all_rows_passed() -> None:
+    valid = {
+        "status": "passed",
+        "fact_closure": {"status": "pass"},
+        "normative_fields": 127,
+        "normative_denominator": 127,
+        "declared_na_fields": [],
+    }
     assert script.checks_passed(
         [
-            {"status": "passed", "fact_closure": {"status": "pass"}},
-            {"status": "passed", "fact_closure": {"status": "pass"}},
+            valid,
+            valid,
         ]
     ) is True
     assert script.checks_passed(
@@ -336,6 +343,57 @@ def test_checks_passed_requires_all_rows_passed() -> None:
             {"status": "review_needed", "fact_closure": {"status": "pass"}},
         ]
     ) is False
+
+
+def test_run_alignment_checks_rejects_false_green_with_shrunken_contract(tmp_path) -> None:
+    def fake_builder(db, *, business_date, persist_run=False):
+        return {
+            "status": "ready",
+            "missing_fields": [],
+            "fact_closure": {"status": "pass", "critical_fields": []},
+            "output_skill_alignment": {
+                "status": "passed",
+                "field_match_rate": 100.0,
+                "matched_fields": 125,
+                "expected_fields": 125,
+                "reference_present_fields": 125,
+                "declared_na_fields": [],
+                "invalid_na_fields": [],
+                "reference_absent_fields": [],
+                "reference_absent_count": 0,
+                "normative_fields": 125,
+                "normative_denominator": 125,
+                "normative_matched_fields": 125,
+                "normative_coverage_rate": 100.0,
+                "difference_count": 0,
+                "differences": [],
+            },
+        }
+
+    rows = script.run_alignment_checks(
+        "db",
+        business_dates=[date(2026, 6, 29)],
+        output_skill_root=tmp_path,
+        bundle_builder=fake_builder,
+    )
+
+    assert rows[0]["status"] == "blocked"
+    assert rows[0]["real_source_gate_passed"] is False
+    assert rows[0]["contract_gate_issues"] == [
+        "normative_field_count_mismatch:125!=127",
+        "normative_denominator_mismatch:125!=127",
+    ]
+    assert script.checks_passed(rows) is False
+
+
+def test_normative_contract_gate_accepts_auditable_daily_na_denominator() -> None:
+    assert script._normative_contract_issues(
+        {
+            "normative_fields": 127,
+            "normative_denominator": 125,
+            "declared_na_fields": ["cast_roll_active_lines", "finished_inbound_month"],
+        }
+    ) == []
     assert script.checks_passed(
         [{"status": "passed", "fact_closure": {"status": "blocked"}}]
     ) is False

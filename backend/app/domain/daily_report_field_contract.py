@@ -12,6 +12,7 @@ from app.domain.daily_report_field_names import TEMPLATE_FIELD_GROUPS as FIELD_G
 
 
 DAILY_REPORT_FIELD_CONTRACT_VERSION = "2026-07-18"
+DAILY_REPORT_NORMATIVE_FIELD_COUNT = 127
 
 BUSINESS_TIME_STANDARD = "production_07_50"
 BUSINESS_TIME_BILLET = "billet_10_00"
@@ -54,8 +55,6 @@ _SOURCE_LANE_PRIORITIES = {
 REFERENCE_ROLE_COMPARE_ONLY = "compare_only"
 
 TEMPLATE_ONLY_FIELD_REASONS = {
-    "cast_roll_active_lines": "optional_display_field_absent_from_current_canonical_reports",
-    "finished_inbound_month": "internal_fact_not_rendered_in_current_canonical_reports",
     "recovery_daily": "legacy_template_unit_not_frozen",
     "recovery_month": "legacy_template_unit_not_frozen",
     "remaining_contract_delta": "derived_display_field_outside_normative_denominator",
