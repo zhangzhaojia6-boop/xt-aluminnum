@@ -19,6 +19,7 @@ from app.models.system import User
 from app.services.mobile_report._utils import SUBMITTED_STATUSES
 from app.services import energy_service
 from app.services.contract_canonical_service import build_contract_projection
+from app.services.executive_constants import ELECTRICITY_PRICE_PER_KWH, NATURAL_GAS_PRICE_PER_M3
 from app.services.production_output_scope import counts_as_workshop_output, normalize_process_stage, pass_count
 from app.services.report._utils import _to_float
 from app.services.report import mes_factory_packaging_fact, mes_factory_production_fact, mes_home_packaging_fact
@@ -26,8 +27,8 @@ from app.services.report.daily_report_fact_closure import build_persisted_daily_
 from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
 
 
-DEFAULT_ELECTRICITY_PRICE = 0.65
-DEFAULT_GAS_PRICE = 3.60
+DEFAULT_ELECTRICITY_PRICE = float(ELECTRICITY_PRICE_PER_KWH)
+DEFAULT_GAS_PRICE = float(NATURAL_GAS_PRICE_PER_M3)
 SHIFT_ORDER = ('A', 'B', 'C')
 SHIFT_LABELS = {'A': '长白班', 'B': '小夜班', 'C': '大夜班'}
 SHIFT_WINDOWS = {'A': '07:30-15:30', 'B': '15:30-23:30', 'C': '23:30-07:30'}

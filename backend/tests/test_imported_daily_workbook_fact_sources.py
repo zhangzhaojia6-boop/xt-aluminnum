@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,7 +12,7 @@ from app.core.business_time import production_business_window
 from app.database import Base
 from app.domain.daily_report_field_contract import DAILY_REPORT_FIELD_CONTRACT_VERSION
 from app.models.energy import EnergyImportRecord
-from app.models.imports import ImportBatch, ImportRow
+from app.models.imports import ImportBatch, ImportedDailyMetricFact, ImportRow
 from app.models.master import Equipment, Team, Workshop
 from app.models.production import ShiftProductionData
 from app.models.shift import ShiftConfig
@@ -24,6 +24,11 @@ from app.services.report import template_daily_fact_sources
 
 
 REPORT_DATE = date(2026, 7, 17)
+
+
+def test_daily_energy_field_map_preserves_first_furnace_explicit_zeroes() -> None:
+    assert daily_energy_report_fact_field('gas', '热轧加热炉/1#东炉') == 'east_furnace_gas_m3'
+    assert daily_energy_report_fact_field('gas', '热轧加热炉/1#西炉') == 'west_furnace_gas_m3'
 
 
 def _session():
@@ -38,6 +43,7 @@ def _session():
             ShiftConfig.__table__,
             ImportBatch.__table__,
             ImportRow.__table__,
+            ImportedDailyMetricFact.__table__,
             ShiftProductionData.__table__,
             EnergyImportRecord.__table__,
         ],
@@ -81,14 +87,42 @@ def _production_mapped_data(
     *,
     business_date: date = REPORT_DATE,
     quality_status: str = 'ready',
+    report_metrics: list[dict] | None = None,
 ) -> dict:
     payload = {
         'business_date': business_date.isoformat(),
         'source_unit': 't',
         'quality_status': quality_status,
         'workshop_rows': rows,
+        'report_metrics': report_metrics or [],
     }
     return {**payload, 'lineage_hash': build_daily_production_lineage_hash(payload)}
+
+
+def _confirmed_metric_fact(
+    *,
+    batch: ImportBatch,
+    import_row: ImportRow,
+    field_name: str,
+    value: float,
+    unit: str,
+    business_date: date = REPORT_DATE,
+) -> ImportedDailyMetricFact:
+    metric = next(item for item in import_row.mapped_data['report_metrics'] if item['field_name'] == field_name)
+    return ImportedDailyMetricFact(
+        business_date=business_date,
+        field_name=field_name,
+        metric_value=value,
+        unit=unit,
+        source_kind='daily_production_report',
+        import_batch_id=batch.id,
+        import_row_id=import_row.id,
+        source_anchors=metric['source_anchors'],
+        lineage_hash=import_row.mapped_data['lineage_hash'],
+        metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+        data_status='confirmed',
+        version_no=1,
+    )
 
 
 def _confirm_production_preview(db, batch: ImportBatch, shift: ShiftConfig) -> list[ShiftProductionData]:
@@ -248,6 +282,296 @@ def test_promoted_daily_production_workbook_fills_only_report_semantic_rows() ->
             25,
             27,
         ]
+    finally:
+        db.close()
+
+
+def test_confirmed_imported_metric_facts_publish_with_report_rounding_and_proxy_replacement() -> None:
+    db = _session()
+    try:
+        workshop = _workshop('RZ', '热轧车间')
+        db.add(workshop)
+        db.flush()
+        equipment = _equipment('RZ-ZJ', '热轧机', workshop)
+        shift = ShiftConfig(
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_active=True,
+        )
+        db.add_all([equipment, shift])
+        db.flush()
+        previous_date = REPORT_DATE - timedelta(days=1)
+        previous_batch = ImportBatch(
+            batch_no='IMP-DAILY-METRICS-20260716',
+            import_type='daily_production_report',
+            source_type='daily_production_report_locked',
+            file_name='daily-production-metrics-previous.xls',
+            total_rows=1,
+            success_rows=1,
+            failed_rows=0,
+            status='completed',
+            quality_status='ready',
+            parsed_successfully=True,
+        )
+        db.add(previous_batch)
+        db.flush()
+        previous_metrics = [
+            {
+                'field_name': 'total_output_daily',
+                'value': 304.306,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '2026-7-16', 'row_index': 39, 'column_index': 26}],
+            }
+        ]
+        previous_import_row = ImportRow(
+            batch_id=previous_batch.id,
+            row_number=1,
+            status='success',
+            raw_data={'sheet_name': '2026-7-16'},
+            mapped_data=_production_mapped_data(
+                [],
+                business_date=previous_date,
+                report_metrics=previous_metrics,
+            ),
+        )
+        db.add(previous_import_row)
+        db.flush()
+        db.add(
+            _confirmed_metric_fact(
+                batch=previous_batch,
+                import_row=previous_import_row,
+                field_name='total_output_daily',
+                value=304.306,
+                unit='吨',
+                business_date=previous_date,
+            )
+        )
+        batch = ImportBatch(
+            batch_no='IMP-DAILY-METRICS-20260717',
+            import_type='daily_production_report',
+            source_type='daily_production_report_locked',
+            file_name='daily-production-metrics.xls',
+            total_rows=1,
+            success_rows=1,
+            failed_rows=0,
+            status='completed',
+            quality_status='ready',
+            parsed_successfully=True,
+        )
+        db.add(batch)
+        db.flush()
+        report_metrics = [
+            {
+                'field_name': 'total_output_daily',
+                'value': 285.545,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 39, 'column_index': 26}],
+            },
+            {
+                'field_name': 'hot_roll_month',
+                'value': 4250.62,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 50, 'column_index': 2}],
+            },
+            {
+                'field_name': 'foundry_gas_per_ton_daily',
+                'value': 79.1592,
+                'unit': 'm³/吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 49, 'column_index': 15}],
+            },
+            {
+                'field_name': 'coating_daily',
+                'value': 0.0,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 58, 'column_index': 1}],
+            },
+            {
+                'field_name': 'cost_basis_weight',
+                'value': 285.545,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 39, 'column_index': 26}],
+            },
+        ]
+        import_row = ImportRow(
+            batch_id=batch.id,
+            row_number=1,
+            status='success',
+            raw_data={'sheet_name': '综合报表'},
+            mapped_data=_production_mapped_data(
+                [_production_row(10, '热轧', '热轧', 346.32, 4250.62)],
+                report_metrics=report_metrics,
+            ),
+        )
+        db.add(import_row)
+        db.flush()
+        db.add(
+            ShiftProductionData(
+                business_date=REPORT_DATE,
+                shift_config_id=shift.id,
+                workshop_id=workshop.id,
+                equipment_id=equipment.id,
+                output_weight=346.32,
+                qualified_weight=346.32,
+                data_source='daily_production_report',
+                import_batch_id=batch.id,
+                data_status='confirmed',
+            )
+        )
+        db.add_all(
+            [
+                _confirmed_metric_fact(
+                    batch=batch,
+                    import_row=import_row,
+                    field_name=metric['field_name'],
+                    value=metric['value'],
+                    unit=metric['unit'],
+                )
+                for metric in report_metrics
+            ]
+        )
+        db.commit()
+
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        facts.values['total_output_daily'] = 267.36
+        facts.sources['total_output_daily'] = {
+            'source_type': 'mes_packaging_output',
+            'source_ref': 'mes_workshop_process_records',
+            'trace_id': 'projection-read:mes-workshop-process',
+        }
+        facts.values['cost_basis_weight'] = 267.36
+        facts.sources['cost_basis_weight'] = {
+            'source_type': 'mes_packaging_output',
+            'source_ref': 'mes_workshop_process_records',
+            'trace_id': 'projection-read:mes-workshop-process:cost-basis',
+        }
+        template_daily_fact_sources.collect_imported_daily_production_facts(db, facts)
+
+        assert facts.values['total_output_daily'] == 286.0
+        assert facts.values['hot_roll_month'] == 4251.0
+        assert facts.values['foundry_gas_per_ton_daily'] == 79.2
+        assert facts.values['coating_daily'] == 0.0
+        assert facts.values['cost_basis_weight'] == 285.545
+        assert facts.values['total_output_delta'] == -18.0
+        assert facts.sources['hot_roll_month']['source_ref'] == 'imported_daily_metric_facts'
+        assert facts.sources['hot_roll_month']['import_batch_id'] == batch.id
+        assert facts.sources['hot_roll_month']['metric_fact_id'] is not None
+        assert facts.sources['hot_roll_month']['row_anchors'] == report_metrics[1]['source_anchors']
+        assert ':hot_roll_month:' in facts.sources['hot_roll_month']['trace_id']
+        metric_start, _unused = production_business_window(REPORT_DATE.replace(day=1))
+        _unused, metric_end = production_business_window(REPORT_DATE)
+        assert facts.sources['hot_roll_month']['business_window'] == (
+            f'{metric_start.isoformat()}/{metric_end.isoformat()}'
+        )
+        delta_start, _unused = production_business_window(previous_date)
+        _unused, delta_end = production_business_window(REPORT_DATE)
+        assert facts.sources['total_output_delta']['business_window'] == (
+            f'{delta_start.isoformat()}/{delta_end.isoformat()}'
+        )
+    finally:
+        db.close()
+
+
+def test_imported_metric_fact_rejects_tampering_and_does_not_overwrite_dingtalk() -> None:
+    db = _session()
+    try:
+        workshop = _workshop('ZD', '铸锭分厂')
+        db.add(workshop)
+        db.flush()
+        shift = ShiftConfig(
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_active=True,
+        )
+        db.add(shift)
+        db.flush()
+        batch = ImportBatch(
+            batch_no='IMP-DAILY-METRIC-TAMPER-20260717',
+            import_type='daily_production_report',
+            source_type='daily_production_report_locked',
+            file_name='daily-production-tamper.xls',
+            total_rows=1,
+            success_rows=1,
+            failed_rows=0,
+            status='completed',
+            quality_status='ready',
+            parsed_successfully=True,
+        )
+        db.add(batch)
+        db.flush()
+        report_metrics = [
+            {
+                'field_name': 'hot_roll_month',
+                'value': 4250.62,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 50, 'column_index': 2}],
+            },
+            {
+                'field_name': 'total_output_daily',
+                'value': 285.545,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 39, 'column_index': 26}],
+            },
+        ]
+        import_row = ImportRow(
+            batch_id=batch.id,
+            row_number=1,
+            status='success',
+            raw_data={'sheet_name': '综合报表'},
+            mapped_data=_production_mapped_data(
+                [_production_row(3, '铸锭', None, 10.0, 10.0)],
+                report_metrics=report_metrics,
+            ),
+        )
+        db.add(import_row)
+        db.flush()
+        db.add(
+            ShiftProductionData(
+                business_date=REPORT_DATE,
+                shift_config_id=shift.id,
+                workshop_id=workshop.id,
+                output_weight=10.0,
+                qualified_weight=10.0,
+                data_source='daily_production_report',
+                import_batch_id=batch.id,
+                data_status='confirmed',
+            )
+        )
+        tampered = _confirmed_metric_fact(
+            batch=batch,
+            import_row=import_row,
+            field_name='hot_roll_month',
+            value=9999.0,
+            unit='吨',
+        )
+        trusted = _confirmed_metric_fact(
+            batch=batch,
+            import_row=import_row,
+            field_name='total_output_daily',
+            value=285.545,
+            unit='吨',
+        )
+        db.add_all([tampered, trusted])
+        db.commit()
+
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        facts.values['total_output_daily'] = 300.0
+        facts.sources['total_output_daily'] = {
+            'source_type': 'dingtalk_group_content',
+            'source_ref': 'multimodal_evidence',
+            'trace_id': 'dingtalk-evidence:total-output',
+        }
+        template_daily_fact_sources.collect_imported_daily_production_facts(db, facts)
+
+        assert 'hot_roll_month' not in facts.values
+        assert facts.values['total_output_daily'] == 300.0
+        assert facts.sources['total_output_daily']['source_type'] == 'dingtalk_group_content'
+        assert any(conflict['reason'] == 'promoted_metric_lineage_mismatch' for conflict in facts.conflicts)
     finally:
         db.close()
 
@@ -604,10 +928,10 @@ def test_promoted_energy_workbook_fills_explicit_totals_and_gas_breakdown() -> N
         assert facts.values['hot_roll_furnace_gas_m3'] == 9922
         assert facts.values['recovery_gas_m3'] == 690
         assert facts.values['canteen_gas_m3'] == 17
-        assert facts.values['electricity_cost_10k'] == 11.28
+        assert facts.values['electricity_cost_10k'] == 13.88
         assert facts.values['gas_cost_10k'] == 20.95
-        assert facts.values['total_cost_10k'] == 32.23
-        assert facts.values['cost_per_ton'] == 161.0
+        assert facts.values['total_cost_10k'] == 34.83
+        assert facts.values['cost_per_ton'] == 174.0
         assert facts.sources['total_electricity_kwh']['source_type'] == 'manual_workbook'
         assert facts.sources['total_electricity_kwh']['import_batch_id'] == batch.id
         energy_start, energy_end = production_business_window(REPORT_DATE)
@@ -636,12 +960,20 @@ def test_promoted_energy_workbook_fills_explicit_totals_and_gas_breakdown() -> N
         )
         assert component_sources['total_gas_m3']['source_type'] == 'manual_workbook'
         assert component_sources['total_gas_m3']['import_batch_id'] == batch.id
+        assert facts.sources['total_cost_10k']['unit_prices'] == {
+            'electricity': 0.8,
+            'gas': 3.6,
+        }
         assert [anchor['import_row_id'] for anchor in facts.sources['cast_roll_gas_m3']['row_anchors']] == [
             rows[4].id,
             rows[5].id,
         ]
         assert facts.sources['total_cost_10k']['trace_id'] != facts.sources['cost_per_ton']['trace_id']
-        assert facts.sources['cost_per_ton']['components'] == ['total_cost_10k', 'cost_basis_weight']
+        assert facts.sources['cost_per_ton']['components'] == [
+            'total_electricity_kwh',
+            'total_gas_m3',
+            'cost_basis_weight',
+        ]
         assert facts.sources['cost_per_ton']['component_sources']['cost_basis_weight'] == {
             'source_type': 'mes_packaging_output',
             'source_ref': 'mes_stock_records',
@@ -689,10 +1021,63 @@ def test_promoted_energy_workbook_does_not_invent_total_cost_when_gas_is_missing
         template_daily_fact_sources.collect_imported_energy_workbook_facts(db, facts)
 
         assert facts.values['total_electricity_kwh'] == 173500
-        assert facts.values['electricity_cost_10k'] == 11.28
+        assert facts.values['electricity_cost_10k'] == 13.88
         assert 'gas_cost_10k' not in facts.values
         assert 'total_cost_10k' not in facts.values
         assert 'cost_per_ton' not in facts.values
+    finally:
+        db.close()
+
+
+def test_energy_cost_per_ton_uses_unrounded_component_costs() -> None:
+    db = _session()
+    try:
+        batch = ImportBatch(
+            batch_no='IMP-ENERGY-UNROUNDED-COST-20260717',
+            import_type='energy',
+            source_type='daily_energy_report_locked',
+            file_name='daily-energy-unrounded.xlsx',
+            total_rows=2,
+            success_rows=0,
+            failed_rows=0,
+            skipped_rows=2,
+            status='completed',
+            quality_status='warning',
+            parsed_successfully=True,
+        )
+        db.add(batch)
+        db.flush()
+        electricity_row = _energy_row(1, 'electricity', '高压合计', 183500)
+        gas_row = _energy_row(2, 'gas', '合计', 60961)
+        electricity_row.batch_id = batch.id
+        gas_row.batch_id = batch.id
+        db.add_all([electricity_row, gas_row])
+        db.add(
+            EnergyImportRecord(
+                import_batch_id=batch.id,
+                business_date=REPORT_DATE,
+                workshop_code='RZ',
+                shift_code=None,
+                energy_type='electricity',
+                energy_value=1000,
+                unit='kWh',
+            )
+        )
+        db.commit()
+
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        facts.values['cost_basis_weight'] = 343.781
+        facts.sources['cost_basis_weight'] = {
+            'source_type': 'manual_workbook',
+            'source_ref': 'imported_daily_metric_facts',
+            'trace_id': 'import-read:cost-basis',
+        }
+        template_daily_fact_sources.collect_imported_energy_workbook_facts(db, facts)
+
+        assert facts.values['electricity_cost_10k'] == 14.68
+        assert facts.values['gas_cost_10k'] == 21.95
+        assert facts.values['total_cost_10k'] == 36.63
+        assert facts.values['cost_per_ton'] == 1065.0
     finally:
         db.close()
 
@@ -895,7 +1280,7 @@ def test_energy_workbook_does_not_mix_manual_workbook_batches_for_total_cost() -
         }
         template_daily_fact_sources.collect_imported_energy_workbook_facts(db, facts)
 
-        assert facts.values['electricity_cost_10k'] == 11.28
+        assert facts.values['electricity_cost_10k'] == 13.88
         assert facts.values['gas_cost_10k'] == 20.95
         assert 'total_cost_10k' not in facts.values
         assert 'cost_per_ton' not in facts.values
@@ -1032,7 +1417,7 @@ def test_manual_energy_workbook_cannot_overwrite_dingtalk_fact() -> None:
         assert facts.values['total_electricity_kwh'] == 175000.0
         assert facts.sources['total_electricity_kwh']['source_type'] == 'dingtalk_group_content'
         assert facts.sources['total_electricity_kwh']['trace_id'] == 'dingtalk-evidence:energy:2026-07-17'
-        assert facts.values['electricity_cost_10k'] == 11.38
+        assert facts.values['electricity_cost_10k'] == 14.0
         assert facts.sources['electricity_cost_10k']['component_sources']['total_electricity_kwh'] == {
             'source_type': 'dingtalk_group_content',
             'source_ref': 'multimodal_evidence',

@@ -5,10 +5,12 @@ import importlib.util
 from pathlib import Path
 
 import pandas as pd
+import pytest
 from sqlalchemy import func
 
-from app.models.imports import ImportBatch, ImportRow
+from app.models.imports import ImportBatch, ImportedDailyMetricFact, ImportRow
 from app.models.production import ShiftProductionData
+from app.services.daily_production_canonical_service import build_daily_production_lineage_hash
 
 
 def _load_script_module():
@@ -218,6 +220,336 @@ def test_promote_daily_production_batch_preserves_explicit_zero_fact(tmp_path: P
         assert float(fact.input_weight) == 0.0
         assert float(fact.output_weight) == 0.0
         assert float(fact.scrap_weight) == 0.0
+    finally:
+        db.close()
+
+
+def test_promote_daily_production_batch_promotes_metric_facts_in_the_same_transaction(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily-metrics.xlsx'
+    _write_daily_workbook(workbook)
+    db = module._create_dry_run_session()
+    try:
+        from app.services.bootstrap import seed_shift_configs
+
+        seed_shift_configs(db)
+        module.seed_real_master_data(db)
+        staged = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+        row = db.query(ImportRow).filter(ImportRow.batch_id == staged['staging_write']['batch_id']).one()
+        mapped = {key: value for key, value in row.mapped_data.items() if key != 'lineage_hash'}
+        mapped['report_metrics'] = [
+            {
+                'field_name': 'coating_daily',
+                'value': 0.0,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 58, 'column_index': 1}],
+            },
+            {
+                'field_name': 'hot_roll_month',
+                'value': 4250.62,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 50, 'column_index': 2}],
+            },
+        ]
+        row.mapped_data = {**mapped, 'lineage_hash': build_daily_production_lineage_hash(mapped)}
+        db.commit()
+
+        preview = module.promote_daily_production_batch(
+            db,
+            batch_id=staged['staging_write']['batch_id'],
+            shift_code='A',
+            duplicate_strategy='reject',
+            commit=False,
+        )
+
+        assert preview['projected_metric_fact_rows'] == 2
+        assert preview['metric_fact_rows_written'] == 0
+        assert db.query(ImportedDailyMetricFact).count() == 0
+
+        promoted = module.promote_daily_production_batch(
+            db,
+            batch_id=staged['staging_write']['batch_id'],
+            shift_code='A',
+            duplicate_strategy='reject',
+            commit=True,
+        )
+
+        assert promoted['metric_fact_rows_written'] == 2
+        metric_facts = db.query(ImportedDailyMetricFact).order_by(ImportedDailyMetricFact.field_name).all()
+        assert [item.field_name for item in metric_facts] == ['coating_daily', 'hot_roll_month']
+        assert [float(item.metric_value) for item in metric_facts] == [0.0, 4250.62]
+        assert {item.data_status for item in metric_facts} == {'confirmed'}
+        assert {item.import_row_id for item in metric_facts} == {row.id}
+        assert all(item.lineage_hash for item in metric_facts)
+    finally:
+        db.close()
+
+
+def test_promote_daily_production_batch_supersedes_metric_fact_version_chain(tmp_path: Path) -> None:
+    module = _load_script_module()
+    db = module._create_dry_run_session()
+    try:
+        from app.services.bootstrap import seed_shift_configs
+
+        seed_shift_configs(db)
+        module.seed_real_master_data(db)
+        batch_ids = []
+        for version, output in ((1, 285.545), (2, 286.125)):
+            workbook = tmp_path / f'daily-metrics-v{version}.xlsx'
+            _write_daily_workbook(workbook, cold_rolling_output=224.54 + version)
+            staged = module.stage_daily_production_import(
+                workbook,
+                report_date=date(2026, 5, 5),
+                year_hint=2026,
+                db=db,
+                commit=True,
+            )
+            batch_id = staged['staging_write']['batch_id']
+            batch_ids.append(batch_id)
+            row = db.query(ImportRow).filter(ImportRow.batch_id == batch_id).one()
+            mapped = {key: value for key, value in row.mapped_data.items() if key != 'lineage_hash'}
+            mapped['report_metrics'] = [
+                {
+                    'field_name': 'total_output_daily',
+                    'value': output,
+                    'unit': '吨',
+                    'source_anchors': [{'sheet_name': '综合报表', 'row_index': 39, 'column_index': 26}],
+                }
+            ]
+            row.mapped_data = {**mapped, 'lineage_hash': build_daily_production_lineage_hash(mapped)}
+            db.commit()
+            promoted = module.promote_daily_production_batch(
+                db,
+                batch_id=batch_id,
+                shift_code='A',
+                duplicate_strategy='reject' if version == 1 else 'supersede',
+                commit=True,
+            )
+            assert promoted['committed'] is True
+
+        old, current = (
+            db.query(ImportedDailyMetricFact)
+            .filter(ImportedDailyMetricFact.field_name == 'total_output_daily')
+            .order_by(ImportedDailyMetricFact.version_no.asc())
+            .all()
+        )
+        assert (old.version_no, old.data_status, old.import_batch_id) == (1, 'voided', batch_ids[0])
+        assert (current.version_no, current.data_status, current.import_batch_id) == (2, 'confirmed', batch_ids[1])
+        assert old.superseded_by_id == current.id
+        assert old.voided_at is not None
+        assert 'superseded by daily production batch' in str(old.voided_reason)
+    finally:
+        db.close()
+
+
+def test_promote_daily_production_batch_rolls_back_shift_facts_when_metric_write_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily-metric-transaction.xlsx'
+    _write_daily_workbook(workbook)
+    db = module._create_dry_run_session()
+    try:
+        from app.services.bootstrap import seed_shift_configs
+
+        seed_shift_configs(db)
+        module.seed_real_master_data(db)
+        staged = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+        row = db.query(ImportRow).filter(ImportRow.batch_id == staged['staging_write']['batch_id']).one()
+        mapped = {key: value for key, value in row.mapped_data.items() if key != 'lineage_hash'}
+        mapped['report_metrics'] = [
+            {
+                'field_name': 'total_output_daily',
+                'value': 285.545,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 39, 'column_index': 26}],
+            }
+        ]
+        row.mapped_data = {**mapped, 'lineage_hash': build_daily_production_lineage_hash(mapped)}
+        db.commit()
+
+        original_flush = db.flush
+
+        def fail_metric_flush(*args, **kwargs):
+            if any(isinstance(item, ImportedDailyMetricFact) for item in db.new):
+                raise RuntimeError('metric fact write failed')
+            return original_flush(*args, **kwargs)
+
+        monkeypatch.setattr(db, 'flush', fail_metric_flush)
+        with pytest.raises(RuntimeError, match='metric fact write failed'):
+            module.promote_daily_production_batch(
+                db,
+                batch_id=staged['staging_write']['batch_id'],
+                shift_code='A',
+                duplicate_strategy='reject',
+                commit=True,
+            )
+
+        monkeypatch.setattr(db, 'flush', original_flush)
+        assert db.query(ShiftProductionData).count() == 0
+        assert db.query(ImportedDailyMetricFact).count() == 0
+    finally:
+        db.close()
+
+
+def test_promote_daily_production_batch_blocks_invalid_metric_contract_before_any_fact_write(
+    tmp_path: Path,
+) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily-invalid-metric.xlsx'
+    _write_daily_workbook(workbook)
+    db = module._create_dry_run_session()
+    try:
+        from app.services.bootstrap import seed_shift_configs
+
+        seed_shift_configs(db)
+        module.seed_real_master_data(db)
+        staged = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+        row = db.query(ImportRow).filter(ImportRow.batch_id == staged['staging_write']['batch_id']).one()
+        mapped = {key: value for key, value in row.mapped_data.items() if key != 'lineage_hash'}
+        mapped['report_metrics'] = [
+            {
+                'field_name': 'total_output_daily',
+                'value': 285.545,
+                'unit': 'kg',
+                'source_anchors': [],
+            }
+        ]
+        row.mapped_data = {**mapped, 'lineage_hash': build_daily_production_lineage_hash(mapped)}
+        db.commit()
+
+        result = module.promote_daily_production_batch(
+            db,
+            batch_id=staged['staging_write']['batch_id'],
+            shift_code='A',
+            duplicate_strategy='reject',
+            commit=True,
+        )
+
+        assert result['committed'] is False
+        assert [item['code'] for item in result['blocking_issues']] == ['invalid_daily_report_metric']
+        assert db.query(ShiftProductionData).count() == 0
+        assert db.query(ImportedDailyMetricFact).count() == 0
+    finally:
+        db.close()
+
+
+def test_promote_daily_production_batch_rejects_unlocked_upload_batch(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily-unlocked.xlsx'
+    _write_daily_workbook(workbook)
+    db = module._create_dry_run_session()
+    try:
+        from app.services.bootstrap import seed_shift_configs
+
+        seed_shift_configs(db)
+        module.seed_real_master_data(db)
+        staged = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+        batch = db.get(ImportBatch, staged['staging_write']['batch_id'])
+        batch.source_type = 'upload'
+        db.commit()
+
+        result = module.promote_daily_production_batch(
+            db,
+            batch_id=batch.id,
+            shift_code='A',
+            duplicate_strategy='reject',
+            commit=True,
+        )
+
+        assert result['committed'] is False
+        assert [item['code'] for item in result['blocking_issues']] == [
+            'unlocked_daily_production_batch'
+        ]
+        assert db.query(ShiftProductionData).count() == 0
+        assert db.query(ImportedDailyMetricFact).count() == 0
+    finally:
+        db.close()
+
+
+def test_promote_daily_production_batch_rejects_implausible_metric_values(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily-invalid-values.xlsx'
+    _write_daily_workbook(workbook)
+    db = module._create_dry_run_session()
+    try:
+        from app.services.bootstrap import seed_shift_configs
+
+        seed_shift_configs(db)
+        module.seed_real_master_data(db)
+        staged = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+        row = db.query(ImportRow).filter(ImportRow.batch_id == staged['staging_write']['batch_id']).one()
+        mapped = {key: value for key, value in row.mapped_data.items() if key != 'lineage_hash'}
+        mapped['report_metrics'] = [
+            {
+                'field_name': 'coating_daily',
+                'value': -1,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 58, 'column_index': 1}],
+            },
+            {
+                'field_name': 'cold_1650_pass_daily',
+                'value': 1.5,
+                'unit': '道',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 51, 'column_index': 3}],
+            },
+            {
+                'field_name': 'total_output_daily',
+                'value': 50_000.001,
+                'unit': '吨',
+                'source_anchors': [{'sheet_name': '综合报表', 'row_index': 39, 'column_index': 26}],
+            },
+        ]
+        row.mapped_data = {**mapped, 'lineage_hash': build_daily_production_lineage_hash(mapped)}
+        db.commit()
+
+        result = module.promote_daily_production_batch(
+            db,
+            batch_id=staged['staging_write']['batch_id'],
+            shift_code='A',
+            duplicate_strategy='reject',
+            commit=True,
+        )
+
+        assert result['committed'] is False
+        assert [item['code'] for item in result['blocking_issues']] == [
+            'invalid_daily_report_metric',
+            'invalid_daily_report_metric',
+            'invalid_daily_report_metric',
+        ]
+        assert db.query(ShiftProductionData).count() == 0
+        assert db.query(ImportedDailyMetricFact).count() == 0
     finally:
         db.close()
 

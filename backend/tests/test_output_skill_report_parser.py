@@ -47,3 +47,20 @@ def test_contract_outsourced_input_does_not_reuse_outsourced_output() -> None:
 
     assert parsed["outsourced_daily"] == 76
     assert parsed["outsourced_input_daily"] == 69
+
+
+def test_energy_per_ton_parser_stays_inside_each_workshop_segment() -> None:
+    parsed = parse_output_skill_daily_report(
+        "铸轧分厂日产量81吨，月累计产量1607吨；铸锭车间日产量310吨，"
+        "月累计产量4789吨；热轧车间日产量346吨，月累计产量4251吨。"
+        "铸轧分厂日吨电耗84.1度，月吨电耗81.0度，日吨气耗137.3m³，月吨气耗119.5m³；"
+        "铸锭车间日吨电耗28.6度，月吨电耗30.9度，日吨气耗79.2m³，月吨气耗94.3m³；"
+        "热轧车间日吨电耗128.4度，月吨电耗136.5度，日吨气耗28.6m³，月吨气耗29.8m³。"
+    )
+
+    assert parsed["cast_roll_gas_per_ton_daily"] == 137.3
+    assert parsed["cast_roll_gas_per_ton_month"] == 119.5
+    assert parsed["foundry_gas_per_ton_daily"] == 79.2
+    assert parsed["foundry_gas_per_ton_month"] == 94.3
+    assert parsed["hot_roll_gas_per_ton_daily"] == 28.6
+    assert parsed["hot_roll_gas_per_ton_month"] == 29.8

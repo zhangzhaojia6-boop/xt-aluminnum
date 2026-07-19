@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -18,10 +19,19 @@ if str(ROOT_DIR) not in sys.path:
 
 from app.database import Base, get_sessionmaker
 import app.models  # noqa: F401  # register metadata for the in-memory dry-run database
-from app.models.imports import ImportBatch, ImportRow
+from app.domain.daily_report_field_contract import (
+    DAILY_REPORT_FIELD_CONTRACTS,
+    DAILY_REPORT_FIELD_CONTRACT_VERSION,
+)
+from app.models.imports import ImportBatch, ImportedDailyMetricFact, ImportRow
 from app.models.production import ShiftProductionData
 from app.models.shift import ShiftConfig
-from app.services.daily_production_canonical_service import ParsedDailyProductionSheet, parse_daily_production_workbook
+from app.services.daily_production_canonical_service import (
+    HARD_BLOCK_DAILY_OUTPUT_TONS,
+    ParsedDailyProductionSheet,
+    daily_production_lineage_is_valid,
+    parse_daily_production_workbook,
+)
 from app.services.daily_production_mapping_service import (
     build_daily_production_mapping_preview,
     serialize_daily_production_mapping_preview,
@@ -400,6 +410,135 @@ def _daily_fact_buckets(mapping_rows: list[dict[str, Any]]) -> list[dict[str, An
     ]
 
 
+def _valid_source_anchors(value: Any) -> bool:
+    if not isinstance(value, list) or not value:
+        return False
+    return all(
+        isinstance(anchor, dict)
+        and str(anchor.get("sheet_name") or "").strip()
+        and isinstance(anchor.get("row_index"), int)
+        and anchor["row_index"] >= 0
+        and isinstance(anchor.get("column_index"), int)
+        and anchor["column_index"] >= 0
+        for anchor in value
+    )
+
+
+def _valid_report_metric_value(field_name: str, unit: str, value: float) -> bool:
+    if value < 0:
+        return False
+    if unit == "道" and not math.isclose(value, round(value), rel_tol=0.0, abs_tol=0.000001):
+        return False
+    if unit == "吨":
+        max_tonnage = HARD_BLOCK_DAILY_OUTPUT_TONS * (31 if field_name.endswith("_month") else 1)
+        if value > max_tonnage:
+            return False
+    return True
+
+
+def _batch_report_metrics(
+    db: Session,
+    *,
+    batch_id: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    metrics: list[dict[str, Any]] = []
+    issues: list[dict[str, Any]] = []
+    seen_fields: set[tuple[date, str]] = set()
+    rows = db.query(ImportRow).filter(ImportRow.batch_id == batch_id).order_by(ImportRow.row_number.asc()).all()
+    for row in rows:
+        if row.status != "success":
+            continue
+        mapped = row.mapped_data if isinstance(row.mapped_data, dict) else {}
+        if not daily_production_lineage_is_valid(mapped):
+            issues.append(
+                {
+                    "code": "invalid_daily_production_lineage",
+                    "message": f"暂存行 {row.row_number} 的谱系哈希无效。",
+                    "import_row_id": row.id,
+                }
+            )
+            continue
+        raw_metrics = mapped.get("report_metrics") or []
+        if not isinstance(raw_metrics, list):
+            issues.append(
+                {
+                    "code": "invalid_daily_report_metrics",
+                    "message": f"暂存行 {row.row_number} 的日报指标结构无效。",
+                    "import_row_id": row.id,
+                }
+            )
+            continue
+        try:
+            business_date = date.fromisoformat(str(mapped.get("business_date") or ""))
+        except ValueError:
+            if raw_metrics:
+                issues.append(
+                    {
+                        "code": "invalid_daily_report_metric_date",
+                        "message": f"暂存行 {row.row_number} 的日报指标缺少有效业务日。",
+                        "import_row_id": row.id,
+                    }
+                )
+            continue
+        for metric in raw_metrics:
+            field_name = str(metric.get("field_name") or "").strip() if isinstance(metric, dict) else ""
+            contract = DAILY_REPORT_FIELD_CONTRACTS.get(field_name)
+            value = _to_float(metric.get("value")) if isinstance(metric, dict) else None
+            unit = str(metric.get("unit") or "").strip() if isinstance(metric, dict) else ""
+            anchors = metric.get("source_anchors") if isinstance(metric, dict) else None
+            field_key = (business_date, field_name)
+            if (
+                contract is None
+                or value is None
+                or not math.isfinite(value)
+                or not _valid_report_metric_value(field_name, unit, value)
+                or unit != contract.unit
+                or not _valid_source_anchors(anchors)
+                or field_key in seen_fields
+            ):
+                issues.append(
+                    {
+                        "code": "invalid_daily_report_metric",
+                        "message": f"暂存行 {row.row_number} 的日报指标 {field_name or '--'} 未通过字段契约。",
+                        "import_row_id": row.id,
+                        "field_name": field_name or None,
+                    }
+                )
+                continue
+            seen_fields.add(field_key)
+            metrics.append(
+                {
+                    "business_date": business_date,
+                    "field_name": field_name,
+                    "metric_value": value,
+                    "unit": unit,
+                    "import_row": row,
+                    "source_anchors": anchors,
+                    "lineage_hash": str(mapped["lineage_hash"]),
+                }
+            )
+    return metrics, issues
+
+
+def _active_metric_duplicate(
+    db: Session,
+    *,
+    business_date: date,
+    field_name: str,
+) -> ImportedDailyMetricFact | None:
+    return (
+        db.query(ImportedDailyMetricFact)
+        .filter(
+            ImportedDailyMetricFact.business_date == business_date,
+            ImportedDailyMetricFact.field_name == field_name,
+            ImportedDailyMetricFact.source_kind == "daily_production_report",
+            ImportedDailyMetricFact.data_status == "confirmed",
+        )
+        .order_by(ImportedDailyMetricFact.version_no.desc(), ImportedDailyMetricFact.id.desc())
+        .first()
+    )
+
+
 def promote_daily_production_batch(
     db: Session,
     *,
@@ -422,10 +561,19 @@ def promote_daily_production_batch(
     preview = build_daily_production_mapping_preview(db, batch_id=batch.id)
     mapping_payload = _with_equipment_binding_summary(serialize_daily_production_mapping_preview(preview))
     parse_issues = _batch_parse_issues(db, batch_id=batch.id)
+    report_metrics, report_metric_issues = _batch_report_metrics(db, batch_id=batch.id)
     blocking_issues: list[dict[str, Any]] = []
+    if batch.source_type != "daily_production_report_locked":
+        blocking_issues.append(
+            {
+                "code": "unlocked_daily_production_batch",
+                "message": "每日产量批次未锁定业务日，禁止提升为正式事实。",
+            }
+        )
     if batch.quality_status == "blocked":
         blocking_issues.append({"code": "blocked_daily_production_batch", "message": "每日产量暂存批次处于 blocked 状态。"})
     blocking_issues.extend(issue for issue in parse_issues if issue.get("code") == "hard_block_kg_as_tons")
+    blocking_issues.extend(report_metric_issues)
     if mapping_payload["unresolved_rows"] > 0:
         blocking_issues.append({"code": "unresolved_daily_production_mapping", "message": f"仍有 {mapping_payload['unresolved_rows']} 行未匹配。"})
     if mapping_payload["needs_equipment_mapping_rows"] > 0:
@@ -459,6 +607,31 @@ def promote_daily_production_batch(
             }
         )
 
+    duplicate_metric_rows: list[dict[str, Any]] = []
+    if duplicate_strategy == "reject":
+        for metric in report_metrics:
+            existing = _active_metric_duplicate(
+                db,
+                business_date=metric["business_date"],
+                field_name=metric["field_name"],
+            )
+            if existing is not None:
+                duplicate_metric_rows.append(
+                    {
+                        "existing_id": existing.id,
+                        "business_date": metric["business_date"].isoformat(),
+                        "field_name": metric["field_name"],
+                    }
+                )
+    if duplicate_metric_rows:
+        blocking_issues.append(
+            {
+                "code": "duplicate_daily_report_metric_fact",
+                "message": f"已有 {len(duplicate_metric_rows)} 条同日正式日报指标，默认拒绝覆盖。",
+                "duplicates": duplicate_metric_rows,
+            }
+        )
+
     if blocking_issues:
         db.rollback()
         return {
@@ -467,11 +640,14 @@ def promote_daily_production_batch(
             "shift_code": shift.code,
             "duplicate_strategy": duplicate_strategy,
             "fact_rows_written": 0,
+            "metric_fact_rows_written": 0,
             "total_output_tons": 0.0,
+            "projected_metric_fact_rows": len(report_metrics),
             "blocking_issues": blocking_issues,
         }
 
     written = 0
+    metric_written = 0
     total_output = 0.0
     now = datetime.now(timezone.utc)
     for bucket in buckets:
@@ -507,14 +683,64 @@ def promote_daily_production_batch(
             notes=f"daily production report batch {batch.batch_no}; source rows: {', '.join(bucket['source_labels'])}",
         )
         db.add(entity)
-        db.flush()
+        try:
+            db.flush()
+        except Exception:
+            db.rollback()
+            raise
         if existing is not None:
             existing.superseded_by_id = entity.id
         written += 1
         total_output += float(output_weight or 0.0)
 
+    for metric in report_metrics:
+        existing = _active_metric_duplicate(
+            db,
+            business_date=metric["business_date"],
+            field_name=metric["field_name"],
+        )
+        next_version = 1
+        if existing is not None:
+            next_version = (existing.version_no or 1) + 1
+            existing.data_status = "voided"
+            existing.voided_at = now
+            existing.voided_reason = f"superseded by daily production batch {batch.batch_no}"
+            try:
+                db.flush()
+            except Exception:
+                db.rollback()
+                raise
+        entity = ImportedDailyMetricFact(
+            business_date=metric["business_date"],
+            field_name=metric["field_name"],
+            metric_value=metric["metric_value"],
+            unit=metric["unit"],
+            source_kind="daily_production_report",
+            import_batch_id=batch.id,
+            import_row_id=metric["import_row"].id,
+            source_anchors=metric["source_anchors"],
+            lineage_hash=metric["lineage_hash"],
+            metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+            data_status="confirmed",
+            version_no=next_version,
+            confirmed_at=now,
+        )
+        db.add(entity)
+        try:
+            db.flush()
+        except Exception:
+            db.rollback()
+            raise
+        if existing is not None:
+            existing.superseded_by_id = entity.id
+        metric_written += 1
+
     if commit:
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
     else:
         db.rollback()
     return {
@@ -523,8 +749,10 @@ def promote_daily_production_batch(
         "shift_code": shift.code,
         "duplicate_strategy": duplicate_strategy,
         "fact_rows_written": written if commit else 0,
+        "metric_fact_rows_written": metric_written if commit else 0,
         "total_output_tons": round(total_output, 3) if commit else 0.0,
         "projected_fact_rows": written,
+        "projected_metric_fact_rows": metric_written,
         "projected_output_tons": round(total_output, 3),
         "blocking_issues": [],
     }

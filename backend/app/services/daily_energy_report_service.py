@@ -163,6 +163,10 @@ def daily_energy_report_fact_field(energy_type: str, source_label: str) -> str |
     }
     if label in exact:
         return exact[label]
+    if '热轧' in label and '1#' in label and '加热炉' in label and '东' in label:
+        return 'east_furnace_gas_m3'
+    if '热轧' in label and '1#' in label and '加热炉' in label and '西' in label:
+        return 'west_furnace_gas_m3'
     if '热轧' in label and '加热炉' in label:
         return 'hot_roll_furnace_gas_m3'
     if '热轧' in label and '锅炉' in label:

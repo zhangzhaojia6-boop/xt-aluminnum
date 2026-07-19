@@ -39,7 +39,7 @@ from app.models.executive import (
     ProcessingFeeRule,
     ProcessingFeeSurcharge,
 )
-from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
+from app.models.imports import FieldMappingTemplate, ImportBatch, ImportedDailyMetricFact, ImportRow
 from app.models.master import Employee, Equipment, MasterCodeAlias, MesTerminalBinding, Position, Team, Workshop, WorkshopTemplateConfig
 from app.models.energy import (
     EnergyImportRecord,
@@ -204,6 +204,7 @@ __all__ = [
     'MappingReconciliationRun',
     'ImportBatch',
     'ImportRow',
+    'ImportedDailyMetricFact',
     'FieldMappingTemplate',
     'DailyFactBundleRun',
     'DailyFactBundleSnapshot',
