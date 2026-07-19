@@ -1485,7 +1485,18 @@ def test_owner_daily_payload_aliases_fill_template_fields(tmp_path) -> None:
                 "plant_wide_yield_rate": 84.86,
                 "heating_furnace_gas_m3": 8194,
                 "daily_input_weight": 197,
+                "roller_grinding_count": 8,
             },
+        )
+        db.add(
+            WorkOrderEntry(
+                work_order_id=1,
+                workshop_id=1,
+                business_date=date(2026, 6, 15),
+                entry_type="owner_daily",
+                entry_status="submitted",
+                extra_payload={"roller_grinding_count": 7},
+            )
         )
         db.commit()
 
@@ -1495,6 +1506,10 @@ def test_owner_daily_payload_aliases_fill_template_fields(tmp_path) -> None:
     assert facts.values["daily_yield_rate"] == 84.86
     assert facts.values["hot_roll_furnace_gas_m3"] == 8194
     assert facts.values["cold_roll_input_daily"] == 197
+    assert facts.values["roller_grind_daily"] == 8
+    assert facts.values["roller_grind_month"] == 15
+    assert facts.sources["roller_grind_daily"]["field"] == "roller_grinding_count"
+    assert facts.sources["roller_grind_month"]["source_type"] == "owner_daily_month_sum"
 
 
 def test_template_daily_facts_keep_daily_yield_missing_without_independent_source(tmp_path, monkeypatch) -> None:

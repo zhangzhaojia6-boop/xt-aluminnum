@@ -51,7 +51,7 @@ def parse_output_skill_daily_report(text: str) -> dict[str, Any]:
 
     workshop_patterns = {
         "cast_roll_active_lines": rf"铸轧分厂开机{_NUMBER}条",
-        "cast_roll_daily": rf"铸轧分厂开机\d+(?:\.\d+)?条，日产量{_NUMBER}吨",
+        "cast_roll_daily": rf"铸轧分厂(?:开机\d+(?:\.\d+)?条[，,])?日产量{_NUMBER}吨",
         "cast_roll_month": rf"铸轧分厂.*?月累计产量{_NUMBER}吨；铸锭车间",
         "foundry_daily": rf"铸锭车间日产量{_NUMBER}吨",
         "foundry_month": rf"铸锭车间日产量.*?月累计产量{_NUMBER}吨；热轧车间",

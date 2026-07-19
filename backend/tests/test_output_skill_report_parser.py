@@ -58,6 +58,9 @@ def test_energy_per_ton_parser_stays_inside_each_workshop_segment() -> None:
         "热轧车间日吨电耗128.4度，月吨电耗136.5度，日吨气耗28.6m³，月吨气耗29.8m³。"
     )
 
+    assert parsed["cast_roll_daily"] == 81
+    assert parsed["cast_roll_month"] == 1607
+    assert "cast_roll_active_lines" not in parsed
     assert parsed["cast_roll_gas_per_ton_daily"] == 137.3
     assert parsed["cast_roll_gas_per_ton_month"] == 119.5
     assert parsed["foundry_gas_per_ton_daily"] == 79.2

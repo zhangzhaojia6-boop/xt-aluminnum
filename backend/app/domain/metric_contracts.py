@@ -6,7 +6,10 @@ from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 from app.core.business_time import OWNER_DAILY_BUSINESS_DAY_START, PRODUCTION_BUSINESS_DAY_START
-from app.domain.daily_report_field_contract import daily_report_field_tolerance_for
+from app.domain.daily_report_field_contract import (
+    DAILY_REPORT_FIELD_CONTRACT_VERSION,
+    daily_report_field_tolerance_for,
+)
 
 
 DAILY_REPORT_METRIC_CONTRACT_VERSION = '2026-07-11'
@@ -158,6 +161,49 @@ def _root_owner_correction_source_contract() -> FactSourceContract:
     )
 
 
+def _promoted_workbook_source_contract(field_name: str) -> FactSourceContract:
+    common_fields = {
+        'source_ref',
+        'business_date',
+        'business_window',
+        'unit',
+        'metric_contract_version',
+        'field_contract_version',
+        'trace_id',
+        'row_anchors',
+        'import_batch_id',
+    }
+    if field_name == 'total_output_daily':
+        return FactSourceContract(
+            source_type='manual_workbook',
+            source_keys=frozenset({'data_hub_projection'}),
+            required_ref_fields=frozenset(
+                {*common_fields, 'metric_fact_id', 'import_row_id', 'lineage_hash'}
+            ),
+            source_ref_identity='imported_daily_metric_facts',
+            positive_integer_ref_fields=frozenset({'metric_fact_id', 'import_batch_id', 'import_row_id'}),
+            required_ref_values=(
+                ('unit', '吨'),
+                ('metric_contract_version', DAILY_REPORT_METRIC_CONTRACT_VERSION),
+                ('field_contract_version', DAILY_REPORT_FIELD_CONTRACT_VERSION),
+            ),
+        )
+    if field_name == 'total_electricity_kwh':
+        return FactSourceContract(
+            source_type='manual_workbook',
+            source_keys=frozenset({'data_hub_projection'}),
+            required_ref_fields=frozenset({*common_fields, 'row_count'}),
+            source_ref_identity='import_rows',
+            positive_integer_ref_fields=frozenset({'import_batch_id', 'row_count'}),
+            required_ref_values=(
+                ('unit', '度'),
+                ('metric_contract_version', DAILY_REPORT_METRIC_CONTRACT_VERSION),
+                ('field_contract_version', DAILY_REPORT_FIELD_CONTRACT_VERSION),
+            ),
+        )
+    raise KeyError(field_name)
+
+
 def _electricity_per_ton_source_contract() -> FactSourceContract:
     return FactSourceContract(
         source_type='dingtalk_supplement',
@@ -263,7 +309,10 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = _bind_metr
     'total_output_daily': DailyReportMetricContract(
         unit='吨',
         tolerance=20.0,
-        source_contracts=_confirmable_source_contracts(),
+        source_contracts=(
+            *_confirmable_source_contracts(),
+            _promoted_workbook_source_contract('total_output_daily'),
+        ),
     ),
     'workshop_output_daily': DailyReportMetricContract(
         unit='吨',
@@ -289,7 +338,10 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = _bind_metr
     'total_electricity_kwh': DailyReportMetricContract(
         unit='kWh',
         tolerance=20.0,
-        source_contracts=_confirmable_source_contracts(),
+        source_contracts=(
+            *_confirmable_source_contracts(),
+            _promoted_workbook_source_contract('total_electricity_kwh'),
+        ),
     ),
     'total_gas_m3': DailyReportMetricContract(
         unit='m³',
@@ -515,4 +567,53 @@ def fact_source_failure_reason(
         )
         if ref_trace_id != expected_trace_id:
             return 'source_ref_trace_id_contract_mismatch'
+    if source_type == 'manual_workbook':
+        workbook_trace_failure = _promoted_workbook_trace_failure_reason(
+            field_name,
+            source_ref,
+            ref_trace_id,
+        )
+        if workbook_trace_failure is not None:
+            return workbook_trace_failure
+    return None
+
+
+def _promoted_workbook_trace_failure_reason(
+    field_name: str,
+    source_ref: Mapping[str, Any],
+    trace_id: str,
+) -> str | None:
+    if field_name == 'total_output_daily':
+        lineage_hash = str(source_ref.get('lineage_hash') or '').strip().lower()
+        if len(lineage_hash) != 64 or any(character not in '0123456789abcdef' for character in lineage_hash):
+            return 'source_ref_lineage_hash_invalid'
+        expected_trace_id = (
+            f'import-read:imported_daily_metric_facts:{int(source_ref["metric_fact_id"])}:'
+            f'total_output_daily:{lineage_hash[:12]}'
+        )
+    elif field_name == 'total_electricity_kwh':
+        anchors = source_ref.get('row_anchors')
+        if not isinstance(anchors, list):
+            return 'source_ref_row_anchors_invalid'
+        try:
+            row_ids = [int(anchor['import_row_id']) for anchor in anchors if isinstance(anchor, Mapping)]
+            row_count = int(source_ref['row_count'])
+            batch_id = int(source_ref['import_batch_id'])
+        except (KeyError, TypeError, ValueError):
+            return 'source_ref_row_anchors_invalid'
+        if (
+            len(row_ids) != len(anchors)
+            or len(row_ids) != row_count
+            or any(row_id <= 0 for row_id in row_ids)
+            or len(set(row_ids)) != len(row_ids)
+        ):
+            return 'source_ref_row_anchors_invalid'
+        expected_trace_id = (
+            f'import-read:import_rows:{batch_id}:total_electricity_kwh:'
+            f'{",".join(str(row_id) for row_id in row_ids)}'
+        )
+    else:
+        return 'source_type_missing_or_not_confirmable'
+    if trace_id != expected_trace_id:
+        return 'source_ref_trace_id_contract_mismatch'
     return None

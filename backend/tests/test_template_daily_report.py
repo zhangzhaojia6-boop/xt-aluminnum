@@ -188,6 +188,21 @@ def test_validate_template_daily_report_blocks_missing_fields_without_rendering_
     assert result["text"] is None
 
 
+def test_optional_display_fields_do_not_block_or_render_placeholders() -> None:
+    facts = _facts()
+    facts["values"].pop("cast_roll_active_lines")
+    facts["values"].pop("finished_inbound_month")
+
+    result = template_daily_report.validate_template_daily_report_facts(facts)
+
+    assert result["status"] == "ready"
+    assert "cast_roll_active_lines" not in result["missing_fields"]
+    assert "finished_inbound_month" not in result["missing_fields"]
+    assert "铸轧分厂日产量81吨" in result["text"]
+    assert "铸轧分厂开机" not in result["text"]
+    assert "入库成品日合计328吨（寄存161吨）。当天接合同" in result["text"]
+
+
 def test_all_template_required_fields_have_contract_metadata() -> None:
     from app.services.report.template_daily_field_contract import field_group
 

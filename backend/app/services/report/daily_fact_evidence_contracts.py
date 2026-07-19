@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Mapping
 
 from sqlalchemy import and_, inspect, or_
 from sqlalchemy.orm import Session
 
 from app.core.business_time import local_now, production_business_window
+from app.domain.daily_report_field_contract import DAILY_REPORT_FIELD_CONTRACT_VERSION
 from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACT_VERSION
+from app.models.energy import EnergyImportRecord
+from app.models.imports import ImportBatch, ImportedDailyMetricFact, ImportRow
 from app.models.mes import (
     MesCoilSnapshot,
     MesDailyWipSnapshot,
@@ -20,6 +23,8 @@ from app.models.mes import (
     MesWipTotalSnapshot,
     MesWorkshopProcessRecord,
 )
+from app.services.daily_energy_report_service import daily_energy_report_fact_field
+from app.services.daily_production_canonical_service import daily_production_lineage_is_valid
 from app.services.report.mes_factory_production_fact import (
     FINISHED_INBOUND_DETAIL_SOURCE_PATH,
     FINISHED_INBOUND_HEADER_SOURCE_PATH,
@@ -184,6 +189,7 @@ class DailyFactEvidenceVerifier:
         self._run_cache: dict[int, MesSyncRunLog | None] = {}
         self._cursor_cache: dict[str, MesSyncCursor | None] = {}
         self._sync_cache: dict[tuple[Any, ...], bool] = {}
+        self._imported_workbook_cache: dict[tuple[Any, ...], bool] = {}
 
     def verify_projection(
         self,
@@ -267,6 +273,329 @@ class DailyFactEvidenceVerifier:
         self._sync_cache[cache_key] = verified
         return verified
 
+    def verify_imported_workbook(
+        self,
+        *,
+        field_name: str,
+        source_type: str,
+        fact_value: Any,
+        source_detail: Mapping[str, Any],
+    ) -> bool:
+        cache_key = (
+            field_name,
+            source_type,
+            fact_value,
+            source_detail.get("source_ref"),
+            source_detail.get("metric_fact_id"),
+            source_detail.get("import_batch_id"),
+            source_detail.get("import_row_id"),
+            source_detail.get("row_count"),
+            source_detail.get("trace_id"),
+            str(source_detail.get("row_anchors")),
+        )
+        if cache_key in self._imported_workbook_cache:
+            return self._imported_workbook_cache[cache_key]
+        verified = self._verify_imported_workbook_uncached(
+            field_name=field_name,
+            source_type=source_type,
+            fact_value=fact_value,
+            source_detail=source_detail,
+        )
+        self._imported_workbook_cache[cache_key] = verified
+        return verified
+
+    def _verify_imported_workbook_uncached(
+        self,
+        *,
+        field_name: str,
+        source_type: str,
+        fact_value: Any,
+        source_detail: Mapping[str, Any],
+    ) -> bool:
+        expected_units = {
+            "total_output_daily": {"吨"},
+            "total_electricity_kwh": {"度", "kwh"},
+        }
+        if (
+            source_type != "manual_workbook"
+            or field_name not in expected_units
+            or str(source_detail.get("business_date") or "") != self.business_date.isoformat()
+            or str(source_detail.get("unit") or "").strip().lower() not in expected_units[field_name]
+            or source_detail.get("metric_contract_version") != DAILY_REPORT_METRIC_CONTRACT_VERSION
+            or source_detail.get("field_contract_version") != DAILY_REPORT_FIELD_CONTRACT_VERSION
+        ):
+            return False
+        window_start, window_end = production_business_window(self.business_date)
+        if str(source_detail.get("business_window") or "") != (
+            f"{window_start.isoformat()}/{window_end.isoformat()}"
+        ):
+            return False
+        source_ref = str(source_detail.get("source_ref") or "")
+        if field_name == "total_output_daily" and source_ref == ImportedDailyMetricFact.__tablename__:
+            return self._verify_promoted_output_metric(fact_value, source_detail)
+        if field_name == "total_electricity_kwh" and source_ref == ImportRow.__tablename__:
+            return self._verify_promoted_energy_rows(fact_value, source_detail)
+        return False
+
+    def _verify_promoted_output_metric(
+        self,
+        fact_value: Any,
+        source_detail: Mapping[str, Any],
+    ) -> bool:
+        required_tables = (
+            ImportBatch.__tablename__,
+            ImportRow.__tablename__,
+            ImportedDailyMetricFact.__tablename__,
+        )
+        if not all(self._has_table(table_name) for table_name in required_tables):
+            return False
+        try:
+            metric_fact_id = int(source_detail.get("metric_fact_id"))
+            import_batch_id = int(source_detail.get("import_batch_id"))
+            import_row_id = int(source_detail.get("import_row_id"))
+            claimed_value = Decimal(str(fact_value))
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        if min(metric_fact_id, import_batch_id, import_row_id) <= 0 or not claimed_value.is_finite():
+            return False
+        metric_fact = self.db.get(ImportedDailyMetricFact, metric_fact_id)
+        batch = self.db.get(ImportBatch, import_batch_id)
+        import_row = self.db.get(ImportRow, import_row_id)
+        if metric_fact is None or batch is None or import_row is None:
+            return False
+        mapped = import_row.mapped_data if isinstance(import_row.mapped_data, dict) else {}
+        report_metrics = [
+            item
+            for item in mapped.get("report_metrics") or []
+            if isinstance(item, dict) and item.get("field_name") == "total_output_daily"
+        ]
+        if len(report_metrics) != 1:
+            return False
+        report_metric = report_metrics[0]
+        try:
+            staged_value = Decimal(str(report_metric.get("value")))
+            promoted_value = Decimal(str(metric_fact.metric_value))
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        displayed_value = promoted_value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        expected_trace = (
+            f"import-read:{ImportedDailyMetricFact.__tablename__}:{metric_fact.id}:"
+            f"total_output_daily:{metric_fact.lineage_hash[:12]}"
+        )
+        return bool(
+            batch.import_type == "daily_production_report"
+            and batch.source_type == "daily_production_report_locked"
+            and batch.status == "completed"
+            and batch.parsed_successfully is True
+            and batch.quality_status in {"ready", "warning"}
+            and import_row.batch_id == batch.id
+            and import_row.status == "success"
+            and daily_production_lineage_is_valid(mapped)
+            and str(mapped.get("lineage_hash") or "") == metric_fact.lineage_hash
+            and str(mapped.get("business_date") or "") == self.business_date.isoformat()
+            and metric_fact.business_date == self.business_date
+            and metric_fact.field_name == "total_output_daily"
+            and metric_fact.source_kind == "daily_production_report"
+            and metric_fact.import_batch_id == batch.id
+            and metric_fact.import_row_id == import_row.id
+            and metric_fact.data_status == "confirmed"
+            and metric_fact.superseded_by_id is None
+            and metric_fact.voided_at is None
+            and metric_fact.metric_contract_version == DAILY_REPORT_FIELD_CONTRACT_VERSION
+            and report_metric.get("unit") == metric_fact.unit == source_detail.get("unit")
+            and report_metric.get("source_anchors") == metric_fact.source_anchors
+            and source_detail.get("row_anchors") == metric_fact.source_anchors
+            and staged_value == promoted_value
+            and claimed_value == displayed_value
+            and source_detail.get("trace_id") == expected_trace
+        )
+
+    def _verify_promoted_energy_rows(
+        self,
+        fact_value: Any,
+        source_detail: Mapping[str, Any],
+    ) -> bool:
+        required_tables = (
+            ImportBatch.__tablename__,
+            ImportRow.__tablename__,
+            EnergyImportRecord.__tablename__,
+        )
+        if not all(self._has_table(table_name) for table_name in required_tables):
+            return False
+        try:
+            batch_id = int(source_detail.get("import_batch_id"))
+            row_count = int(source_detail.get("row_count"))
+            claimed_value = Decimal(str(fact_value))
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        anchors = source_detail.get("row_anchors")
+        if batch_id <= 0 or row_count <= 0 or not claimed_value.is_finite() or not isinstance(anchors, list):
+            return False
+        try:
+            row_ids = [int(anchor["import_row_id"]) for anchor in anchors if isinstance(anchor, Mapping)]
+        except (KeyError, TypeError, ValueError):
+            return False
+        if len(row_ids) != row_count or len(set(row_ids)) != row_count:
+            return False
+        batch = self.db.get(ImportBatch, batch_id)
+        all_rows = (
+            self.db.query(ImportRow)
+            .filter(ImportRow.batch_id == batch_id)
+            .order_by(ImportRow.row_number.asc(), ImportRow.id.asc())
+            .all()
+        )
+        rows = {row.id: row for row in all_rows if row.id in row_ids}
+        promoted_records = (
+            self.db.query(EnergyImportRecord)
+            .filter(
+                EnergyImportRecord.import_batch_id == batch_id,
+                EnergyImportRecord.business_date == self.business_date,
+            )
+            .order_by(EnergyImportRecord.id.asc())
+            .all()
+        )
+        if (
+            batch is None
+            or len(row_ids) != len(anchors)
+            or len(rows) != row_count
+            or len(row_ids) != 1
+            or not self._energy_batch_is_fully_promoted(batch, all_rows, promoted_records)
+        ):
+            return False
+        staged_total = Decimal("0")
+        for row_id in row_ids:
+            row = rows[row_id]
+            mapped = row.mapped_data if isinstance(row.mapped_data, dict) else {}
+            raw = row.raw_data if isinstance(row.raw_data, dict) else {}
+            try:
+                value = Decimal(str(mapped.get("energy_value")))
+            except (InvalidOperation, TypeError, ValueError):
+                return False
+            field_name = daily_energy_report_fact_field(
+                str(mapped.get("energy_type") or "").strip().lower(),
+                str(mapped.get("source_label") or ""),
+            )
+            if (
+                row.batch_id != batch.id
+                or row.status != "skipped"
+                or row.error_msg != "unmapped energy label: 高压合计"
+                or str(mapped.get("business_date") or "") != self.business_date.isoformat()
+                or mapped.get("source_kind") != "workshop_electricity"
+                or mapped.get("source_label") != "高压合计"
+                or mapped.get("energy_type") != "electricity"
+                or mapped.get("unit") != "kWh"
+                or mapped.get("workshop_code") not in (None, "")
+                or mapped.get("shift_code") not in (None, "")
+                or mapped.get("status") != "skipped"
+                or field_name != "total_electricity_kwh"
+                or mapped.get("report_field") != "total_electricity_kwh"
+                or not self._energy_raw_fields_match(raw, mapped)
+                or not value.is_finite()
+            ):
+                return False
+            staged_total += value
+        expected_trace = (
+            f"import-read:{ImportRow.__tablename__}:{batch.id}:"
+            f"total_electricity_kwh:{','.join(str(row_id) for row_id in row_ids)}"
+        )
+        return bool(
+            batch.import_type == "energy"
+            and batch.source_type == "daily_energy_report_locked"
+            and batch.status == "completed"
+            and batch.parsed_successfully is True
+            and batch.quality_status in {"ready", "warning"}
+            and staged_total == claimed_value
+            and source_detail.get("trace_id") == expected_trace
+        )
+
+    def _energy_batch_is_fully_promoted(
+        self,
+        batch: ImportBatch,
+        rows: list[ImportRow],
+        promoted_records: list[EnergyImportRecord],
+    ) -> bool:
+        success_rows = [row for row in rows if row.status == "success"]
+        failed_rows = [row for row in rows if row.status == "failed"]
+        skipped_rows = [row for row in rows if row.status == "skipped"]
+        if (
+            batch.total_rows != len(rows)
+            or batch.success_rows != len(success_rows)
+            or batch.failed_rows != len(failed_rows)
+            or batch.skipped_rows != len(skipped_rows)
+            or len(promoted_records) != len(success_rows)
+        ):
+            return False
+
+        unmatched_records = list(promoted_records)
+        for row in success_rows:
+            matching_indexes = [
+                index
+                for index, record in enumerate(unmatched_records)
+                if self._energy_row_matches_promoted_record(row, record)
+            ]
+            if len(matching_indexes) != 1:
+                return False
+            unmatched_records.pop(matching_indexes[0])
+        return not unmatched_records
+
+    def _energy_row_matches_promoted_record(
+        self,
+        row: ImportRow,
+        record: EnergyImportRecord,
+    ) -> bool:
+        mapped = row.mapped_data if isinstance(row.mapped_data, dict) else {}
+        raw = row.raw_data if isinstance(row.raw_data, dict) else {}
+        try:
+            mapped_value = Decimal(str(mapped.get("energy_value")))
+            promoted_value = Decimal(str(record.energy_value))
+            source_row_no = int(mapped.get("source_row_no") or row.row_number)
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        energy_type = str(mapped.get("energy_type") or "").strip().lower()
+        expected_report_field = daily_energy_report_fact_field(
+            energy_type,
+            str(mapped.get("source_label") or ""),
+        )
+        report_field_matches = mapped.get("report_field") == expected_report_field
+        if (
+            mapped.get("report_field") == "hot_roll_furnace_gas_m3"
+            and expected_report_field in {"east_furnace_gas_m3", "west_furnace_gas_m3"}
+        ):
+            report_field_matches = True
+        return bool(
+            mapped_value.is_finite()
+            and promoted_value.is_finite()
+            and str(mapped.get("business_date") or "") == self.business_date.isoformat()
+            and mapped.get("status") == "success"
+            and report_field_matches
+            and self._energy_raw_fields_match(raw, mapped)
+            and record.import_batch_id == row.batch_id
+            and record.business_date == self.business_date
+            and str(record.workshop_code or "").strip() == str(mapped.get("workshop_code") or "").strip()
+            and record.shift_code is None
+            and mapped.get("shift_code") in (None, "")
+            and str(record.energy_type or "").strip().lower() == energy_type
+            and promoted_value == mapped_value
+            and str(record.unit or "").strip().lower() == str(mapped.get("unit") or "").strip().lower()
+            and record.source_row_no == source_row_no
+            and record.raw_payload == raw
+        )
+
+    @staticmethod
+    def _energy_raw_fields_match(raw: Mapping[str, Any], mapped: Mapping[str, Any]) -> bool:
+        return bool(raw) and all(
+            raw.get(field_name) == mapped.get(field_name)
+            for field_name in (
+                "source_kind",
+                "source_file",
+                "source_sheet",
+                "source_row_no",
+                "source_label",
+                "energy_value",
+                "unit",
+            )
+        )
+
     def _verify_projection_uncached(
         self,
         *,
@@ -318,7 +647,7 @@ class DailyFactEvidenceVerifier:
             and trace_count == claimed_count == actual.row_count
             and trace_anchor == str(claimed_anchor) == str(actual.latest_row_id)
             and str(source_detail.get("business_window") or "") == actual.business_window
-            and abs(claimed_value - actual_value) <= PROJECTION_VALUE_TOLERANCE
+            and _projection_values_match(claimed_value, actual_value)
         )
 
     def _projection_evidence(
@@ -656,6 +985,13 @@ def _parse_projection_trace(value: Any) -> tuple[str, str, int] | None:
         return source_ref, anchor, int(row_count)
     except (TypeError, ValueError):
         return None
+
+
+def _projection_values_match(claimed_value: Decimal, actual_value: Decimal) -> bool:
+    if abs(claimed_value - actual_value) <= PROJECTION_VALUE_TOLERANCE:
+        return True
+    rounded_for_display = actual_value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return claimed_value == rounded_for_display
 
 
 def _material_weight_tons(row: MesMaterialRecord) -> float:

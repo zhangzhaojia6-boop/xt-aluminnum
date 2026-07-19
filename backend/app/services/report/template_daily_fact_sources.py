@@ -18,6 +18,7 @@ from app.domain.daily_report_field_contract import (
     DAILY_REPORT_FIELD_CONTRACT_VERSION,
     source_lane_priority,
 )
+from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACT_VERSION
 from app.models.energy import EnergyImportRecord
 from app.models.imports import ImportBatch, ImportedDailyMetricFact, ImportRow
 from app.models.master import Equipment, Workshop
@@ -165,10 +166,12 @@ OWNER_FIELD_ALIASES = {
     "hot_roll_boiler_gas_m3": ("hot_roll_boiler_gas_m3", "boiler_gas_m3"),
     "cold_roll_input_daily": ("cold_roll_input_daily", "daily_input_weight"),
     "recovery_daily": ("recovery_daily", "recovery_weight", "recovery_output_tons"),
+    "roller_grind_daily": ("roller_grind_daily", "roller_grinding_count"),
 }
 
 OWNER_MONTH_SUM_ALIASES = {
     "recovery_month": ("recovery_month", "recovery_weight", "recovery_daily", "recovery_output_tons"),
+    "roller_grind_month": ("roller_grind_month", "roller_grinding_count", "roller_grind_daily"),
 }
 
 QUALITY_FACTORY_CODES = {"FACTORY", "COMPANY", "ALL", "M", "全厂", "公司"}
@@ -1566,7 +1569,9 @@ def _set_promoted_report_metric(
         "unit": fact.unit,
         "file_name": file_name,
         "row_anchors": fact.source_anchors,
-        "metric_contract_version": fact.metric_contract_version,
+        "lineage_hash": fact.lineage_hash,
+        "metric_contract_version": DAILY_REPORT_METRIC_CONTRACT_VERSION,
+        "field_contract_version": fact.metric_contract_version,
         "trace_id": (
             f"import-read:{ImportedDailyMetricFact.__tablename__}:{fact.id}:"
             f"{fact.field_name}:{fact.lineage_hash[:12]}"
@@ -1891,6 +1896,40 @@ def _latest_promoted_energy_batch(db: Session, target_date: date) -> ImportBatch
     )
 
 
+def _legacy_energy_field_has_promoted_record(
+    *,
+    field_name: str,
+    mapped: dict[str, Any],
+    value: float,
+    promoted_records: list[EnergyImportRecord],
+) -> bool:
+    if (
+        mapped.get("report_field") != "hot_roll_furnace_gas_m3"
+        or field_name not in {"east_furnace_gas_m3", "west_furnace_gas_m3"}
+    ):
+        return False
+    try:
+        source_row_no = int(mapped.get("source_row_no"))
+    except (TypeError, ValueError):
+        return False
+    energy_type = str(mapped.get("energy_type") or "").strip().lower()
+    workshop_code = str(mapped.get("workshop_code") or "").strip()
+    for record in promoted_records:
+        try:
+            record_value = float(record.energy_value)
+        except (TypeError, ValueError):
+            continue
+        if (
+            record.source_row_no == source_row_no
+            and record.energy_type == energy_type
+            and math.isfinite(record_value)
+            and math.isclose(record_value, value, rel_tol=0.0, abs_tol=0.000001)
+            and (not workshop_code or record.workshop_code == workshop_code)
+        ):
+            return True
+    return False
+
+
 def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFacts) -> None:
     required_tables = (ImportBatch.__tablename__, ImportRow.__tablename__, EnergyImportRecord.__tablename__)
     if not all(_has_table(db, table_name) for table_name in required_tables):
@@ -1905,6 +1944,14 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             ImportRow.status.in_(("success", "skipped")),
         )
         .order_by(ImportRow.row_number.asc())
+        .all()
+    )
+    promoted_records = (
+        db.query(EnergyImportRecord)
+        .filter(
+            EnergyImportRecord.import_batch_id == batch.id,
+            EnergyImportRecord.business_date == facts.target_date,
+        )
         .all()
     )
 
@@ -1923,7 +1970,17 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             str(mapped.get("energy_type") or "").strip().lower(),
             str(mapped.get("source_label") or ""),
         )
-        if field_name is None or mapped.get("report_field") != field_name:
+        if field_name is None:
+            continue
+        if (
+            mapped.get("report_field") != field_name
+            and not _legacy_energy_field_has_promoted_record(
+                field_name=field_name,
+                mapped=mapped,
+                value=value,
+                promoted_records=promoted_records,
+            )
+        ):
             continue
         grouped.setdefault(field_name, []).append((value, row, mapped))
 
@@ -1964,9 +2021,11 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             file_name=batch.file_name,
             business_date=facts.target_date.isoformat(),
             business_window=energy_business_window,
+            unit=("度" if field_name.endswith("electricity_kwh") else "m³"),
             row_count=len(values),
             row_anchors=row_anchors,
-            metric_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
+            metric_contract_version=DAILY_REPORT_METRIC_CONTRACT_VERSION,
+            field_contract_version=DAILY_REPORT_FIELD_CONTRACT_VERSION,
             trace_id=(
                 f"import-read:{ImportRow.__tablename__}:{batch.id}:"
                 f"{field_name}:{anchor_token}"

@@ -92,6 +92,7 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'dingtalk_supplement',
             'root_owner_correction',
             'mes_packaging_output',
+            'manual_workbook',
         },
         'workshop_output_daily': {
             'dingtalk_supplement',
@@ -117,6 +118,7 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'total_electricity_kwh': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'manual_workbook',
         },
         'total_gas_m3': {
             'dingtalk_supplement',
@@ -349,6 +351,88 @@ def test_dingtalk_fact_source_contract_requires_persisted_evidence_anchor() -> N
         source_type='dingtalk_supplement',
         source_ref=valid_ref,
         trace_id='dingtalk-evidence-trace-17',
+    )
+
+
+@pytest.mark.parametrize(
+    ('field_name', 'source_ref_name', 'id_fields', 'trace_id'),
+    (
+        (
+            'total_output_daily',
+            'imported_daily_metric_facts',
+            {'metric_fact_id': 17, 'import_batch_id': 9, 'import_row_id': 31},
+            'import-read:imported_daily_metric_facts:17:total_output_daily:abc123def456',
+        ),
+        (
+            'total_electricity_kwh',
+            'import_rows',
+            {'import_batch_id': 9, 'row_count': 1},
+            'import-read:import_rows:9:total_electricity_kwh:31',
+        ),
+    ),
+)
+def test_promoted_workbook_source_contract_requires_locked_lineage_anchors(
+    field_name: str,
+    source_ref_name: str,
+    id_fields: dict[str, int],
+    trace_id: str,
+) -> None:
+    unit = '吨' if field_name == 'total_output_daily' else '度'
+    valid_ref = {
+        'source_ref': source_ref_name,
+        'business_date': '2026-07-17',
+        'business_window': '2026-07-17T07:50:00+08:00/2026-07-18T07:50:00+08:00',
+        'unit': unit,
+        'metric_contract_version': metric_contracts.DAILY_REPORT_METRIC_CONTRACT_VERSION,
+        'field_contract_version': '2026-07-18',
+        'trace_id': trace_id,
+        'row_anchors': [{'import_row_id': 31}],
+        **id_fields,
+    }
+    if field_name == 'total_output_daily':
+        valid_ref['lineage_hash'] = 'abc123def456' + ('0' * 52)
+
+    assert metric_contracts.fact_source_failure_reason(
+        field_name,
+        source_key='data_hub_projection',
+        source_type='manual_workbook',
+        source_ref=valid_ref,
+        trace_id=trace_id,
+        business_date='2026-07-17',
+        business_window=valid_ref['business_window'],
+        unit=unit,
+        metric_contract_version=metric_contracts.DAILY_REPORT_METRIC_CONTRACT_VERSION,
+    ) is None
+
+    for key in id_fields:
+        invalid_ref = {**valid_ref, key: None}
+        assert key in metric_contracts.fact_source_failure_reason(
+            field_name,
+            source_key='data_hub_projection',
+            source_type='manual_workbook',
+            source_ref=invalid_ref,
+            trace_id=trace_id,
+        )
+
+    assert 'trace_id' in metric_contracts.fact_source_failure_reason(
+        field_name,
+        source_key='data_hub_projection',
+        source_type='manual_workbook',
+        source_ref={**valid_ref, 'trace_id': 'untrusted-trace'},
+        trace_id='untrusted-trace',
+    )
+
+    structurally_valid_but_wrong_trace = (
+        'import-read:imported_daily_metric_facts:18:total_output_daily:abc123def456'
+        if field_name == 'total_output_daily'
+        else 'import-read:import_rows:9:total_electricity_kwh:32'
+    )
+    assert 'trace_id' in metric_contracts.fact_source_failure_reason(
+        field_name,
+        source_key='data_hub_projection',
+        source_type='manual_workbook',
+        source_ref={**valid_ref, 'trace_id': structurally_valid_but_wrong_trace},
+        trace_id=structurally_valid_but_wrong_trace,
     )
 
 

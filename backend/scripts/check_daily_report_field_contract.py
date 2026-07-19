@@ -17,7 +17,7 @@ from app.domain import daily_report_field_contract as contract_module
 from scripts import render_daily_report_field_contract as renderer
 
 
-EXPECTED_FIELD_COUNT = 127
+EXPECTED_FIELD_COUNT = 125
 EXPECTED_TEMPLATE_FIELD_COUNT = 130
 MAXIMUM_TOLERANCE = 20.0
 EXPECTED_BUSINESS_TIME_STARTS = {

@@ -190,6 +190,12 @@ DIRECT_MES_WMS_SOURCE_TYPES = {
     "wms",
     "wms_direct",
 }
+VERIFIABLE_IMPORTED_WORKBOOK_FIELDS = {
+    "total_output_daily",
+    "total_electricity_kwh",
+}
+
+
 def build_daily_fact_bundle(
     db: Session,
     *,
@@ -315,6 +321,18 @@ def _facts_from_template(
         if is_direct_source:
             evidence_gaps = _direct_source_evidence_gaps(
                 db,
+                field_name=normalized_field_name,
+                business_date=business_date,
+                fact_value=value,
+                source_type=source_name,
+                source_detail=source_detail,
+                now=now,
+                verifier=evidence_verifier,
+            )
+            fact["evidence_status"] = "confirmed" if not evidence_gaps else "needs_evidence"
+            fact["evidence_gaps"] = evidence_gaps
+        elif source_name == "manual_workbook" and normalized_field_name in VERIFIABLE_IMPORTED_WORKBOOK_FIELDS:
+            evidence_gaps = _imported_workbook_evidence_gaps(
                 field_name=normalized_field_name,
                 business_date=business_date,
                 fact_value=value,
@@ -490,6 +508,54 @@ def _direct_source_evidence_gaps(
     ):
         gaps.append("raw_mes_process_is_evidence_only")
     return gaps
+
+
+def _imported_workbook_evidence_gaps(
+    *,
+    field_name: str,
+    business_date: date,
+    fact_value: Any,
+    source_type: str,
+    source_detail: Mapping[str, Any],
+    now: datetime,
+    verifier: DailyFactEvidenceVerifier,
+) -> list[str]:
+    gaps: list[str] = []
+    for key in (
+        "source_ref",
+        "business_date",
+        "business_window",
+        "unit",
+        "trace_id",
+        "metric_contract_version",
+        "field_contract_version",
+    ):
+        if source_detail.get(key) in (None, ""):
+            gaps.append(f"missing_{key}")
+    if str(source_detail.get("business_date") or "") != business_date.isoformat():
+        gaps.append("business_date_contract_mismatch")
+    business_window = str(source_detail.get("business_window") or "")
+    if business_window:
+        try:
+            window_start, window_end = (
+                datetime.fromisoformat(item)
+                for item in business_window.split("/", 1)
+            )
+        except (TypeError, ValueError):
+            gaps.append("invalid_business_window")
+        else:
+            if window_start.tzinfo is None or window_end.tzinfo is None or window_end < window_start:
+                gaps.append("invalid_business_window")
+            elif window_end > now.astimezone(window_end.tzinfo):
+                gaps.append("business_window_not_closed")
+    if not verifier.verify_imported_workbook(
+        field_name=field_name,
+        source_type=source_type,
+        fact_value=fact_value,
+        source_detail=source_detail,
+    ):
+        gaps.append("missing_read_evidence")
+    return list(dict.fromkeys(gaps))
 
 
 def _persist_bundle(

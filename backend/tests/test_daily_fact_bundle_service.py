@@ -20,6 +20,8 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base
 from app.domain.daily_report_field_contract import normative_daily_report_fields
 from app.models.agent_communication import ChatInboxMessage, MultimodalEvidence
+from app.models.energy import EnergyImportRecord
+from app.models.imports import ImportBatch, ImportedDailyMetricFact, ImportRow
 from app.models.mes import (
     MesCoilSnapshot,
     MesMaterialRecord,
@@ -55,6 +57,10 @@ def db_session() -> Iterator[Session]:
             cast(Table, User.__table__),
             cast(Table, ChatInboxMessage.__table__),
             cast(Table, MultimodalEvidence.__table__),
+            cast(Table, ImportBatch.__table__),
+            cast(Table, ImportRow.__table__),
+            cast(Table, ImportedDailyMetricFact.__table__),
+            cast(Table, EnergyImportRecord.__table__),
             cast(Table, MesMaterialRecord.__table__),
             cast(Table, MesStockRecord.__table__),
             cast(Table, MesCoilSnapshot.__table__),
@@ -264,6 +270,297 @@ def test_daily_fact_bundle_direct_source_requires_row_or_sync_evidence(
     assert fact["evidence_status"] == "needs_evidence"
     assert "missing_read_evidence" in fact["evidence_gaps"]
     assert _fact_closure_field(bundle, "total_output_daily")["status"] == "needs_evidence"
+
+
+def test_daily_fact_bundle_confirms_locked_promoted_output_workbook(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACT_VERSION
+    from app.services.daily_production_canonical_service import build_daily_production_lineage_hash
+    from app.services.report import daily_fact_bundle
+
+    anchors = [{"row_index": 39, "sheet_name": "2026-7-17", "column_index": 26}]
+    mapped_data = {
+        "business_date": "2026-07-17",
+        "quality_status": "ready",
+        "report_metrics": [
+            {
+                "field_name": "total_output_daily",
+                "value": 286,
+                "unit": "吨",
+                "source_anchors": anchors,
+            }
+        ],
+    }
+    mapped_data["lineage_hash"] = build_daily_production_lineage_hash(mapped_data)
+    batch = ImportBatch(
+        batch_no="IMP-OUTPUT-EVIDENCE-20260717",
+        import_type="daily_production_report",
+        source_type="daily_production_report_locked",
+        file_name="daily-production-2026-07-17.xlsx",
+        status="completed",
+        quality_status="ready",
+        parsed_successfully=True,
+    )
+    db_session.add(batch)
+    db_session.flush()
+    import_row = ImportRow(
+        batch_id=batch.id,
+        row_number=1,
+        status="success",
+        mapped_data=mapped_data,
+    )
+    db_session.add(import_row)
+    db_session.flush()
+    metric_fact = ImportedDailyMetricFact(
+        business_date=date(2026, 7, 17),
+        field_name="total_output_daily",
+        metric_value=286,
+        unit="吨",
+        source_kind="daily_production_report",
+        import_batch_id=batch.id,
+        import_row_id=import_row.id,
+        source_anchors=anchors,
+        lineage_hash=mapped_data["lineage_hash"],
+        metric_contract_version="2026-07-18",
+        data_status="confirmed",
+    )
+    db_session.add(metric_fact)
+    db_session.commit()
+    trace_id = (
+        f"import-read:imported_daily_metric_facts:{metric_fact.id}:"
+        f"total_output_daily:{metric_fact.lineage_hash[:12]}"
+    )
+    source = {
+        "source_type": "manual_workbook",
+        "source_ref": "imported_daily_metric_facts",
+        "metric_fact_id": metric_fact.id,
+        "import_batch_id": batch.id,
+        "import_row_id": import_row.id,
+        "business_date": "2026-07-17",
+        "business_window": "2026-07-17T07:50:00+08:00/2026-07-18T07:50:00+08:00",
+        "unit": "吨",
+        "row_anchors": anchors,
+        "lineage_hash": metric_fact.lineage_hash,
+        "metric_contract_version": DAILY_REPORT_METRIC_CONTRACT_VERSION,
+        "field_contract_version": "2026-07-18",
+        "trace_id": trace_id,
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 286},
+            "sources": {"total_output_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 17),
+        now=datetime(2026, 7, 18, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    fact = bundle["facts"]["total_output_daily"]
+    assert fact["evidence_status"] == "confirmed"
+    assert fact["evidence_gaps"] == []
+    assert _fact_closure_field(bundle, "total_output_daily")["status"] == "confirmed"
+
+    source["metric_fact_id"] = metric_fact.id + 999
+    rejected = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 17),
+        now=datetime(2026, 7, 18, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+    assert rejected["facts"]["total_output_daily"]["evidence_status"] == "needs_evidence"
+
+
+def test_daily_fact_bundle_confirms_locked_energy_workbook_rows(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACT_VERSION
+    from app.services.report import daily_fact_bundle
+
+    batch = ImportBatch(
+        batch_no="IMP-ENERGY-EVIDENCE-20260717",
+        import_type="energy",
+        source_type="daily_energy_report_locked",
+        file_name="daily-energy-2026-07-17.xls",
+        file_size=1024,
+        file_path=json.dumps(
+                {
+                    "electricity_file": "workshop-electricity.xls",
+                    "gas_file": "furnace-gas.xls",
+                },
+            ensure_ascii=False,
+        ),
+        total_rows=3,
+        success_rows=2,
+        failed_rows=0,
+        skipped_rows=1,
+        status="completed",
+        quality_status="ready",
+        parsed_successfully=True,
+    )
+    db_session.add(batch)
+    db_session.flush()
+    component_raw = {
+        "source_kind": "workshop_electricity",
+        "source_file": "workshop-electricity.xls",
+        "source_sheet": "日电量",
+        "source_row_no": 8,
+        "source_label": "铸锭",
+        "energy_value": 100000,
+        "unit": "kWh",
+    }
+    component_row = ImportRow(
+        batch_id=batch.id,
+        row_number=1,
+        status="success",
+        raw_data=component_raw,
+        mapped_data={
+            **component_raw,
+            "business_date": "2026-07-17",
+            "workshop_code": "ZD",
+            "shift_code": None,
+            "status": "success",
+            "report_field": None,
+        },
+    )
+    total_raw = {
+        "source_kind": "workshop_electricity",
+        "source_file": "workshop-electricity.xls",
+        "source_sheet": "日电量",
+        "source_row_no": 29,
+        "source_label": "高压合计",
+        "energy_value": 173500,
+        "unit": "kWh",
+    }
+    import_row = ImportRow(
+        batch_id=batch.id,
+        row_number=26,
+        status="skipped",
+        raw_data=total_raw,
+        mapped_data={
+            **total_raw,
+            "business_date": "2026-07-17",
+            "workshop_code": None,
+            "shift_code": None,
+            "status": "skipped",
+            "report_field": "total_electricity_kwh",
+        },
+        error_msg="unmapped energy label: 高压合计",
+    )
+    component_row.mapped_data["energy_type"] = "electricity"
+    import_row.mapped_data["energy_type"] = "electricity"
+    legacy_gas_raw = {
+        "source_kind": "furnace_gas",
+        "source_file": "furnace-gas.xls",
+        "source_sheet": "日报",
+        "source_row_no": 9,
+        "source_label": "热轧/1#加热炉东",
+        "energy_value": 12000,
+        "unit": "Nm3",
+    }
+    legacy_gas_row = ImportRow(
+        batch_id=batch.id,
+        row_number=2,
+        status="success",
+        raw_data=legacy_gas_raw,
+        mapped_data={
+            **legacy_gas_raw,
+            "business_date": "2026-07-17",
+            "workshop_code": "RZ",
+            "shift_code": None,
+            "energy_type": "gas",
+            "status": "success",
+            "report_field": "hot_roll_furnace_gas_m3",
+        },
+    )
+    db_session.add_all([component_row, legacy_gas_row, import_row])
+    db_session.flush()
+    promoted_record = EnergyImportRecord(
+        import_batch_id=batch.id,
+        business_date=date(2026, 7, 17),
+        workshop_code="ZD",
+        shift_code=None,
+        energy_type="electricity",
+        energy_value=100000,
+        unit="kWh",
+        source_row_no=8,
+        raw_payload=component_raw,
+    )
+    legacy_gas_record = EnergyImportRecord(
+        import_batch_id=batch.id,
+        business_date=date(2026, 7, 17),
+        workshop_code="RZ",
+        shift_code=None,
+        energy_type="gas",
+        energy_value=12000,
+        unit="Nm3",
+        source_row_no=9,
+        raw_payload=legacy_gas_raw,
+    )
+    db_session.add_all([promoted_record, legacy_gas_record])
+    db_session.commit()
+    trace_id = f"import-read:import_rows:{batch.id}:total_electricity_kwh:{import_row.id}"
+    source = {
+        "source_type": "manual_workbook",
+        "source_ref": "import_rows",
+        "import_batch_id": batch.id,
+        "business_date": "2026-07-17",
+        "business_window": "2026-07-17T07:50:00+08:00/2026-07-18T07:50:00+08:00",
+        "unit": "度",
+        "row_count": 1,
+        "row_anchors": [{"import_row_id": import_row.id}],
+        "metric_contract_version": DAILY_REPORT_METRIC_CONTRACT_VERSION,
+        "field_contract_version": "2026-07-18",
+        "trace_id": trace_id,
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_electricity_kwh": 173500},
+            "sources": {"total_electricity_kwh": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 17),
+        now=datetime(2026, 7, 18, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    fact = bundle["facts"]["total_electricity_kwh"]
+    assert fact["evidence_status"] == "confirmed"
+    assert fact["evidence_gaps"] == []
+    assert _fact_closure_field(bundle, "total_electricity_kwh")["status"] == "confirmed"
+
+    promoted_record.raw_payload = {"tampered": True}
+    db_session.commit()
+    rejected = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 17),
+        now=datetime(2026, 7, 18, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+    assert rejected["facts"]["total_electricity_kwh"]["evidence_status"] == "needs_evidence"
+
+    promoted_record.raw_payload = component_raw
+    db_session.commit()
+    source["row_anchors"] = [{"import_row_id": import_row.id + 999}]
+    rejected = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 17),
+        now=datetime(2026, 7, 18, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+    assert rejected["facts"]["total_electricity_kwh"]["evidence_status"] == "needs_evidence"
 
 
 def test_daily_fact_bundle_rejects_named_mes_trace_even_with_positive_row_count(
@@ -1031,6 +1328,53 @@ def test_daily_fact_bundle_confirms_wms_detail_projection_for_exact_inbound_quer
     )
 
     assert bundle["facts"]["finished_inbound_daily"]["evidence_status"] == "confirmed"
+
+
+def test_daily_fact_bundle_accepts_display_rounding_for_verified_wms_inbound(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    row = MesStockRecord(
+        source_id="wms-header-rounded",
+        source_path="sqlserver:stock_header_records",
+        net_weight_tons=320.768,
+        business_date=date(2026, 7, 15),
+    )
+    db_session.add(row)
+    db_session.commit()
+    source = {
+        "source_type": "mes_stock_header_records",
+        "source_ref": "mes_stock_records",
+        "source_table": "WMS_InStock",
+        "business_window": "2026-07-15T07:50:00+08:00/2026-07-16T07:50:00+08:00",
+        "unit": "吨",
+        "row_count": 1,
+        "latest_row_id": row.id,
+        "trace_id": f"projection-read:mes_stock_records:{row.id}:1",
+        "metric_contract_version": "2026-07-11",
+    }
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"finished_inbound_daily": 320.77},
+            "sources": {"finished_inbound_daily": source},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 7, 15),
+        now=datetime(2026, 7, 16, 8, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    fact = bundle["facts"]["finished_inbound_daily"]
+    assert fact["evidence_status"] == "confirmed"
+    assert fact["evidence_gaps"] == []
 
 
 def test_daily_fact_bundle_rejects_invented_local_wms_detail_path(
@@ -3508,6 +3852,13 @@ def test_daily_fact_bundle_output_skill_adoption_stays_blocked_as_reference_only
     monkeypatch.setenv("OUTPUT_SKILL_REFERENCE_MODE", "adopt")
 
     bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 6, 16))
+    parsed_reference = parse_output_skill_daily_report(
+        (fixture_dir / "2026-6-16_日报正文.txt").read_text(encoding="utf-8")
+    )
+    reference_fields = [
+        *[field for field in REQUIRED_FIELDS if field in parsed_reference],
+        *[field for field in parsed_reference if field not in REQUIRED_FIELDS],
+    ]
 
     assert bundle["output_skill_alignment"]["status"] == "passed"
     assert bundle["output_skill_alignment"]["field_match_rate"] == 100.0
@@ -3529,8 +3880,8 @@ def test_daily_fact_bundle_output_skill_adoption_stays_blocked_as_reference_only
     assert bundle["output_skill_refs"] == [
         {
             "file_name": "2026-6-16_日报正文.txt",
-            "field_count": len(REQUIRED_FIELDS),
-            "field_names": list(REQUIRED_FIELDS),
+            "field_count": len(reference_fields),
+            "field_names": reference_fields,
         }
     ]
 

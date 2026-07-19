@@ -9,6 +9,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.hermes_fact_source_map_service import load_fact_source_map
+from app.domain.daily_report_field_contract import normative_daily_report_fields
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUT_PATH = REPO_ROOT / "docs" / "hermes" / "fact-source-map.md"
@@ -38,12 +39,13 @@ def _join(items: list[Any]) -> str:
 
 def render_fact_source_map_markdown() -> str:
     rows = load_fact_source_map()
+    normative_field_count = len(normative_daily_report_fields())
     lines = [
         "# Hermes 事实来源地图",
         "",
         "本文件由 `backend/app/hermes/fact_source_map.json` 自动生成，不手工维护。",
         "",
-        "完整字段、业务时间、容差和统一来源顺序见：[日报 127 字段合同](daily-report-field-contract.md)。",
+        f"完整字段、业务时间、容差和统一来源顺序见：[日报 {normative_field_count} 字段合同](daily-report-field-contract.md)。",
         "",
         "| 指标 | 领域 | 来源优先级 | 涉及服务 | 保护级别 | 状态 | 接口 | 页面 | 涉及表 | Hermes 工具 | 证据条件 | 已知风险 |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|",

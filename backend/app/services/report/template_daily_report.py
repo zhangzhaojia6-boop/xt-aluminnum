@@ -69,7 +69,6 @@ REQUIRED_FIELDS = (
     "total_output_delta",
     "total_output_month",
     "outsourced_month",
-    "cast_roll_active_lines",
     "cast_roll_daily",
     "cast_roll_month",
     "foundry_daily",
@@ -170,7 +169,6 @@ REQUIRED_FIELDS = (
     "coating_gas_per_ton_month",
     "finished_inbound_daily",
     "consignment_weight",
-    "finished_inbound_month",
     "daily_contract_weight",
     "daily_hot_roll_contract_weight",
     "cold_roll_input_daily",
@@ -711,11 +709,21 @@ def render_template_daily_report(facts: dict[str, Any]) -> str:
             return None
 
     v = BlankValues(facts.get("values") or {})
+    cast_roll_operating_text = (
+        f"开机{_fmt_int(v['cast_roll_active_lines'])}条，"
+        if v["cast_roll_active_lines"] is not None
+        else ""
+    )
+    finished_inbound_month_text = (
+        f"，月累计{_fmt_int(v['finished_inbound_month'])}吨"
+        if v["finished_inbound_month"] is not None
+        else ""
+    )
     return (
         f"{_month_day(v['report_date'])}，车间总产量日合计{_fmt_int(v['total_output_daily'])}吨"
         f"（外加工{_fmt_int(v['outsourced_daily'])}吨）比昨日{_delta_text(v['total_output_delta'], '吨')}，"
         f"月累计{_fmt_int(v['total_output_month'])}吨（外加工月累计{_fmt_int(v['outsourced_month'])}吨）。\n\n"
-        f"铸轧分厂开机{_fmt_int(v['cast_roll_active_lines'])}条，日产量{_fmt_int(v['cast_roll_daily'])}吨，"
+        f"铸轧分厂{cast_roll_operating_text}日产量{_fmt_int(v['cast_roll_daily'])}吨，"
         f"月累计产量{_fmt_int(v['cast_roll_month'])}吨；铸锭车间日产量{_fmt_int(v['foundry_daily'])}吨，"
         f"月累计产量{_fmt_int(v['foundry_month'])}吨；热轧车间日产量{_fmt_int(v['hot_roll_daily'])}吨，"
         f"月累计产量{_fmt_int(v['hot_roll_month'])}吨；1650车间日产量{_fmt_int(v['cold_1650_daily'])}吨，"
@@ -765,8 +773,8 @@ def render_template_daily_report(facts: dict[str, Any]) -> str:
         f"剪切日电耗{_fmt_1(v['shearing_electricity_per_ton_daily'])}度，月电耗{_fmt_1(v['shearing_electricity_per_ton_month'])}度；"
         f"彩涂日电耗{_fmt_1(v['coating_electricity_per_ton_daily'])}度，月电耗{_fmt_1(v['coating_electricity_per_ton_month'])}度，"
         f"日吨气耗{_fmt_1(v['coating_gas_per_ton_daily'])}m³，月吨气耗{_fmt_1(v['coating_gas_per_ton_month'])}m³。\n\n"
-        f"入库成品日合计{_fmt_int(v['finished_inbound_daily'])}吨（寄存{_fmt_int(v['consignment_weight'])}吨），"
-        f"月累计{_fmt_int(v['finished_inbound_month'])}吨。当天接合同{_fmt_int(v['daily_contract_weight'])}吨"
+        f"入库成品日合计{_fmt_int(v['finished_inbound_daily'])}吨（寄存{_fmt_int(v['consignment_weight'])}吨）"
+        f"{finished_inbound_month_text}。当天接合同{_fmt_int(v['daily_contract_weight'])}吨"
         f"（含热轧{_fmt_int(v['daily_hot_roll_contract_weight'])}吨）；冷轧日投料{_fmt_int(v['cold_roll_input_daily'])}吨"
         f"（2050投{_fmt_int(v['cold_2050_input_daily'])}吨、1850投{_fmt_int(v['cold_1850_input_daily'])}吨、"
         f"外加工{_fmt_int(v['outsourced_input_daily'])}吨），中厚板{_fmt_int(v['medium_plate_input_daily'])}吨，"
