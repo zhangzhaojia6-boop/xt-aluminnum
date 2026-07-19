@@ -624,7 +624,7 @@ def test_runner_keeps_confirmable_structured_value_kinds_from_primary_fact() -> 
     ]
 
 
-def test_snapshot_keeps_missing_details_empty_when_primary_does_not_contain_requested_field() -> None:
+def test_snapshot_keeps_missing_fact_metadata_empty_and_records_checked_field_gap() -> None:
     db = _db_session()
     trace_id = "trace-primary-wrong-field"
     db.add(
@@ -676,7 +676,9 @@ def test_snapshot_keeps_missing_details_empty_when_primary_does_not_contain_requ
     assert snapshot.fact_answer[0]["status"] == "missing"
     assert snapshot.fact_answer[0]["value"] is None
     assert snapshot.fact_answer[0]["source"] is None
-    assert snapshot.fact_answer[0]["reason"] is None
+    assert snapshot.fact_answer[0]["reason"] == (
+        "checked_fact_candidates_missing_field:total_output_daily"
+    )
     assert snapshot.fact_answer[0]["action"] is None
 
 
