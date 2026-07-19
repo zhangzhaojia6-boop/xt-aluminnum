@@ -1252,6 +1252,73 @@ def test_data_hub_projection_cannot_replace_required_mes_current_fact() -> None:
     assert "mes_readonly_source_not_usable" in result.failed_reasons
 
 
+def test_verified_nonempty_mes_read_satisfies_source_gate_without_guessing_a_fact() -> None:
+    question = build_20_question_catalog()[1]
+    snapshot = _passing_snapshot(2)
+    snapshot.evidence["primary_source"] = "data_hub_projection"
+    snapshot.evidence["candidate_sources"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_order"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "supporting_only",
+        "reason": "metric_fact_without_contract",
+        "query_keys": ["material_records", "workshop_process_records"],
+        "source_status": {
+            "mes": "ok",
+            "sources": {
+                "material_records": {"status": "ok", "count": 53},
+                "workshop_process_records": {"status": "ok", "count": 197},
+            },
+        },
+        "source_errors": {},
+    }
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert "source" not in result.failed_gate_names
+
+
+def test_empty_mes_read_does_not_satisfy_required_source_gate() -> None:
+    question = build_20_question_catalog()[1]
+    snapshot = _passing_snapshot(2)
+    snapshot.evidence["primary_source"] = "data_hub_projection"
+    snapshot.evidence["candidate_sources"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_order"] = ["data_hub_projection"]
+    snapshot.evidence["trace"]["source_status"]["mes_readonly"] = {
+        "status": "ok",
+        "reason": "no_current_metric_fact",
+        "query_keys": ["workshop_process_records"],
+        "source_status": {
+            "mes": "ok",
+            "sources": {
+                "workshop_process_records": {"status": "ok", "count": 0},
+            },
+        },
+        "source_errors": {},
+    }
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert "mes_readonly_source_not_usable" in result.failed_reasons
+
+
+def test_fact_gate_rejects_fact_from_a_different_business_date() -> None:
+    question = build_20_question_catalog()[0]
+    snapshot = _passing_snapshot(1)
+    snapshot.fact_answer[0]["business_date"] = "2026-06-26"
+    snapshot.fact_answer[0]["business_window"] = (
+        "2026-06-26T07:50:00+08:00/2026-06-27T07:50:00+08:00"
+    )
+    source_ref = snapshot.fact_answer[0]["source_ref"]
+    assert isinstance(source_ref, dict)
+    source_ref["business_date"] = "2026-06-26"
+    source_ref["business_window"] = snapshot.fact_answer[0]["business_window"]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "fact_business_date_mismatch" in result.failed_reasons
+
+
 def test_dingtalk_supporting_only_does_not_confirm_critical_value() -> None:
     question = build_20_question_catalog()[4]
     snapshot = _passing_snapshot(5)

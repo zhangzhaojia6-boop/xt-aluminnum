@@ -94,6 +94,37 @@ def test_dingtalk_group_content_wins_over_mes_when_conflicting() -> None:
     assert decision.primary.value["total_output_daily"] == 118.0
     assert decision.conflicts[0]["lower_source"] == "mes_readonly"
     assert decision.conflicts[0]["chosen_source"] == "dingtalk_group_chat"
+    assert decision.conflicts[0]["field"] == "total_output_daily"
+
+
+def test_disjoint_candidate_fields_do_not_create_a_false_conflict() -> None:
+    candidates = [
+        EvidenceCandidate(
+            source_key="dingtalk_group_chat",
+            source_type="dingtalk_group_content",
+            domain="production",
+            priority=10,
+            status="ok",
+            value={"daily_input_weight": 560.0},
+            summary="钉钉投料量",
+            trace_ref={"trace_id": "ding-input-71"},
+        ),
+        EvidenceCandidate(
+            source_key="data_hub_projection",
+            source_type="data_hub",
+            domain="production",
+            priority=40,
+            status="ok",
+            value={"total_output_daily": 286.0},
+            summary="数据中枢总产量",
+            trace_ref={"trace_id": "hub-output-118"},
+        ),
+    ]
+
+    decision = choose_primary_evidence(candidates, domain="production")
+
+    assert decision.primary is candidates[0]
+    assert decision.conflicts == ()
 
 
 def test_mes_wins_over_data_hub_projection_in_production_domain() -> None:

@@ -59,6 +59,7 @@ def run_root_owner_production_turn(
     default_business_date: date | None = None,
     mes_reader: HermesMesReadService | None = None,
     chat_inbox: ChatInboxMessage | None = None,
+    context_scope_id: str | None = None,
 ) -> RootOwnerProductionTurnResult:
     clean_trace_id = str(trace_id or "").strip() or uuid4().hex
     clean_text = str(text or "").strip()
@@ -68,6 +69,7 @@ def run_root_owner_production_turn(
         sender_id=sender_id,
         current_trace_id=clean_trace_id,
         current_text=clean_text,
+        context_scope_id=str(context_scope_id or "").strip() or None,
     )
     plan = understand_root_owner_message(
         clean_text,
@@ -93,6 +95,7 @@ def run_root_owner_production_turn(
                     "source": "dingtalk_inbound",
                     "root_owner_private_loop": True,
                     "recognition_reason": plan.recognition_reason,
+                    "context_scope_id": str(context_scope_id or "").strip() or None,
                 }
             ),
         )
@@ -106,6 +109,7 @@ def run_root_owner_production_turn(
                 "source": "dingtalk_inbound",
                 "root_owner_private_loop": True,
                 "recognition_reason": plan.recognition_reason,
+                "context_scope_id": str(context_scope_id or "").strip() or None,
             }
         )
         db.add(inbox)
@@ -203,6 +207,7 @@ def _previous_root_owner_private_context(
     sender_id: str,
     current_trace_id: str,
     current_text: str,
+    context_scope_id: str | None,
 ) -> tuple[str | None, tuple[str, ...], date | None]:
     if not sender_id:
         return None, (), None
@@ -221,6 +226,11 @@ def _previous_root_owner_private_context(
             continue
         source_payload = inbox.source_payload
         if isinstance(source_payload, Mapping) and source_payload.get("root_owner_private_loop") is not True:
+            continue
+        if context_scope_id is not None and (
+            not isinstance(source_payload, Mapping)
+            or str(source_payload.get("context_scope_id") or "").strip() != context_scope_id
+        ):
             continue
         context = _recognition_context_from_run(run)
         if context is not None:
@@ -348,6 +358,18 @@ def _evidence_payload(decision: EvidenceDecision) -> dict[str, Any]:
     return {
         "primary_source": primary.source_key if primary else None,
         "primary": primary_payload,
+        "candidate_facts": [
+            filter_sensitive_mapping(
+                {
+                    "source_key": candidate.source_key,
+                    "source_type": candidate.source_type,
+                    "status": candidate.status,
+                    "value": candidate.value,
+                    "trace_ref": dict(candidate.trace_ref),
+                }
+            )
+            for candidate in decision.candidates
+        ],
         "candidate_sources": [candidate.source_key for candidate in decision.candidates],
         "conflicts": list(decision.conflicts),
         "missing_sources": list(decision.missing_sources),

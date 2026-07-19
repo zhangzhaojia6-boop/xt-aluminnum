@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Sequence
+from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
@@ -153,6 +154,7 @@ def run_20_question_acceptance(
         questions = questions[: max(1, int(limit))]
     snapshots: list[AcceptanceTurnSnapshot] = []
     mes_reader = _build_mes_reader()
+    context_scope_id = f"hermes-20q:{business_date.isoformat()}:{uuid4().hex}"
     for question in questions:
         result = None
         for utterance_index, utterance in enumerate(question.execution_utterances):
@@ -172,8 +174,10 @@ def run_20_question_acceptance(
                     "question_id": question.question_id,
                     "utterance_index": utterance_index,
                 },
-                default_business_date=business_date,
+                default_business_date=business_date
+                + timedelta(days=question.default_business_date_offset_days),
                 mes_reader=mes_reader,
+                context_scope_id=context_scope_id,
             )
         if result is None:
             continue
@@ -266,21 +270,22 @@ def _build_fact_answer(
     metric_keys = _string_list(recognition.get("metric_keys"))
     primary_value = evidence.get("primary")
     primary = primary_value if isinstance(primary_value, Mapping) else {}
-    primary_status = str(primary.get("status") or "").strip().lower()
+    candidates = _ordered_candidate_facts(evidence, primary)
     trace_value = evidence.get("trace")
     evidence_trace = trace_value if isinstance(trace_value, Mapping) else {}
     records: list[dict[str, Any]] = []
     for field_name in metric_keys:
-        field_fact, has_value = _primary_field_fact(primary.get("value"), field_name)
+        selected_candidate, field_fact, has_value = _candidate_field_fact(candidates, field_name)
+        selected_status = str(selected_candidate.get("status") or "").strip().lower()
         value = field_fact.get("value") if has_value else None
         source_key = str(
             _fact_metadata(field_fact, "source_key")
-            or primary.get("source_key")
+            or selected_candidate.get("source_key")
             or ""
         ).strip()
         source_type = str(
             _fact_metadata(field_fact, "source_type")
-            or primary.get("source_type")
+            or selected_candidate.get("source_type")
             or ""
         ).strip()
         source_ref = field_fact.get("source_ref")
@@ -288,7 +293,10 @@ def _build_fact_answer(
         business_window = _fact_metadata(field_fact, "business_window")
         unit = _fact_metadata(field_fact, "unit")
         metric_contract_version = _fact_metadata(field_fact, "metric_contract_version")
-        source_trace_id, fact_trace_id = _fact_trace_ids(primary=primary, field_fact=field_fact)
+        source_trace_id, fact_trace_id = _fact_trace_ids(
+            primary=selected_candidate,
+            field_fact=field_fact,
+        )
         conflict = _conflict_for_field(evidence.get("conflicts"), field_name)
         if not has_value:
             status = "missing"
@@ -297,14 +305,14 @@ def _build_fact_answer(
         elif str(
             field_fact.get("status")
             or field_fact.get("evidence_status")
-            or primary_status
+            or selected_status
         ).strip().lower() in {"ok", "ready", "confirmed", "passed"}:
             status = "confirmed"
         else:
             status = str(
                 field_fact.get("status")
                 or field_fact.get("evidence_status")
-                or primary_status
+                or selected_status
                 or "missing"
             ).strip().lower()
         reason = _fact_reason(
@@ -337,6 +345,32 @@ def _build_fact_answer(
                 record["reason"] = validation_failure
         records.append(record)
     return records
+
+
+def _ordered_candidate_facts(
+    evidence: Mapping[str, Any],
+    primary: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
+    raw_candidates = evidence.get("candidate_facts")
+    candidates = (
+        [item for item in raw_candidates if isinstance(item, Mapping)]
+        if isinstance(raw_candidates, Sequence) and not isinstance(raw_candidates, (str, bytes))
+        else []
+    )
+    if not candidates and primary:
+        return [primary]
+    return candidates
+
+
+def _candidate_field_fact(
+    candidates: Sequence[Mapping[str, Any]],
+    field_name: str,
+) -> tuple[Mapping[str, Any], dict[str, Any], bool]:
+    for candidate in candidates:
+        field_fact, has_value = _primary_field_fact(candidate.get("value"), field_name)
+        if has_value:
+            return candidate, field_fact, True
+    return {}, {}, False
 
 
 def _primary_field_fact(value: Any, field_name: str) -> tuple[dict[str, Any], bool]:
