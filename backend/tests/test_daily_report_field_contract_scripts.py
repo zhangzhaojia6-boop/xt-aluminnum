@@ -17,14 +17,14 @@ def test_renderer_is_deterministic_and_contains_contract_boundaries() -> None:
 
     assert first == second
     assert payload["contract_version"] == contract_module.DAILY_REPORT_FIELD_CONTRACT_VERSION
-    assert payload["normative_field_count"] == 125
+    assert payload["normative_field_count"] == 127
     assert payload["template_field_count"] == 130
     assert payload["maximum_tolerance"] == 20.0
     assert payload["business_time_starts"] == {"production_07_50": "07:50", "billet_10_00": "10:00"}
     assert payload["owner_daily_submission_time"] == "09:30"
     assert payload["owner_daily_late_time"] == "10:00"
     assert payload["source_order"] == list(contract_module.FACT_SOURCE_LANE_ORDER)
-    assert len(payload["fields"]) == 125
+    assert len(payload["fields"]) == 127
     assert "D:\\输出skill" in first
     assert "compare-only" in first
     assert "RAG" in first
@@ -54,7 +54,7 @@ def test_static_gate_json_is_machine_readable(tmp_path, capsys) -> None:
     assert payload["passed"] is True
     assert payload["status"] == "pass"
     assert payload["contract_version"] == contract_module.DAILY_REPORT_FIELD_CONTRACT_VERSION
-    assert payload["normative_field_count"] == 125
+    assert payload["normative_field_count"] == 127
     assert payload["template_field_count"] == 130
     assert payload["maximum_tolerance"] == 20.0
     assert payload["document_fresh"] is True
@@ -93,4 +93,4 @@ def test_static_gate_rejects_contract_and_document_drift() -> None:
 def test_fact_source_map_links_to_generated_daily_contract() -> None:
     markdown = render_fact_source_map_markdown()
 
-    assert "[日报 125 字段合同](daily-report-field-contract.md)" in markdown
+    assert "[日报 127 字段合同](daily-report-field-contract.md)" in markdown

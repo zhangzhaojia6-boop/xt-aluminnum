@@ -76,6 +76,7 @@ DINGTALK_TEXT_CONTAINER_KEYS = (
     "sheet",
     "sheets",
 )
+APPROVED_NORMATIVE_FIELD_COUNT = 127
 NORMATIVE_FIELD_COUNT = len(normative_daily_report_fields())
 SUBMITTED_ENTRY_STATUSES = ("submitted", "verified", "approved")
 READY_MOBILE_REPORT_STATUSES = tuple(sorted(READY_REPORT_STATUSES))
@@ -155,10 +156,12 @@ def run_alignment_checks(
                         "reference_only": True,
                     }
                 fact_closure_status = str(fact_closure.get("status") or "missing")
+                contract_gate_issues = _normative_contract_issues(alignment)
                 row_status = _row_status(
                     alignment_status=alignment_status,
                     fact_closure_status=fact_closure_status,
                     reference_only=reference_only,
+                    contract_gate_issues=contract_gate_issues,
                 )
                 differences = list(alignment.get("differences") or [])
                 if not full_differences:
@@ -169,6 +172,7 @@ def run_alignment_checks(
                         "reference_mode": reference_mode,
                         "reference_only": reference_only,
                         "real_source_gate_passed": row_status == "passed" and not reference_only,
+                        "contract_gate_issues": contract_gate_issues,
                         "status": row_status,
                         "alignment_status": alignment_status,
                         "fact_closure": fact_closure,
@@ -208,6 +212,7 @@ def run_alignment_checks(
                         "reference_mode": reference_mode,
                         "reference_only": reference_mode == REFERENCE_MODE_ADOPT,
                         "real_source_gate_passed": False,
+                        "contract_gate_issues": ["alignment_execution_error"],
                         "status": "error",
                         "alignment_status": "error",
                         "fact_closure": {},
@@ -263,6 +268,7 @@ def render_alignment_markdown(rows: Sequence[dict[str, Any]]) -> str:
                 f"- Reference mode: {row.get('reference_mode')}",
                 f"- Reference only: {bool(row.get('reference_only'))}",
                 f"- Real-source gate passed: {bool(row.get('real_source_gate_passed'))}",
+                f"- Contract gate issues: {', '.join(str(item) for item in row.get('contract_gate_issues') or [])}",
                 f"- Fact closure status: {_fact_closure_status(row)}",
                 f"- Bundle status: {row.get('bundle_status')}",
                 "- Answer key role: comparison-only; it is never a fact source.",
@@ -461,6 +467,9 @@ def _print_text(payload: dict[str, Any]) -> None:
         invalid_na = row.get("invalid_na_fields") or []
         if invalid_na:
             print(f"  invalid_na={','.join(str(item) for item in invalid_na)}")
+        contract_gate_issues = row.get("contract_gate_issues") or []
+        if contract_gate_issues:
+            print(f"  contract_gate_issues={','.join(str(item) for item in contract_gate_issues)}")
         gap_plan = row.get("gap_plan") or {}
         if gap_plan.get("item_count"):
             print(
@@ -526,9 +535,12 @@ def _row_status(
     alignment_status: str,
     fact_closure_status: str,
     reference_only: bool = False,
+    contract_gate_issues: Sequence[str] = (),
 ) -> str:
     if reference_only:
         return "reference_only"
+    if contract_gate_issues:
+        return "blocked"
     if alignment_status == "passed" and fact_closure_status == "pass":
         return "passed"
     if alignment_status == "passed":
@@ -539,7 +551,31 @@ def _row_status(
 def _row_passed(row: dict[str, Any]) -> bool:
     if row.get("reference_only") or row.get("real_source_gate_passed") is False:
         return False
+    if _normative_contract_issues(row):
+        return False
     return row.get("status") == "passed" and _fact_closure_status(row) == "pass"
+
+
+def _normative_contract_issues(alignment: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    normative_fields = alignment.get("normative_fields")
+    if normative_fields != APPROVED_NORMATIVE_FIELD_COUNT:
+        issues.append(
+            f"normative_field_count_mismatch:{normative_fields}!={APPROVED_NORMATIVE_FIELD_COUNT}"
+        )
+
+    declared_na = {
+        str(field_name)
+        for field_name in alignment.get("declared_na_fields") or []
+        if str(field_name).strip()
+    }
+    expected_denominator = APPROVED_NORMATIVE_FIELD_COUNT - len(declared_na)
+    normative_denominator = alignment.get("normative_denominator")
+    if normative_denominator != expected_denominator:
+        issues.append(
+            f"normative_denominator_mismatch:{normative_denominator}!={expected_denominator}"
+        )
+    return issues
 
 
 def _fact_closure_status(row: dict[str, Any]) -> str:

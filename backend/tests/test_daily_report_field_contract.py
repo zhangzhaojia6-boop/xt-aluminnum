@@ -15,20 +15,19 @@ from app.domain import metric_contracts
 from app.services.report import template_daily_field_contract
 
 
-def test_normative_contract_excludes_fields_absent_from_canonical_report_text() -> None:
+def test_normative_contract_keeps_the_approved_127_field_denominator() -> None:
     template_fields = template_daily_field_contract.all_contract_fields()
     normative_fields = contract_module.normative_daily_report_fields()
 
     assert len(template_fields) == 130
-    assert len(normative_fields) == 125
+    assert contract_module.DAILY_REPORT_NORMATIVE_FIELD_COUNT == 127
+    assert len(normative_fields) == contract_module.DAILY_REPORT_NORMATIVE_FIELD_COUNT
     assert len(normative_fields) == len(set(normative_fields))
     assert set(normative_fields).issubset(template_fields)
     assert set(template_fields) - set(normative_fields) == set(
         contract_module.TEMPLATE_ONLY_FIELD_REASONS
     )
     assert contract_module.TEMPLATE_ONLY_FIELD_REASONS == {
-        "cast_roll_active_lines": "optional_display_field_absent_from_current_canonical_reports",
-        "finished_inbound_month": "internal_fact_not_rendered_in_current_canonical_reports",
         "recovery_daily": "legacy_template_unit_not_frozen",
         "recovery_month": "legacy_template_unit_not_frozen",
         "remaining_contract_delta": "derived_display_field_outside_normative_denominator",
@@ -103,9 +102,8 @@ def test_contract_units_and_tolerances_cover_representative_field_kinds() -> Non
         contract = contract_module.daily_report_field_contract_for(field_name)
         assert (contract.unit, contract.tolerance) == (unit, tolerance)
 
-    for optional_field in ("cast_roll_active_lines", "finished_inbound_month"):
-        with pytest.raises(KeyError):
-            contract_module.daily_report_field_contract_for(optional_field)
+    assert contract_module.daily_report_field_contract_for("cast_roll_active_lines").unit == "条"
+    assert contract_module.daily_report_field_contract_for("finished_inbound_month").unit == "吨"
 
 
 def test_existing_metric_tolerance_lookup_reuses_normative_contract() -> None:

@@ -128,6 +128,9 @@ Daily report alignment hard rule:
 - A gate only proves `MES + 数据中枢 + 扫码补录 + 钉钉证据` can generate an aligned daily report when `D:\输出skill` is used only for comparison.
 - If `OUTPUT_SKILL_REFERENCE_MODE=adopt` or `official_daily_report` is used to fill facts, the result proves parser/rendering/reference adoption only. It must never be described as proof that MES and 数据中枢 alone produced the aligned report.
 - For real capability validation, run the pure real-source alignment gate with the output-skill reference in compare-only mode.
+- The approved normative contract is fixed at `127` fields. Never remove fields, relabel them as globally template-only, or otherwise shrink the denominator to make an alignment gate pass.
+- A denominator below `127` is valid only when the exact business date has explicit, auditable `declared_na_fields`; generic code comments or global field classifications are not N/A evidence.
+- A workflow that reports green after changing the approved field count is a false green. Reject it, restore the contract, and rerun the production compare-only gate before claiming completion.
 
 ## 6. Codex Environment Authority
 
