@@ -1,0 +1,403 @@
+name: Configure Hermes Codex Production
+
+concurrency:
+  group: xintai-production-ops
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'prod-hermes-codex' to confirm production Hermes Codex operations
+        required: true
+      mode:
+        description: Inspect current state or start a separate Hermes Codex OAuth login
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - login
+      expected_hermes_sha:
+        description: Exact Hermes HEAD expected on production
+        required: true
+      model:
+        description: Codex model to activate after a successful login
+        required: true
+        default: gpt-5.6-sol
+        type: choice
+        options:
+          - gpt-5.6-sol
+
+jobs:
+  configure-hermes-codex-production:
+    if: github.event.inputs.confirm == 'prod-hermes-codex'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 25
+    steps:
+      - name: Configure production Hermes Codex OAuth
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+          MODE: ${{ github.event.inputs.mode }}
+          EXPECTED_HERMES_SHA: ${{ github.event.inputs.expected_hermes_sha }}
+          MODEL: ${{ github.event.inputs.model }}
+        run: |
+          set -euo pipefail
+
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+
+          case "$MODE" in
+            status|login) ;;
+            *)
+              echo "unsupported mode: $MODE"
+              exit 2
+              ;;
+          esac
+          test "$MODEL" = "gpt-5.6-sol"
+          printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
+
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          REMOTE_PREAMBLE=""
+          append_remote_assignment MODE "$MODE"
+          append_remote_assignment EXPECTED_HERMES_SHA "$EXPECTED_HERMES_SHA"
+          append_remote_assignment MODEL "$MODEL"
+
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
+          set -euo pipefail
+          umask 077
+
+          HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
+          backup_dir=""
+          auth_file=""
+          config_file=""
+          service_user=""
+          service_group=""
+          service_home=""
+          hermes_home=""
+          runtime_pid=""
+          runtime_python=""
+
+          test "$MODE" = "status" || test "$MODE" = "login"
+          test "$MODEL" = "gpt-5.6-sol"
+          printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -d "$HERMES_REPO/.git"
+
+          actual_hermes_sha="$(git -C "$HERMES_REPO" rev-parse HEAD)"
+          expected_hermes_sha="$EXPECTED_HERMES_SHA"
+          [ "$actual_hermes_sha" = "$expected_hermes_sha" ]
+          git -C "$HERMES_REPO" diff --quiet
+          git -C "$HERMES_REPO" diff --cached --quiet
+          echo "HERMES_HEAD=$actual_hermes_sha"
+
+          systemctl is-active --quiet hermes-gateway
+          runtime_pid="$(systemctl show -p MainPID --value hermes-gateway)"
+          printf '%s' "$runtime_pid" | grep -Eq '^[1-9][0-9]*$'
+          test -r "/proc/${runtime_pid}/cmdline"
+          test -r "/proc/${runtime_pid}/environ"
+
+          runtime_python="$(python3 - "$runtime_pid" <<'PY'
+          from pathlib import Path
+          import os
+          import sys
+
+          args = [
+              item.decode("utf-8", errors="strict")
+              for item in Path(f"/proc/{sys.argv[1]}/cmdline").read_bytes().split(b"\0")
+              if item
+          ]
+          if not args:
+              raise SystemExit(1)
+          candidate = Path(args[0])
+          if not candidate.is_absolute() or not candidate.is_file() or not os.access(candidate, os.X_OK):
+              raise SystemExit(1)
+          print(candidate)
+          PY
+          )"
+
+          hermes_home="$(python3 - "$runtime_pid" <<'PY'
+          from pathlib import Path
+          import sys
+
+          for item in Path(f"/proc/{sys.argv[1]}/environ").read_bytes().split(b"\0"):
+              if item.startswith(b"HERMES_HOME="):
+                  print(item.split(b"=", 1)[1].decode("utf-8", errors="strict"))
+                  raise SystemExit(0)
+          raise SystemExit(1)
+          PY
+          )"
+          case "$hermes_home" in
+            /*) ;;
+            *)
+              echo "HERMES_HOME_INVALID"
+              exit 3
+              ;;
+          esac
+          case "$runtime_python" in
+            "$hermes_home"/runtime-envs/*/bin/python) ;;
+            *)
+              echo "HERMES_RUNTIME_PYTHON_REJECTED"
+              exit 4
+              ;;
+          esac
+
+          service_user="$(systemctl show -p User --value hermes-gateway)"
+          test -n "$service_user"
+          id "$service_user" >/dev/null
+          service_group="$(id -gn "$service_user")"
+          service_home="$(getent passwd "$service_user" | cut -d: -f6)"
+          test -n "$service_home"
+          auth_file="$hermes_home/auth.json"
+          config_file="$hermes_home/config.yaml"
+
+          run_as_service() {
+            runuser -u "$service_user" -- env \
+              HOME="$service_home" \
+              HERMES_HOME="$hermes_home" \
+              PYTHONUNBUFFERED=1 \
+              "$@"
+          }
+
+          report_codex_state() {
+            local require_ready="${1:-no}"
+            local state_output
+            state_output="$(run_as_service "$runtime_python" -P - "$MODEL" <<'PY'
+          import re
+          import sys
+
+          from hermes_cli.auth import get_codex_auth_status
+          from hermes_cli.config import read_raw_config
+
+          expected_model = sys.argv[1]
+          status = get_codex_auth_status()
+          config = read_raw_config()
+          model_config = config.get("model") if isinstance(config, dict) else {}
+          if not isinstance(model_config, dict):
+              model_config = {"default": model_config}
+
+          def safe(value: object) -> str:
+              text = str(value or "")
+              return text if re.fullmatch(r"[A-Za-z0-9._/-]{1,100}", text) else "unset"
+
+          logged_in = bool(status.get("logged_in"))
+          rate_limited = bool(status.get("rate_limited"))
+          provider = safe(model_config.get("provider"))
+          model = safe(model_config.get("default"))
+          ready = logged_in and not rate_limited and provider == "openai-codex" and model == expected_model
+          print(f"HERMES_CODEX_AUTH_LOGGED_IN={'yes' if logged_in else 'no'}")
+          print(f"HERMES_CODEX_AUTH_RATE_LIMITED={'yes' if rate_limited else 'no'}")
+          print(f"HERMES_MODEL_PROVIDER={provider}")
+          print(f"HERMES_MODEL_DEFAULT={model}")
+          print(f"HERMES_CODEX_READY={'yes' if ready else 'no'}")
+          raise SystemExit(0 if ready else 1)
+          PY
+            )" || {
+              printf '%s\n' "$state_output"
+              if [ "$require_ready" = "yes" ]; then
+                return 1
+              fi
+              return 0
+            }
+            printf '%s\n' "$state_output"
+          }
+
+          stream_runtime_state_is_connected() {
+            local active_since_epoch="$1"
+            local main_pid
+            local main_start_time
+            main_pid="$(systemctl show -p MainPID --value hermes-gateway)"
+            main_start_time="$(python3 -c 'from pathlib import Path; import sys; print(Path(f"/proc/{int(sys.argv[1])}/stat").read_text(encoding="utf-8").split()[21])' "$main_pid")"
+            python3 - "$hermes_home/gateway_state.json" "$main_pid" "$main_start_time" "$active_since_epoch" <<'PY'
+          from datetime import datetime, timezone
+          import json
+          from pathlib import Path
+          import sys
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          platforms = payload.get("platforms")
+          dingtalk = platforms.get("dingtalk", {}) if isinstance(platforms, dict) else {}
+          updated_at = dingtalk.get("updated_at") if isinstance(dingtalk, dict) else None
+          updated_epoch = None
+          if isinstance(updated_at, str):
+              normalized = updated_at[:-1] + "+00:00" if updated_at.endswith("Z") else updated_at
+              parsed = datetime.fromisoformat(normalized)
+              if parsed.tzinfo is None:
+                  parsed = parsed.replace(tzinfo=timezone.utc)
+              updated_epoch = parsed.timestamp()
+          valid = (
+              str(payload.get("pid", "")) == sys.argv[2]
+              and str(payload.get("start_time", "")) == sys.argv[3]
+              and payload.get("gateway_state") == "running"
+              and dingtalk.get("state") == "connected"
+              and updated_epoch is not None
+              and updated_epoch > int(sys.argv[4])
+          )
+          raise SystemExit(0 if valid else 1)
+          PY
+          }
+
+          wait_for_stream() {
+            local active_since
+            local active_since_epoch
+            local attempt
+            active_since="$(systemctl show -p ActiveEnterTimestamp --value hermes-gateway)"
+            active_since_epoch="$(date -d "$active_since" +%s)"
+            for attempt in $(seq 1 40); do
+              if stream_runtime_state_is_connected "$active_since_epoch"; then
+                echo "DINGTALK_STREAM_CONNECTION=connected"
+                return 0
+              fi
+              sleep 3
+            done
+            echo "DINGTALK_STREAM_CONNECTION=not_connected"
+            return 1
+          }
+
+          restore_optional_file() {
+            local backup_file="$1"
+            local target_file="$2"
+            if [ -f "$backup_file" ]; then
+              cp -p "$backup_file" "$target_file"
+              chown "$service_user:$service_group" "$target_file"
+              chmod 600 "$target_file"
+              return 0
+            fi
+            if [ -f "$backup_file.absent" ]; then
+              rm -f "$target_file"
+              return 0
+            fi
+            return 1
+          }
+
+          rollback_on_login_error() {
+            local exit_code="${1:-1}"
+            local rollback_failed=0
+            trap - EXIT ERR
+            echo "HERMES_CODEX_LOGIN_FAILED_ROLLBACK_START"
+            if ! restore_optional_file "$backup_dir/auth.json" "$auth_file"; then
+              echo "HERMES_CODEX_ROLLBACK_AUTH_FAILED"
+              rollback_failed=1
+            fi
+            if ! restore_optional_file "$backup_dir/config.yaml" "$config_file"; then
+              echo "HERMES_CODEX_ROLLBACK_CONFIG_FAILED"
+              rollback_failed=1
+            fi
+            if ! systemctl restart hermes-gateway; then
+              echo "HERMES_CODEX_ROLLBACK_RESTART_FAILED"
+              rollback_failed=1
+            elif ! systemctl is-active --quiet hermes-gateway; then
+              echo "HERMES_CODEX_ROLLBACK_SERVICE_INACTIVE"
+              rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              echo "HERMES_CODEX_LOGIN_FAILED_ROLLBACK_DONE"
+              exit "$exit_code"
+            fi
+            echo "HERMES_CODEX_LOGIN_FAILED_ROLLBACK_INCOMPLETE"
+            exit 98
+          }
+
+          if [ "$MODE" = "status" ]; then
+            report_codex_state no
+            wait_for_stream
+            exit 0
+          fi
+
+          backup_dir="$hermes_home/backups/codex-oauth/$(date -u +%Y%m%dT%H%M%SZ)-${actual_hermes_sha:0:12}"
+          install -d -m 700 -o "$service_user" -g "$service_group" "$backup_dir"
+          if [ -f "$auth_file" ]; then
+            cp -p "$auth_file" "$backup_dir/auth.json"
+          else
+            : > "$backup_dir/auth.json.absent"
+          fi
+          if [ -f "$config_file" ]; then
+            cp -p "$config_file" "$backup_dir/config.yaml"
+          else
+            : > "$backup_dir/config.yaml.absent"
+          fi
+          chown -R "$service_user:$service_group" "$backup_dir"
+          find "$backup_dir" -type d -exec chmod 700 {} +
+          find "$backup_dir" -type f -exec chmod 600 {} +
+          echo "HERMES_CODEX_BACKUP=$backup_dir"
+
+          trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_login_error "$rc"; fi' EXIT
+
+          run_as_service "$runtime_python" -P -m hermes_cli.main \
+            auth add openai-codex --type oauth --label xintai-production
+
+          run_as_service "$runtime_python" -P - "$MODEL" <<'PY'
+          import sys
+
+          from hermes_cli.auth import (
+              DEFAULT_CODEX_BASE_URL,
+              _auth_store_lock,
+              _load_auth_store,
+              _save_auth_store,
+          )
+          from hermes_cli.config import (
+              clear_model_endpoint_credentials,
+              get_config_path,
+              read_raw_config,
+              require_readable_config_before_write,
+          )
+          from utils import atomic_yaml_write
+
+          model = sys.argv[1]
+          if model != "gpt-5.6-sol":
+              raise SystemExit("unsupported model")
+
+          config_path = get_config_path()
+          require_readable_config_before_write(config_path)
+          config = read_raw_config()
+          current = config.get("model")
+          if isinstance(current, dict):
+              model_config = dict(current)
+          elif isinstance(current, str) and current.strip():
+              model_config = {"default": current.strip()}
+          else:
+              model_config = {}
+          model_config["provider"] = "openai-codex"
+          model_config["default"] = model
+          model_config["base_url"] = DEFAULT_CODEX_BASE_URL
+          clear_model_endpoint_credentials(model_config)
+          config["model"] = model_config
+          atomic_yaml_write(config_path, config, sort_keys=False)
+
+          with _auth_store_lock():
+              store = _load_auth_store()
+              store["active_provider"] = "openai-codex"
+              _save_auth_store(store)
+          print("HERMES_CODEX_CONFIG_UPDATED=yes")
+          PY
+
+          chown "$service_user:$service_group" "$auth_file" "$config_file"
+          chmod 600 "$auth_file" "$config_file"
+          report_codex_state yes
+          systemctl restart hermes-gateway
+          systemctl is-active --quiet hermes-gateway
+          wait_for_stream
+          report_codex_state yes
+          echo "HERMES_CODEX_LOGIN_VERIFIED"
+          trap - EXIT
+          REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"
