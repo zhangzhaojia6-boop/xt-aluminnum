@@ -28,6 +28,10 @@ on:
         type: choice
         options:
           - gpt-5.6-sol
+      device_code_public_key_b64:
+        description: Base64 PEM public key used to encrypt the one-time device code during login
+        required: false
+        default: ''
 
 jobs:
   configure-hermes-codex-production:
@@ -46,6 +50,7 @@ jobs:
           MODE: ${{ github.event.inputs.mode }}
           EXPECTED_HERMES_SHA: ${{ github.event.inputs.expected_hermes_sha }}
           MODEL: ${{ github.event.inputs.model }}
+          DEVICE_CODE_PUBLIC_KEY_B64: ${{ github.event.inputs.device_code_public_key_b64 }}
         run: |
           set -euo pipefail
 
@@ -63,6 +68,9 @@ jobs:
           esac
           test "$MODEL" = "gpt-5.6-sol"
           printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          if [ "$MODE" = "login" ]; then
+            test -n "$DEVICE_CODE_PUBLIC_KEY_B64"
+          fi
 
           append_remote_assignment() {
             local name="$1"
@@ -80,6 +88,7 @@ jobs:
           append_remote_assignment MODE "$MODE"
           append_remote_assignment EXPECTED_HERMES_SHA "$EXPECTED_HERMES_SHA"
           append_remote_assignment MODEL "$MODEL"
+          append_remote_assignment DEVICE_CODE_PUBLIC_KEY_B64 "$DEVICE_CODE_PUBLIC_KEY_B64"
 
           {
             printf '%s' "$REMOTE_PREAMBLE"
@@ -97,6 +106,9 @@ jobs:
           hermes_home=""
           runtime_pid=""
           runtime_python=""
+          oauth_log=""
+          oauth_pid=""
+          device_code_public_key=""
 
           test "$MODE" = "status" || test "$MODE" = "login"
           test "$MODEL" = "gpt-5.6-sol"
@@ -289,11 +301,23 @@ jobs:
             return 1
           }
 
+          cleanup_login_ephemeral() {
+            if printf '%s' "${oauth_pid:-}" | grep -Eq '^[1-9][0-9]*$' && kill -0 "$oauth_pid" 2>/dev/null; then
+              kill "$oauth_pid" 2>/dev/null || true
+              wait "$oauth_pid" 2>/dev/null || true
+            fi
+            rm -f "$oauth_log" "$device_code_public_key"
+            oauth_pid=""
+            oauth_log=""
+            device_code_public_key=""
+          }
+
           rollback_on_login_error() {
             local exit_code="${1:-1}"
             local rollback_failed=0
             trap - EXIT ERR
             echo "HERMES_CODEX_LOGIN_FAILED_ROLLBACK_START"
+            cleanup_login_ephemeral
             if ! restore_optional_file "$backup_dir/auth.json" "$auth_file"; then
               echo "HERMES_CODEX_ROLLBACK_AUTH_FAILED"
               rollback_failed=1
@@ -342,8 +366,87 @@ jobs:
 
           trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_login_error "$rc"; fi' EXIT
 
+          oauth_log="$(mktemp /tmp/hermes-codex-oauth.XXXXXX)"
+          device_code_public_key="$(mktemp /tmp/hermes-codex-device-public.XXXXXX)"
+          printf '%s' "$DEVICE_CODE_PUBLIC_KEY_B64" | base64 -d > "$device_code_public_key"
+          chmod 600 "$oauth_log" "$device_code_public_key"
+          openssl pkey -pubin -in "$device_code_public_key" -noout >/dev/null
+
           run_as_service "$runtime_python" -P -m hermes_cli.main \
-            auth add openai-codex --type oauth --label xintai-production
+            auth add openai-codex --type oauth --label xintai-production \
+            >"$oauth_log" 2>&1 &
+          oauth_pid="$!"
+
+          device_code=""
+          for attempt in $(seq 1 45); do
+            device_code="$(python3 - "$oauth_log" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
+          match = re.search(r"2\. Enter this code:\s*\n\s*([A-Z0-9-]{4,32})", text)
+          if match:
+              print(match.group(1))
+          PY
+            )"
+            if printf '%s' "$device_code" | grep -Eq '^[A-Z0-9-]{4,32}$'; then
+              break
+            fi
+            device_code=""
+            if ! kill -0 "$oauth_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ -z "$device_code" ]; then
+            if grep -Eqi 'rate.limit|HTTP 429|usage limit|quota' "$oauth_log"; then
+              echo "HERMES_CODEX_LOGIN_ERROR=rate_limited"
+            elif grep -Eqi 'timed out|timeout' "$oauth_log"; then
+              echo "HERMES_CODEX_LOGIN_ERROR=timeout"
+            else
+              echo "HERMES_CODEX_LOGIN_ERROR=device_code_unavailable"
+            fi
+            cleanup_login_ephemeral
+            exit 5
+          fi
+
+          encrypted_device_code="$(
+            printf '%s' "$device_code" \
+              | openssl pkeyutl -encrypt -pubin \
+                  -inkey "$device_code_public_key" \
+                  -pkeyopt rsa_padding_mode:oaep \
+                  -pkeyopt rsa_oaep_md:sha256 \
+              | base64 -w0
+          )"
+          unset device_code
+          test -n "$encrypted_device_code"
+          echo "HERMES_CODEX_DEVICE_URL=https://auth.openai.com/codex/device"
+          echo "HERMES_CODEX_DEVICE_CODE_CIPHERTEXT=$encrypted_device_code"
+          echo "::notice title=Hermes Codex device authorization::$encrypted_device_code"
+          unset encrypted_device_code
+
+          oauth_rc=0
+          if wait "$oauth_pid"; then
+            oauth_rc=0
+          else
+            oauth_rc="$?"
+          fi
+          oauth_pid=""
+          if [ "$oauth_rc" -ne 0 ]; then
+            if grep -Eqi 'rate.limit|HTTP 429|usage limit|quota' "$oauth_log"; then
+              echo "HERMES_CODEX_LOGIN_ERROR=rate_limited"
+            elif grep -Eqi 'timed out|timeout' "$oauth_log"; then
+              echo "HERMES_CODEX_LOGIN_ERROR=timeout"
+            else
+              echo "HERMES_CODEX_LOGIN_ERROR=authorization_failed"
+            fi
+            cleanup_login_ephemeral
+            exit "$oauth_rc"
+          fi
+          cleanup_login_ephemeral
 
           run_as_service "$runtime_python" -P - "$MODEL" <<'PY'
           import sys
