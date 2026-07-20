@@ -115,7 +115,7 @@ jobs:
           device_code_public_key=""
           handoff_file=""
 
-          test "$MODE" = "status" || test "$MODE" = "login"
+          test "$MODE" = "status" || test "$MODE" = "inference" || test "$MODE" = "login"
           test "$MODEL" = "gpt-5.6-sol"
           printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
           test -d "$HERMES_REPO/.git"

@@ -1812,6 +1812,7 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     }
     assert inputs['confirm']['required'] is True
     assert inputs['mode']['options'] == ['status', 'inference', 'login']
+    assert 'test "$MODE" = "status" || test "$MODE" = "inference" || test "$MODE" = "login"' in source
     assert inputs['model']['default'] == 'gpt-5.6-sol'
     assert 'expected_hermes_sha' in inputs
     assert inputs['device_code_public_key_b64']['required'] is False
