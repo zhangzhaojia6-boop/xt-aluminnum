@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATHS = (
     '.github/workflows/production-sync-status.yml',
     '.github/workflows/configure-dingtalk-stream-prod.yml',
+    '.github/workflows/configure-hermes-codex-prod.yml',
     '.github/workflows/import-dingtalk-history-prod.yml',
     '.github/workflows/daily-report-alignment-prod.yml',
     '.github/workflows/hermes-acceptance-prod.yml',
@@ -1777,6 +1778,7 @@ def test_production_workflows_pin_ssh_host_keys() -> None:
     paths = (
         '.github/workflows/production-sync-status.yml',
         '.github/workflows/configure-dingtalk-stream-prod.yml',
+        '.github/workflows/configure-hermes-codex-prod.yml',
         '.github/workflows/import-dingtalk-history-prod.yml',
         '.github/workflows/hermes-acceptance-prod.yml',
         '.github/workflows/daily-report-alignment-prod.yml',
@@ -1792,6 +1794,53 @@ def test_production_workflows_pin_ssh_host_keys() -> None:
         assert 'StrictHostKeyChecking=yes' in source
         assert 'UserKnownHostsFile=~/.ssh/known_hosts' in source
         assert 'StrictHostKeyChecking=no' not in source
+
+
+def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> None:
+    path = '.github/workflows/configure-hermes-codex-prod.yml'
+    payload = _load(path)
+    source = _read(path)
+    inputs = _workflow_inputs(payload)
+    concurrency = _workflow_concurrency(payload)
+    job = payload['jobs']['configure-hermes-codex-production']
+
+    assert concurrency == {
+        'group': 'xintai-production-ops',
+        'cancel-in-progress': False,
+    }
+    assert inputs['confirm']['required'] is True
+    assert inputs['mode']['options'] == ['status', 'login']
+    assert inputs['model']['default'] == 'gpt-5.6-sol'
+    assert 'expected_hermes_sha' in inputs
+    assert job['if'] == "github.event.inputs.confirm == 'prod-hermes-codex'"
+    assert job['environment'] == 'production'
+    assert 'HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"' in source
+    assert "grep -Eq '^[0-9a-f]{40}$'" in source
+    assert 'git -C "$HERMES_REPO" rev-parse HEAD' in source
+    assert '[ "$actual_hermes_sha" = "$expected_hermes_sha" ]' in source
+    assert 'systemctl show -p MainPID --value hermes-gateway' in source
+    assert '/proc/${runtime_pid}/cmdline' in source
+    assert '/proc/${runtime_pid}/environ' in source
+    assert 'auth add openai-codex --type oauth --label xintai-production' in source
+    assert 'get_codex_auth_status' in source
+    assert '"api_key"' not in source
+    assert 'OPENAI_API_KEY' not in source
+    assert 'CODEX_ACCESS_TOKEN' not in source
+    assert '~/.codex/auth.json' not in source
+    assert 'HERMES_CODEX_AUTH_LOGGED_IN=' in source
+    assert 'HERMES_CODEX_AUTH_RATE_LIMITED=' in source
+    assert 'HERMES_MODEL_PROVIDER=' in source
+    assert 'HERMES_MODEL_DEFAULT=' in source
+    assert 'cp -p "$auth_file" "$backup_dir/auth.json"' in source
+    assert 'cp -p "$config_file" "$backup_dir/config.yaml"' in source
+    assert 'rollback_on_login_error' in source
+    assert 'restore_optional_file "$backup_dir/auth.json" "$auth_file"' in source
+    assert 'restore_optional_file "$backup_dir/config.yaml" "$config_file"' in source
+    assert 'systemctl restart hermes-gateway' in source
+    assert 'HERMES_CODEX_LOGIN_VERIFIED' in source
+    assert 'DINGTALK_STREAM_CONNECTION=connected' in source
+    assert 'set -x' not in source
+    assert 'printenv' not in source
 
 
 def test_legacy_deploy_production_workflow_is_removed_in_favor_of_exact_sha_gate() -> None:
