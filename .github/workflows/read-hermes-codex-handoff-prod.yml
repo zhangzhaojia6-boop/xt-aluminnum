@@ -1,0 +1,97 @@
+name: Read Hermes Codex Handoff Production
+
+concurrency:
+  group: xintai-production-oauth-handoff-read
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'read-prod-hermes-codex-handoff' to read one encrypted device-code handoff
+        required: true
+      login_run_id:
+        description: GitHub run id of the active Configure Hermes Codex Production login
+        required: true
+      expected_hermes_sha:
+        description: Exact Hermes HEAD expected on production
+        required: true
+
+jobs:
+  read-hermes-codex-handoff-production:
+    if: github.event.inputs.confirm == 'read-prod-hermes-codex-handoff'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Read encrypted Hermes Codex handoff
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+          LOGIN_RUN_ID: ${{ github.event.inputs.login_run_id }}
+          EXPECTED_HERMES_SHA: ${{ github.event.inputs.expected_hermes_sha }}
+        run: |
+          set -euo pipefail
+
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          printf '%s' "$LOGIN_RUN_ID" | grep -Eq '^[0-9]+$'
+          printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
+
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          REMOTE_PREAMBLE=""
+          append_remote_assignment LOGIN_RUN_ID "$LOGIN_RUN_ID"
+          append_remote_assignment EXPECTED_HERMES_SHA "$EXPECTED_HERMES_SHA"
+
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
+          set -euo pipefail
+          umask 077
+
+          HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
+          HERMES_HOME="/srv/hermes-cloud/runtime/.hermes"
+          printf '%s' "$LOGIN_RUN_ID" | grep -Eq '^[0-9]+$'
+          printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -d "$HERMES_REPO/.git"
+
+          actual_hermes_sha="$(git -C "$HERMES_REPO" rev-parse HEAD)"
+          [ "$actual_hermes_sha" = "$EXPECTED_HERMES_SHA" ]
+          git -C "$HERMES_REPO" diff --quiet
+          git -C "$HERMES_REPO" diff --cached --quiet
+
+          handoff_file="$HERMES_HOME/oauth-handoffs/${LOGIN_RUN_ID}.ciphertext"
+          for attempt in $(seq 1 30); do
+            if [ -s "$handoff_file" ]; then
+              break
+            fi
+            sleep 2
+          done
+          test -s "$handoff_file"
+          test "$(stat -c %a "$handoff_file")" = "600"
+
+          ciphertext="$(tr -d '\r\n' < "$handoff_file")"
+          test -n "$ciphertext"
+          printf '%s' "$ciphertext" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$'
+          echo "HERMES_HEAD=$actual_hermes_sha"
+          echo "HERMES_CODEX_DEVICE_CODE_CIPHERTEXT=$ciphertext"
+          rm -f "$handoff_file"
+          echo "HERMES_CODEX_HANDOFF_REMOVED=yes"
+          REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"

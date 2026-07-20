@@ -51,6 +51,7 @@ jobs:
           EXPECTED_HERMES_SHA: ${{ github.event.inputs.expected_hermes_sha }}
           MODEL: ${{ github.event.inputs.model }}
           DEVICE_CODE_PUBLIC_KEY_B64: ${{ github.event.inputs.device_code_public_key_b64 }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
 
@@ -71,6 +72,7 @@ jobs:
           if [ "$MODE" = "login" ]; then
             test -n "$DEVICE_CODE_PUBLIC_KEY_B64"
           fi
+          printf '%s' "$RUN_ID" | grep -Eq '^[0-9]+$'
 
           append_remote_assignment() {
             local name="$1"
@@ -89,6 +91,7 @@ jobs:
           append_remote_assignment EXPECTED_HERMES_SHA "$EXPECTED_HERMES_SHA"
           append_remote_assignment MODEL "$MODEL"
           append_remote_assignment DEVICE_CODE_PUBLIC_KEY_B64 "$DEVICE_CODE_PUBLIC_KEY_B64"
+          append_remote_assignment RUN_ID "$RUN_ID"
 
           {
             printf '%s' "$REMOTE_PREAMBLE"
@@ -109,6 +112,7 @@ jobs:
           oauth_log=""
           oauth_pid=""
           device_code_public_key=""
+          handoff_file=""
 
           test "$MODE" = "status" || test "$MODE" = "login"
           test "$MODEL" = "gpt-5.6-sol"
@@ -423,8 +427,15 @@ jobs:
           )"
           unset device_code
           test -n "$encrypted_device_code"
+          handoff_dir="$hermes_home/oauth-handoffs"
+          handoff_file="$handoff_dir/${RUN_ID}.ciphertext"
+          install -d -m 700 -o "$service_user" -g "$service_group" "$handoff_dir"
+          printf '%s\n' "$encrypted_device_code" > "$handoff_file"
+          chown "$service_user:$service_group" "$handoff_file"
+          chmod 600 "$handoff_file"
           echo "HERMES_CODEX_DEVICE_URL=https://auth.openai.com/codex/device"
           echo "HERMES_CODEX_DEVICE_CODE_CIPHERTEXT=$encrypted_device_code"
+          echo "HERMES_CODEX_HANDOFF_FILE=$handoff_file"
           echo "::notice title=Hermes Codex device authorization::$encrypted_device_code"
           unset encrypted_device_code
 
