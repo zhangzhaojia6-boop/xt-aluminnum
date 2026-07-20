@@ -21,6 +21,7 @@ WORKFLOW_PATHS = (
     '.github/workflows/production-sync-status.yml',
     '.github/workflows/configure-dingtalk-stream-prod.yml',
     '.github/workflows/configure-hermes-codex-prod.yml',
+    '.github/workflows/read-hermes-codex-handoff-prod.yml',
     '.github/workflows/import-dingtalk-history-prod.yml',
     '.github/workflows/daily-report-alignment-prod.yml',
     '.github/workflows/hermes-acceptance-prod.yml',
@@ -1779,6 +1780,7 @@ def test_production_workflows_pin_ssh_host_keys() -> None:
         '.github/workflows/production-sync-status.yml',
         '.github/workflows/configure-dingtalk-stream-prod.yml',
         '.github/workflows/configure-hermes-codex-prod.yml',
+        '.github/workflows/read-hermes-codex-handoff-prod.yml',
         '.github/workflows/import-dingtalk-history-prod.yml',
         '.github/workflows/hermes-acceptance-prod.yml',
         '.github/workflows/daily-report-alignment-prod.yml',
@@ -1829,6 +1831,9 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'rsa_padding_mode:oaep' in source
     assert 'rsa_oaep_md:sha256' in source
     assert 'HERMES_CODEX_DEVICE_CODE_CIPHERTEXT=' in source
+    assert 'HERMES_CODEX_HANDOFF_FILE=' in source
+    assert 'handoff_file="$handoff_dir/${RUN_ID}.ciphertext"' in source
+    assert 'chmod 600 "$handoff_file"' in source
     assert '::notice title=Hermes Codex device authorization::' in source
     assert 'HERMES_CODEX_DEVICE_CODE=' not in source
     assert 'cat "$oauth_log"' not in source
@@ -1850,6 +1855,39 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'systemctl restart hermes-gateway' in source
     assert 'HERMES_CODEX_LOGIN_VERIFIED' in source
     assert 'DINGTALK_STREAM_CONNECTION=connected' in source
+    assert 'set -x' not in source
+    assert 'printenv' not in source
+
+
+def test_read_hermes_codex_handoff_prod_is_concurrent_exact_and_ciphertext_only() -> None:
+    path = '.github/workflows/read-hermes-codex-handoff-prod.yml'
+    payload = _load(path)
+    source = _read(path)
+    inputs = _workflow_inputs(payload)
+    concurrency = _workflow_concurrency(payload)
+    job = payload['jobs']['read-hermes-codex-handoff-production']
+
+    assert concurrency == {
+        'group': 'xintai-production-oauth-handoff-read',
+        'cancel-in-progress': False,
+    }
+    assert inputs['confirm']['required'] is True
+    assert inputs['login_run_id']['required'] is True
+    assert inputs['expected_hermes_sha']['required'] is True
+    assert job['if'] == "github.event.inputs.confirm == 'read-prod-hermes-codex-handoff'"
+    assert job['environment'] == 'production'
+    assert 'HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"' in source
+    assert 'HERMES_HOME="/srv/hermes-cloud/runtime/.hermes"' in source
+    assert "grep -Eq '^[0-9]+$'" in source
+    assert "grep -Eq '^[0-9a-f]{40}$'" in source
+    assert 'git -C "$HERMES_REPO" rev-parse HEAD' in source
+    assert '[ "$actual_hermes_sha" = "$EXPECTED_HERMES_SHA" ]' in source
+    assert 'oauth-handoffs/${LOGIN_RUN_ID}.ciphertext' in source
+    assert 'test "$(stat -c %a "$handoff_file")" = "600"' in source
+    assert "grep -Eq '^[A-Za-z0-9+/]+={0,2}$'" in source
+    assert 'HERMES_CODEX_DEVICE_CODE_CIPHERTEXT=' in source
+    assert 'HERMES_CODEX_DEVICE_CODE=' not in source
+    assert 'rm -f "$handoff_file"' in source
     assert 'set -x' not in source
     assert 'printenv' not in source
 
