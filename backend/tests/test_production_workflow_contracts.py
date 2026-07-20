@@ -1812,6 +1812,7 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert inputs['mode']['options'] == ['status', 'login']
     assert inputs['model']['default'] == 'gpt-5.6-sol'
     assert 'expected_hermes_sha' in inputs
+    assert inputs['device_code_public_key_b64']['required'] is False
     assert job['if'] == "github.event.inputs.confirm == 'prod-hermes-codex'"
     assert job['environment'] == 'production'
     assert 'HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"' in source
@@ -1822,6 +1823,16 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert '/proc/${runtime_pid}/cmdline' in source
     assert '/proc/${runtime_pid}/environ' in source
     assert 'auth add openai-codex --type oauth --label xintai-production' in source
+    assert 'DEVICE_CODE_PUBLIC_KEY_B64' in source
+    assert 'openssl pkey -pubin -in "$device_code_public_key" -noout' in source
+    assert 'openssl pkeyutl -encrypt -pubin' in source
+    assert 'rsa_padding_mode:oaep' in source
+    assert 'rsa_oaep_md:sha256' in source
+    assert 'HERMES_CODEX_DEVICE_CODE_CIPHERTEXT=' in source
+    assert '::notice title=Hermes Codex device authorization::' in source
+    assert 'HERMES_CODEX_DEVICE_CODE=' not in source
+    assert 'cat "$oauth_log"' not in source
+    assert 'rm -f "$oauth_log" "$device_code_public_key"' in source
     assert 'get_codex_auth_status' in source
     assert '"api_key"' not in source
     assert 'OPENAI_API_KEY' not in source
