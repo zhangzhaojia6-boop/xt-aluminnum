@@ -11,12 +11,13 @@ on:
         description: Type 'prod-hermes-codex' to confirm production Hermes Codex operations
         required: true
       mode:
-        description: Inspect current state or start a separate Hermes Codex OAuth login
+        description: Inspect state, prove real inference, or start a separate Hermes Codex OAuth login
         required: true
         default: status
         type: choice
         options:
           - status
+          - inference
           - login
       expected_hermes_sha:
         description: Exact Hermes HEAD expected on production
@@ -61,7 +62,7 @@ jobs:
           test -n "$SSH_KNOWN_HOSTS"
 
           case "$MODE" in
-            status|login) ;;
+            status|inference|login) ;;
             *)
               echo "unsupported mode: $MODE"
               exit 2
@@ -188,6 +189,16 @@ jobs:
 
           run_as_service() {
             runuser -u "$service_user" -- env \
+              HOME="$service_home" \
+              HERMES_HOME="$hermes_home" \
+              PYTHONUNBUFFERED=1 \
+              "$@"
+          }
+
+          run_as_service_with_timeout() {
+            local duration="$1"
+            shift
+            timeout --preserve-status "$duration" runuser -u "$service_user" -- env \
               HOME="$service_home" \
               HERMES_HOME="$hermes_home" \
               PYTHONUNBUFFERED=1 \
@@ -348,6 +359,45 @@ jobs:
           if [ "$MODE" = "status" ]; then
             report_codex_state no
             wait_for_stream
+            exit 0
+          fi
+
+          if [ "$MODE" = "inference" ]; then
+            report_codex_state yes
+            wait_for_stream
+            inference_output="$(mktemp /tmp/hermes-codex-inference.XXXXXX)"
+            chmod 600 "$inference_output"
+            inference_prompt='只用中文回答，且只输出一行：我是鑫泰铝业智能大脑。不得自称研发助手、软件公司或MES。'
+            if ! run_as_service_with_timeout 240s \
+              "$runtime_python" -P -m hermes_cli.main \
+              --provider openai-codex --model "$MODEL" -z "$inference_prompt" \
+              >"$inference_output" 2>&1; then
+              rm -f "$inference_output"
+              echo "HERMES_CODEX_INFERENCE_FAILED"
+              exit 5
+            fi
+            python3 - "$inference_output" <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+          import re
+          import sys
+
+          text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+          text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text).strip()
+          if not text or len(text) > 200 or "\n" in text:
+              raise SystemExit("HERMES_CODEX_INFERENCE_INVALID_SHAPE")
+          if "鑫泰铝业智能大脑" not in text:
+              raise SystemExit("HERMES_CODEX_INFERENCE_IDENTITY_MISMATCH")
+          if any(term in text for term in ("研发助手", "软件公司", "MES")):
+              raise SystemExit("HERMES_CODEX_INFERENCE_FORBIDDEN_IDENTITY")
+          if not re.search(r"[\u4e00-\u9fff]", text):
+              raise SystemExit("HERMES_CODEX_INFERENCE_NOT_CHINESE")
+          print(f"HERMES_CODEX_INFERENCE_CHAR_COUNT={len(text)}")
+          print(f"HERMES_CODEX_INFERENCE_SHA256={sha256(text.encode('utf-8')).hexdigest()}")
+          print(f"HERMES_CODEX_INFERENCE_ANSWER={text}")
+          PY
+            rm -f "$inference_output"
+            echo "HERMES_CODEX_INFERENCE_VERIFIED"
             exit 0
           fi
 

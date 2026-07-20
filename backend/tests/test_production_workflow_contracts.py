@@ -1811,7 +1811,7 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
         'cancel-in-progress': False,
     }
     assert inputs['confirm']['required'] is True
-    assert inputs['mode']['options'] == ['status', 'login']
+    assert inputs['mode']['options'] == ['status', 'inference', 'login']
     assert inputs['model']['default'] == 'gpt-5.6-sol'
     assert 'expected_hermes_sha' in inputs
     assert inputs['device_code_public_key_b64']['required'] is False
@@ -1847,6 +1847,13 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'HERMES_CODEX_AUTH_RATE_LIMITED=' in source
     assert 'HERMES_MODEL_PROVIDER=' in source
     assert 'HERMES_MODEL_DEFAULT=' in source
+    assert 'run_as_service_with_timeout 240s' in source
+    assert '--provider openai-codex --model "$MODEL" -z "$inference_prompt"' in source
+    assert 'HERMES_CODEX_INFERENCE_ANSWER=' in source
+    assert 'HERMES_CODEX_INFERENCE_VERIFIED' in source
+    assert 'HERMES_CODEX_INFERENCE_FAILED' in source
+    assert '鑫泰铝业智能大脑' in source
+    assert 'HERMES_CODEX_INFERENCE_FORBIDDEN_IDENTITY' in source
     assert 'cp -p "$auth_file" "$backup_dir/auth.json"' in source
     assert 'cp -p "$config_file" "$backup_dir/config.yaml"' in source
     assert 'rollback_on_login_error' in source
