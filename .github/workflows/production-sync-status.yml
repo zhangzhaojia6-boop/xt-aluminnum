@@ -850,6 +850,143 @@ jobs:
           PY
           }
 
+          query_latest_stream_trace() {
+            local database_url="$1"
+            DATABASE_URL="$database_url" "$DATAHUB_REPO/backend/.venv/bin/python" - <<'PY'
+          import json
+          import os
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(os.environ["DATABASE_URL"], future=True)
+          payload = {
+              "trace_id": None,
+              "chat_inbox_id": None,
+              "receipt_count": 0,
+              "receipt_status": None,
+              "run_count": 0,
+              "run_status": None,
+              "run_status_color": None,
+              "run_answer_length": 0,
+              "run_answer_has_chinese": False,
+              "run_answer_has_source": False,
+              "run_answer_has_trace_id": False,
+              "run_rag_citation_count": 0,
+              "run_result_keys": [],
+              "outbox_count": 0,
+              "outbox_status": None,
+              "outbox_attempts": 0,
+              "outbox_sent": False,
+              "outbox_error_present": False,
+              "external_log_count": 0,
+              "external_log_status": None,
+              "external_provider_message_id_present": False,
+              "external_detail_present": False,
+          }
+          with engine.connect() as conn:
+              inbox = conn.execute(
+                  text(
+                      """
+                      SELECT id, trace_id
+                      FROM chat_inbox
+                      WHERE source_payload->>'source_transport' = 'dingtalk_stream'
+                      ORDER BY created_at DESC, id DESC
+                      LIMIT 1
+                      """
+                  )
+              ).mappings().first()
+              if inbox is None:
+                  print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+                  raise SystemExit(0)
+
+              trace_id = str(inbox["trace_id"])
+              payload["trace_id"] = trace_id
+              payload["chat_inbox_id"] = int(inbox["id"])
+
+              receipts = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total,
+                             (ARRAY_AGG(status ORDER BY updated_at DESC, id DESC))[1] AS latest_status
+                      FROM dingtalk_inbound_receipts
+                      WHERE trace_id = :trace_id
+                      """
+                  ),
+                  {"trace_id": trace_id},
+              ).mappings().one()
+              payload["receipt_count"] = int(receipts["total"] or 0)
+              payload["receipt_status"] = receipts["latest_status"]
+
+              runs = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total,
+                             (ARRAY_AGG(status ORDER BY id DESC))[1] AS latest_status,
+                             (ARRAY_AGG(status_color ORDER BY id DESC))[1] AS latest_status_color,
+                             (ARRAY_AGG(answer ORDER BY id DESC))[1] AS latest_answer,
+                             (ARRAY_AGG(rag_citation_count ORDER BY id DESC))[1] AS latest_rag_citation_count,
+                             (ARRAY_AGG(result_payload ORDER BY id DESC))[1] AS latest_result_payload
+                      FROM agent_runs
+                      WHERE trace_id = :trace_id
+                      """
+                  ),
+                  {"trace_id": trace_id},
+              ).mappings().one()
+              answer = str(runs["latest_answer"] or "")
+              result_payload = runs["latest_result_payload"] if isinstance(runs["latest_result_payload"], dict) else {}
+              payload["run_count"] = int(runs["total"] or 0)
+              payload["run_status"] = runs["latest_status"]
+              payload["run_status_color"] = runs["latest_status_color"]
+              payload["run_answer_length"] = len(answer)
+              payload["run_answer_has_chinese"] = any("\u4e00" <= char <= "\u9fff" for char in answer)
+              payload["run_answer_has_source"] = "来源" in answer
+              payload["run_answer_has_trace_id"] = "trace_id" in answer.lower()
+              payload["run_rag_citation_count"] = int(runs["latest_rag_citation_count"] or 0)
+              payload["run_result_keys"] = sorted(str(key) for key in result_payload.keys())
+
+              outbox = conn.execute(
+                  text(
+                      """
+                      SELECT COUNT(*) AS total,
+                             (ARRAY_AGG(id ORDER BY id DESC))[1] AS latest_id,
+                             (ARRAY_AGG(status ORDER BY id DESC))[1] AS latest_status,
+                             (ARRAY_AGG(attempts ORDER BY id DESC))[1] AS latest_attempts,
+                             (ARRAY_AGG(sent_at ORDER BY id DESC))[1] AS latest_sent_at,
+                             (ARRAY_AGG(last_error ORDER BY id DESC))[1] AS latest_error
+                      FROM agent_outbox_messages
+                      WHERE trace_id = :trace_id
+                      """
+                  ),
+                  {"trace_id": trace_id},
+              ).mappings().one()
+              payload["outbox_count"] = int(outbox["total"] or 0)
+              payload["outbox_status"] = outbox["latest_status"]
+              payload["outbox_attempts"] = int(outbox["latest_attempts"] or 0)
+              payload["outbox_sent"] = outbox["latest_sent_at"] is not None
+              payload["outbox_error_present"] = bool(outbox["latest_error"])
+
+              if outbox["latest_id"] is not None:
+                  external = conn.execute(
+                      text(
+                          """
+                          SELECT COUNT(*) AS total,
+                                 (ARRAY_AGG(status ORDER BY id DESC))[1] AS latest_status,
+                                 (ARRAY_AGG(provider_message_id ORDER BY id DESC))[1] AS latest_provider_message_id,
+                                 (ARRAY_AGG(detail ORDER BY id DESC))[1] AS latest_detail
+                          FROM external_message_logs
+                          WHERE outbox_message_id = :outbox_id
+                          """
+                      ),
+                      {"outbox_id": int(outbox["latest_id"])},
+                  ).mappings().one()
+                  payload["external_log_count"] = int(external["total"] or 0)
+                  payload["external_log_status"] = external["latest_status"]
+                  payload["external_provider_message_id_present"] = bool(external["latest_provider_message_id"])
+                  payload["external_detail_present"] = bool(external["latest_detail"])
+
+          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+          PY
+          }
+
           verify_smoke_trace_persisted() {
             local database_url="$1"
             local trace_id="$2"
@@ -1266,6 +1403,7 @@ jobs:
             fi
             report_stream_connection "no" || true
             echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
+            echo "LATEST_STREAM_TRACE=$(query_latest_stream_trace "$RAW_DATABASE_URL")"
           }
 
           reload_or_restart_nginx() {
