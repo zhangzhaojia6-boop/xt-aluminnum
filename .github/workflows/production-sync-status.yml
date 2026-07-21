@@ -1455,6 +1455,7 @@ jobs:
 
             upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_ID" "$stream_app_key"
             upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"
+            upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_USERS" "*"
             upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_CHATS" ""
             upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "false"
             upsert_env_value "$HERMES_ENV_FILE" "HERMES_LANGUAGE" "zh"
@@ -1462,6 +1463,7 @@ jobs:
             upsert_env_value "$HERMES_ENV_FILE" "XINTAI_EVIDENCE_RELAY_ENABLED" "true"
             upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DATAHUB_BASE_URL" "http://127.0.0.1:8000"
             upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
+            echo "HERMES_DINGTALK_ALLOWED_USERS_SCOPE=enterprise_app"
             echo "DINGTALK_STREAM_CONFIGURATION_APPLIED=yes"
           }
 

@@ -556,6 +556,7 @@ def test_production_sync_deploy_applies_stream_config_inside_rollback_boundary()
     assert 'upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AUTHORIZED_GROUP_IDS" "*"' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_ID" "$stream_app_key"' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_USERS" "*"' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_CHATS" ""' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "false"' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "HERMES_LANGUAGE" "zh"' in apply_body
@@ -638,6 +639,7 @@ def test_production_sync_stream_config_applier_writes_expected_values_without_lo
     assert 'DINGTALK_AUTHORIZED_GROUP_IDS=*' in datahub_values
     assert f'DINGTALK_APP_KEY={app_key}' in datahub_values
     assert f'DINGTALK_CLIENT_SECRET={app_secret}' in hermes_values
+    assert 'DINGTALK_ALLOWED_USERS=*' in hermes_values
     assert 'DINGTALK_ALLOWED_CHATS=' in hermes_values
     assert 'DINGTALK_REQUIRE_MENTION=false' in hermes_values
     assert 'HERMES_LANGUAGE=zh' in hermes_values
@@ -1096,6 +1098,7 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'printf -v REMOTE_PREAMBLE' in source
     assert 'AUTHORIZED_GROUP_IDS: ${{ github.event.inputs.authorized_group_ids }}' not in source
     assert 'DINGTALK_ALLOWED_CHATS' not in source
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_USERS" "*"' in source
     assert '^XT-P1-[A-Za-z0-9][A-Za-z0-9._-]{7,120}$' in source
     assert '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' in source
     assert '^[0-9a-f]{64}$' in source

@@ -1086,6 +1086,7 @@ jobs:
 
           upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_ID" "$stream_app_key"
           upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"
+          upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_USERS" "*"
           upsert_env_value "$HERMES_ENV_FILE" "HERMES_LANGUAGE" "zh"
           upsert_env_value "$HERMES_ENV_FILE" "XINTAI_SOUL_SYNC_ENABLED" "true"
           upsert_env_value "$HERMES_ENV_FILE" "XINTAI_EVIDENCE_RELAY_ENABLED" "true"
