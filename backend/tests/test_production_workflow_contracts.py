@@ -335,6 +335,22 @@ def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contra
     assert 'report_stream_connection "yes" 40 3' in source
 
 
+def test_production_sync_status_reports_latest_stream_trace_without_message_content() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    diagnostic_body = _extract_shell_function(source, 'query_latest_stream_trace')
+    report_body = _extract_shell_function(source, 'report_status')
+
+    assert 'dingtalk_inbound_receipts' in diagnostic_body
+    assert 'agent_runs' in diagnostic_body
+    assert 'agent_outbox_messages' in diagnostic_body
+    assert 'external_message_logs' in diagnostic_body
+    assert 'run_answer_has_chinese' in diagnostic_body
+    assert 'run_answer_has_source' in diagnostic_body
+    assert 'run_answer_has_trace_id' in diagnostic_body
+    assert '"run_answer":' not in diagnostic_body
+    assert 'LATEST_STREAM_TRACE=$(query_latest_stream_trace "$RAW_DATABASE_URL")' in report_body
+
+
 def test_production_stream_gate_emits_redacted_failure_diagnostics_before_rollback(tmp_path: Path) -> None:
     source = _read('.github/workflows/production-sync-status.yml')
 
