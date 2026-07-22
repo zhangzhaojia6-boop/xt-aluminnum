@@ -1017,6 +1017,17 @@ def test_source_gate_accepts_energy_readonly_disabled_as_known_missing_state() -
     assert result.status in {"confirmed", "candidate"}
 
 
+def test_summary_status_keeps_confirmed_fact_when_preferred_source_is_missing() -> None:
+    question = build_20_question_catalog()[4]
+    snapshot = _passing_snapshot(5)
+    snapshot.evidence["missing_sources"] = ["mes_readonly"]
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert snapshot.fact_answer[0]["status"] == "confirmed"
+    assert result.status == "confirmed"
+
+
 def test_delivery_gate_allows_environment_failure_but_not_core_failure() -> None:
     question = build_20_question_catalog()[0]
     snapshot = _passing_snapshot(1)

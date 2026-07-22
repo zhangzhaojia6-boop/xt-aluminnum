@@ -857,8 +857,18 @@ def _status_from_snapshot(snapshot: AcceptanceTurnSnapshot) -> str:
     evidence = snapshot.evidence or {}
     conflicts = evidence.get("conflicts") or []
     missing = evidence.get("missing_sources") or []
-    if conflicts:
+    fact_statuses = {
+        str(fact.get("status") or "").strip().lower()
+        for fact in snapshot.fact_answer or []
+        if isinstance(fact, Mapping)
+    }
+    fact_statuses.discard("")
+    if conflicts or "conflict" in fact_statuses:
         return "conflict"
+    if fact_statuses and fact_statuses == {"confirmed"}:
+        return "confirmed"
+    if "missing" in fact_statuses:
+        return "missing"
     if missing:
         return "missing"
     if snapshot.status in {"answered", "sent"}:
