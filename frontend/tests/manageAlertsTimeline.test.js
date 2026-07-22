@@ -209,6 +209,35 @@ test('daily closure does not create alerts when explicit alert arrays are absent
   assert.deepEqual(t.events.value, [])
 })
 
+test('open fact task keeps fact status and opens the existing fill route', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async () => ({
+      fact_closure_available: true,
+      fact_missing: [{
+        id: 42,
+        field: 'total_electricity_kwh',
+        status: 'open',
+        fact_status: 'missing',
+        target_date: '2026-05-19',
+        trace_id: 'daily-fact-closure:2026-05-19',
+        detail_route: '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh',
+      }],
+    }),
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.equal(t.events.value.length, 1)
+  assert.equal(t.events.value[0].status, 'open')
+  assert.equal(t.events.value[0].factStatus, 'missing')
+  assert.equal(
+    t.events.value[0].detailRoute,
+    '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh'
+  )
+})
+
 test('missing canonical capability becomes a system fallback without business counts', async () => {
   const t = createAlertsTimeline({
     ...makeEmptyFakes(),

@@ -37,6 +37,7 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
         'daily_report',
         'daily_fact_closure_0805',
         'daily_fact_closure_1005_refresh',
+        'daily_fact_gap_recheck',
         'daily_fact_closure_startup_catchup',
         'mes_sync_core',
         'mes_sync_realtime',
@@ -63,6 +64,8 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     assert scheduler.jobs['daily_fact_closure_startup_catchup']['trigger'] == 'date'
     assert scheduler.jobs['daily_fact_closure_startup_catchup']['kwargs']['run_date'].tzinfo is not None
     assert inspect.signature(scheduler.jobs['daily_fact_closure_startup_catchup']['func']).parameters == {}
+    assert scheduler.jobs['daily_fact_gap_recheck']['trigger'] == 'interval'
+    assert scheduler.jobs['daily_fact_gap_recheck']['kwargs']['minutes'] == 15
     assert scheduler.jobs['mes_sync_core']['trigger'] == 'interval'
     assert scheduler.jobs['mes_sync_core']['kwargs']['seconds'] == 30
     assert scheduler.jobs['mes_sync_realtime']['trigger'] == 'interval'

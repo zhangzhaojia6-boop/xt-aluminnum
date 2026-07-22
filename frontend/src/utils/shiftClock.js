@@ -66,6 +66,19 @@ export function ownerDailyBusinessDateOptions(latestBusinessDate) {
   })
 }
 
+export function resolveOwnerDailyRequestedBusinessDate(value, latestBusinessDate) {
+  const requested = Array.isArray(value) ? value[0] : value
+  const normalized = String(requested || '').trim()
+  return ownerDailyBusinessDateOptions(latestBusinessDate).includes(normalized) ? normalized : ''
+}
+
+export function resolveRequestedEntryField(value, fields = []) {
+  const requested = Array.isArray(value) ? value[0] : value
+  const normalized = String(requested || '').trim()
+  if (!normalized) return ''
+  return fields.some((field) => String(field?.name || '').trim() === normalized) ? normalized : ''
+}
+
 function inferBusinessDateAtAnchor(anchorMinutes, now = new Date()) {
   const wall = nowInShanghai(now)
   const minutes = totalMinutes(wall)

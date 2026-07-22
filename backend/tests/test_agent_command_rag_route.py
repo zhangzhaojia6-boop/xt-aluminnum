@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -20,6 +20,7 @@ from app.models.agent_communication import (
 )
 from app.models.consumable import DailyConsumableLog
 from app.models.master import Equipment, Workshop
+from app.models.mes import MesWorkshopProcessRecord
 from app.models.production import ShiftProductionData
 from app.models.quality import DataQualityIssue, QualityIssueLog
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
@@ -42,6 +43,7 @@ AGENT_COMMAND_TABLES = [
     Equipment.__table__,
     ShiftConfig.__table__,
     ShiftProductionData.__table__,
+    MesWorkshopProcessRecord.__table__,
     DataQualityIssue.__table__,
     QualityIssueLog.__table__,
     DailyConsumableLog.__table__,
@@ -1019,6 +1021,212 @@ def test_agent_command_uses_shift_downtime_fact_for_machine_stop(monkeypatch) ->
         run = db.query(AgentRun).one()
         assert run.result_payload['fact_status'] == 'connected'
         assert run.result_payload['facts']['top_stops'][0]['equipment_name'] == '2号机'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_reads_mes_process_start_end_without_claiming_physical_power_state(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+    db.add_all([
+        Workshop(id=4, code='RZ', name='热轧车间', workshop_type='hot_roll', sort_order=1, is_active=True),
+        Equipment(id=21, code='RZ-2', name='2号机', workshop_id=4, operational_status='running', is_active=True),
+        ShiftConfig(
+            id=31,
+            code='DAY',
+            name='长白班',
+            shift_type='day',
+            start_time=time(7, 30),
+            end_time=time(15, 30),
+            is_active=True,
+        ),
+        ShiftProductionData(
+            business_date=date(2026, 7, 21),
+            shift_config_id=31,
+            workshop_id=4,
+            equipment_id=21,
+            downtime_minutes=42,
+            downtime_reason='换辊待维修确认',
+            data_status='submitted',
+            data_source='mobile_shift_report',
+        ),
+        MesWorkshopProcessRecord(
+            source_id='mes-process-rz2-20260721',
+            source_path='/ProductProcess/GetList',
+            batch_no='BATCH-001',
+            workshop_name='热轧车间',
+            process_name='热轧',
+            worker_name='不应出现在回答中',
+            device_name='2号机',
+            end_time=datetime(2026, 7, 21, 12, 30),
+            business_date=date(2026, 7, 21),
+            source_payload={
+                'BeginDatetime': '2026-07-21T08:00:00',
+                'EndDatetime': '2026-07-21T12:30:00',
+                'Status': 2,
+            },
+        ),
+    ])
+    db.commit()
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 7, 22),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-machine-operation',
+                'sender_external_id': 'ding-user-008',
+                'text': '7月21日2号机开停机明细',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-machine-operation-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'machine_operation'
+        assert payload['facts']['business_date'] == '2026-07-21'
+        assert payload['facts']['machine_filter'] == '2'
+        assert payload['facts']['record_count'] == 1
+        operation = payload['facts']['top_operations'][0]
+        assert operation['device_name'] == '2号机'
+        assert operation['begin_at'].endswith('08:00:00+08:00')
+        assert operation['end_at'].endswith('12:30:00+08:00')
+        assert operation['elapsed_minutes'] == 270
+        assert operation['trace_id'].startswith('mes-process:')
+        assert payload['facts']['reported_downtime_minutes'] == 42
+        assert '08:00' in payload['answer']
+        assert '12:30' in payload['answer']
+        assert '42 分钟' in payload['answer']
+        assert '换辊待维修确认' in payload['answer']
+        assert '不等于设备电气通断电' in payload['answer']
+        assert '不应出现在回答中' not in payload['answer']
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['facts']['top_operations'][0]['source_type'] == 'mes_workshop_process_records'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_marks_invalid_mes_process_interval_without_inventing_duration(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+    db.add_all([
+        Workshop(id=4, code='RZ', name='热轧车间', workshop_type='hot_roll', sort_order=1, is_active=True),
+        MesWorkshopProcessRecord(
+            source_id='mes-process-invalid-20260721',
+            source_path='/ProductProcess/GetList',
+            workshop_name='热轧车间',
+            process_name='热轧',
+            device_name='2号机',
+            end_time=datetime(2026, 7, 21, 8, 0),
+            business_date=date(2026, 7, 21),
+            source_payload={
+                'BeginDatetime': '2026-07-21T12:30:00',
+                'EndDatetime': '2026-07-21T08:00:00',
+                'Status': 2,
+            },
+        ),
+    ])
+    db.commit()
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 7, 22),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-machine-operation',
+                'sender_external_id': 'ding-user-008',
+                'text': '7月21日2号机生产起止时间',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-machine-operation-invalid',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'machine_operation'
+        operation = payload['facts']['top_operations'][0]
+        assert operation['timing_status'] == 'invalid_interval'
+        assert operation['elapsed_minutes'] is None
+        assert payload['facts']['invalid_interval_count'] == 1
+        assert '需复核' in payload['answer']
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_machine_operation_stays_within_user_workshop(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+    db.add_all([
+        Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+        Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        MesWorkshopProcessRecord(
+            source_id='mes-process-other-workshop',
+            source_path='/ProductProcess/GetList',
+            workshop_name='热轧车间',
+            process_name='热轧',
+            device_name='2号机',
+            end_time=datetime(2026, 7, 21, 9, 0),
+            business_date=date(2026, 7, 21),
+            source_payload={'BeginDatetime': '2026-07-21T08:00:00'},
+        ),
+        MesWorkshopProcessRecord(
+            source_id='mes-process-own-workshop',
+            source_path='/ProductProcess/GetList',
+            workshop_name='冷轧2050车间',
+            process_name='冷轧',
+            device_name='5号机',
+            end_time=datetime(2026, 7, 21, 10, 0),
+            business_date=date(2026, 7, 21),
+            source_payload={'BeginDatetime': '2026-07-21T09:00:00'},
+        ),
+        MesWorkshopProcessRecord(
+            source_id='mes-process-missing-workshop',
+            source_path='/ProductProcess/GetList',
+            workshop_name=None,
+            process_name='未知',
+            device_name='8号机',
+            end_time=datetime(2026, 7, 21, 11, 0),
+            business_date=date(2026, 7, 21),
+            source_payload={'BeginDatetime': '2026-07-21T10:00:00'},
+        ),
+    ])
+    db.commit()
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 7, 22),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-machine-operation',
+                'sender_external_id': 'ding-user-020',
+                'text': '7月21日机器生产起止时间',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-machine-operation-scope',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['facts']['scope_label'] == '冷轧2050'
+        assert payload['facts']['record_count'] == 1
+        assert payload['facts']['top_operations'][0]['workshop_name'] == '冷轧2050车间'
     finally:
         _restore_overrides(previous_overrides, db)
 

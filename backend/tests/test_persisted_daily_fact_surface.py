@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.domain.metric_contracts import daily_report_contract_for
+from app.models.agent_communication import AgentEvent
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
 from app.models.system import User
 from app.services.report import daily_overview_builder
@@ -48,6 +49,7 @@ def db_session() -> Iterator[Session]:
         engine,
         tables=[
             cast(Table, User.__table__),
+            cast(Table, AgentEvent.__table__),
             cast(Table, DailyFactBundleRun.__table__),
             cast(Table, DailyFactBundleSnapshot.__table__),
         ],
@@ -332,6 +334,66 @@ def test_snapshot_conflicts_and_missing_facts_become_fact_alerts(db_session: Ses
     }]
     assert [item["field"] for item in payload["fact_missing"]] == ["total_electricity_kwh"]
     assert payload["fact_missing"][0]["trace_id"] is None
+
+
+def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session: Session) -> None:
+    facts = _facts()
+    del facts["total_electricity_kwh"]
+    _add_snapshot(db_session, facts=facts, value_suffix="active-gap-event")
+    event = AgentEvent(
+        event_type="daily_fact_gap",
+        severity="warning",
+        status="open",
+        scope_type="factory",
+        source_type="daily_fact_closure",
+        source_ref=f"daily_fact_gap:{TARGET_DATE.isoformat()}:total_electricity_kwh",
+        business_date=TARGET_DATE,
+        occurred_at=datetime(2026, 7, 8, 8, 5, tzinfo=SHANGHAI),
+        payload={
+            "field": "total_electricity_kwh",
+            "fact_status": "missing",
+            "summary": "全厂高压总用电量缺少可信事实",
+            "entry_route": "/entry/fill",
+            "fill_strategy": "owner_daily",
+            "owner_role": "energy_chief",
+            "entry_fields": ["total_electricity_kwh"],
+            "next_step": "请电工扫码补录或提交钉钉能耗表。",
+            "last_checked_trace_id": "daily-fact-closure:2026-07-07",
+            "delivery_status": "pending",
+            "outbox_message_id": 21,
+        },
+    )
+    db_session.add(event)
+    db_session.commit()
+
+    payload = _overview(db_session)
+
+    assert payload["fact_missing"] == [{
+        "id": event.id,
+        "event_id": event.id,
+        "field": "total_electricity_kwh",
+        "status": "open",
+        "fact_status": "missing",
+        "source": None,
+        "trace_id": "daily-fact-closure:2026-07-07",
+        "target_date": TARGET_DATE.isoformat(),
+        "occurred_at": event.occurred_at.isoformat(),
+        "summary": "全厂高压总用电量缺少可信事实",
+        "next_step": "请电工扫码补录或提交钉钉能耗表。",
+        "entry_route": "/entry/fill",
+        "fill_strategy": "owner_daily",
+        "owner_role": "energy_chief",
+        "entry_fields": ["total_electricity_kwh"],
+        "detail_route": (
+            "/entry/fill?business_date=2026-07-07"
+            "&field=total_electricity_kwh"
+            "&entry_field=total_electricity_kwh"
+            "&owner_role=energy_chief"
+            "&trace_id=daily-fact-closure%3A2026-07-07"
+        ),
+        "delivery_status": "pending",
+        "outbox_message_id": 21,
+    }]
 
 
 def test_snapshot_missing_unit_window_or_trace_stays_missing_and_not_confirmed(db_session: Session) -> None:

@@ -88,6 +88,7 @@ def setup_scheduler(target_scheduler=None):
 
     from app.tasks.daily_report import generate_daily_reports
     from app.tasks.daily_fact_closure import (
+        run_open_daily_fact_gap_refresh,
         run_scheduled_daily_fact_closure,
         run_startup_daily_fact_closure,
     )
@@ -111,6 +112,13 @@ def setup_scheduler(target_scheduler=None):
         job_id='daily_fact_closure_0805',
         hour=8,
         minute=5,
+    )
+    _add_job_once(
+        active_scheduler,
+        run_open_daily_fact_gap_refresh,
+        'interval',
+        job_id='daily_fact_gap_recheck',
+        minutes=15,
     )
     startup_at = local_now()
 

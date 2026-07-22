@@ -3,7 +3,11 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import { ownerDailyBusinessDateOptions } from '../src/utils/shiftClock.js'
+import {
+  ownerDailyBusinessDateOptions,
+  resolveRequestedEntryField,
+  resolveOwnerDailyRequestedBusinessDate,
+} from '../src/utils/shiftClock.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
@@ -70,6 +74,46 @@ test('owner daily backfill offers the current owner date and seven prior dates',
   const source = readSource('src/views/mobile/UnifiedEntryForm.vue')
   assert.match(source, /v-model="ownerDailySelectedDate"/)
   assert.match(source, /loadOwnerDailyEntryForDate/)
+})
+
+test('owner daily fill accepts only an in-range business date from an alert link', () => {
+  assert.equal(
+    resolveOwnerDailyRequestedBusinessDate('2026-07-17', '2026-07-19'),
+    '2026-07-17'
+  )
+  assert.equal(
+    resolveOwnerDailyRequestedBusinessDate(['2026-07-18'], '2026-07-19'),
+    '2026-07-18'
+  )
+  assert.equal(resolveOwnerDailyRequestedBusinessDate('2026-06-01', '2026-07-19'), '')
+  assert.equal(resolveOwnerDailyRequestedBusinessDate('not-a-date', '2026-07-19'), '')
+
+  const source = readSource('src/views/mobile/UnifiedEntryForm.vue')
+  assert.match(source, /route\.query\.business_date/)
+  assert.match(source, /resolveOwnerDailyRequestedBusinessDate/)
+})
+
+test('requested entry field only resolves when the signed-in role can see it', () => {
+  assert.equal(
+    resolveRequestedEntryField('total_electricity_kwh', [
+      { name: 'total_electricity_kwh' },
+      { name: 'total_gas_m3' },
+    ]),
+    'total_electricity_kwh',
+  )
+  assert.equal(
+    resolveRequestedEntryField(['park_inbound_daily'], [{ name: 'park_inbound_daily' }]),
+    'park_inbound_daily',
+  )
+  assert.equal(resolveRequestedEntryField('total_cost_10k', [{ name: 'total_electricity_kwh' }]), '')
+})
+
+test('unified entry consumes the requested concrete form field', () => {
+  const source = readSource('src/views/mobile/UnifiedEntryForm.vue')
+
+  assert.match(source, /route\.query\.entry_field/)
+  assert.match(source, /resolveRequestedEntryField/)
+  assert.match(source, /ue-field--requested/)
 })
 
 test('mobile entry landing separates owner daily hint from production shift hint', () => {

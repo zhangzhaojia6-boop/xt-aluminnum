@@ -61,7 +61,8 @@
             class="ue-field"
             :class="{
               'ue-field--wide': isWideField(field),
-              'ue-field--spec': field.type === 'spec'
+              'ue-field--spec': field.type === 'spec',
+              'ue-field--requested': field.name === requestedEntryField
             }"
             :data-testid="`field-${field.name}`"
           >
@@ -280,8 +281,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.js'
 import {
   fetchCurrentShift,
@@ -301,10 +303,16 @@ import { validateEntryWeights } from '../../utils/entryWeightValidation.js'
 import { requestErrorMessage } from '../../utils/reportStatus.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
 import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
-import { inferOwnerDailyBusinessDate, ownerDailyBusinessDateOptions } from '../../utils/shiftClock.js'
+import {
+  inferOwnerDailyBusinessDate,
+  ownerDailyBusinessDateOptions,
+  resolveRequestedEntryField,
+  resolveOwnerDailyRequestedBusinessDate,
+} from '../../utils/shiftClock.js'
 import { formatShiftLabel } from '../../utils/display.js'
 
 const auth = useAuthStore()
+const route = useRoute()
 
 const loading = ref(true)
 const error = ref('')
@@ -317,6 +325,7 @@ const lockedFieldsSnapshot = ref({})
 const lockedFieldsToken = ref('')
 const mesReferenceFields = ref([])
 const groups = ref([])
+const requestedEntryField = ref('')
 const readonlyFields = ref([])
 const entryRoleLabel = ref('')
 const visibleReadonlyFields = computed(() =>
@@ -855,6 +864,10 @@ async function loadData() {
     }
 
     const allFields = groups.value.flatMap(g => g.fields)
+    requestedEntryField.value = resolveRequestedEntryField(
+      route.query.entry_field || route.query.entryField || route.query.field,
+      allFields,
+    )
     loadDynamicOptions(allFields)
 
     let savedMachineEnergyRecords = []
@@ -881,7 +894,11 @@ async function loadData() {
     syncMachineEnergyRows(savedMachineEnergyRecords)
 
     if (mode.value === 'owner_daily') {
-      ownerDailySelectedDate.value = shift.business_date || inferOwnerDailyBusinessDate()
+      const latestOwnerDailyDate = shift.business_date || inferOwnerDailyBusinessDate()
+      ownerDailySelectedDate.value = resolveOwnerDailyRequestedBusinessDate(
+        route.query.business_date || route.query.businessDate,
+        latestOwnerDailyDate
+      ) || latestOwnerDailyDate
       await loadOwnerDailyEntryForDate()
     }
 
@@ -896,7 +913,17 @@ async function loadData() {
     error.value = e?.response?.data?.detail || '加载失败'
   } finally {
     loading.value = false
+    await nextTick()
+    focusRequestedEntryField()
   }
+}
+
+function focusRequestedEntryField() {
+  if (!requestedEntryField.value || typeof document === 'undefined') return
+  const target = document.querySelector(`[data-testid="field-${requestedEntryField.value}"]`)
+  if (!target) return
+  target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  target.querySelector('input, textarea, select, button')?.focus({ preventScroll: true })
 }
 
 async function handleSubmit() {
@@ -1280,6 +1307,14 @@ onMounted(loadData)
 }
 
 .ue-field:last-child { border-bottom: none; }
+
+.ue-field--requested {
+  margin-inline: -10px;
+  padding-inline: 10px;
+  border-radius: 6px;
+  background: rgba(0, 197, 255, 0.08);
+  box-shadow: inset 3px 0 0 var(--xt-primary);
+}
 
 .ue-field__label {
   display: flex;

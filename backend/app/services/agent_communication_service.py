@@ -194,6 +194,7 @@ def queue_bound_message(
     dedupe_key: str | None = None,
     dedupe_window_minutes: int = DEDUP_WINDOW_MINUTES,
     now: datetime | None = None,
+    commit: bool = True,
 ) -> AgentOutboxMessage:
     agent = _get_active_agent(db, agent_code)
     channel = _get_active_channel(db, channel_key=channel_key, channel_type=channel_type)
@@ -245,7 +246,11 @@ def queue_bound_message(
         dedupe_key=clean_dedupe_key,
         dedupe_expires_at=dedupe_expires_at,
     )
-    return _commit_refresh(db, message)
+    if commit:
+        return _commit_refresh(db, message)
+    db.add(message)
+    db.flush()
+    return message
 
 
 def dispatch_outbox_message(

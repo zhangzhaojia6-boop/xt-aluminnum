@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import date
+import logging
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
@@ -47,12 +49,37 @@ from app.services import (
     scan_lookup_service,
 )
 from app.services.real_master_data import OWNER_DAILY_ROLES
+from app.services.report.daily_fact_gap_closure_service import has_open_daily_fact_gap
+from app.tasks.daily_fact_closure import run_daily_fact_gap_refresh_for_date
 
 router = APIRouter(tags=['mobile'])
+LOGGER = logging.getLogger(__name__)
 
 
 def _request_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
+
+
+def _enqueue_daily_fact_gap_refresh(
+    db: Session,
+    *,
+    background_tasks: BackgroundTasks,
+    business_date: date,
+) -> bool:
+    try:
+        has_open_gap = has_open_daily_fact_gap(db, business_date=business_date)
+    except SQLAlchemyError:
+        db.rollback()
+        LOGGER.warning(
+            'daily_fact_gap_refresh_lookup_unavailable business_date=%s',
+            business_date.isoformat(),
+            exc_info=True,
+        )
+        return False
+    if not has_open_gap:
+        return False
+    background_tasks.add_task(run_daily_fact_gap_refresh_for_date, target_date=business_date)
+    return True
 
 
 @router.get('/bootstrap', response_model=MobileBootstrapOut, name='mobile-bootstrap')
@@ -140,6 +167,7 @@ def save_report(
 def submit_report(
     body: MobileReportPayload,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_mobile_user),
 ) -> MobileShiftReportOut:
@@ -150,6 +178,11 @@ def submit_report(
         submit=True,
         ip_address=_request_ip(request),
         user_agent=request.headers.get('user-agent'),
+    )
+    _enqueue_daily_fact_gap_refresh(
+        db,
+        background_tasks=background_tasks,
+        business_date=body.business_date,
     )
     return MobileShiftReportOut(**payload)
 
@@ -303,6 +336,7 @@ def coil_flow_suggestion(
 def create_coil_entry(
     body: MobileCoilEntryPayload,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_mobile_user),
 ) -> MobileCoilEntryOut:
@@ -311,6 +345,11 @@ def create_coil_entry(
         payload=body.model_dump(),
         current_user=current_user,
         ip_address=_request_ip(request),
+    )
+    _enqueue_daily_fact_gap_refresh(
+        db,
+        background_tasks=background_tasks,
+        business_date=body.business_date,
     )
     return MobileCoilEntryOut(**entry)
 
@@ -333,6 +372,7 @@ def owner_daily_detail(
 def save_owner_daily(
     body: MobileOwnerDailyPayload,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_mobile_user),
 ) -> MobileOwnerDailyOut:
@@ -342,6 +382,11 @@ def save_owner_daily(
         current_user=current_user,
         ip_address=_request_ip(request),
         user_agent=request.headers.get('user-agent'),
+    )
+    _enqueue_daily_fact_gap_refresh(
+        db,
+        background_tasks=background_tasks,
+        business_date=body.business_date,
     )
     return MobileOwnerDailyOut(**payload)
 

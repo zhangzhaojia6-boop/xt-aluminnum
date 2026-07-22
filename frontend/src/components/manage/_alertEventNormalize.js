@@ -314,6 +314,8 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
   const sourceLabel = kind.startsWith('fact-')
     ? (factSource || '暂无可信来源')
     : factSource
+  const workflowStatus = row.task_status || row.taskStatus || row.status
+  const factStatus = row.fact_status || row.factStatus || row.status || null
   return {
     id: `${kind}:${rawId}`,
     domain: kind === 'fact-conflict'
@@ -322,11 +324,11 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
     occurredAt: dailyOccurredAt(row, eventDate, fallbackTime),
     targetDate: eventDate,
     summary: row.summary || labels[kind],
-    detail: joinNonEmpty([row.field || row.field_name, sourceLabel, row.channel, row.status], ' · '),
+    detail: joinNonEmpty([row.field || row.field_name, sourceLabel, row.channel, factStatus], ' · '),
     detailRoute: traceRoute(traceId, row.detail_route || row.detailRoute),
     traceId,
-    factStatus: row.status || null,
-    status: row.status === 'resolved' ? 'resolved' : 'open',
+    factStatus,
+    status: workflowStatus === 'resolved' ? 'resolved' : 'open',
   }
 }
 

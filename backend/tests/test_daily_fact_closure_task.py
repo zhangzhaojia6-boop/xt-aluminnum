@@ -21,6 +21,21 @@ from app.tasks import daily_fact_closure as task_module
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 
+@pytest.fixture(autouse=True)
+def stub_daily_fact_gap_sync(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        task_module,
+        "sync_daily_fact_gap_events",
+        lambda *_args, **_kwargs: {
+            "created": 0,
+            "resolved": 0,
+            "open": 0,
+            "delivery_status": "not_needed",
+            "outbox_message_id": None,
+        },
+    )
+
+
 @pytest.fixture()
 def db_session() -> Iterator[Session]:
     engine = create_engine(
@@ -139,6 +154,36 @@ def test_daily_fact_closure_passes_scheduler_time_to_fact_evidence_check(
     )
 
     assert captured["now"] == scheduled_at
+
+
+def test_daily_fact_closure_syncs_gap_events_before_commit(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    bundle = {
+        "fact_closure": {"status": "blocked"},
+        "missing_fields": ["total_output_daily"],
+    }
+    calls: list[dict] = []
+    monkeypatch.setattr(task_module, "build_daily_fact_bundle", lambda *_args, **_kwargs: bundle)
+    monkeypatch.setattr(
+        task_module,
+        "sync_daily_fact_gap_events",
+        lambda _db, **kwargs: calls.append(kwargs) or {"open": 1},
+    )
+
+    task_module.run_daily_fact_closure(
+        db_session,
+        target_date=date(2026, 7, 7),
+        now=datetime(2026, 7, 8, 8, 5, tzinfo=SHANGHAI),
+    )
+
+    assert calls == [{
+        "business_date": date(2026, 7, 7),
+        "bundle": bundle,
+        "trace_id": "daily-fact-closure:2026-07-07",
+        "now": datetime(2026, 7, 8, 8, 5, tzinfo=SHANGHAI),
+    }]
 
 
 def test_daily_fact_closure_never_adopts_output_skill_reference(
@@ -306,6 +351,53 @@ def test_scheduled_daily_fact_closure_uses_managed_session(
 
     assert result == {"status": "pass", "same_session": True}
     assert events == ["enter", "exit"]
+
+
+def test_open_gap_refresh_rechecks_each_date_and_continues_after_one_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSession:
+        def rollback(self):
+            return None
+
+    fake_session = FakeSession()
+
+    class SessionContext:
+        def __enter__(self):
+            return fake_session
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+    class SessionLocal:
+        def __call__(self):
+            return SessionContext()
+
+    checked: list[date] = []
+
+    def fake_run(_db, *, target_date, **_kwargs):
+        checked.append(target_date)
+        if target_date == date(2026, 7, 20):
+            raise RuntimeError("one date failed")
+        return {"business_date": target_date.isoformat(), "status": "blocked"}
+
+    monkeypatch.setattr(task_module, "get_sessionmaker", lambda: SessionLocal())
+    monkeypatch.setattr(
+        task_module,
+        "list_open_daily_fact_gap_dates",
+        lambda _db: [date(2026, 7, 21), date(2026, 7, 20)],
+    )
+    monkeypatch.setattr(task_module, "run_daily_fact_closure", fake_run)
+    result = task_module.run_open_daily_fact_gap_refresh()
+
+    assert checked == [date(2026, 7, 21), date(2026, 7, 20)]
+    assert result["status"] == "partial"
+    assert result["checked_dates"] == 2
+    assert result["results"][1] == {
+        "business_date": "2026-07-20",
+        "status": "failed",
+        "error": "RuntimeError",
+    }
 
 
 def test_startup_catchup_executes_missed_business_day_and_is_idempotent(
