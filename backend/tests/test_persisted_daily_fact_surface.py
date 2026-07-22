@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.domain.metric_contracts import daily_report_contract_for
-from app.models.agent_communication import AgentEvent
+from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
 from app.models.system import User
 from app.services.report import daily_overview_builder
@@ -50,6 +50,7 @@ def db_session() -> Iterator[Session]:
         tables=[
             cast(Table, User.__table__),
             cast(Table, AgentEvent.__table__),
+            cast(Table, AgentOutboxMessage.__table__),
             cast(Table, DailyFactBundleRun.__table__),
             cast(Table, DailyFactBundleSnapshot.__table__),
         ],
@@ -363,7 +364,18 @@ def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session
             "outbox_message_id": 21,
         },
     )
-    db_session.add(event)
+    outbox = AgentOutboxMessage(
+        id=21,
+        dispatch_key="daily-fact-gap-sent",
+        event_id=None,
+        status="sent",
+        title="日报缺项",
+        content="已发送",
+        business_date=TARGET_DATE,
+        source_summary="daily_fact_closure",
+        trace_id="daily-fact-closure:2026-07-07",
+    )
+    db_session.add_all([event, outbox])
     db_session.commit()
 
     payload = _overview(db_session)
@@ -391,7 +403,7 @@ def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session
             "&owner_role=energy_chief"
             "&trace_id=daily-fact-closure%3A2026-07-07"
         ),
-        "delivery_status": "pending",
+        "delivery_status": "sent",
         "outbox_message_id": 21,
     }]
 

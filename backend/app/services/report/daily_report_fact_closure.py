@@ -10,7 +10,7 @@ from sqlalchemy import literal
 from sqlalchemy.orm import Session
 
 from app.domain.metric_contracts import daily_report_contract_for
-from app.models.agent_communication import AgentEvent
+from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
 from app.services.report.daily_report_gap_analysis import (
     build_daily_report_gap_plan,
@@ -228,6 +228,22 @@ def _daily_fact_gap_event_alerts(
         .order_by(AgentEvent.occurred_at.desc(), AgentEvent.id.desc())
         .all()
     )
+    outbox_ids = {
+        payload.get("outbox_message_id")
+        for event in events
+        if isinstance((payload := event.payload), Mapping)
+        and isinstance(payload.get("outbox_message_id"), int)
+    }
+    outbox_status_by_id = {
+        message_id: status
+        for message_id, status in (
+            db.query(AgentOutboxMessage.id, AgentOutboxMessage.status)
+            .filter(AgentOutboxMessage.id.in_(outbox_ids))
+            .all()
+            if outbox_ids
+            else []
+        )
+    }
     alerts: list[dict[str, Any]] = []
     for event in events:
         payload = dict(event.payload) if isinstance(event.payload, Mapping) else {}
@@ -243,6 +259,7 @@ def _daily_fact_gap_event_alerts(
         entry_fields = [str(value) for value in payload.get("entry_fields") or [] if str(value).strip()]
         fill_strategy = str(payload.get("fill_strategy") or "source_recheck")
         owner_role = str(payload.get("owner_role") or "factory_dispatch")
+        outbox_message_id = payload.get("outbox_message_id")
         detail_route = (
             _alerts_route(trace_id)
             if event.status == "resolved"
@@ -275,8 +292,11 @@ def _daily_fact_gap_event_alerts(
                 "owner_role": owner_role,
                 "entry_fields": entry_fields,
                 "detail_route": detail_route,
-                "delivery_status": payload.get("delivery_status"),
-                "outbox_message_id": payload.get("outbox_message_id"),
+                "delivery_status": outbox_status_by_id.get(
+                    outbox_message_id,
+                    payload.get("delivery_status"),
+                ),
+                "outbox_message_id": outbox_message_id,
             }
         )
     return alerts
