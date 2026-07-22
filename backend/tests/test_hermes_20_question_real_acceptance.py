@@ -8,6 +8,7 @@ import pytest
 from app.services.hermes_20_question_acceptance import (
     AcceptanceTurnSnapshot,
     _unit_matches_field,
+    _answer_contains_fact_value,
     answer_is_confirmed,
     build_20_question_catalog,
     confirmed_fact_failure_reason,
@@ -158,15 +159,29 @@ def _fact_records(question_id: int) -> list[dict[str, object]]:
     return records
 
 
+def _answer_for_fact_records(records: list[dict[str, object]]) -> str:
+    confirmed_fact_text = "；".join(
+        f"{record['field']}：{record['value']} {record.get('unit') or ''}"
+        f"（事实来源：{record.get('source_type') or record.get('source')}；事实追踪：{record['trace_id']}）"
+        for record in records
+        if record.get("status") == "confirmed"
+    )
+    return (
+        f"鑫泰铝业智能大脑回答：{confirmed_fact_text or '当前事实缺失'}。"
+        "来源：钉钉群聊天内容、MES/WMS 只读链路。状态：confirmed。追踪编号：trace-q。"
+    )
+
+
 def _passing_snapshot(question_id: int, *, answer: str | None = None) -> AcceptanceTurnSnapshot:
     catalog = {item.question_id: item for item in build_20_question_catalog()}
     question = catalog[question_id]
+    fact_answer = _fact_records(question_id)
     snapshot = AcceptanceTurnSnapshot(
         question_id=question.question_id,
         trace_id=f"trace-q{question_id}",
         status="answered",
         answer=answer
-        or "鑫泰铝业智能大脑回答：结论已确认。来源：钉钉群聊天内容、MES/WMS 只读链路。状态：confirmed。追踪编号：trace-q。",
+        or _answer_for_fact_records(fact_answer),
         recognition={
             "domain": question.domain,
             "metric_keys": list(question.metric_keys),
@@ -205,8 +220,8 @@ def _passing_snapshot(question_id: int, *, answer: str | None = None) -> Accepta
             }
         },
         required_source_health=(),
+        fact_answer=fact_answer,
     )
-    snapshot.fact_answer = _fact_records(question_id)
     return snapshot
 
 
@@ -896,6 +911,46 @@ def test_answer_gate_rejects_answer_that_is_not_really_chinese() -> None:
     assert "public_identity_or_language_failed" in result.failed_reasons
 
 
+def test_answer_gate_rejects_confirmed_fact_value_omitted_from_answer() -> None:
+    question = build_20_question_catalog()[4]
+    snapshot = _passing_snapshot(
+        5,
+        answer=(
+            "鑫泰铝业智能大脑回答：数据中枢投影已读取当前指标。"
+            "来源：数据中枢投影。状态：confirmed。追踪编号：trace-q。"
+        ),
+    )
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "answer" in result.failed_gate_names
+    assert "confirmed_fact_value_not_rendered:total_electricity_kwh" in result.failed_reasons
+
+
+def test_answer_gate_rejects_confirmed_fact_trace_omitted_from_answer() -> None:
+    question = build_20_question_catalog()[4]
+    snapshot = _passing_snapshot(
+        5,
+        answer=(
+            "鑫泰铝业智能大脑回答：高压总用电量：1 kWh。"
+            "事实来源：数据中枢投影。状态：confirmed。追踪编号：trace-q。"
+        ),
+    )
+
+    result = evaluate_question_snapshot(question, snapshot)
+
+    assert result.core_passed is False
+    assert "confirmed_fact_trace_not_rendered:total_electricity_kwh" in result.failed_reasons
+
+
+def test_answer_fact_value_matcher_rejects_omitted_structured_values() -> None:
+    value = {"热轧": 100.5, "冷轧": 80.0}
+
+    assert _answer_contains_fact_value("热轧 100.5、冷轧 80 吨", value, "吨") is True
+    assert _answer_contains_fact_value("各车间产量已读取，共 180.5 吨", value, "吨") is False
+
+
 def test_answer_gate_rejects_public_identity_terms_regardless_of_case() -> None:
     question = build_20_question_catalog()[0]
     for forbidden_term in (
@@ -1092,6 +1147,7 @@ def test_priority_dingtalk_fact_passes_when_mes_was_checked_but_has_no_current_m
             "trace_id": "dingtalk-fact-daily_yield_rate-13",
         }
     ]
+    snapshot.answer = _answer_for_fact_records(snapshot.fact_answer)
 
     result = evaluate_question_snapshot(question, snapshot)
 
@@ -1205,6 +1261,7 @@ def test_wip_metric_can_use_verified_dingtalk_priority_source() -> None:
             "trace_id": "dingtalk-fact-wip_total-14",
         }
     ]
+    snapshot.answer = _answer_for_fact_records(snapshot.fact_answer)
 
     result = evaluate_question_snapshot(question, snapshot)
 

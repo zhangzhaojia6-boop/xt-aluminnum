@@ -13,7 +13,9 @@ from app.models.agent_communication import (
 )
 from app.models.system import User
 from app.services.hermes_root_owner_evidence_service import EvidenceCandidate, EvidenceDecision
+from app.services.hermes_root_owner_message_service import understand_root_owner_message
 from app.services.hermes_root_owner_production_orchestrator import (
+    _build_natural_answer,
     _evidence_payload,
     run_root_owner_production_turn,
 )
@@ -107,7 +109,8 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
 
         assert result.status == "answered"
         assert "鑫泰铝业智能大脑" in result.answer
-        assert "负责人群里确认 118 吨" in result.answer
+        assert "全厂总产量：118 吨" in result.answer
+        assert "事实追踪：trace-ding-001" in result.answer
         assert "钉钉" in result.answer
         assert "追踪编号" in result.answer
         for token in _FORBIDDEN_PUBLIC_IDENTITY_TERMS:
@@ -147,6 +150,44 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
             reread_db.close()
     finally:
         db.close()
+
+
+def test_natural_answer_renders_confirmed_fact_value_unit_and_source_trace() -> None:
+    plan = understand_root_owner_message(
+        "今天高压总用电量是多少？",
+        default_business_date=date(2026, 7, 21),
+    )
+    primary = EvidenceCandidate(
+        source_key="data_hub_projection",
+        source_type="data_hub",
+        domain="energy",
+        priority=40,
+        status="ok",
+        value={
+            "total_electricity_kwh": {
+                "value": 145000.0,
+                "unit": "kWh",
+                "source_type": "manual_workbook",
+                "trace_id": "import-read:import_rows:44:total_electricity_kwh:921",
+            }
+        },
+        summary="数据中枢投影已读取当前指标",
+        trace_ref={"source": "daily_fact_bundle", "status": "ok"},
+    )
+    decision = EvidenceDecision(
+        primary=primary,
+        candidates=(primary,),
+        conflicts=(),
+        missing_sources=[],
+        trace={"trace_id": "hermes-20q-2026-07-21-05"},
+    )
+
+    answer = _build_natural_answer(plan=plan, decision=decision)
+
+    assert "145000" in answer
+    assert "kWh" in answer
+    assert "事实来源：导入原始工作簿" in answer
+    assert "import-read:import_rows:44:total_electricity_kwh:921" in answer
 
 
 def test_private_evidence_follow_up_recovers_previous_production_fact_context(monkeypatch) -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field as dataclass_field
 from datetime import date, datetime
 from typing import Any, Mapping, Sequence
@@ -772,7 +773,65 @@ def _answer_gate(snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:
         return LayerGateResult("answer", False, "public_identity_or_language_failed")
     if "来源" not in answer or "状态" not in answer:
         return LayerGateResult("answer", False, "answer_contract_incomplete")
+    confirmed_facts = [
+        fact
+        for fact in snapshot.fact_answer or []
+        if isinstance(fact, Mapping) and str(fact.get("status") or "").lower() == "confirmed"
+    ]
+    for fact in confirmed_facts:
+        field_name = str(fact.get("field") or "").strip()
+        value = fact.get("value")
+        if not _answer_contains_fact_value(answer, value, fact.get("unit")):
+            return LayerGateResult("answer", False, f"confirmed_fact_value_not_rendered:{field_name}")
+        trace_id = str(fact.get("trace_id") or "").strip()
+        if trace_id and trace_id not in answer:
+            return LayerGateResult("answer", False, f"confirmed_fact_trace_not_rendered:{field_name}")
+    if confirmed_facts and "事实来源" not in answer:
+        return LayerGateResult("answer", False, "confirmed_fact_source_not_rendered")
     return LayerGateResult("answer", True, "ok")
+
+
+def _answer_contains_fact_value(answer: str, value: Any, unit: Any) -> bool:
+    if isinstance(value, Mapping):
+        items = [item for item in value.values() if item not in (None, "")]
+        return bool(items) and all(
+            _answer_contains_fact_value(answer, item, None) for item in items
+        ) and _answer_contains_fact_unit(answer, unit)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        items = [item for item in value if item not in (None, "")]
+        return bool(items) and all(
+            _answer_contains_fact_value(answer, item, None) for item in items
+        ) and _answer_contains_fact_unit(answer, unit)
+    if isinstance(value, bool):
+        return ("是" if value else "否") in answer
+    if isinstance(value, (int, float)):
+        number = float(value)
+        number_text = str(int(number)) if number.is_integer() else format(number, ".15g")
+        number_pattern = rf"(?<![\dA-Za-z_]){re.escape(number_text)}(?:\.0+)?(?![\dA-Za-z_])"
+        unit_pattern = _answer_unit_pattern(unit)
+        return re.search(number_pattern + (rf"\s*{unit_pattern}" if unit_pattern else ""), answer, re.IGNORECASE) is not None
+    value_text = str(value or "").strip()
+    return bool(value_text) and value_text in answer and _answer_contains_fact_unit(answer, unit)
+
+
+def _answer_contains_fact_unit(answer: str, unit: Any) -> bool:
+    unit_pattern = _answer_unit_pattern(unit)
+    return not unit_pattern or re.search(unit_pattern, answer, re.IGNORECASE) is not None
+
+
+def _answer_unit_pattern(unit: Any) -> str:
+    normalized = str(unit or "").strip().casefold()
+    aliases = {
+        "kwh": ("kWh", "度", "千瓦时"),
+        "m³": ("m³", "m3", "立方米"),
+        "kwh/吨": ("kWh/吨", "度/吨", "千瓦时/吨"),
+        "元/吨": ("元/吨",),
+        "吨": ("吨", "t"),
+        "%": ("%", "百分点"),
+    }.get(normalized)
+    if not aliases:
+        return re.escape(str(unit).strip()) if str(unit or "").strip() else ""
+    return "(?:" + "|".join(re.escape(alias) for alias in aliases) + ")"
 
 
 def _delivery_gate(snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:
