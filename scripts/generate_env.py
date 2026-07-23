@@ -51,6 +51,7 @@ def build_env_content(
         'ALGORITHM=HS256',
         'ACCESS_TOKEN_EXPIRE_MINUTES=480',
         f'CORS_ORIGINS={cors_origins}',
+        'PUBLIC_APP_BASE_URL=',
         'DEFAULT_TIMEZONE=Asia/Shanghai',
         'UPLOAD_DIR=./backend/uploads',
         'MOBILE_DATA_ENTRY_MODE=manual_only',

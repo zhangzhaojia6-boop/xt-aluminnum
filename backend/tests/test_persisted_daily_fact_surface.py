@@ -399,6 +399,7 @@ def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session
         "detail_route": (
             "/entry/fill?business_date=2026-07-07"
             "&field=total_electricity_kwh"
+            "&entry_fields=total_electricity_kwh"
             "&entry_field=total_electricity_kwh"
             "&owner_role=energy_chief"
             "&trace_id=daily-fact-closure%3A2026-07-07"

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from datetime import date
 from typing import Any
+from urllib.parse import urlencode
 
 from app.services.report.template_daily_field_contract import field_group
 
@@ -90,6 +92,14 @@ FIELD_ACTIONS: dict[str, dict[str, Any]] = {
         "owner_role": "storage_owner",
         "entry_fields": ["park_inbound_daily", "new_plant_inbound_daily"],
         "next_step": "先查 WMS 和钉钉入库确认；仍缺失时由成品库分别补园区和新厂入库量。",
+    },
+    "cast_roll_daily": {
+        "source_lane": "computed_from_cast_2_cast_3",
+        "entry_route": "/manage/alerts",
+        "fill_strategy": "dependency_fill",
+        "owner_role": "factory_dispatch",
+        "entry_fields": [],
+        "next_step": "铸轧总产量由铸二和铸三日产量相加生成；先补齐或核对这两项，不能直接填一个总数覆盖。",
     },
     "wip_total": {
         "source_lane": "mes_wip_snapshot_or_dingtalk",
@@ -235,6 +245,39 @@ def classify_daily_report_field_gap(field_name: str) -> dict[str, Any]:
         "entry_field": entry_fields[0] if entry_fields else None,
         "next_step": base["next_step"],
     }
+
+
+def build_daily_report_gap_action_route(
+    *,
+    business_date: date,
+    field: str,
+    trace_id: str | None,
+    action: Mapping[str, Any],
+) -> str:
+    normalized_trace_id = str(trace_id or "").strip()
+    if str(action.get("entry_route") or "") != "/entry/fill":
+        if not normalized_trace_id:
+            return "/manage/alerts"
+        return f"/manage/alerts?{urlencode({'trace_id': normalized_trace_id})}"
+
+    entry_fields = [
+        str(value).strip()
+        for value in action.get("entry_fields") or []
+        if str(value).strip()
+    ]
+    params = {
+        "business_date": business_date.isoformat(),
+        "field": str(field),
+    }
+    if entry_fields:
+        params["entry_fields"] = ",".join(entry_fields)
+        params["entry_field"] = entry_fields[0]
+    owner_role = str(action.get("owner_role") or "").strip()
+    if owner_role:
+        params["owner_role"] = owner_role
+    if normalized_trace_id:
+        params["trace_id"] = normalized_trace_id
+    return f"/entry/fill?{urlencode(params)}"
 
 
 def build_daily_report_gap_plan(

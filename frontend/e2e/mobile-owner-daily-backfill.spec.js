@@ -65,6 +65,18 @@ async function setupOwnerDailySession(page) {
           type: 'number',
           unit: '吨',
           required: true,
+        }, {
+          name: 'park_inbound_daily',
+          label: '园区入库日合',
+          type: 'number',
+          unit: '吨',
+          required: false,
+        }, {
+          name: 'new_plant_inbound_daily',
+          label: '新厂入库日合',
+          type: 'number',
+          unit: '吨',
+          required: false,
         }],
       }],
       readonly_fields: [],
@@ -143,4 +155,33 @@ test('owner daily can load and submit a recent historical business date on mobil
   await expect(page.getByText('成品入库 86吨')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath('owner-daily-backfill.png'), fullPage: true })
+})
+
+
+test('Hermes fact action link focuses every visible storage field without changing role access', async ({ page }, testInfo) => {
+  const viewport = testInfo.project.name === 'mobile'
+    ? { width: 390, height: 844 }
+    : { width: 1280, height: 900 }
+  await page.setViewportSize(viewport)
+  await setupOwnerDailySession(page)
+
+  await page.goto(
+    '/entry/fill?business_date=2026-07-17'
+    + '&field=finished_inbound_daily'
+    + '&entry_fields=park_inbound_daily%2Cnew_plant_inbound_daily'
+    + '&entry_field=park_inbound_daily'
+    + '&owner_role=storage_owner'
+    + '&trace_id=daily-fact-closure%3A2026-07-17'
+  )
+
+  await expect(page.getByLabel('业务日期')).toHaveValue('2026-07-17')
+  await expect(page.getByTestId('field-park_inbound_daily')).toHaveClass(/ue-field--requested/)
+  await expect(page.getByTestId('field-new_plant_inbound_daily')).toHaveClass(/ue-field--requested/)
+  await expect(page.getByTestId('field-finished_inbound_daily')).not.toHaveClass(/ue-field--requested/)
+  await expect(page.getByLabel(/园区入库日合/)).toBeFocused()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+  await page.screenshot({
+    path: testInfo.outputPath(`fact-action-fields-${testInfo.project.name}.png`),
+    fullPage: true,
+  })
 })

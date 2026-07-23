@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     CORS_ORIGINS: str = 'http://localhost:5173,http://localhost:8080,http://localhost:3000'
     PRODUCTION_CORS_ORIGINS: str = 'https://data.xintai-alu.com,https://m.xintai-alu.com'
+    PUBLIC_APP_BASE_URL: str | None = None
     UPLOAD_DIR: str = './uploads'
     DEFAULT_TIMEZONE: str = 'Asia/Shanghai'
     MOBILE_DATA_ENTRY_MODE: str = 'manual_only'

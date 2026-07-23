@@ -4,9 +4,11 @@ import hashlib
 from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.business_time import local_now
 from app.models.agent_communication import (
     AgentChannelBinding,
@@ -15,7 +17,10 @@ from app.models.agent_communication import (
     CommunicationChannel,
 )
 from app.services import agent_communication_service
-from app.services.report.daily_report_gap_analysis import classify_daily_report_field_gap
+from app.services.report.daily_report_gap_analysis import (
+    build_daily_report_gap_action_route,
+    classify_daily_report_field_gap,
+)
 from app.services.report.template_daily_report import FACT_LABELS
 
 
@@ -65,6 +70,13 @@ def sync_daily_fact_gap_events(
 ) -> dict[str, Any]:
     checked_at = local_now(now)
     gap_items = _real_source_gap_items(bundle)
+    for item in gap_items:
+        item["action_route"] = build_daily_report_gap_action_route(
+            business_date=business_date,
+            field=item["field"],
+            trace_id=trace_id,
+            action=item,
+        )
     existing_events = (
         db.query(AgentEvent)
         .filter(
@@ -183,6 +195,9 @@ def sync_daily_fact_gap_events(
                             "entry_route": item["entry_route"],
                             "entry_fields": item["entry_fields"],
                             "fill_strategy": item["fill_strategy"],
+                            "business_date": business_date.isoformat(),
+                            "trace_id": trace_id,
+                            "action_route": item["action_route"],
                         }
                         for item in gap_items
                     ],
@@ -366,7 +381,12 @@ def _outbox_content(
     item_lines = []
     for item in gap_items[:8]:
         owner_label = OWNER_ROLE_LABELS.get(str(item.get("owner_role")), "管理调度")
-        item_lines.append(f"- {_field_label(item['field'])}（责任：{owner_label}）：{item['next_step']}")
+        action_label = "立即补录" if item.get("entry_route") == "/entry/fill" else "查看处理"
+        action_url = _public_action_url(_outbox_action_route(str(item["action_route"])))
+        item_lines.append(
+            f"- {_field_label(item['field'])}（责任：{owner_label}）："
+            f"{item['next_step']} [{action_label}]({action_url})"
+        )
     if len(gap_items) > 8:
         item_lines.append(f"- 另有 {len(gap_items) - 8} 项，请在异常中心查看")
     resolved_line = f"- 本轮已补齐：{resolved_count} 项\n" if resolved_count else ""
@@ -376,9 +396,25 @@ def _outbox_content(
         f"- 待补事实：{len(gap_items)} 项\n"
         f"{resolved_line}"
         + "\n".join(item_lines)
-        + "\n- 填报入口：/entry/fill"
         + f"\n- 追踪号：{trace_id}"
     )
+
+
+def _outbox_action_route(action_route: str) -> str:
+    parsed = urlsplit(action_route)
+    query = urlencode([
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key != "field"
+    ])
+    return urlunsplit(("", "", parsed.path, query, ""))
+
+
+def _public_action_url(action_route: str) -> str:
+    base_url = str(settings.PUBLIC_APP_BASE_URL or "").strip().rstrip("/")
+    if not base_url:
+        return action_route
+    return f"{base_url}{action_route}"
 
 
 def _field_label(field: str) -> str:

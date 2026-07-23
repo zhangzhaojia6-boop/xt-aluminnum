@@ -73,10 +73,25 @@ export function resolveOwnerDailyRequestedBusinessDate(value, latestBusinessDate
 }
 
 export function resolveRequestedEntryField(value, fields = []) {
-  const requested = Array.isArray(value) ? value[0] : value
-  const normalized = String(requested || '').trim()
-  if (!normalized) return ''
-  return fields.some((field) => String(field?.name || '').trim() === normalized) ? normalized : ''
+  return resolveRequestedEntryFields(value, fields)[0] || ''
+}
+
+export function resolveRequestedEntryFields(value, fields = []) {
+  const requestedValues = Array.isArray(value) ? value : [value]
+  const allowedFields = new Set(
+    fields
+      .map((field) => String(field?.name || '').trim())
+      .filter(Boolean)
+  )
+  const resolved = []
+  for (const requestedValue of requestedValues) {
+    for (const rawField of String(requestedValue || '').split(',')) {
+      const field = rawField.trim()
+      if (!field || !allowedFields.has(field) || resolved.includes(field)) continue
+      resolved.push(field)
+    }
+  }
+  return resolved
 }
 
 function inferBusinessDateAtAnchor(anchorMinutes, now = new Date()) {

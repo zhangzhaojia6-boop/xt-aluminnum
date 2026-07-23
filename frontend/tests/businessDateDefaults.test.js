@@ -6,6 +6,7 @@ import { dirname, resolve } from 'node:path'
 import {
   ownerDailyBusinessDateOptions,
   resolveRequestedEntryField,
+  resolveRequestedEntryFields,
   resolveOwnerDailyRequestedBusinessDate,
 } from '../src/utils/shiftClock.js'
 
@@ -108,11 +109,31 @@ test('requested entry field only resolves when the signed-in role can see it', (
   assert.equal(resolveRequestedEntryField('total_cost_10k', [{ name: 'total_electricity_kwh' }]), '')
 })
 
-test('unified entry consumes the requested concrete form field', () => {
+test('requested entry fields accept csv or repeated query values and keep only visible fields', () => {
+  const fields = [
+    { name: 'park_inbound_daily' },
+    { name: 'new_plant_inbound_daily' },
+  ]
+
+  assert.deepEqual(
+    resolveRequestedEntryFields('park_inbound_daily,new_plant_inbound_daily', fields),
+    ['park_inbound_daily', 'new_plant_inbound_daily'],
+  )
+  assert.deepEqual(
+    resolveRequestedEntryFields(
+      ['new_plant_inbound_daily', 'hidden_field,park_inbound_daily', 'new_plant_inbound_daily'],
+      fields,
+    ),
+    ['new_plant_inbound_daily', 'park_inbound_daily'],
+  )
+})
+
+test('unified entry consumes all requested concrete form fields', () => {
   const source = readSource('src/views/mobile/UnifiedEntryForm.vue')
 
-  assert.match(source, /route\.query\.entry_field/)
-  assert.match(source, /resolveRequestedEntryField/)
+  assert.match(source, /route\.query\.entry_fields/)
+  assert.match(source, /resolveRequestedEntryFields/)
+  assert.match(source, /requestedEntryFields\.includes/)
   assert.match(source, /ue-field--requested/)
 })
 

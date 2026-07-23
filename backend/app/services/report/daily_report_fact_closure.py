@@ -4,7 +4,7 @@ from collections import Counter
 from collections.abc import Mapping
 from datetime import date
 from typing import Any
-from urllib.parse import quote, urlencode
+from urllib.parse import quote
 
 from sqlalchemy import literal
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from app.domain.metric_contracts import daily_report_contract_for
 from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
 from app.services.report.daily_report_gap_analysis import (
+    build_daily_report_gap_action_route,
     build_daily_report_gap_plan,
     classify_daily_report_field_gap,
 )
@@ -205,7 +206,12 @@ def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> li
                 "owner_role": gap_action["owner_role"],
                 "entry_fields": gap_action["entry_fields"],
                 "next_step": gap_action["next_step"],
-                "detail_route": _gap_detail_route(target_date, field, trace_id, gap_action),
+                "detail_route": build_daily_report_gap_action_route(
+                    business_date=target_date,
+                    field=field,
+                    trace_id=trace_id,
+                    action=gap_action,
+                ),
             }
         )
     return alerts
@@ -263,11 +269,11 @@ def _daily_fact_gap_event_alerts(
         detail_route = (
             _alerts_route(trace_id)
             if event.status == "resolved"
-            else _gap_detail_route(
-                target_date,
-                field,
-                trace_id,
-                {
+            else build_daily_report_gap_action_route(
+                business_date=target_date,
+                field=field,
+                trace_id=trace_id,
+                action={
                     "entry_route": entry_route,
                     "entry_fields": entry_fields,
                     "owner_role": owner_role,
@@ -306,45 +312,6 @@ def _alerts_route(trace_id: str | None) -> str:
     if trace_id is None:
         return "/manage/alerts"
     return f"/manage/alerts?trace_id={quote(trace_id, safe='')}"
-
-
-def _gap_detail_route(
-    target_date: date,
-    field: str,
-    trace_id: str | None,
-    action: Mapping[str, Any],
-) -> str:
-    if str(action.get("entry_route") or "") != "/entry/fill":
-        return _alerts_route(trace_id)
-    entry_fields = [str(value) for value in action.get("entry_fields") or [] if str(value).strip()]
-    return _entry_fill_route(
-        target_date,
-        field,
-        trace_id,
-        entry_field=entry_fields[0] if entry_fields else None,
-        owner_role=_present_text(action.get("owner_role")),
-    )
-
-
-def _entry_fill_route(
-    target_date: date,
-    field: str,
-    trace_id: str | None,
-    *,
-    entry_field: str | None = None,
-    owner_role: str | None = None,
-) -> str:
-    params = {
-        "business_date": target_date.isoformat(),
-        "field": field,
-    }
-    if entry_field is not None:
-        params["entry_field"] = entry_field
-    if owner_role is not None:
-        params["owner_role"] = owner_role
-    if trace_id is not None:
-        params["trace_id"] = trace_id
-    return f"/entry/fill?{urlencode(params)}"
 
 
 def _present_text(value: Any) -> str | None:

@@ -62,7 +62,7 @@
             :class="{
               'ue-field--wide': isWideField(field),
               'ue-field--spec': field.type === 'spec',
-              'ue-field--requested': field.name === requestedEntryField
+              'ue-field--requested': requestedEntryFields.includes(field.name)
             }"
             :data-testid="`field-${field.name}`"
           >
@@ -306,7 +306,7 @@ import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
 import {
   inferOwnerDailyBusinessDate,
   ownerDailyBusinessDateOptions,
-  resolveRequestedEntryField,
+  resolveRequestedEntryFields,
   resolveOwnerDailyRequestedBusinessDate,
 } from '../../utils/shiftClock.js'
 import { formatShiftLabel } from '../../utils/display.js'
@@ -325,7 +325,7 @@ const lockedFieldsSnapshot = ref({})
 const lockedFieldsToken = ref('')
 const mesReferenceFields = ref([])
 const groups = ref([])
-const requestedEntryField = ref('')
+const requestedEntryFields = ref([])
 const readonlyFields = ref([])
 const entryRoleLabel = ref('')
 const visibleReadonlyFields = computed(() =>
@@ -864,8 +864,8 @@ async function loadData() {
     }
 
     const allFields = groups.value.flatMap(g => g.fields)
-    requestedEntryField.value = resolveRequestedEntryField(
-      route.query.entry_field || route.query.entryField || route.query.field,
+    requestedEntryFields.value = resolveRequestedEntryFields(
+      route.query.entry_fields || route.query.entry_field || route.query.entryField || route.query.field,
       allFields,
     )
     loadDynamicOptions(allFields)
@@ -919,8 +919,9 @@ async function loadData() {
 }
 
 function focusRequestedEntryField() {
-  if (!requestedEntryField.value || typeof document === 'undefined') return
-  const target = document.querySelector(`[data-testid="field-${requestedEntryField.value}"]`)
+  const firstRequestedField = requestedEntryFields.value[0]
+  if (!firstRequestedField || typeof document === 'undefined') return
+  const target = document.querySelector(`[data-testid="field-${firstRequestedField}"]`)
   if (!target) return
   target.scrollIntoView({ block: 'center', behavior: 'smooth' })
   target.querySelector('input, textarea, select, button')?.focus({ preventScroll: true })

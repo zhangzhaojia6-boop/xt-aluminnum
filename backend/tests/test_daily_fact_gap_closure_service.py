@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
+from urllib.parse import parse_qs, urlparse
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.models import Base
 from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.services import agent_communication_service
+from app.services.report import daily_fact_gap_closure_service
 from app.services.report.daily_fact_gap_closure_service import (
     list_open_daily_fact_gap_dates,
     sync_daily_fact_gap_events,
@@ -77,9 +79,14 @@ def _bundle(*missing_fields: str) -> dict:
     }
 
 
-def test_sync_creates_one_event_per_field_and_one_deduped_outbox() -> None:
+def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) -> None:
     db = _db_session()
     try:
+        monkeypatch.setattr(
+            daily_fact_gap_closure_service.settings,
+            "PUBLIC_APP_BASE_URL",
+            "https://hub.example.com",
+        )
         _bind_factory_channel(db)
         bundle = _bundle("total_output_daily", "hot_roll_daily")
 
@@ -116,14 +123,35 @@ def test_sync_creates_one_event_per_field_and_one_deduped_outbox() -> None:
         assert by_field["hot_roll_daily"].payload["entry_route"] == "/entry/fill"
         assert by_field["hot_roll_daily"].payload["owner_role"] == "machine_operator"
         assert by_field["hot_roll_daily"].payload["entry_fields"] == ["output_weight"]
+        hot_roll_route = urlparse(by_field["hot_roll_daily"].payload["action_route"])
+        assert hot_roll_route.path == "/entry/fill"
+        assert parse_qs(hot_roll_route.query) == {
+            "business_date": ["2026-07-21"],
+            "field": ["hot_roll_daily"],
+            "entry_fields": ["output_weight"],
+            "entry_field": ["output_weight"],
+            "owner_role": ["machine_operator"],
+            "trace_id": ["daily-fact-closure:2026-07-21"],
+        }
         assert all("expected" not in event.payload for event in events)
         assert len(outbox) == 1
         assert outbox[0].event_id in {event.id for event in events}
         assert outbox[0].payload["event_ids"] == [event.id for event in events]
+        assignments = {
+            assignment["field"]: assignment
+            for assignment in outbox[0].payload["assignments"]
+        }
+        assert assignments["hot_roll_daily"]["business_date"] == "2026-07-21"
+        assert assignments["hot_roll_daily"]["trace_id"] == "daily-fact-closure:2026-07-21"
+        assert assignments["hot_roll_daily"]["action_route"] == by_field["hot_roll_daily"].payload["action_route"]
         assert "2 项" in outbox[0].content
         assert "999999" not in outbox[0].content
         assert "total_output_daily" not in outbox[0].content
         assert "hot_roll_daily" not in outbox[0].content
+        assert (
+            "[立即补录](https://hub.example.com/entry/fill?"
+            "business_date=2026-07-21&entry_fields=output_weight"
+        ) in outbox[0].content
         assert second["outbox_message_id"] == first["outbox_message_id"]
     finally:
         db.close()
@@ -221,9 +249,12 @@ def test_sync_assigns_existing_owner_forms_without_directly_filling_computed_fac
             "park_inbound_daily",
             "new_plant_inbound_daily",
         ]
+        inbound_route = parse_qs(urlparse(events["finished_inbound_daily"]["action_route"]).query)
+        assert inbound_route["entry_fields"] == ["park_inbound_daily,new_plant_inbound_daily"]
         assert events["total_cost_10k"]["fill_strategy"] == "dependency_fill"
         assert events["total_cost_10k"]["entry_route"] == "/manage/alerts"
         assert events["total_cost_10k"]["entry_fields"] == []
+        assert events["total_cost_10k"]["action_route"] == "/manage/alerts?trace_id=trace-owner-routing"
     finally:
         db.close()
 
