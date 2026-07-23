@@ -2,7 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildAlertWorkQueues,
+  groupAlertEvents,
+  normalizeDailyFactAlerts,
   normalizeFactoryDirector,
+  normalizeMesFillGaps,
   normalizeQuality,
   normalizeReconciliation,
   mergeAndSort
@@ -153,6 +156,107 @@ test('mergeAndSort sorts by occurredAt desc, ties broken by domain asc', () => {
   assert.deepEqual(out.map((e) => e.id), ['c', 'b', 'a'])
 })
 
+test('groupAlertEvents folds repeated fact evidence into one auditable action case', () => {
+  const raw = normalizeDailyFactAlerts({
+    fact_conflicts: [
+      {
+        id: 'yield-1',
+        field: 'daily_yield_rate',
+        status: 'mismatch',
+        trace_id: 'trace-yield-1',
+        target_date: DATE,
+      },
+      {
+        id: 'yield-2',
+        field: 'daily_yield_rate',
+        status: 'mismatch',
+        trace_id: 'trace-yield-2',
+        target_date: DATE,
+      },
+    ],
+  }, DATE)
+
+  const cases = groupAlertEvents(raw)
+
+  assert.equal(raw.length, 2)
+  assert.equal(cases.length, 1)
+  assert.equal(cases[0].rawCount, 2)
+  assert.equal(cases[0].rawOpenCount, 2)
+  assert.deepEqual(cases[0].sourceEventIds, ['fact-conflict:yield-1', 'fact-conflict:yield-2'])
+  assert.deepEqual(cases[0].traceIds, ['trace-yield-1', 'trace-yield-2'])
+  assert.equal(cases[0].sourceEvents.length, 2)
+  assert.equal(cases[0].status, 'open')
+  assert.match(cases[0].detail, /2 条原始记录/)
+  assert.match(cases[0].detail, /2 个追踪编号/)
+})
+
+test('groupAlertEvents groups MES batch rows only when the action identity matches', () => {
+  const raw = normalizeMesFillGaps({
+    items: [
+      {
+        status: 'mes_batch_unmapped',
+        workshop_id: 9,
+        workshop_name: '精整车间',
+        mes_machine_name: 'PC',
+        shift_name: '长白班',
+        process_name: '包装',
+        batch_no: 'B-001',
+      },
+      {
+        status: 'mes_batch_unmapped',
+        workshop_id: 9,
+        workshop_name: '精整车间',
+        mes_machine_name: 'PC',
+        shift_name: '长白班',
+        process_name: '包装',
+        batch_no: 'B-002',
+      },
+      {
+        status: 'mes_batch_unmapped',
+        workshop_id: 9,
+        workshop_name: '精整车间',
+        mes_machine_name: 'PC',
+        shift_name: '大夜班',
+        process_name: '包装',
+        batch_no: 'B-003',
+      },
+    ],
+  }, DATE)
+
+  const cases = groupAlertEvents(raw)
+
+  assert.equal(cases.length, 2)
+  assert.equal(cases.find((item) => item.rawCount === 2)?.sourceEvents.length, 2)
+  assert.equal(cases.find((item) => item.rawCount === 1)?.sourceEvents[0].id, 'mes-fill-gap:B-003')
+})
+
+test('groupAlertEvents never merges events without an explicit source-derived group key', () => {
+  const cases = groupAlertEvents([
+    { id: 'a', domain: 'production', summary: '同一句摘要', status: 'open' },
+    { id: 'a', domain: 'production', summary: '来源编号也重复', status: 'open' },
+    { domain: 'production', summary: '无来源编号', status: 'open' },
+    { domain: 'production', summary: '无来源编号', status: 'open' },
+  ])
+
+  assert.equal(cases.length, 4)
+  assert.deepEqual(cases.map((item) => item.rawCount), [1, 1, 1, 1])
+})
+
+test('daily agent failures stay separate unless the source provides an explicit action identity', () => {
+  const raw = normalizeDailyFactAlerts({
+    hermes_failures: [
+      { id: 'run-1', status: 'failed', target_date: DATE },
+      { id: 'run-2', status: 'failed', target_date: DATE },
+    ],
+    dingtalk_inbound_failures: [
+      { id: 'inbound-1', status: 'failed', target_date: DATE },
+      { id: 'inbound-2', status: 'failed', target_date: DATE },
+    ],
+  }, DATE)
+
+  assert.equal(groupAlertEvents(raw).length, 4)
+})
+
 test('buildAlertWorkQueues groups events into actionable management queues', () => {
   const queues = buildAlertWorkQueues([
     { id: 'a', domain: 'reporting', summary: '热轧 长白班 缺报', status: 'open' },
@@ -171,6 +275,35 @@ test('buildAlertWorkQueues groups events into actionable management queues', () 
     ['production', 0],
   ])
   assert.equal(queues.find((queue) => queue.key === 'reconciliation')?.openCount, 0)
+})
+
+test('buildAlertWorkQueues reports action cases and raw evidence counts separately', () => {
+  const queues = buildAlertWorkQueues([
+    {
+      id: 'mes-1',
+      groupKey: 'mes:unmapped:9:PC:day:pack',
+      domain: 'mes',
+      summary: 'MES 批号未映射',
+      status: 'open',
+      traceId: 'trace-mes-1',
+    },
+    {
+      id: 'mes-2',
+      groupKey: 'mes:unmapped:9:PC:day:pack',
+      domain: 'mes',
+      summary: 'MES 批号未映射',
+      status: 'open',
+      traceId: 'trace-mes-2',
+    },
+  ])
+
+  const mesQueue = queues.find((queue) => queue.key === 'mes')
+  assert.equal(mesQueue.count, 1)
+  assert.equal(mesQueue.rawCount, 2)
+  assert.equal(mesQueue.openCount, 1)
+  assert.equal(mesQueue.openRawCount, 2)
+  assert.equal(mesQueue.items[0].rawCount, 2)
+  assert.equal(mesQueue.items[0].traceCount, 2)
 })
 
 test('buildAlertWorkQueues keeps known quality and reconciliation domains before keyword matching', () => {

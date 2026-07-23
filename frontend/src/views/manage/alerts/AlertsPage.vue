@@ -65,7 +65,10 @@
         >
           <header>
             <span>{{ queue.title }}</span>
-            <strong>{{ queue.count }}</strong>
+            <strong>
+              {{ queue.count }}
+              <small v-if="queue.rawCount !== queue.count">{{ queue.rawCount }} 条</small>
+            </strong>
           </header>
           <div v-if="queue.items.length" class="xt-alerts__queue-items">
             <RouterLink
@@ -73,7 +76,8 @@
               :key="item.id"
               :to="item.route"
             >
-              {{ item.text }}
+              <span>{{ item.text }}</span>
+              <small v-if="item.rawCount > 1">{{ item.rawCount }} 条</small>
             </RouterLink>
           </div>
           <p v-else>当前无待处理</p>
@@ -89,11 +93,12 @@
         </div>
         <div class="xt-alerts__timeline-meta">
           <span>{{ timeline.targetDate.value }}</span>
-          <span>{{ businessEvents.length }} 件</span>
+          <span>{{ actionCases.length }} 项</span>
+          <span>{{ businessEvents.length }} 条原始异常</span>
         </div>
       </div>
       <EventTimeline
-        :events="businessEvents"
+        :events="actionCases"
         :total-count="businessEvents.length"
         :open-count="openCount"
         :target-date="timeline.targetDate.value"
@@ -109,7 +114,10 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import DomainFilterChips from '../../../components/manage/DomainFilterChips.vue'
 import EventTimeline from '../../../components/manage/EventTimeline.vue'
-import { buildAlertWorkQueues } from '../../../components/manage/_alertEventNormalize.js'
+import {
+  buildAlertWorkQueues,
+  groupAlertEvents,
+} from '../../../components/manage/_alertEventNormalize.js'
 import { useAlertsTimeline } from '../../../composables/useAlertsTimeline.js'
 
 const route = useRoute()
@@ -166,11 +174,15 @@ const capabilityStatusText = computed(() => {
 const openCount = computed(
   () => businessEvents.value.filter((event) => event.status === 'open').length
 )
+const actionCases = computed(() => groupAlertEvents(businessEvents.value))
 const workQueues = computed(() => buildAlertWorkQueues(businessEvents.value))
 const workQueueSummary = computed(() => {
-  const total = workQueues.value.reduce((sum, item) => sum + item.count, 0)
-  const open = workQueues.value.reduce((sum, item) => sum + item.openCount, 0)
-  return open > 0 ? `${open} 件未结 / ${total} 件异常` : `${total} 件异常已纳入队列`
+  const caseCount = workQueues.value.reduce((sum, item) => sum + item.count, 0)
+  const rawCount = workQueues.value.reduce((sum, item) => sum + item.rawCount, 0)
+  const openCases = workQueues.value.reduce((sum, item) => sum + item.openCount, 0)
+  return openCases > 0
+    ? `${openCases} 项待处理 / ${rawCount} 条原始异常`
+    : `${caseCount} 项已处理 / ${rawCount} 条原始异常`
 })
 const alertStats = computed(() => {
   const total = businessEvents.value.length
@@ -178,7 +190,7 @@ const alertStats = computed(() => {
     { key: 'total', label: '全部异常', value: total, tone: 'cyan' },
     { key: 'open', label: '未结', value: openCount.value, tone: 'alert' },
     { key: 'closed', label: '已处理', value: Math.max(0, total - openCount.value), tone: 'blue' },
-    { key: 'domain', label: '筛选域', value: timeline.domains.value.length || '全部', tone: 'amber' }
+    { key: 'case', label: '处理事项', value: actionCases.value.length, tone: 'amber' }
   ]
 })
 
@@ -457,10 +469,20 @@ watch(() => route.query, () => {
 }
 
 .xt-alerts__queue header strong {
+  display: grid;
+  justify-items: end;
+  gap: var(--xt-space-1);
   color: var(--xt-primary);
   font-family: var(--xt-font-number);
   font-size: var(--xt-text-2xl);
   line-height: 1;
+}
+
+.xt-alerts__queue header strong small {
+  color: color-mix(in srgb, currentColor 72%, var(--xt-text-inverse));
+  font-family: var(--xt-font-ui);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
 }
 
 .xt-alerts__queue.tone-danger header strong {
@@ -477,6 +499,11 @@ watch(() => route.query, () => {
 }
 
 .xt-alerts__queue-items a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xt-space-2);
+  min-width: 0;
   overflow: hidden;
   padding: var(--xt-space-2);
   border: 1px solid color-mix(in srgb, var(--xt-primary) 12%, var(--xt-border));
@@ -485,8 +512,19 @@ watch(() => route.query, () => {
   font-size: var(--xt-text-xs);
   font-weight: 800;
   text-decoration: none;
+}
+
+.xt-alerts__queue-items a span {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.xt-alerts__queue-items a small {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--xt-warning) 78%, var(--xt-text-inverse));
+  font-size: var(--xt-text-xs);
 }
 
 .xt-alerts__queue p {

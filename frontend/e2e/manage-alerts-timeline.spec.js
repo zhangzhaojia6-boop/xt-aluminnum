@@ -49,9 +49,74 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
 
   test('date switcher refreshes the list', async ({ page }) => {
     await page.goto('/manage/alerts')
-    await expect(page.locator('.xt-event-timeline__summary')).toContainText(/共 \d+ 件|当日无异常/)
+    await expect(page.locator('.xt-event-timeline__summary')).toContainText(/共 \d+ 条原始异常|当日无异常/)
     await page.getByRole('button', { name: '前一天' }).click()
     await expect(page.locator('.xt-event-timeline__summary')).toBeVisible()
+  })
+
+  test('repeated source evidence is folded by explicit identity and remains expandable', async ({ page }) => {
+    await page.route('**/api/v1/dashboard/daily-production**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        fact_closure_available: true,
+        fact_conflicts: [
+          {
+            id: 'yield-1',
+            field: 'daily_yield_rate',
+            status: 'mismatch',
+            trace_id: 'trace-yield-1',
+            target_date: '2026-05-19',
+          },
+          {
+            id: 'yield-2',
+            field: 'daily_yield_rate',
+            status: 'mismatch',
+            trace_id: 'trace-yield-2',
+            target_date: '2026-05-19',
+          },
+        ],
+        fact_missing: [],
+        hermes_failures: [],
+        dingtalk_inbound_failures: [],
+      }),
+    }))
+    await page.route('**/api/v1/aggregation/live/mes-fill-gaps**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            status: 'mes_batch_unmapped',
+            workshop_id: 9,
+            workshop_name: '精整车间',
+            mes_machine_name: 'PC',
+            shift_name: '长白班',
+            process_name: '包装',
+            batch_no: 'B-001',
+          },
+          {
+            status: 'mes_batch_unmapped',
+            workshop_id: 9,
+            workshop_name: '精整车间',
+            mes_machine_name: 'PC',
+            shift_name: '长白班',
+            process_name: '包装',
+            batch_no: 'B-002',
+          },
+        ],
+      }),
+    }))
+
+    await page.goto('/manage/alerts')
+
+    await expect(page.locator('.xt-event-timeline__summary')).toContainText(/条原始异常，归并为 \d+ 项/)
+    const conflictCase = page.locator('.xt-event-timeline__row', { hasText: 'daily_yield_rate 事实冲突' })
+    await expect(conflictCase).toHaveCount(1)
+    await expect(conflictCase.getByText('2 条原始记录')).toBeVisible()
+    await expect(conflictCase.locator('.xt-event-timeline__source-list')).toHaveCount(0)
+    await conflictCase.getByRole('button', { name: /查看原始记录/ }).click()
+    await expect(conflictCase.locator('.xt-event-timeline__source-list .xt-event-card')).toHaveCount(2)
   })
 
   test('multi-select chips filter the list', async ({ page }) => {
@@ -74,10 +139,11 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
     await expect(page.locator('.xt-event-card', { hasText: /生产与 MES 核对/ })).toBeVisible()
   })
 
-  test('quality 500 → fallback card injected', async ({ page }) => {
+  test('quality 500 → capability failure remains visible without polluting action cases', async ({ page }) => {
     await mockQualityFailure(page)
     await page.goto('/manage/alerts')
-    await expect(page.locator('.xt-event-card', { hasText: '加载失败，点击查看异常页' })).toBeVisible()
+    await expect(page.getByRole('status')).toContainText('加载失败，点击查看异常页')
+    await expect(page.locator('.xt-event-card', { hasText: '加载失败，点击查看异常页' })).toHaveCount(0)
   })
 
   test('production card click keeps the anomaly alert surface', async ({ page }) => {

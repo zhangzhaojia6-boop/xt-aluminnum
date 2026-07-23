@@ -20,6 +20,11 @@ function joinNonEmpty(parts, sep = ' ') {
   return parts.map((p) => (p == null ? '' : String(p).trim())).filter(Boolean).join(sep)
 }
 
+function actionGroupKey(domain, parts) {
+  const normalized = parts.map((part) => String(part ?? '').trim() || '_')
+  return `${domain}:${normalized.join('|')}`
+}
+
 function fallbackOccurredAt(row, targetDate) {
   return row.occurred_at || row.created_at || row.updated_at || `${targetDate}T00:00:00`
 }
@@ -187,6 +192,15 @@ export function normalizeFactoryDirector(payload, targetDate) {
 export function normalizeQuality(items, targetDate) {
   return safeArray(items).map((row, idx) => ({
     id: fallbackId('quality', row, idx),
+    groupKey: row.issue_type || row.dimension_key || row.field_name
+      ? actionGroupKey('quality', [
+          row.issue_type,
+          row.issue_level,
+          row.dimension_key,
+          row.field_name,
+          row.status,
+        ])
+      : undefined,
     domain: 'quality',
     occurredAt: fallbackOccurredAt(row, targetDate),
     summary: qualitySummary(row),
@@ -199,6 +213,16 @@ export function normalizeQuality(items, targetDate) {
 export function normalizeReconciliation(items, targetDate) {
   return safeArray(items).map((row, idx) => ({
     id: fallbackId('reconciliation', row, idx),
+    groupKey: row.reconciliation_type || row.dimension_key || row.field_name
+      ? actionGroupKey('reconciliation', [
+          row.reconciliation_type,
+          row.dimension_key,
+          row.field_name,
+          row.source_a,
+          row.source_b,
+          row.status,
+        ])
+      : undefined,
     domain: 'reconciliation',
     occurredAt: fallbackOccurredAt(row, targetDate),
     summary: reconciliationSummary(row),
@@ -213,6 +237,16 @@ export function normalizeMesFillGaps(payload, targetDate) {
     .filter((row) => row?.status && row.status !== 'matched')
     .map((row, idx) => ({
       id: `mes-fill-gap:${row.tracking_card_no || row.batch_no || row.local_entry_id || idx}`,
+      groupKey: row.workshop_id || row.workshop_name || row.mes_resolved_machine_id
+        || row.mes_machine_name || row.local_machine_name || row.shift_name || row.process_name
+        ? actionGroupKey('mes', [
+            row.status,
+            row.workshop_id || row.workshop_name,
+            row.mes_resolved_machine_id || row.mes_machine_name || row.local_machine_name,
+            row.shift_name,
+            row.process_name,
+          ])
+        : undefined,
       domain: 'mes',
       occurredAt: row.mes_end_time || fallbackOccurredAt(row, targetDate),
       summary: mesGapSummary(row),
@@ -316,8 +350,12 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
     : factSource
   const workflowStatus = row.task_status || row.taskStatus || row.status
   const factStatus = row.fact_status || row.factStatus || row.status || null
+  const groupKey = kind.startsWith('fact-')
+    ? actionGroupKey('daily-fact', [kind, row.field || row.field_name || rawId])
+    : undefined
   return {
     id: `${kind}:${rawId}`,
+    groupKey,
     domain: kind === 'fact-conflict'
       ? 'reconciliation'
       : (kind === 'hermes-failure' ? 'production' : 'reporting'),
@@ -372,11 +410,62 @@ export function mergeAndSort(eventsArrays) {
   })
 }
 
+export function groupAlertEvents(events = []) {
+  const buckets = new Map()
+  safeArray(events).forEach((event, index) => {
+    if (!event || typeof event !== 'object') return
+    const key = event.groupKey || `event:${event.id ?? 'anonymous'}:${index}`
+    const rows = buckets.get(key) || []
+    rows.push(event)
+    buckets.set(key, rows)
+  })
+
+  const cases = [...buckets.entries()].map(([groupKey, sourceEvents]) => {
+    const latest = [...sourceEvents].sort((a, b) => (
+      String(a.occurredAt || '') < String(b.occurredAt || '') ? 1 : -1
+    ))[0]
+    const sourceEventIds = sourceEvents
+      .map((event) => event.id)
+      .filter((id) => id !== null && id !== undefined)
+      .map(String)
+    const traceIds = [...new Set(
+      sourceEvents
+        .map((event) => String(event.traceId || '').trim())
+        .filter(Boolean)
+    )]
+    const rawCount = sourceEvents.length
+    const rawOpenCount = sourceEvents.filter((event) => event.status === 'open').length
+    const auditDetail = rawCount > 1
+      ? joinNonEmpty([
+          `${rawCount} 条原始记录`,
+          traceIds.length > 0 ? `${traceIds.length} 个追踪编号` : '',
+        ], ' · ')
+      : ''
+    return {
+      ...latest,
+      id: rawCount > 1 ? `case:${groupKey}` : latest.id,
+      groupKey,
+      detail: joinNonEmpty([latest.detail, auditDetail], ' · '),
+      status: rawOpenCount > 0
+        ? 'open'
+        : (sourceEvents.every((event) => event.status === 'resolved') ? 'resolved' : latest.status),
+      rawCount,
+      rawOpenCount,
+      sourceEventIds,
+      traceIds,
+      sourceEvents,
+    }
+  })
+
+  return mergeAndSort([cases])
+}
+
 function queueKeyForEvent(event = {}) {
   const text = `${event.summary || ''} ${event.domain || ''}`
   if (event.domain === 'reporting') return 'reporting'
   if (event.domain === 'quality') return 'quality'
   if (event.domain === 'reconciliation') return 'reconciliation'
+  if (event.domain === 'mes') return 'mes'
   if (/缺报|催报|补录|退回|上报/.test(text)) return 'reporting'
   if (/能耗|用电|电耗|电工|天然气/.test(text)) return 'energy'
   if (/MES|机列|待归属|未匹配|外部/.test(text)) return 'mes'
@@ -393,8 +482,13 @@ const ALERT_WORK_QUEUE_DEFS = [
 ]
 
 export function buildAlertWorkQueues(events = []) {
+  const cases = safeArray(events).every((event) => (
+    Number.isInteger(event?.rawCount) && Array.isArray(event?.sourceEvents)
+  ))
+    ? safeArray(events)
+    : groupAlertEvents(events)
   const buckets = Object.fromEntries(ALERT_WORK_QUEUE_DEFS.map((item) => [item.key, []]))
-  safeArray(events).filter((event) => !event?.isFallback).forEach((event) => {
+  cases.filter((event) => !event?.isFallback).forEach((event) => {
     const key = queueKeyForEvent(event)
     buckets[key].push(event)
   })
@@ -404,13 +498,20 @@ export function buildAlertWorkQueues(events = []) {
     return {
       ...item,
       count: rows.length,
+      rawCount: rows.reduce((sum, event) => sum + Number(event.rawCount || 1), 0),
       openCount: rows.filter((event) => event.status === 'open').length,
+      openRawCount: rows.reduce(
+        (sum, event) => sum + Number(event.rawOpenCount ?? (event.status === 'open' ? event.rawCount || 1 : 0)),
+        0
+      ),
       items: rows.slice(0, 3).map((event) => ({
         id: event.id,
         text: event.summary || '待处理异常',
         detail: event.detail || '',
         route: event.detailRoute || item.route,
         status: event.status || 'open',
+        rawCount: Number(event.rawCount || 1),
+        traceCount: safeArray(event.traceIds).length,
       })),
     }
   })

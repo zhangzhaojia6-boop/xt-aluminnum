@@ -23,6 +23,14 @@ test('EventTimeline renders EventCard for each event with key=event.id', () => {
   assert.match(SRC, /:key="event\.id"|:key="evt\.id"/)
 })
 
+test('EventTimeline expands grouped cases into their preserved raw source events', () => {
+  assert.match(SRC, /sourceEvents/)
+  assert.match(SRC, /rawCount/)
+  assert.match(SRC, /traceIds/)
+  assert.match(SRC, /原始记录/)
+  assert.match(SRC, /toggleSources/)
+})
+
 test('EventTimeline forwards card click to router.push(event.detailRoute)', () => {
   assert.match(SRC, /router\.push|push\(/)
   assert.match(SRC, /detailRoute/)

@@ -48,9 +48,18 @@ test('AlertsPage uses computed openCount filtering by status open', () => {
 
 test('AlertsPage exposes actionable work queues before the timeline', () => {
   assert.match(SRC, /buildAlertWorkQueues/)
+  assert.match(SRC, /groupAlertEvents/)
+  assert.match(SRC, /actionCases/)
   assert.match(SRC, /异常处理队列/)
   assert.match(SRC, /workQueues/)
   assert.match(SRC, /xt-alerts__queue-grid/)
+})
+
+test('AlertsPage keeps raw counts while rendering grouped action cases', () => {
+  assert.match(SRC, /:events="actionCases"/)
+  assert.match(SRC, /:total-count="businessEvents\.length"/)
+  assert.match(SRC, /处理事项/)
+  assert.match(SRC, /原始异常/)
 })
 
 test('AlertsPage separates capability status from all business statistics', () => {
@@ -58,7 +67,7 @@ test('AlertsPage separates capability status from all business statistics', () =
   assert.match(SRC, /const capabilityEvents = computed/)
   assert.match(SRC, /!event\.isFallback/)
   assert.match(SRC, /event\.isFallback/)
-  assert.match(SRC, /:events="businessEvents"/)
+  assert.match(SRC, /:events="actionCases"/)
   assert.match(SRC, /:total-count="businessEvents\.length"/)
   assert.match(SRC, /data-testid="manage-alerts-capability-status"/)
   assert.match(SRC, /capabilityStatusText/)
