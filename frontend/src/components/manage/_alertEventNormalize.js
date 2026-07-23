@@ -364,6 +364,7 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
     summary: row.summary || labels[kind],
     detail: joinNonEmpty([row.field || row.field_name, sourceLabel, row.channel, factStatus], ' · '),
     detailRoute: traceRoute(traceId, row.detail_route || row.detailRoute),
+    actionRoute: row.action_route || row.actionRoute || '',
     traceId,
     factStatus,
     status: workflowStatus === 'resolved' ? 'resolved' : 'open',

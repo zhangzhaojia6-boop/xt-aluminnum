@@ -194,6 +194,12 @@ def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> li
         field = str(raw.get("field") or "unknown")
         trace_id = _present_text(raw.get("trace_id"))
         gap_action = classify_daily_report_field_gap(field)
+        action_route = build_daily_report_gap_action_route(
+            business_date=target_date,
+            field=field,
+            trace_id=trace_id,
+            action=gap_action,
+        )
         alerts.append(
             {
                 **dict(raw),
@@ -206,12 +212,8 @@ def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> li
                 "owner_role": gap_action["owner_role"],
                 "entry_fields": gap_action["entry_fields"],
                 "next_step": gap_action["next_step"],
-                "detail_route": build_daily_report_gap_action_route(
-                    business_date=target_date,
-                    field=field,
-                    trace_id=trace_id,
-                    action=gap_action,
-                ),
+                "action_route": action_route,
+                "detail_route": _alerts_route(trace_id),
             }
         )
     return alerts
@@ -266,10 +268,13 @@ def _daily_fact_gap_event_alerts(
         fill_strategy = str(payload.get("fill_strategy") or "source_recheck")
         owner_role = str(payload.get("owner_role") or "factory_dispatch")
         outbox_message_id = payload.get("outbox_message_id")
-        detail_route = (
+        action_route = (
             _alerts_route(trace_id)
             if event.status == "resolved"
-            else build_daily_report_gap_action_route(
+            else str(payload.get("action_route") or "").strip()
+        )
+        if not action_route:
+            action_route = build_daily_report_gap_action_route(
                 business_date=target_date,
                 field=field,
                 trace_id=trace_id,
@@ -279,7 +284,6 @@ def _daily_fact_gap_event_alerts(
                     "owner_role": owner_role,
                 },
             )
-        )
         alerts.append(
             {
                 "id": event.id,
@@ -297,7 +301,8 @@ def _daily_fact_gap_event_alerts(
                 "fill_strategy": fill_strategy,
                 "owner_role": owner_role,
                 "entry_fields": entry_fields,
-                "detail_route": detail_route,
+                "action_route": action_route,
+                "detail_route": _alerts_route(trace_id),
                 "delivery_status": outbox_status_by_id.get(
                     outbox_message_id,
                     payload.get("delivery_status"),

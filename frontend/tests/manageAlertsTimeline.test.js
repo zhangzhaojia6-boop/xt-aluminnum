@@ -209,7 +209,7 @@ test('daily closure does not create alerts when explicit alert arrays are absent
   assert.deepEqual(t.events.value, [])
 })
 
-test('open fact task keeps fact status and opens the existing fill route', async () => {
+test('open fact task keeps management trace route separate from the owner fill action', async () => {
   const t = createAlertsTimeline({
     ...makeEmptyFakes(),
     fetchDailyProduction: async () => ({
@@ -221,7 +221,8 @@ test('open fact task keeps fact status and opens the existing fill route', async
         fact_status: 'missing',
         target_date: '2026-05-19',
         trace_id: 'daily-fact-closure:2026-05-19',
-        detail_route: '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh',
+        detail_route: '/manage/alerts?trace_id=daily-fact-closure%3A2026-05-19',
+        action_route: '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh',
       }],
     }),
     now: new Date('2026-05-20T08:00:00'),
@@ -234,6 +235,10 @@ test('open fact task keeps fact status and opens the existing fill route', async
   assert.equal(t.events.value[0].factStatus, 'missing')
   assert.equal(
     t.events.value[0].detailRoute,
+    '/manage/alerts?trace_id=daily-fact-closure%3A2026-05-19'
+  )
+  assert.equal(
+    t.events.value[0].actionRoute,
     '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh'
   )
 })
