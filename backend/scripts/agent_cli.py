@@ -595,7 +595,7 @@ def _cmd_daily_report_product(db: Session, args: argparse.Namespace, auth: Herme
             'status': product.get('status'),
             'missing_fields': product.get('missing_fields') or [],
             'conflicts': product.get('conflicts') or [],
-            'scheduled_at': product.get('scheduled_at') or '07:30',
+            'scheduled_at': product.get('scheduled_at') or '10:00',
             'sent': False,
             'delivery': 'command_reply_and_scheduled_job',
         },

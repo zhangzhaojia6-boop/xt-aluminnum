@@ -2525,6 +2525,7 @@ def collect_template_daily_facts(
     target_date: date,
     wip_date: date | None = None,
     required_fields: tuple[str, ...],
+    allow_datahub_final_reference: bool = True,
 ) -> TemplateDailyFacts:
     effective_wip_date = wip_date or (target_date + timedelta(days=1))
     facts = TemplateDailyFacts(target_date=target_date, wip_date=effective_wip_date)
@@ -2550,7 +2551,8 @@ def collect_template_daily_facts(
     collect_recovery_and_overhaul_facts(db, facts)
     collect_quality_yield_facts(db, facts)
     collect_yesterday_comparison_facts(db, facts)
-    collect_datahub_final_daily_report_facts(db, facts)
+    if allow_datahub_final_reference:
+        collect_datahub_final_daily_report_facts(db, facts)
 
     facts.missing_fields = [key for key in required_fields if facts.values.get(key) is None]
     return facts

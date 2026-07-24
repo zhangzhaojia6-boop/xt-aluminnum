@@ -6,12 +6,11 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.agents.aggregator import aggregator_agent
-from app.agents.reporter import reporter_agent
 from app.config import settings
 from app.core.business_time import last_completed_production_business_date
 from app.database import get_sessionmaker
 from app.models.reports import DailyReport
-from app.services import hermes_rag_service
+from app.services import daily_report_delivery_service, hermes_rag_service
 from app.services.report import template_daily_report
 
 
@@ -28,6 +27,7 @@ def build_daily_report_product(
         db,
         report=report,
         target_date=target_date,
+        allow_datahub_final_reference=False,
     )
     payload_status = str(payload.get('status') or 'blocked')
     text = str(payload.get('text') or '').strip() if payload_status == 'ready' else ''
@@ -68,7 +68,8 @@ def build_daily_report_product(
         'text': text,
         'missing_fields': payload.get('missing_fields') or [],
         'conflicts': payload.get('conflicts') or [],
-        'scheduled_at': '07:30',
+        'scheduled_at': '10:00',
+        'source_policy': 'pure_real_source',
     }
 
 
@@ -87,11 +88,15 @@ def generate_daily_reports(target_date: date | None = None) -> dict[str, Any]:
             generated_by='hermes',
         )
         session.commit()
-        reporter_agent.execute(db=session, target_date=business_date)
+        delivery = daily_report_delivery_service.deliver_completed_daily_report(
+            session,
+            target_date=business_date,
+        )
         session.commit()
     result: dict[str, Any] = {'status': 'ok', 'business_date': business_date.isoformat()}
     for key, value in product.items():
         result['report_status' if key == 'status' else key] = value
+    result['delivery'] = delivery
     return result
 
 

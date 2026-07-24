@@ -104,7 +104,7 @@ def setup_scheduler(target_scheduler=None):
         sync_mes_reference_projection,
     )
 
-    _add_job_once(active_scheduler, generate_daily_reports, 'cron', job_id='daily_report', hour=7, minute=30)
+    _add_job_once(active_scheduler, generate_daily_reports, 'cron', job_id='daily_report', hour=10, minute=0)
     _add_job_once(
         active_scheduler,
         run_scheduled_daily_fact_closure,

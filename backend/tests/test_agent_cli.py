@@ -209,7 +209,7 @@ def test_dingtalk_daily_report_outputs_finished_text(tmp_path, monkeypatch, caps
             'text': '6月17日，车间总产量日合计303吨（外加工0吨）。',
             'missing_fields': [],
             'conflicts': [],
-            'scheduled_at': '07:30',
+            'scheduled_at': '10:00',
         }
 
     monkeypatch.setattr(agent_cli.daily_report_task, 'build_daily_report_product', fake_build_daily_report_product)
@@ -235,7 +235,7 @@ def test_dingtalk_daily_report_outputs_finished_text(tmp_path, monkeypatch, caps
         assert payload['data']['report_id'] == 88
         assert payload['data']['status'] == 'ready'
         assert payload['data']['sent'] is False
-        assert payload['data']['scheduled_at'] == '07:30'
+        assert payload['data']['scheduled_at'] == '10:00'
     finally:
         db.close()
         get_engine.cache_clear()
@@ -256,7 +256,7 @@ def test_dingtalk_slash_daily_report_with_date_stays_on_legacy_path(tmp_path, mo
             'text': '6月19日，车间总产量日合计305吨。',
             'missing_fields': [],
             'conflicts': [],
-            'scheduled_at': '07:30',
+            'scheduled_at': '10:00',
         }
 
     def fail_day1_report(*_args, **_kwargs):

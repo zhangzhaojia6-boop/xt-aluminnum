@@ -50,8 +50,8 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
         'data_archive',
     }
     assert scheduler.jobs['daily_report']['trigger'] == 'cron'
-    assert scheduler.jobs['daily_report']['kwargs']['hour'] == 7
-    assert scheduler.jobs['daily_report']['kwargs']['minute'] == 30
+    assert scheduler.jobs['daily_report']['kwargs']['hour'] == 10
+    assert scheduler.jobs['daily_report']['kwargs']['minute'] == 0
     assert scheduler.jobs['daily_fact_closure_0805']['trigger'] == 'cron'
     assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['hour'] == 8
     assert scheduler.jobs['daily_fact_closure_0805']['kwargs']['minute'] == 5

@@ -31,11 +31,6 @@ def test_generate_daily_reports_defaults_to_last_completed_business_day(monkeypa
         lambda *, db, target_date: calls.append(('aggregator', target_date, db)),
     )
     monkeypatch.setattr(
-        daily_report.reporter_agent,
-        'execute',
-        lambda *, db, target_date: calls.append(('reporter', target_date, db)),
-    )
-    monkeypatch.setattr(
         daily_report,
         'build_daily_report_product',
         lambda db, target_date: calls.append(('product', target_date, db)) or {'status': 'ready', 'text': '日报成品正文'},
@@ -45,15 +40,26 @@ def test_generate_daily_reports_defaults_to_last_completed_business_day(monkeypa
         'archive_latest_daily_report_to_rag',
         lambda db, report_date, generated_by: calls.append(('archive', report_date, db)),
     )
+    monkeypatch.setattr(
+        daily_report.daily_report_delivery_service,
+        'deliver_completed_daily_report',
+        lambda db, target_date: calls.append(('delivery', target_date, db)) or {'status': 'sent', 'outbox_message_id': 9},
+    )
 
     result = daily_report.generate_daily_reports()
 
-    assert result == {'status': 'ok', 'business_date': '2026-06-01', 'report_status': 'ready', 'text': '日报成品正文'}
+    assert result == {
+        'status': 'ok',
+        'business_date': '2026-06-01',
+        'report_status': 'ready',
+        'text': '日报成品正文',
+        'delivery': {'status': 'sent', 'outbox_message_id': 9},
+    }
     assert calls == [
         ('aggregator', date(2026, 6, 1), session),
         ('product', date(2026, 6, 1), session),
         ('archive', date(2026, 6, 1), session),
-        ('reporter', date(2026, 6, 1), session),
+        ('delivery', date(2026, 6, 1), session),
     ]
     assert session.commits == 4
 
@@ -65,7 +71,6 @@ def test_generate_daily_reports_respects_explicit_target_date(monkeypatch) -> No
     monkeypatch.setattr(daily_report, 'last_completed_production_business_date', lambda: date(2026, 6, 1))
     monkeypatch.setattr(daily_report, 'get_sessionmaker', lambda: lambda: session)
     monkeypatch.setattr(daily_report.aggregator_agent, 'execute', lambda *, db, target_date: seen.append(target_date))
-    monkeypatch.setattr(daily_report.reporter_agent, 'execute', lambda *, db, target_date: seen.append(target_date))
     monkeypatch.setattr(
         daily_report,
         'build_daily_report_product',
@@ -76,10 +81,21 @@ def test_generate_daily_reports_respects_explicit_target_date(monkeypatch) -> No
         'archive_latest_daily_report_to_rag',
         lambda db, report_date, generated_by: seen.append(report_date),
     )
+    monkeypatch.setattr(
+        daily_report.daily_report_delivery_service,
+        'deliver_completed_daily_report',
+        lambda db, target_date: seen.append(target_date) or {'status': 'sent'},
+    )
 
     result = daily_report.generate_daily_reports(target_date=date(2026, 5, 30))
 
-    assert result == {'status': 'ok', 'business_date': '2026-05-30', 'report_status': 'ready', 'text': '日报成品正文'}
+    assert result == {
+        'status': 'ok',
+        'business_date': '2026-05-30',
+        'report_status': 'ready',
+        'text': '日报成品正文',
+        'delivery': {'status': 'sent'},
+    }
     assert seen == [date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30)]
 
 
@@ -116,6 +132,32 @@ def test_build_daily_report_product_blocks_stale_text_when_template_missing_fiel
     assert report.text_summary == '旧摘要'
     assert report.delivery_ready is False
     assert report.status == 'draft'
+
+
+def test_build_daily_report_product_disables_final_report_reference_adoption(monkeypatch) -> None:
+    report = SimpleNamespace(
+        id=7,
+        report_data={},
+        final_text_summary=None,
+        text_summary=None,
+        generated_at=None,
+        delivery_ready=False,
+        status='draft',
+        published_at=None,
+    )
+    db = SimpleNamespace(flush=lambda: None)
+    captured = {}
+    monkeypatch.setattr(daily_report, '_ensure_daily_report', lambda *_args, **_kwargs: report)
+
+    def fake_apply(*_args, **kwargs):
+        captured.update(kwargs)
+        return {'status': 'blocked', 'text': None, 'missing_fields': ['total_output_daily'], 'conflicts': []}
+
+    monkeypatch.setattr(daily_report.template_daily_report, 'apply_template_daily_report_to_report', fake_apply)
+
+    daily_report.build_daily_report_product(db, target_date=date(2026, 6, 1))
+
+    assert captured['allow_datahub_final_reference'] is False
 
 
 def test_build_daily_report_product_clears_previous_template_text_summary_when_blocked(monkeypatch) -> None:

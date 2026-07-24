@@ -12,7 +12,6 @@ from app.agents.aggregator import aggregator_agent
 from app.agents.aluminum_price_fetcher import aluminum_price_fetcher_agent
 from app.agents.cost_aggregator import cost_aggregator_agent
 from app.agents.profit_snapshot import profit_snapshot_agent
-from app.agents.reporter import reporter_agent
 from app.agents.reminder import reminder_agent
 from app.config import settings
 from app.core import event_bus as event_bus_service
@@ -77,14 +76,6 @@ async def lifespan(_: FastAPI):
                     session.rollback()
                     aggregator_agent.logger.exception('Aggregator failed')
                     return
-
-            with session_factory() as session:
-                try:
-                    reporter_agent.execute(db=session, target_date=target_date)
-                    session.commit()
-                except Exception:
-                    session.rollback()
-                    reporter_agent.logger.exception('Reporter failed')
 
         def _run_reminder_sweep():
             """每30分钟检查未提交的班次"""

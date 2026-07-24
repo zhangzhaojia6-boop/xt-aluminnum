@@ -172,6 +172,16 @@ MES 数据库只读连接
 查不到 -> 说明查了哪里 -> 说明缺什么 -> 生成下一步动作
 ```
 
+### 4.1 每日 10 点生产日报
+
+- 调度器按 `Asia/Shanghai` 每天 `10:00` 处理上一个已完整结束的生产业务日。
+- 正文固定使用五段生产日报母版，不由模型自由改写或补数字。
+- `127` 个合同字段必须全部有值、有来源且没有冲突，才允许发送。
+- `D:\输出skill` 及数据中枢旧日报只能用于比对，不能回填当天事实后再冒充真实来源。
+- 收件人必须同时配置 `DAILY_REPORT_DINGTALK_RECIPIENT_NAME` 和准确的 `DAILY_REPORT_DINGTALK_RECIPIENT_USER_ID`。同名人员不允许猜测，也不允许全部发送。
+- 发送复用 `AgentEvent -> AgentOutboxMessage -> dingtalk_work_notice -> ExternalMessageLog`，保留重试、追踪和按业务日期去重。
+- 数据不完整时不发送正文，继续走缺失事实补齐闭环。
+
 ## 5. 回答契约
 
 关键回答至少包含这些信息：

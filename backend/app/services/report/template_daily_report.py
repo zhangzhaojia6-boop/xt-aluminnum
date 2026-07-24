@@ -681,12 +681,14 @@ def build_template_daily_report_facts(
     *,
     target_date: date,
     wip_date: date | None = None,
+    allow_datahub_final_reference: bool = True,
 ) -> dict[str, Any]:
     return collect_template_daily_facts(
         db,
         target_date=target_date,
         wip_date=wip_date,
         required_fields=REQUIRED_FIELDS,
+        allow_datahub_final_reference=allow_datahub_final_reference,
     ).as_dict()
 
 
@@ -694,12 +696,13 @@ def validate_template_daily_report_facts(facts: dict[str, Any]) -> dict[str, Any
     values = dict(facts.get("values") or {})
     declared_missing = [str(item) for item in facts.get("missing_fields") or []]
     missing = list(dict.fromkeys([*declared_missing, *[key for key in REQUIRED_FIELDS if values.get(key) is None]]))
-    status = "blocked" if missing else "ready"
+    conflicts = list(facts.get("conflicts") or [])
+    status = "blocked" if missing or conflicts else "ready"
     return {
         "status": status,
         "text": render_template_daily_report(facts) if status == "ready" else None,
         "missing_fields": missing,
-        "conflicts": list(facts.get("conflicts") or []),
+        "conflicts": conflicts,
     }
 
 
@@ -793,8 +796,14 @@ def build_template_daily_report_payload(
     *,
     target_date: date,
     wip_date: date | None = None,
+    allow_datahub_final_reference: bool = True,
 ) -> dict[str, Any]:
-    facts = build_template_daily_report_facts(db, target_date=target_date, wip_date=wip_date)
+    facts = build_template_daily_report_facts(
+        db,
+        target_date=target_date,
+        wip_date=wip_date,
+        allow_datahub_final_reference=allow_datahub_final_reference,
+    )
     validation = validate_template_daily_report_facts(facts)
     mes_fact_bundle = build_mes_fact_bundle(db, target_date=target_date, include_debug=False)
     hermes_fact_bundle = build_template_daily_report_hermes_bundle(
@@ -823,8 +832,14 @@ def apply_template_daily_report_to_report(
     report: DailyReport,
     target_date: date,
     wip_date: date | None = None,
+    allow_datahub_final_reference: bool = True,
 ) -> dict[str, Any]:
-    payload = build_template_daily_report_payload(db, target_date=target_date, wip_date=wip_date)
+    payload = build_template_daily_report_payload(
+        db,
+        target_date=target_date,
+        wip_date=wip_date,
+        allow_datahub_final_reference=allow_datahub_final_reference,
+    )
     report_data = dict(report.report_data or {})
     report_data[TEMPLATE_REPORT_KEY] = {
         "status": payload["status"],
@@ -846,6 +861,7 @@ def apply_template_daily_report_to_latest_report(
     db: Session,
     target_date: date,
     wip_date: date | None = None,
+    allow_datahub_final_reference: bool = True,
 ) -> dict[str, Any]:
     report = (
         db.query(DailyReport)
@@ -861,4 +877,10 @@ def apply_template_daily_report_to_latest_report(
             "conflicts": [],
             "target_date": target_date.isoformat(),
         }
-    return apply_template_daily_report_to_report(db, report=report, target_date=target_date, wip_date=wip_date)
+    return apply_template_daily_report_to_report(
+        db,
+        report=report,
+        target_date=target_date,
+        wip_date=wip_date,
+        allow_datahub_final_reference=allow_datahub_final_reference,
+    )

@@ -188,6 +188,18 @@ def test_validate_template_daily_report_blocks_missing_fields_without_rendering_
     assert result["text"] is None
 
 
+def test_validate_template_daily_report_blocks_conflicts_without_rendering_text() -> None:
+    facts = _facts()
+    facts["conflicts"] = [{"field": "total_output_daily", "reason": "source_mismatch"}]
+
+    result = template_daily_report.validate_template_daily_report_facts(facts)
+
+    assert result["status"] == "blocked"
+    assert result["missing_fields"] == []
+    assert result["conflicts"] == facts["conflicts"]
+    assert result["text"] is None
+
+
 def test_optional_display_fields_do_not_block_or_render_placeholders() -> None:
     facts = _facts()
     facts["values"].pop("cast_roll_active_lines")
