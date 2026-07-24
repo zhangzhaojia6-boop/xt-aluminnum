@@ -19,18 +19,30 @@ from sqlalchemy.orm import Session
 
 from app.agents.base import AgentAction, AgentDecision, BaseAgent
 from app.config import settings
+from app.core.business_time import (
+    local_now,
+    resolve_owner_daily_business_date,
+    resolve_production_business_date,
+)
 from app.models.attendance import AttendanceSchedule
 from app.models.master import Workshop
 from app.models.production import MobileReminderRecord, MobileShiftReport
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import dingtalk_service
-from app.core.business_time import local_now, resolve_owner_daily_business_date, resolve_production_business_date
-from app.services.dingtalk_service import record_work_notification_attempt, send_detail_text
-from app.services.mobile_reminder_service import _owner_daily_candidates, _shift_deadline
+from app.services.dingtalk_service import (
+    record_work_notification_attempt,
+    send_detail_text,
+)
+from app.services.mobile_reminder_service import (
+    _owner_daily_candidates,
+    _shift_deadline,
+)
 
 READY_STATUSES = {"submitted", "approved", "auto_confirmed"}
 MOBILE_ROLE_NAMES = {"machine_operator", "energy_stat"}
+MAX_DIRECT_REMINDERS = 1
+FINISHED_REMINDER_STATUSES = {"acknowledged", "closed"}
 
 
 def _resolve_notify_identity(user: User) -> tuple[str, str]:
@@ -39,6 +51,66 @@ def _resolve_notify_identity(user: User) -> tuple[str, str]:
         return "dingtalk", dingtalk_user_id
     fallback = str(getattr(user, "username", None) or getattr(user, "id", "") or "").strip()
     return "system", fallback or "unknown"
+
+
+def _reminder_is_finished(reminder: MobileReminderRecord | None) -> bool:
+    if reminder is None:
+        return False
+    return (
+        str(getattr(reminder, "reminder_status", "") or "").strip().lower() in FINISHED_REMINDER_STATUSES
+        or getattr(reminder, "acknowledged_at", None) is not None
+        or getattr(reminder, "closed_at", None) is not None
+    )
+
+
+def _escalation_was_sent(reminder: MobileReminderRecord | None) -> bool:
+    if reminder is None:
+        return False
+    return (
+        str(getattr(reminder, "reminder_status", "") or "").strip().lower() == "sent"
+        and getattr(reminder, "last_reminded_at", None) is not None
+    )
+
+
+def _queue_notification(
+    batches: dict[str, dict[str, object]],
+    *,
+    user: User,
+    label: str,
+) -> None:
+    channel, identity = _resolve_notify_identity(user)
+    key = f"{channel}:{identity}"
+    batch = batches.setdefault(key, {"user": user, "labels": []})
+    labels = batch["labels"]
+    if isinstance(labels, list) and label not in labels:
+        labels.append(label)
+
+
+def _format_labels(labels: list[str], *, limit: int = 6) -> str:
+    visible = labels[:limit]
+    text = "、".join(visible)
+    remaining = len(labels) - len(visible)
+    if remaining > 0:
+        text = f"{text}，另{remaining}项"
+    return text
+
+
+def _render_reminder_batch(labels: list[str]) -> str:
+    if len(labels) == 1:
+        return f"{labels[0]}还没看到数据，方便时从填报端补一下。已经提交的话不用管这条。"
+    return (
+        f"今天还有{len(labels)}项没看到数据：{_format_labels(labels)}。"
+        "方便时从填报端一次补齐，已经提交的不用重复操作。"
+    )
+
+
+def _render_escalation_batch(labels: list[str]) -> str:
+    if len(labels) == 1:
+        return f"{labels[0]}提醒后仍未补齐，麻烦关注一下。有新进展我再更新。"
+    return (
+        f"今天有{len(labels)}项提醒后仍未补齐：{_format_labels(labels)}。"
+        "麻烦统一看一下；状态没变化我不会重复提醒。"
+    )
 
 
 class ReminderAgent(BaseAgent):
@@ -125,12 +197,15 @@ class ReminderAgent(BaseAgent):
         检查未提交报告班次并执行催报或升级提醒。
 
         规则：
-        - 3 次内发送催报消息
-        - 第 3 次后触发升级提醒管理员
+        - 同一事项只提醒责任人一次
+        - 仍未补齐时只升级管理员一次
+        - 同一收件人的多项提醒合并成一条
         - 不提交事务，由调用方控制 commit
         """
 
         self._decisions = []
+        reminder_batches: dict[str, dict[str, object]] = {}
+        escalation_batches: dict[str, dict[str, object]] = {}
         schedule_query = (
             db.query(
                 AttendanceSchedule.business_date,
@@ -205,13 +280,15 @@ class ReminderAgent(BaseAgent):
             )
             type_query = history_query.filter(MobileReminderRecord.reminder_type == reminder_type)
             existing = type_query.first()
+            if _reminder_is_finished(existing):
+                continue
             reminder_count = max(
                 int(history_query.count()),
                 int(getattr(existing, "reminder_count", 0) or 0),
             )
             next_count = reminder_count + 1
 
-            if reminder_count < 3:
+            if reminder_count < MAX_DIRECT_REMINDERS:
                 entity = existing
                 if entity is None:
                     entity = MobileReminderRecord(
@@ -228,11 +305,12 @@ class ReminderAgent(BaseAgent):
                 entity.reminder_count = next_count
                 entity.last_reminded_at = datetime.now(timezone.utc)
                 entity.note = None
+                label = f"{workshop_name}{shift_name}"
                 message = (
-                    f"【催报提醒】{workshop_name} {shift_name} 的生产数据尚未提交，"
-                    f"请尽快在钉钉中完成填报。（第{next_count}次提醒）"
+                    f"{label}还没看到数据，方便时从填报端补一下。"
+                    "已经提交的话不用管这条。"
                 )
-                self._send_reminder_message(leader, message)
+                _queue_notification(reminder_batches, user=leader, label=label)
                 self.record_decision(
                     AgentAction.AUTO_REMIND,
                     "mobile_reminder_record",
@@ -247,6 +325,8 @@ class ReminderAgent(BaseAgent):
 
             escalation_query = history_query.filter(MobileReminderRecord.reminder_type == "escalation")
             escalation = escalation_query.first()
+            if _reminder_is_finished(escalation) or _escalation_was_sent(escalation):
+                continue
             if escalation is None:
                 escalation = MobileReminderRecord(
                     business_date=item.business_date,
@@ -265,17 +345,17 @@ class ReminderAgent(BaseAgent):
 
             admin_users = self._admin_users(db)
             for admin_user in admin_users:
-                escalation_message = (
-                    f"【催报升级】{workshop_name} {shift_name} 已催报{next_count}次未响应，"
-                    f"请管理员关注。负责人：{leader.name}"
+                _queue_notification(
+                    escalation_batches,
+                    user=admin_user,
+                    label=f"{workshop_name}{shift_name}（{leader.name}）",
                 )
-                self._send_escalation_message(admin_user, escalation_message)
 
             self.record_decision(
                 AgentAction.AUTO_ALERT,
                 "mobile_reminder_record",
                 0,
-                f"【催报升级】{workshop_name} {shift_name} 已催报{next_count}次未响应，请管理员关注。负责人：{leader.name}",
+                f"{workshop_name}{shift_name}提醒后仍未补齐，已升级管理员。负责人：{leader.name}",
                 workshop_id=item.workshop_id,
                 shift_id=item.shift_config_id,
                 leader_user_id=leader.id,
@@ -316,13 +396,15 @@ class ReminderAgent(BaseAgent):
             )
             type_query = history_query.filter(MobileReminderRecord.reminder_type == candidate["reminder_type"])
             existing = type_query.first()
+            if _reminder_is_finished(existing):
+                continue
             reminder_count = max(
                 int(history_query.count()),
                 int(getattr(existing, "reminder_count", 0) or 0),
             )
             next_count = reminder_count + 1
 
-            if reminder_count < 3:
+            if reminder_count < MAX_DIRECT_REMINDERS:
                 entity = existing
                 if entity is None:
                     entity = MobileReminderRecord(
@@ -339,11 +421,9 @@ class ReminderAgent(BaseAgent):
                 entity.reminder_count = next_count
                 entity.last_reminded_at = datetime.now(timezone.utc)
                 entity.note = role_label
-                message = (
-                    f"【催报提醒】{workshop_name} {role_label} 尚未提交，"
-                    f"请尽快在填报端完成。（第{next_count}次提醒）"
-                )
-                self._send_reminder_message(leader, message, db=db)
+                label = f"{workshop_name}{role_label}"
+                message = f"{label}还没看到数据，方便时从填报端补一下。已经提交的话不用管这条。"
+                _queue_notification(reminder_batches, user=leader, label=label)
                 self.record_decision(
                     AgentAction.AUTO_REMIND,
                     "mobile_reminder_record",
@@ -358,6 +438,8 @@ class ReminderAgent(BaseAgent):
 
             escalation_query = history_query.filter(MobileReminderRecord.reminder_type == "daily_escalation")
             escalation = escalation_query.first()
+            if _reminder_is_finished(escalation) or _escalation_was_sent(escalation):
+                continue
             if escalation is None:
                 escalation = MobileReminderRecord(
                     business_date=candidate["business_date"],
@@ -375,22 +457,33 @@ class ReminderAgent(BaseAgent):
             escalation.note = f"{role_label} 自动升级提醒管理员"
 
             for admin_user in self._admin_users(db):
-                escalation_message = (
-                    f"【催报升级】{workshop_name} {role_label} 已催报{next_count}次未响应，"
-                    f"请管理员关注。负责人：{leader.name}"
+                _queue_notification(
+                    escalation_batches,
+                    user=admin_user,
+                    label=f"{workshop_name}{role_label}（{leader.name}）",
                 )
-                self._send_escalation_message(admin_user, escalation_message, db=db)
 
             self.record_decision(
                 AgentAction.AUTO_ALERT,
                 "mobile_reminder_record",
                 0,
-                f"【催报升级】{workshop_name} {role_label} 已催报{next_count}次未响应，请管理员关注。负责人：{leader.name}",
+                f"{workshop_name}{role_label}提醒后仍未补齐，已升级管理员。负责人：{leader.name}",
                 workshop_id=candidate["workshop_id"],
                 shift_id=candidate["shift_config_id"],
                 leader_user_id=leader.id,
                 reminder_count=next_count,
             )
+
+        for batch in reminder_batches.values():
+            labels = batch.get("labels")
+            user = batch.get("user")
+            if isinstance(labels, list) and labels and user is not None:
+                self._send_reminder_message(user, _render_reminder_batch(labels), db=db)
+        for batch in escalation_batches.values():
+            labels = batch.get("labels")
+            user = batch.get("user")
+            if isinstance(labels, list) and labels and user is not None:
+                self._send_escalation_message(user, _render_escalation_batch(labels), db=db)
 
         return self._decisions
 

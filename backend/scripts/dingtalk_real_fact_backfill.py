@@ -575,6 +575,7 @@ def _row_to_stream_payload(
         'senderStaffId': sender_user_id,
         'senderIdentityType': sender_identity_type,
         'senderUnionId': _first_text(row.get('senderUnionId'), row.get('unionId')),
+        'senderName': _first_text(row.get('senderName'), row.get('sender_name'), row.get('sender')),
         'createTime': _first_text(row.get('createTime'), row.get('messageTime'), row.get('event_time')),
     }
     for key in DATE_KEYS:

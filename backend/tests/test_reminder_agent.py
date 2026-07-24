@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time, timezone
 from types import SimpleNamespace
 
 from app.agents import reminder as reminder_module
@@ -42,7 +42,6 @@ class _FakeDB:
         self.admins = admins
         self.existing_reminder = existing_reminder
         self.added = []
-        self._user_query_call = 0
 
     def query(self, *entities):
         head = entities[0]
@@ -58,10 +57,7 @@ class _FakeDB:
         if model_name == "MobileReminderRecord":
             return _FakeQuery(first=self.existing_reminder, count_value=self.reminder_count)
         if model_name == "User":
-            self._user_query_call += 1
-            if self._user_query_call <= 1:
-                return _FakeQuery(first=self.leader)
-            return _FakeQuery(rows=self.admins)
+            return _FakeQuery(first=self.leader, rows=self.admins)
         return _FakeQuery()
 
     def add(self, entity):
@@ -72,7 +68,11 @@ def test_reminder_agent_message_template(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)
     sent = []
     agent = ReminderAgent()
-    monkeypatch.setattr(agent, "_send_reminder_message", lambda userid, content: sent.append((userid, content)))
+    monkeypatch.setattr(
+        agent,
+        "_send_reminder_message",
+        lambda userid, content, **_kwargs: sent.append((userid, content)),
+    )
     db = _FakeDB(
         schedule_rows=[SimpleNamespace(business_date=date(2026, 4, 4), shift_config_id=1, workshop_id=1, team_id=None)],
         report_rows=[],
@@ -84,25 +84,34 @@ def test_reminder_agent_message_template(monkeypatch) -> None:
     decisions = agent.execute(db=db, target_date=date(2026, 4, 4))
 
     assert len(decisions) == 1
-    assert "【催报提醒】铸轧车间 早班 的生产数据尚未提交" in decisions[0].reason
-    assert "第1次提醒" in decisions[0].reason
-    assert sent and "第1次提醒" in sent[0][1]
+    assert "铸轧车间早班还没看到数据" in decisions[0].reason
+    assert sent == [
+        (
+            db.leader,
+            "铸轧车间早班还没看到数据，方便时从填报端补一下。已经提交的话不用管这条。",
+        )
+    ]
     assert db.added[0].reminder_channel == "dingtalk"
-    assert "钉钉" in decisions[0].reason
 
 
-def test_reminder_agent_updates_existing_record_instead_of_inserting(monkeypatch) -> None:
+def test_reminder_agent_does_not_repeat_sent_escalation(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", False, raising=False)
     sent = []
     existing = SimpleNamespace(
-        reminder_status="pending",
+        reminder_status="sent",
         reminder_channel="system",
         reminder_count=1,
-        last_reminded_at=None,
+        last_reminded_at=datetime(2026, 4, 4, 9, 0, tzinfo=timezone.utc),
+        acknowledged_at=None,
+        closed_at=None,
         note="old",
     )
     agent = ReminderAgent()
-    monkeypatch.setattr(agent, "_send_reminder_message", lambda userid, content: sent.append((userid, content)))
+    monkeypatch.setattr(
+        agent,
+        "_send_reminder_message",
+        lambda userid, content, **_kwargs: sent.append((userid, content)),
+    )
     db = _FakeDB(
         schedule_rows=[SimpleNamespace(business_date=date(2026, 4, 4), shift_config_id=1, workshop_id=1, team_id=None)],
         report_rows=[],
@@ -114,23 +123,26 @@ def test_reminder_agent_updates_existing_record_instead_of_inserting(monkeypatch
 
     decisions = agent.execute(db=db, target_date=date(2026, 4, 4))
 
-    assert len(decisions) == 1
+    assert decisions == []
     assert db.added == []
     assert existing.reminder_status == "sent"
-    assert existing.reminder_count == 2
-    assert existing.note is None
-    assert sent and "第2次提醒" in sent[0][1]
+    assert existing.reminder_count == 1
+    assert sent == []
 
 
 def test_reminder_agent_escalation_template(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)
     sent = []
     agent = ReminderAgent()
-    monkeypatch.setattr(agent, "_send_escalation_message", lambda userid, content: sent.append((userid, content)))
+    monkeypatch.setattr(
+        agent,
+        "_send_escalation_message",
+        lambda userid, content, **_kwargs: sent.append((userid, content)),
+    )
     db = _FakeDB(
         schedule_rows=[SimpleNamespace(business_date=date(2026, 4, 4), shift_config_id=1, workshop_id=1, team_id=None)],
         report_rows=[],
-        reminder_count=3,
+        reminder_count=1,
         leader=SimpleNamespace(id=10, name="李四", username="lisi", dingtalk_user_id="u_lisi"),
         admins=[SimpleNamespace(id=1, name="管理员", username="admin", dingtalk_user_id="u_admin", role="admin")],
     )
@@ -139,8 +151,13 @@ def test_reminder_agent_escalation_template(monkeypatch) -> None:
 
     assert len(decisions) == 1
     assert decisions[0].action.value == "auto_alert"
-    assert "【催报升级】铸轧车间 早班 已催报4次未响应" in decisions[0].reason
-    assert sent and "负责人：李四" in sent[0][1]
+    assert "铸轧车间早班提醒后仍未补齐" in decisions[0].reason
+    assert sent == [
+        (
+            db.admins[0],
+            "铸轧车间早班（李四）提醒后仍未补齐，麻烦关注一下。有新进展我再更新。",
+        )
+    ]
     assert db.added[0].reminder_channel == "dingtalk"
 
 
@@ -261,7 +278,11 @@ def test_reminder_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monk
 def test_reminder_agent_treats_auto_confirmed_as_ready(monkeypatch) -> None:
     sent = []
     agent = ReminderAgent()
-    monkeypatch.setattr(agent, "_send_reminder_message", lambda userid, content: sent.append((userid, content)))
+    monkeypatch.setattr(
+        agent,
+        "_send_reminder_message",
+        lambda userid, content, **_kwargs: sent.append((userid, content)),
+    )
     db = _FakeDB(
         schedule_rows=[SimpleNamespace(business_date=date(2026, 4, 4), shift_config_id=1, workshop_id=1, team_id=None)],
         report_rows=[
@@ -283,3 +304,61 @@ def test_reminder_agent_treats_auto_confirmed_as_ready(monkeypatch) -> None:
     assert decisions == []
     assert db.added == []
     assert sent == []
+
+
+def test_reminder_agent_skips_acknowledged_item(monkeypatch) -> None:
+    sent = []
+    acknowledged = SimpleNamespace(
+        reminder_status="acknowledged",
+        reminder_count=1,
+        last_reminded_at=datetime(2026, 4, 4, 8, 0, tzinfo=timezone.utc),
+        acknowledged_at=datetime(2026, 4, 4, 8, 5, tzinfo=timezone.utc),
+        closed_at=None,
+    )
+    agent = ReminderAgent()
+    monkeypatch.setattr(
+        agent,
+        "_send_reminder_message",
+        lambda userid, content, **_kwargs: sent.append((userid, content)),
+    )
+    db = _FakeDB(
+        schedule_rows=[SimpleNamespace(business_date=date(2026, 4, 4), shift_config_id=1, workshop_id=1, team_id=None)],
+        report_rows=[],
+        reminder_count=1,
+        leader=SimpleNamespace(id=10, name="张三", username="zhangsan", dingtalk_user_id="u_zhangsan"),
+        admins=[],
+        existing_reminder=acknowledged,
+    )
+
+    assert agent.execute(db=db, target_date=date(2026, 4, 4)) == []
+    assert sent == []
+
+
+def test_reminder_agent_combines_multiple_items_for_same_recipient(monkeypatch) -> None:
+    sent = []
+    agent = ReminderAgent()
+    monkeypatch.setattr(
+        agent,
+        "_send_reminder_message",
+        lambda userid, content, **_kwargs: sent.append((userid, content)),
+    )
+    leader = SimpleNamespace(id=10, name="张三", username="zhangsan", dingtalk_user_id="u_zhangsan")
+    db = _FakeDB(
+        schedule_rows=[
+            SimpleNamespace(business_date=date(2026, 4, 4), shift_config_id=1, workshop_id=1, team_id=None),
+            SimpleNamespace(business_date=date(2026, 4, 4), shift_config_id=1, workshop_id=2, team_id=None),
+        ],
+        report_rows=[],
+        reminder_count=0,
+        leader=leader,
+        admins=[],
+    )
+
+    decisions = agent.execute(db=db, target_date=date(2026, 4, 4))
+
+    assert len(decisions) == 2
+    assert len(sent) == 1
+    assert sent[0][0] is leader
+    assert sent[0][1].startswith("今天还有2项没看到数据：")
+    assert "铸轧车间早班" in sent[0][1]
+    assert "车间2早班" in sent[0][1]

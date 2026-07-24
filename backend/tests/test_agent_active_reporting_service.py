@@ -3,13 +3,12 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from app.models import Base
 from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.services import agent_active_reporting_service as active_service
 from app.services import agent_communication_service as communication_service
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 def _db_session():
@@ -92,7 +91,7 @@ def test_factory_overview_queues_traceable_management_report() -> None:
         db.close()
 
 
-def test_factory_overview_message_uses_fixed_agent_template() -> None:
+def test_factory_overview_message_is_short_and_human() -> None:
     db = _db_session()
     try:
         _bind_factory_channel(db)
@@ -109,11 +108,10 @@ def test_factory_overview_message_uses_fixed_agent_template() -> None:
 
         message = db.get(AgentOutboxMessage, outcome.outbox_message_id)
         assert message is not None
-        assert message.content.startswith('【全厂｜2026-06-13 08:30】状态：黄；')
-        for text in ['结论：', '关键数字：', '原因：', '建议动作：', '数据来源：', '可直接回复：']:
-            assert text in message.content
-        assert '可直接回复：今日产量、异常明细、辅材明细。' in message.content
-        assert '/ 今日产量' not in message.content
+        assert message.title == '全厂情况 2026-06-13'
+        assert message.content.startswith('全厂 2026-06-13 08:30 有1项需要看一下：')
+        for text in ['状态：', '结论：', '关键数字：', '原因：', '建议动作：', '数据来源：', '可直接回复：']:
+            assert text not in message.content
         assert '全厂总产量：128.50 吨' in message.content
         assert '热轧停机待核查：42 分钟' in message.content
         assert '###' not in message.content
@@ -168,7 +166,8 @@ def test_workshop_report_queues_only_matching_workshop_scope() -> None:
         assert message is not None
         assert message.event_id == event.id
         assert message.trace_id == 'trace-workshop-002'
-        assert '铸二车间主动汇报' in message.title
+        assert message.title == '铸二车间情况 2026-06-13'
+        assert message.content.startswith('铸二车间 2026-06-13 运行正常。')
         assert '在制卷数：8 卷' in message.content
     finally:
         db.close()
@@ -224,7 +223,7 @@ def test_duplicate_factory_report_is_suppressed_but_archived() -> None:
         db.close()
 
 
-def test_workshop_report_reuses_outbox_for_same_anomaly_inside_dedupe_window() -> None:
+def test_workshop_report_reuses_outbox_for_same_state_all_day() -> None:
     db = _db_session()
     try:
         _bind_workshop_channel(db, channel_key='workshop-2-chat', workshop_id=2)
@@ -249,7 +248,7 @@ def test_workshop_report_reuses_outbox_for_same_anomaly_inside_dedupe_window() -
             workshop_name='铸二',
             metrics={'本车间产量': '20.50 吨'},
             anomalies=anomaly,
-            occurred_at=datetime(2026, 6, 13, 8, 10, tzinfo=UTC),
+            occurred_at=datetime(2026, 6, 13, 16, 10, tzinfo=UTC),
             window_seconds=1,
         )
 
@@ -262,10 +261,48 @@ def test_workshop_report_reuses_outbox_for_same_anomaly_inside_dedupe_window() -
         message = db.get(AgentOutboxMessage, first.outbox_message_id)
         suppressed_event = db.get(AgentEvent, second.event_id)
         assert message is not None
-        assert message.dedupe_key == 'workshop_status_report:workshop:2:2026-06-13:workshop-2-chat:machine_stop:1#机停机'
+        assert message.dedupe_key == (
+            'workshop_status_report:workshop:2:2026-06-13:'
+            'workshop-2-chat:machine_stop:critical:1#机停机'
+        )
         assert message.dedupe_expires_at is not None
         assert suppressed_event is not None
         assert suppressed_event.status == 'suppressed'
         assert suppressed_event.payload['dedupe_detail'] == 'outbox_deduped'
+    finally:
+        db.close()
+
+
+def test_workshop_report_sends_again_when_risk_level_worsens() -> None:
+    db = _db_session()
+    try:
+        _bind_workshop_channel(db, channel_key='workshop-2-chat', workshop_id=2)
+        first = active_service.queue_workshop_status(
+            db,
+            business_date=date(2026, 6, 13),
+            channel_key='workshop-2-chat',
+            workshop_id=2,
+            workshop_name='铸二',
+            metrics={'本车间产量': '20.00 吨'},
+            anomalies=[{'type': 'machine_stop', 'title': '1#机停机', 'severity': 'warning', 'value': '20 分钟'}],
+            occurred_at=datetime(2026, 6, 13, 8, 0, tzinfo=UTC),
+            window_seconds=1,
+        )
+        second = active_service.queue_workshop_status(
+            db,
+            business_date=date(2026, 6, 13),
+            channel_key='workshop-2-chat',
+            workshop_id=2,
+            workshop_name='铸二',
+            metrics={'本车间产量': '20.00 吨'},
+            anomalies=[{'type': 'machine_stop', 'title': '1#机停机', 'severity': 'critical', 'value': '40 分钟'}],
+            occurred_at=datetime(2026, 6, 13, 9, 0, tzinfo=UTC),
+            window_seconds=1,
+        )
+
+        assert first.status == 'queued'
+        assert second.status == 'queued'
+        assert second.outbox_message_id != first.outbox_message_id
+        assert db.query(AgentOutboxMessage).count() == 2
     finally:
         db.close()

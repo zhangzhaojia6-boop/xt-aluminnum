@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-import hashlib
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -13,6 +13,9 @@ from app.services import agent_communication_service
 
 class ActiveReportingError(RuntimeError):
     pass
+
+
+UNCHANGED_STATE_DEDUPE_MINUTES = 24 * 60
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,12 +83,10 @@ def queue_factory_overview(
         db,
         agent_code='factory_dispatch',
         channel_key=channel.channel_key,
-        title=f'【全厂总览】{business_date.isoformat()}',
+        title=f'全厂情况 {business_date.isoformat()}',
         content=_build_report_content(
             scope_label='全厂',
             time_label=_format_time_label(occurred_at, business_date),
-            status_label=_status_label(severity),
-            subject='全厂主动汇报',
             metrics=metrics,
             anomalies=safe_anomalies,
         ),
@@ -106,6 +107,7 @@ def queue_factory_overview(
             channel_key=channel.channel_key,
             anomalies=safe_anomalies,
         ),
+        dedupe_window_minutes=UNCHANGED_STATE_DEDUPE_MINUTES,
         now=occurred_at,
     )
     if message.event_id != event.id:
@@ -182,12 +184,10 @@ def queue_workshop_status(
         db,
         agent_code='workshop_status',
         channel_key=channel.channel_key,
-        title=f'【{workshop_name}车间主动汇报】{business_date.isoformat()}',
+        title=f'{workshop_name}车间情况 {business_date.isoformat()}',
         content=_build_report_content(
             scope_label=f'{workshop_name}车间',
             time_label=_format_time_label(occurred_at, business_date),
-            status_label=_status_label(severity),
-            subject=f'{workshop_name}车间主动汇报',
             metrics=metrics,
             anomalies=safe_anomalies,
         ),
@@ -210,6 +210,7 @@ def queue_workshop_status(
             channel_key=channel.channel_key,
             anomalies=safe_anomalies,
         ),
+        dedupe_window_minutes=UNCHANGED_STATE_DEDUPE_MINUTES,
         now=occurred_at,
     )
     if message.event_id != event.id:
@@ -333,23 +334,17 @@ def _build_report_content(
     *,
     scope_label: str,
     time_label: str,
-    status_label: str,
-    subject: str,
     metrics: dict[str, object],
     anomalies: list[dict[str, object]],
 ) -> str:
     metric_text = _metric_summary(metrics)
     anomaly_text = _anomaly_summary(anomalies)
-    conclusion = f'{subject}已生成，状态为{status_label}'
+    if not anomalies:
+        return f'{scope_label} {time_label} 运行正常。当前：{metric_text}。'
     action = _recommended_action(anomalies)
     return (
-        f'【{scope_label}｜{time_label}】状态：{status_label}；'
-        f'结论：{conclusion}；'
-        f'关键数字：{metric_text}；'
-        f'原因：{anomaly_text}；'
-        f'建议动作：{action}；'
-        '数据来源：数据中枢主动汇报；'
-        '可直接回复：今日产量、异常明细、辅材明细。'
+        f'{scope_label} {time_label} 有{len(anomalies)}项需要看一下：'
+        f'{anomaly_text}。{action} 当前：{metric_text}。'
     )
 
 
@@ -382,15 +377,6 @@ def _format_time_label(occurred_at: datetime | None, business_date: date) -> str
         return business_date.isoformat()
     value = occurred_at.astimezone(timezone.utc) if occurred_at.tzinfo is not None else occurred_at
     return value.strftime('%Y-%m-%d %H:%M')
-
-
-def _status_label(severity: str) -> str:
-    labels = {
-        'info': '绿',
-        'warning': '黄',
-        'critical': '红',
-    }
-    return labels.get(str(severity or '').strip().lower(), '黄')
 
 
 def _metric_summary(metrics: dict[str, object]) -> str:
@@ -465,8 +451,9 @@ def _anomaly_signature(anomalies: list[dict[str, object]]) -> str:
     parts = []
     for item in anomalies:
         anomaly_type = _clean_component(str(item.get('type') or 'unknown'))
+        severity = _clean_component(str(item.get('severity') or 'warning'))
         title = _clean_component(str(item.get('title') or item.get('value') or 'unknown'))
-        parts.append(f'{anomaly_type}:{title}')
+        parts.append(f'{anomaly_type}:{severity}:{title}')
     return '+'.join(sorted(parts)) if parts else 'normal'
 
 
