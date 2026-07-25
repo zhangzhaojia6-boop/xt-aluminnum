@@ -177,10 +177,13 @@ test('Today surface replaces overview guesses with confirmed or missing closure 
 test('TodayPage wires the persisted fact strip and trace drill-down to existing alerts', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.match(src, /buildFactClosureSurface/)
+  assert.match(src, /buildFactActionSummary/)
   assert.match(src, /dailyOverview\.value\.fact_closure/)
+  assert.match(src, /dailyOverview\.value\.fact_missing/)
   assert.match(src, /useRouter/)
   assert.match(src, /openFactTrace/)
   assert.match(src, /function\s+openTrace\s*\(/)
   assert.match(src, /openFactTrace\(router,\s*traceId\)/)
   assert.match(src, /data-testid="today-fact-closure"/)
+  assert.match(src, /data-testid="today-fact-actions"/)
 })

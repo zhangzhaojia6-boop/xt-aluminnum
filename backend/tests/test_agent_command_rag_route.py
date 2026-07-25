@@ -810,6 +810,51 @@ def test_agent_command_uses_consumable_targets_for_over_quota_summary(monkeypatc
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_anomaly_honors_explicit_business_date(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+
+    def fake_live_aggregation(_db, *, business_date, workshop_id, current_user):
+        assert business_date == date(2026, 7, 24)
+        assert workshop_id is None
+        assert current_user.role == 'admin'
+        return {
+            'business_date': business_date.isoformat(),
+            'overall_progress': {'pending_assignment': {'entry_count': 0, 'rows': []}},
+            'data_quality': {'missing_output_weight': {'entry_count': 0, 'items': []}},
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 7, 25),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'internal',
+                'sender_external_id': 'admin-user',
+                'text': '2026年7月24日全厂有哪些生产异常',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-anomaly-explicit-date',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'anomaly_summary'
+        assert payload['facts']['business_date'] == '2026-07-24'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_anomaly_answer_uses_user_workshop_scope_label(monkeypatch) -> None:
     db, previous_overrides = _install_overrides(
         role='workshop_director',

@@ -223,6 +223,9 @@ test('open fact task keeps management trace route separate from the owner fill a
         trace_id: 'daily-fact-closure:2026-05-19',
         detail_route: '/manage/alerts?trace_id=daily-fact-closure%3A2026-05-19',
         action_route: '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh',
+        owner_role: 'energy_chief',
+        fill_strategy: 'owner_daily',
+        delivery_status: 'sent',
       }],
     }),
     now: new Date('2026-05-20T08:00:00'),
@@ -241,6 +244,22 @@ test('open fact task keeps management trace route separate from the owner fill a
     t.events.value[0].actionRoute,
     '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh'
   )
+  assert.equal(t.events.value[0].ownerRole, 'energy_chief')
+  assert.equal(t.events.value[0].fillStrategy, 'owner_daily')
+  assert.equal(t.events.value[0].deliveryStatus, 'sent')
+
+  const reportingQueue = buildAlertWorkQueues(t.events.value)
+    .find((queue) => queue.key === 'reporting')
+  assert.equal(
+    reportingQueue.items[0].route,
+    '/manage/alerts?trace_id=daily-fact-closure%3A2026-05-19'
+  )
+  assert.equal(
+    reportingQueue.items[0].actionRoute,
+    '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh'
+  )
+  assert.equal(reportingQueue.items[0].ownerRole, 'energy_chief')
+  assert.equal(reportingQueue.items[0].deliveryStatus, 'sent')
 })
 
 test('missing canonical capability becomes a system fallback without business counts', async () => {

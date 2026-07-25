@@ -295,6 +295,33 @@ export function buildDailyWipRows(rows = []) {
     })
 }
 
+export function buildFactActionSummary(factMissing) {
+  const rows = Array.isArray(factMissing)
+    ? factMissing.filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    : []
+  const openRows = rows.filter((item) => (
+    String(item.status || item.task_status || item.taskStatus || '').toLowerCase() !== 'resolved'
+  ))
+  const valueFor = (item, snakeKey, camelKey) => item[snakeKey] ?? item[camelKey]
+  const actionableRows = openRows.filter((item) => (
+    String(valueFor(item, 'action_route', 'actionRoute') || '').startsWith('/entry/fill')
+  ))
+
+  return {
+    openCount: openRows.length,
+    actionableCount: actionableRows.length,
+    notifiedCount: actionableRows.filter((item) => (
+      String(valueFor(item, 'delivery_status', 'deliveryStatus') || '').toLowerCase() === 'sent'
+    )).length,
+    sourceRecheckCount: openRows.filter((item) => (
+      valueFor(item, 'fill_strategy', 'fillStrategy') === 'source_recheck'
+    )).length,
+    dependencyCount: openRows.filter((item) => (
+      valueFor(item, 'fill_strategy', 'fillStrategy') === 'dependency_fill'
+    )).length,
+  }
+}
+
 export function buildFactClosureSurface(factClosure) {
   const fields = Array.isArray(factClosure?.critical_fields)
     ? factClosure.critical_fields

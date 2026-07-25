@@ -4,12 +4,47 @@ import assert from 'node:assert/strict'
 import {
   buildDailyComparisonCards,
   buildDailySettlementCards,
+  buildFactActionSummary,
   buildFactClosureSurface,
   buildDailyWorkshopRows,
   buildDailyWipRows,
   MISSING_DAILY_VALUE,
   openFactTrace,
 } from '../src/utils/manageDailyReportSurface.js'
+
+test('fact action summary separates owner fill, source review, and dependency work', () => {
+  const summary = buildFactActionSummary([
+    {
+      status: 'open',
+      action_route: '/entry/fill?field=total_electricity_kwh',
+      fill_strategy: 'owner_daily',
+      delivery_status: 'sent',
+    },
+    {
+      status: 'pending',
+      action_route: '/entry/fill?field=daily_yield_rate',
+      fill_strategy: 'owner_confirmation',
+      delivery_status: 'pending',
+    },
+    { status: 'open', fill_strategy: 'source_recheck' },
+    { status: 'open', fill_strategy: 'dependency_fill' },
+    {
+      status: 'resolved',
+      action_route: '/entry/fill?field=finished_inbound_daily',
+      fill_strategy: 'owner_daily',
+      delivery_status: 'sent',
+    },
+    null,
+  ])
+
+  assert.deepEqual(summary, {
+    openCount: 4,
+    actionableCount: 2,
+    notifiedCount: 1,
+    sourceRecheckCount: 1,
+    dependencyCount: 1,
+  })
+})
 
 test('daily settlement cards keep MES packaging output separate from plant inbound output', () => {
   const cards = buildDailySettlementCards({

@@ -76,7 +76,10 @@
               :key="item.id"
               :to="item.route"
             >
-              <span>{{ item.text }}</span>
+              <span class="xt-alerts__queue-item-copy">
+                <b>{{ item.text }}</b>
+                <small v-if="queueItemMeta(item)">{{ queueItemMeta(item) }}</small>
+              </span>
               <small v-if="item.rawCount > 1">{{ item.rawCount }} 条</small>
             </RouterLink>
           </div>
@@ -184,6 +187,30 @@ const workQueueSummary = computed(() => {
     ? `${openCases} 项待处理 / ${rawCount} 条原始异常`
     : `${caseCount} 项已处理 / ${rawCount} 条原始异常`
 })
+
+const OWNER_ROLE_LABELS = {
+  machine_operator: '机台主操',
+  energy_chief: '全厂总电工',
+  shipment_outflow_owner: '园区剪切内勤',
+  overhaul_owner: '大修内勤',
+  storage_owner: '成品库内勤',
+  planning_owner: '计划内勤',
+  quality_owner: '质检内勤',
+  factory_dispatch: '工厂调度',
+}
+
+function queueItemMeta(item) {
+  const parts = []
+  if (item.ownerRole) parts.push(OWNER_ROLE_LABELS[item.ownerRole] || item.ownerRole)
+  if (item.actionRoute?.startsWith('/entry/fill')) {
+    parts.push(item.deliveryStatus === 'sent' ? '补录入口已发送' : '待发送补录入口')
+  } else if (item.fillStrategy === 'source_recheck') {
+    parts.push('来源复查')
+  } else if (item.fillStrategy === 'dependency_fill') {
+    parts.push('依赖补齐')
+  }
+  return parts.join(' · ')
+}
 const alertStats = computed(() => {
   const total = businessEvents.value.length
   return [
@@ -521,7 +548,29 @@ watch(() => route.query, () => {
   white-space: nowrap;
 }
 
-.xt-alerts__queue-items a small {
+.xt-alerts__queue-item-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.xt-alerts__queue-item-copy b {
+  overflow: hidden;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xt-alerts__queue-item-copy small {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xt-alerts__queue-items a > small {
   flex: 0 0 auto;
   color: color-mix(in srgb, var(--xt-warning) 78%, var(--xt-text-inverse));
   font-size: var(--xt-text-xs);

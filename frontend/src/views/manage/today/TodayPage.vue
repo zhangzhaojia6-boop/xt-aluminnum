@@ -76,6 +76,41 @@
     </section>
 
     <section
+      v-if="factActionSummary.openCount"
+      class="xt-today__fact-actions"
+      data-testid="today-fact-actions"
+      aria-label="事实行动摘要"
+    >
+      <div class="xt-today__fact-action-lead">
+        <span>事实待办</span>
+        <strong>{{ factActionSummary.openCount }}</strong>
+      </div>
+      <div>
+        <span>可人工补录</span>
+        <strong>{{ factActionSummary.actionableCount }}</strong>
+      </div>
+      <div>
+        <span>入口已发送</span>
+        <strong>{{ factActionSummary.notifiedCount }}</strong>
+      </div>
+      <div>
+        <span>来源复查</span>
+        <strong>{{ factActionSummary.sourceRecheckCount }}</strong>
+      </div>
+      <div>
+        <span>依赖补齐</span>
+        <strong>{{ factActionSummary.dependencyCount }}</strong>
+      </div>
+      <RouterLink
+        class="xt-today__fact-action-link"
+        :to="{ path: '/manage/alerts', query: { domain: 'reporting' } }"
+        aria-label="打开事实待办"
+      >
+        <el-icon><ArrowRight /></el-icon>
+      </RouterLink>
+    </section>
+
+    <section
       id="daily-report"
       class="xt-today__command-wall"
       data-testid="today-command-wall"
@@ -269,6 +304,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { ArrowRight } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
@@ -287,7 +323,11 @@ import { fetchUsersPage } from '../../../api/users.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { isCompactClient } from '../../../router/guardRules.js'
 import { buildTodayStitchSurface } from '../../../utils/stitchManageSurface.js'
-import { buildFactClosureSurface, openFactTrace } from '../../../utils/manageDailyReportSurface.js'
+import {
+  buildFactActionSummary,
+  buildFactClosureSurface,
+  openFactTrace,
+} from '../../../utils/manageDailyReportSurface.js'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -403,6 +443,7 @@ const missingRows = computed(() => stitchSurface.value.missingReportRows)
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})
 const factClosureSurface = computed(() => buildFactClosureSurface(dailyOverview.value.fact_closure))
+const factActionSummary = computed(() => buildFactActionSummary(dailyOverview.value.fact_missing))
 const businessDateLabel = computed(() => {
   const d = dayjs(snapshot.targetDate.value)
   if (!d.isValid()) return snapshot.targetDate.value || '未选择'
@@ -1775,6 +1816,60 @@ onBeforeUnmount(() => {
   background: rgba(3, 17, 29, 0.72);
 }
 
+.xt-today__fact-actions {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.25fr) repeat(4, minmax(92px, 1fr)) 36px;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(70, 157, 238, 0.28);
+  background: rgba(4, 24, 40, 0.9);
+}
+
+.xt-today__fact-actions > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 10px;
+  border-right: 1px solid rgba(70, 157, 238, 0.16);
+}
+
+.xt-today__fact-actions span {
+  overflow: hidden;
+  color: rgba(225, 240, 255, 0.58);
+  font-size: 11px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xt-today__fact-actions strong {
+  color: #ffd27a;
+  font-family: var(--xt-font-number);
+  font-size: 15px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.xt-today__fact-action-lead strong {
+  color: #ff9d8c;
+}
+
+.xt-today__fact-action-link {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  color: #8acbff;
+  text-decoration: none;
+}
+
+.xt-today__fact-action-link:hover,
+.xt-today__fact-action-link:focus-visible {
+  background: rgba(45, 143, 225, 0.16);
+  color: #d9efff;
+}
+
 .xt-today__fact-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1914,6 +2009,15 @@ onBeforeUnmount(() => {
 
   .xt-today__flow-step:not(:last-child)::after {
     display: none;
+  }
+
+  .xt-today__fact-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .xt-today__fact-action-link {
+    grid-column: 1 / -1;
+    min-height: 34px;
   }
 }
 </style>

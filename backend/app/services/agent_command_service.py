@@ -312,7 +312,10 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
     ):
         return {'status': 'not_connected'}
 
-    business_date = resolve_production_business_date()
+    business_date = _resolve_requested_business_date(
+        text,
+        default_business_date=resolve_production_business_date(),
+    )
     if intent == 'energy_cost':
         return _extract_energy_cost_facts(db, business_date=business_date, current_user=current_user)
     if intent == 'consumable_usage':
@@ -320,7 +323,7 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
     if intent == 'machine_operation':
         return _extract_machine_operation_facts(
             db,
-            business_date=_resolve_machine_operation_business_date(text, default_business_date=business_date),
+            business_date=business_date,
             command_text=text,
             current_user=current_user,
         )
@@ -553,7 +556,7 @@ def _extract_machine_operation_facts(
     }
 
 
-def _resolve_machine_operation_business_date(text: str, *, default_business_date: date) -> date:
+def _resolve_requested_business_date(text: str, *, default_business_date: date) -> date:
     value = _clean(text)
     iso_match = re.search(r'(?P<year>20\d{2})-(?P<month>\d{1,2})-(?P<day>\d{1,2})', value)
     full_match = re.search(r'(?P<year>20\d{2})年(?P<month>\d{1,2})月(?P<day>\d{1,2})日', value)
