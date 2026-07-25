@@ -187,3 +187,14 @@ test('TodayPage wires the persisted fact strip and trace drill-down to existing 
   assert.match(src, /data-testid="today-fact-closure"/)
   assert.match(src, /data-testid="today-fact-actions"/)
 })
+
+test('TodayPage keeps the fact action arrow reachable on compact clients', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /const factActionRoute = computed/)
+  assert.match(src, /compactClient\.value/)
+  assert.match(src, /path:\s*['"]\/manage\/today['"]/)
+  assert.match(src, /section:\s*['"]daily-report['"]/)
+  assert.match(src, /path:\s*['"]\/manage\/alerts['"]/)
+  assert.match(src, /domain:\s*['"]reporting['"]/)
+  assert.match(src, /:to="factActionRoute"/)
+})

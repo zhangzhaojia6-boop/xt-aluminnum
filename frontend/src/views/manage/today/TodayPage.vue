@@ -103,8 +103,8 @@
       </div>
       <RouterLink
         class="xt-today__fact-action-link"
-        :to="{ path: '/manage/alerts', query: { domain: 'reporting' } }"
-        aria-label="打开事实待办"
+        :to="factActionRoute"
+        :aria-label="compactClient ? '查看日报事实' : '打开事实待办'"
       >
         <el-icon><ArrowRight /></el-icon>
       </RouterLink>
@@ -444,6 +444,11 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})
 const factClosureSurface = computed(() => buildFactClosureSurface(dailyOverview.value.fact_closure))
 const factActionSummary = computed(() => buildFactActionSummary(dailyOverview.value.fact_missing))
+const factActionRoute = computed(() => (
+  compactClient.value
+    ? { path: '/manage/today', query: { section: 'daily-report' } }
+    : { path: '/manage/alerts', query: { domain: 'reporting' } }
+))
 const businessDateLabel = computed(() => {
   const d = dayjs(snapshot.targetDate.value)
   if (!d.isValid()) return snapshot.targetDate.value || '未选择'

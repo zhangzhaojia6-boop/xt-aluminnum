@@ -135,6 +135,45 @@ test('load calls daily production as the sixth endpoint with target_date', async
   assert.deepEqual(calls, [{ target_date: '2026-05-19' }])
 })
 
+test('reporting-only view skips unrelated endpoint requests and reloads when the domain changes', async () => {
+  const calls = []
+  const t = createAlertsTimeline({
+    fetchFactoryDashboard: async () => {
+      calls.push('production')
+      return {}
+    },
+    fetchQualityIssues: async () => {
+      calls.push('quality')
+      return []
+    },
+    fetchReconciliationItems: async () => {
+      calls.push('reconciliation')
+      return []
+    },
+    fetchMesFillGaps: async () => {
+      calls.push('mes')
+      return { items: [] }
+    },
+    fetchLiveAggregation: async () => {
+      calls.push('reporting-live')
+      return {}
+    },
+    fetchDailyProduction: async () => {
+      calls.push('reporting-daily')
+      return { fact_missing: [] }
+    },
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  t.setDomains(['reporting'])
+  await t.load()
+  assert.deepEqual(calls.sort(), ['reporting-daily', 'reporting-live'])
+
+  calls.length = 0
+  await t.setDomains(['quality'])
+  assert.deepEqual(calls, ['quality'])
+})
+
 test('daily fact alerts preserve real traces routes and the selected target date', async () => {
   const t = createAlertsTimeline({
     ...makeEmptyFakes(),
@@ -260,6 +299,45 @@ test('open fact task keeps management trace route separate from the owner fill a
   )
   assert.equal(reportingQueue.items[0].ownerRole, 'energy_chief')
   assert.equal(reportingQueue.items[0].deliveryStatus, 'sent')
+})
+
+test('reporting work queue shows open owner fill actions before resolved facts', () => {
+  const reportingQueue = buildAlertWorkQueues([
+    {
+      id: 'resolved-fact',
+      groupKey: 'daily-fact:resolved',
+      domain: 'reporting',
+      summary: '已补齐事实',
+      detailRoute: '/manage/alerts?trace_id=resolved',
+      status: 'resolved',
+    },
+    {
+      id: 'owner-fill',
+      groupKey: 'daily-fact:owner-fill',
+      domain: 'reporting',
+      summary: '待责任人补录',
+      detailRoute: '/manage/alerts?trace_id=owner-fill',
+      actionRoute: '/entry/fill?field=foundry_daily',
+      ownerRole: 'machine_operator',
+      deliveryStatus: 'sent',
+      status: 'open',
+    },
+    {
+      id: 'source-review',
+      groupKey: 'daily-fact:source-review',
+      domain: 'reporting',
+      summary: '待来源复查',
+      detailRoute: '/manage/alerts?trace_id=source-review',
+      fillStrategy: 'source_recheck',
+      status: 'open',
+    },
+  ]).find((queue) => queue.key === 'reporting')
+
+  assert.equal(reportingQueue.items[0].id, 'owner-fill')
+  assert.equal(reportingQueue.items[0].route, '/manage/alerts?trace_id=owner-fill')
+  assert.equal(reportingQueue.items[0].actionRoute, '/entry/fill?field=foundry_daily')
+  assert.equal(reportingQueue.items[1].id, 'source-review')
+  assert.equal(reportingQueue.items[2].id, 'resolved-fact')
 })
 
 test('missing canonical capability becomes a system fallback without business counts', async () => {

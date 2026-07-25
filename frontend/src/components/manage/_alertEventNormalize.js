@@ -499,6 +499,12 @@ export function buildAlertWorkQueues(events = []) {
 
   return ALERT_WORK_QUEUE_DEFS.map((item) => {
     const rows = buckets[item.key] || []
+    const priority = (event) => {
+      if (event.status !== 'open') return 2
+      if (event.actionRoute?.startsWith('/entry/fill')) return 0
+      return 1
+    }
+    const orderedRows = [...rows].sort((left, right) => priority(left) - priority(right))
     return {
       ...item,
       count: rows.length,
@@ -508,7 +514,7 @@ export function buildAlertWorkQueues(events = []) {
         (sum, event) => sum + Number(event.rawOpenCount ?? (event.status === 'open' ? event.rawCount || 1 : 0)),
         0
       ),
-      items: rows.slice(0, 3).map((event) => ({
+      items: orderedRows.slice(0, 3).map((event) => ({
         id: event.id,
         text: event.summary || '待处理异常',
         detail: event.detail || '',

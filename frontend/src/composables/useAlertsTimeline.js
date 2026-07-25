@@ -73,6 +73,11 @@ export function createAlertsTimeline(options = {}) {
   const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false, mes: false, live: false, daily: false })
   let token = 0
   let inflight = Promise.resolve()
+  let hasStarted = false
+
+  function wantsDomain(domain) {
+    return domains.value.length === 0 || domains.value.includes(domain)
+  }
 
   function fallbackCard(domain) {
     return {
@@ -101,53 +106,75 @@ export function createAlertsTimeline(options = {}) {
   }
 
   function load() {
+    hasStarted = true
     loading.value = true
     const my = ++token
     inflight = (async () => {
       const date = targetDate.value
+      const requested = {
+        factoryDirector: wantsDomain('production'),
+        quality: wantsDomain('quality'),
+        reconciliation: wantsDomain('reconciliation'),
+        mes: wantsDomain('mes'),
+        live: wantsDomain('reporting'),
+        daily: dailyEnabled && (
+          domains.value.length === 0
+          || domains.value.some((domain) => ['production', 'reporting', 'reconciliation'].includes(domain))
+        ),
+      }
       try {
         const [fd, q, r, m, live, daily] = await Promise.allSettled([
-          fdImpl({ target_date: date }),
-          qImpl({ business_date: date }),
-          rImpl({ business_date: date, status: 'open' }),
-          mImpl({ business_date: date }),
-          liveImpl({ business_date: date }),
-          dailyEnabled ? dailyImpl({ target_date: date }) : Promise.resolve(null),
+          requested.factoryDirector ? fdImpl({ target_date: date }) : Promise.resolve(null),
+          requested.quality ? qImpl({ business_date: date }) : Promise.resolve(null),
+          requested.reconciliation ? rImpl({ business_date: date, status: 'open' }) : Promise.resolve(null),
+          requested.mes ? mImpl({ business_date: date }) : Promise.resolve(null),
+          requested.live ? liveImpl({ business_date: date }) : Promise.resolve(null),
+          requested.daily ? dailyImpl({ target_date: date }) : Promise.resolve(null),
         ])
         if (my !== token) return
         const buckets = []
         const fail = { factoryDirector: false, quality: false, reconciliation: false, mes: false, live: false, daily: false }
-        if (fd.status === 'fulfilled') {
-          buckets.push(normalizeFactoryDirector(fd.value, date))
-        } else {
-          fail.factoryDirector = true
-          buckets.push([fallbackCard('production')])
+        if (requested.factoryDirector) {
+          if (fd.status === 'fulfilled') {
+            buckets.push(normalizeFactoryDirector(fd.value, date))
+          } else {
+            fail.factoryDirector = true
+            buckets.push([fallbackCard('production')])
+          }
         }
-        if (q.status === 'fulfilled') {
-          buckets.push(normalizeQuality(q.value, date))
-        } else {
-          fail.quality = true
-          buckets.push([fallbackCard('quality')])
+        if (requested.quality) {
+          if (q.status === 'fulfilled') {
+            buckets.push(normalizeQuality(q.value, date))
+          } else {
+            fail.quality = true
+            buckets.push([fallbackCard('quality')])
+          }
         }
-        if (r.status === 'fulfilled') {
-          buckets.push(normalizeReconciliation(r.value, date))
-        } else {
-          fail.reconciliation = true
-          buckets.push([fallbackCard('reconciliation')])
+        if (requested.reconciliation) {
+          if (r.status === 'fulfilled') {
+            buckets.push(normalizeReconciliation(r.value, date))
+          } else {
+            fail.reconciliation = true
+            buckets.push([fallbackCard('reconciliation')])
+          }
         }
-        if (m.status === 'fulfilled') {
-          buckets.push(normalizeMesFillGaps(m.value, date))
-        } else {
-          fail.mes = true
-          buckets.push([fallbackCard('mes')])
+        if (requested.mes) {
+          if (m.status === 'fulfilled') {
+            buckets.push(normalizeMesFillGaps(m.value, date))
+          } else {
+            fail.mes = true
+            buckets.push([fallbackCard('mes')])
+          }
         }
-        if (live.status === 'fulfilled') {
-          buckets.push(normalizeLiveMissingReports(live.value, date))
-        } else {
-          fail.live = true
-          buckets.push([fallbackCard('reporting')])
+        if (requested.live) {
+          if (live.status === 'fulfilled') {
+            buckets.push(normalizeLiveMissingReports(live.value, date))
+          } else {
+            fail.live = true
+            buckets.push([fallbackCard('reporting')])
+          }
         }
-        if (dailyEnabled) {
+        if (requested.daily) {
           if (daily.status === 'fulfilled') {
             buckets.push(normalizeDailyFactAlerts(daily.value, date))
           } else {
@@ -171,7 +198,14 @@ export function createAlertsTimeline(options = {}) {
   watch(targetDate, () => load(), { flush: 'sync' })
 
   function setDomains(next) {
-    domains.value = Array.isArray(next) ? [...next] : []
+    const normalized = Array.isArray(next)
+      ? [...new Set(next.filter((value) => typeof value === 'string' && value))]
+      : []
+    const unchanged = normalized.length === domains.value.length
+      && normalized.every((value, index) => value === domains.value[index])
+    if (unchanged) return inflight
+    domains.value = normalized
+    return hasStarted ? load() : inflight
   }
 
   function setTraceId(next) {
