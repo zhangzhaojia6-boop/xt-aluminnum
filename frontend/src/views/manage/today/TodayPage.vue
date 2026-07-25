@@ -2041,6 +2041,17 @@ onBeforeUnmount(() => {
     justify-content: flex-start;
   }
 
+  .xt-today__top-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+    width: 100%;
+  }
+
+  .xt-today__top-actions :deep(.xt-date-switcher) {
+    width: 100%;
+  }
+
   .xt-today__flow-steps,
   .xt-today__event-rail {
     grid-template-columns: 1fr;

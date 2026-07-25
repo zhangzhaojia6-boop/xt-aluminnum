@@ -207,3 +207,11 @@ test('TodayPage honors and preserves a target_date route query', () => {
   assert.match(src, /snapshot\.targetDate\.value\s*=\s*initialTargetDate/)
   assert.match(src, /target_date:\s*next/)
 })
+
+test('mobile Today keeps the report date on one horizontal row', () => {
+  const today = source('../src/views/manage/today/TodayPage.vue')
+  const switcher = source('../src/components/manage/DateSwitcher.vue')
+  assert.match(switcher, /\.xt-date-switcher__label\s*\{[\s\S]*?white-space:\s*nowrap/)
+  assert.match(today, /@media \(max-width:\s*720px\)[\s\S]*?\.xt-today__top-actions\s*\{[\s\S]*?display:\s*grid/)
+  assert.match(today, /\.xt-today__top-actions\s+:deep\(\.xt-date-switcher\)\s*\{[\s\S]*?width:\s*100%/)
+})

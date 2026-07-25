@@ -222,6 +222,7 @@ onBeforeUnmount(() => {
   font-family: var(--xt-font-number);
   font-size: var(--xt-text-md);
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .xt-date-switcher__label.is-open {
