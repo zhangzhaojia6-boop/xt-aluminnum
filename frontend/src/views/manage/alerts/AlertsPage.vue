@@ -145,14 +145,25 @@ function readTraceIdFromRoute() {
   return typeof value === 'string' ? value : ''
 }
 
+function readTargetDateFromRoute() {
+  const raw = route.query.target_date
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''
+}
+
+function replaceRouteQuery(query) {
+  domainRouteSync = domainRouteSync
+    .catch(() => {})
+    .then(() => router.replace({ query }))
+}
+
 function syncRouteFromDomains(domains) {
   const next = { ...route.query }
   delete next.surface
   if (domains.length === 0) delete next.domain
   else next.domain = domains.join(',')
-  domainRouteSync = domainRouteSync
-    .catch(() => {})
-    .then(() => router.replace({ query: next }))
+  next.target_date = timeline.targetDate.value
+  replaceRouteQuery(next)
 }
 
 function onDomainsChange(next) {
@@ -224,8 +235,13 @@ const alertStats = computed(() => {
 onMounted(() => {
   timeline.setDomains(readDomainsFromRoute())
   timeline.setTraceId(readTraceIdFromRoute())
+  const requestedDate = readTargetDateFromRoute()
+  if (requestedDate && requestedDate !== timeline.targetDate.value) {
+    timeline.targetDate.value = requestedDate
+  } else {
+    timeline.load()
+  }
   if (route.query.surface) syncRouteFromDomains(timeline.domains.value)
-  timeline.load()
 })
 
 function sameDomains(a, b) {
@@ -240,7 +256,16 @@ watch(() => route.query, () => {
   if (!sameDomains(next, timeline.domains.value)) {
     timeline.setDomains(next)
   }
+  const requestedDate = readTargetDateFromRoute()
+  if (requestedDate && requestedDate !== timeline.targetDate.value) {
+    timeline.targetDate.value = requestedDate
+  }
   timeline.setTraceId(readTraceIdFromRoute())
+})
+
+watch(timeline.targetDate, (next) => {
+  if (readTargetDateFromRoute() === next) return
+  replaceRouteQuery({ ...route.query, target_date: next })
 })
 </script>
 

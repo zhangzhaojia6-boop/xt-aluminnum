@@ -303,7 +303,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ArrowRight } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
@@ -330,9 +330,24 @@ import {
 } from '../../../utils/manageDailyReportSurface.js'
 
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 const snapshot = useDashboardSnapshot()
-snapshot.load()
+
+function normalizeRouteDate(value) {
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (typeof candidate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return ''
+  return dayjs(candidate).isValid() && dayjs(candidate).format('YYYY-MM-DD') === candidate
+    ? candidate
+    : ''
+}
+
+const initialTargetDate = normalizeRouteDate(route.query.target_date)
+if (initialTargetDate && initialTargetDate !== snapshot.targetDate.value) {
+  snapshot.targetDate.value = initialTargetDate
+} else {
+  snapshot.load()
+}
 
 const trendSeries = ref([])
 const userList = ref([])
@@ -383,6 +398,18 @@ loadUsers()
 loadLiveAggregation(snapshot.targetDate.value)
 watch(snapshot.targetDate, (next) => loadTrend(next))
 watch(snapshot.targetDate, (next) => loadLiveAggregation(next))
+watch(snapshot.targetDate, (next) => {
+  if (normalizeRouteDate(route.query.target_date) === next) return
+  void router.replace({
+    path: route.path,
+    query: { ...route.query, target_date: next },
+    hash: route.hash,
+  })
+})
+watch(() => route.query.target_date, (value) => {
+  const next = normalizeRouteDate(value)
+  if (next && next !== snapshot.targetDate.value) snapshot.targetDate.value = next
+})
 
 const reportingStatus = computed(() => snapshot.data.value.workshop_reporting_status || [])
 const rosterRows = computed(() => buildFilerRoster(reportingStatus.value, userList.value))
@@ -446,8 +473,15 @@ const factClosureSurface = computed(() => buildFactClosureSurface(dailyOverview.
 const factActionSummary = computed(() => buildFactActionSummary(dailyOverview.value.fact_missing))
 const factActionRoute = computed(() => (
   compactClient.value
-    ? { path: '/manage/today', query: { section: 'daily-report' } }
-    : { path: '/manage/alerts', query: { domain: 'reporting' } }
+    ? {
+        path: '/manage/today',
+        query: { ...route.query, target_date: snapshot.targetDate.value },
+        hash: '#daily-report',
+      }
+    : {
+        path: '/manage/alerts',
+        query: { domain: 'reporting', target_date: snapshot.targetDate.value },
+      }
 ))
 const businessDateLabel = computed(() => {
   const d = dayjs(snapshot.targetDate.value)

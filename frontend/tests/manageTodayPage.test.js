@@ -193,8 +193,17 @@ test('TodayPage keeps the fact action arrow reachable on compact clients', () =>
   assert.match(src, /const factActionRoute = computed/)
   assert.match(src, /compactClient\.value/)
   assert.match(src, /path:\s*['"]\/manage\/today['"]/)
-  assert.match(src, /section:\s*['"]daily-report['"]/)
+  assert.match(src, /hash:\s*['"]#daily-report['"]/)
   assert.match(src, /path:\s*['"]\/manage\/alerts['"]/)
   assert.match(src, /domain:\s*['"]reporting['"]/)
+  assert.match(src, /target_date:\s*snapshot\.targetDate\.value/)
   assert.match(src, /:to="factActionRoute"/)
+})
+
+test('TodayPage honors and preserves a target_date route query', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /useRoute/)
+  assert.match(src, /route\.query\.target_date/)
+  assert.match(src, /snapshot\.targetDate\.value\s*=\s*initialTargetDate/)
+  assert.match(src, /target_date:\s*next/)
 })

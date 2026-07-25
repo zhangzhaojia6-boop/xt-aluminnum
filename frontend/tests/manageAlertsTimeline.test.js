@@ -549,3 +549,11 @@ test('AlertsPage reads trace_id into the existing timeline filter', () => {
   assert.match(src, /route\.query\.trace_id/)
   assert.match(src, /timeline\.setTraceId/)
 })
+
+test('AlertsPage keeps the selected business date from the route', () => {
+  const src = readFileSync(new URL('../src/views/manage/alerts/AlertsPage.vue', import.meta.url), 'utf8')
+  assert.match(src, /route\.query\.target_date/)
+  assert.match(src, /readTargetDateFromRoute/)
+  assert.match(src, /timeline\.targetDate\.value\s*=\s*requestedDate/)
+  assert.match(src, /target_date\s*=\s*timeline\.targetDate\.value/)
+})
