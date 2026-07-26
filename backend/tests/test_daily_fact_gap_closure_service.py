@@ -3,9 +3,6 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-
 from app.models import Base
 from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.services import agent_communication_service
@@ -14,7 +11,8 @@ from app.services.report.daily_fact_gap_closure_service import (
     list_open_daily_fact_gap_dates,
     sync_daily_fact_gap_events,
 )
-
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 TARGET_DATE = date(2026, 7, 21)
 NOW = datetime(2026, 7, 22, 0, 5, tzinfo=UTC)
@@ -120,9 +118,13 @@ def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) ->
         by_field = {event.payload["field"]: event for event in events}
         assert by_field["total_output_daily"].payload["entry_route"] == "/manage/alerts"
         assert by_field["total_output_daily"].payload["fill_strategy"] == "dependency_fill"
+        assert by_field["total_output_daily"].payload["automation_status"] == "waiting_for_dependencies"
+        assert by_field["total_output_daily"].payload["human_action_required"] is False
         assert by_field["hot_roll_daily"].payload["entry_route"] == "/entry/fill"
         assert by_field["hot_roll_daily"].payload["owner_role"] == "machine_operator"
         assert by_field["hot_roll_daily"].payload["entry_fields"] == ["output_weight"]
+        assert by_field["hot_roll_daily"].payload["automation_status"] == "waiting_for_owner"
+        assert by_field["hot_roll_daily"].payload["human_action_required"] is True
         hot_roll_route = urlparse(by_field["hot_roll_daily"].payload["action_route"])
         assert hot_roll_route.path == "/entry/fill"
         assert parse_qs(hot_roll_route.query) == {
@@ -141,10 +143,13 @@ def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) ->
             assignment["field"]: assignment
             for assignment in outbox[0].payload["assignments"]
         }
+        assert set(assignments) == {"hot_roll_daily"}
         assert assignments["hot_roll_daily"]["business_date"] == "2026-07-21"
         assert assignments["hot_roll_daily"]["trace_id"] == "daily-fact-closure:2026-07-21"
         assert assignments["hot_roll_daily"]["action_route"] == by_field["hot_roll_daily"].payload["action_route"]
-        assert "2 项" in outbox[0].content
+        assert "需要人工补录：1 项" in outbox[0].content
+        assert "依赖补齐 1 项" in outbox[0].content
+        assert "状态不变不会重复提醒" in outbox[0].content
         assert "999999" not in outbox[0].content
         assert "total_output_daily" not in outbox[0].content
         assert "hot_roll_daily" not in outbox[0].content
@@ -153,6 +158,91 @@ def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) ->
             "business_date=2026-07-21&entry_fields=output_weight"
         ) in outbox[0].content
         assert second["outbox_message_id"] == first["outbox_message_id"]
+        assert second["delivery_status"] == "unchanged"
+        assert by_field["total_output_daily"].payload["automation_check_count"] == 2
+        assert by_field["hot_roll_daily"].payload["automation_check_count"] == 0
+    finally:
+        db.close()
+
+
+def test_sync_keeps_source_rechecks_and_dependencies_in_trace_without_notifying_people() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+
+        first = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("wip_total", "total_cost_10k"),
+            trace_id="trace-auto-recheck",
+            now=NOW,
+        )
+        second = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("wip_total", "total_cost_10k"),
+            trace_id="trace-auto-recheck",
+            now=NOW + timedelta(minutes=15),
+        )
+        db.commit()
+
+        events = {
+            event.payload["field"]: event.payload
+            for event in db.query(AgentEvent).all()
+        }
+        assert first["delivery_status"] == "auto_rechecking"
+        assert second["delivery_status"] == "auto_rechecking"
+        assert first["outbox_message_id"] is None
+        assert second["outbox_message_id"] is None
+        assert db.query(AgentOutboxMessage).count() == 0
+        assert events["wip_total"]["automation_status"] == "rechecking_sources"
+        assert events["wip_total"]["automation_check_count"] == 2
+        assert events["total_cost_10k"]["automation_status"] == "waiting_for_dependencies"
+        assert events["total_cost_10k"]["automation_check_count"] == 2
+        assert all(payload["human_action_required"] is False for payload in events.values())
+    finally:
+        db.close()
+
+
+def test_sync_notifies_only_when_a_new_human_action_appears() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+
+        first = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-owner-change",
+            now=NOW,
+        )
+        automatic_change = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily", "total_cost_10k"),
+            trace_id="trace-owner-change",
+            now=NOW + timedelta(minutes=15),
+        )
+        owner_change = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily", "total_cost_10k", "total_electricity_kwh"),
+            trace_id="trace-owner-change",
+            now=NOW + timedelta(minutes=30),
+        )
+        db.commit()
+
+        assert first["outbox_message_id"] is not None
+        assert automatic_change["delivery_status"] == "unchanged"
+        assert automatic_change["outbox_message_id"] == first["outbox_message_id"]
+        assert owner_change["outbox_message_id"] != first["outbox_message_id"]
+        assert db.query(AgentOutboxMessage).count() == 2
+        latest = db.get(AgentOutboxMessage, owner_change["outbox_message_id"])
+        assert latest is not None
+        assert {
+            item["field"]
+            for item in latest.payload["assignments"]
+        } == {"hot_roll_daily", "total_electricity_kwh"}
     finally:
         db.close()
 
@@ -299,7 +389,7 @@ def test_sync_prefers_real_channel_over_dry_run_channel() -> None:
         result = sync_daily_fact_gap_events(
             db,
             business_date=TARGET_DATE,
-            bundle=_bundle("total_output_daily"),
+            bundle=_bundle("hot_roll_daily"),
             trace_id="trace-real-channel",
             now=NOW,
         )

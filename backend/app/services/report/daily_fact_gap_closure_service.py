@@ -23,12 +23,11 @@ from app.services.report.daily_report_gap_analysis import (
 )
 from app.services.report.template_daily_report import FACT_LABELS
 
-
 EVENT_TYPE = "daily_fact_gap"
 SOURCE_TYPE = "daily_fact_closure"
 AGENT_CODE = "factory_dispatch"
 OPEN_EVENT_STATUSES = {"new", "open", "pending"}
-OUTBOX_DEDUPE_MINUTES = 24 * 60
+OUTBOX_DEDUPE_MINUTES = 31 * 24 * 60
 CORE_FIELD_LABELS = {
     "total_output_daily": "全厂总产量",
     "finished_inbound_daily": "成品入库量",
@@ -77,6 +76,8 @@ def sync_daily_fact_gap_events(
             trace_id=trace_id,
             action=item,
         )
+        item["human_action_required"] = _human_action_required(item)
+        item["automation_status"] = _automation_status(item)
     existing_events = (
         db.query(AgentEvent)
         .filter(
@@ -133,9 +134,38 @@ def sync_daily_fact_gap_events(
             "first_detected_at": previous_payload.get("first_detected_at") or checked_at.isoformat(),
             "last_checked_at": checked_at.isoformat(),
             "last_checked_trace_id": trace_id,
+            "automation_check_count": (
+                0
+                if item["human_action_required"]
+                else _safe_count(previous_payload.get("automation_check_count")) + 1
+            ),
+            "notification_policy": "action_change_or_full_closure",
         }
+        if (
+            item["human_action_required"]
+            and not was_reopened
+            and not event.payload.get("action_notified_at")
+            and previous_payload.get("outbox_message_id")
+            and _human_action_required(previous_payload)
+        ):
+            event.payload = {
+                **event.payload,
+                "action_notified_at": (
+                    previous_payload.get("first_detected_at")
+                    or previous_payload.get("last_checked_at")
+                    or checked_at.isoformat()
+                ),
+                "action_notification_outbox_id": previous_payload["outbox_message_id"],
+            }
         if was_reopened:
-            event.payload = {**event.payload, "reopened_at": checked_at.isoformat()}
+            event.payload = {
+                **event.payload,
+                "reopened_at": checked_at.isoformat(),
+            }
+            event.payload.pop("action_notified_at", None)
+            event.payload.pop("action_notification_outbox_id", None)
+            event.payload.pop("closure_notified_at", None)
+            event.payload.pop("closure_notification_outbox_id", None)
         open_events.append(event)
 
     resolved_events: list[AgentEvent] = []
@@ -160,11 +190,32 @@ def sync_daily_fact_gap_events(
     db.flush()
     delivery_status = "not_needed"
     outbox_message_id: int | None = None
-    if open_events or resolved_events:
+    actionable_events = [
+        event
+        for event in open_events
+        if _human_action_required(event.payload or {})
+    ]
+    unnotified_actionable_events = [
+        event
+        for event in actionable_events
+        if not (event.payload or {}).get("action_notified_at")
+    ]
+    full_closure = not gap_items and bool(resolved_events)
+    closure_already_notified = any(
+        (event.payload or {}).get("closure_notified_at")
+        for event in existing_events
+    )
+    should_notify = bool(unnotified_actionable_events) or (
+        full_closure and not closure_already_notified
+    )
+
+    if should_notify:
         channel = _preferred_bound_channel(db)
         if channel is None:
             delivery_status = "channel_unavailable"
         else:
+            notification_state = "resolved" if full_closure else "blocked"
+            action_items = _human_action_items(gap_items)
             message = agent_communication_service.queue_bound_message(
                 db,
                 agent_code=AGENT_CODE,
@@ -199,10 +250,25 @@ def sync_daily_fact_gap_events(
                             "trace_id": trace_id,
                             "action_route": item["action_route"],
                         }
-                        for item in gap_items
+                        for item in action_items
                     ],
+                    "auto_recheck_event_ids": [
+                        event.id
+                        for event in open_events
+                        if (event.payload or {}).get("automation_status") == "rechecking_sources"
+                    ],
+                    "dependency_event_ids": [
+                        event.id
+                        for event in open_events
+                        if (event.payload or {}).get("automation_status") == "waiting_for_dependencies"
+                    ],
+                    "notification_state": notification_state,
                 },
-                dedupe_key=_outbox_dedupe_key(business_date, gap_items),
+                dedupe_key=_outbox_dedupe_key(
+                    business_date,
+                    notification_state,
+                    action_items,
+                ),
                 dedupe_window_minutes=OUTBOX_DEDUPE_MINUTES,
                 now=checked_at,
                 commit=False,
@@ -216,7 +282,26 @@ def sync_daily_fact_gap_events(
                 "delivery_status": delivery_status,
                 "outbox_message_id": outbox_message_id,
             }
+        if outbox_message_id is not None and full_closure:
+            for event in resolved_events:
+                event.payload = {
+                    **(event.payload or {}),
+                    "closure_notified_at": checked_at.isoformat(),
+                    "closure_notification_outbox_id": outbox_message_id,
+                }
+        elif outbox_message_id is not None:
+            for event in actionable_events:
+                event.payload = {
+                    **(event.payload or {}),
+                    "action_notified_at": checked_at.isoformat(),
+                    "action_notification_outbox_id": outbox_message_id,
+                }
         db.flush()
+    elif gap_items and not actionable_events:
+        delivery_status = "auto_rechecking"
+    elif gap_items:
+        delivery_status = "unchanged"
+        outbox_message_id = _latest_action_outbox_id(actionable_events)
 
     return {
         "created": created,
@@ -352,8 +437,17 @@ def _event_source_ref(business_date: date, field: str) -> str:
     return f"{raw[:111]}:{digest}"
 
 
-def _outbox_dedupe_key(business_date: date, gap_items: list[dict[str, Any]]) -> str:
-    return f"{EVENT_TYPE}:{business_date.isoformat()}:{_gap_signature(gap_items)}"
+def _outbox_dedupe_key(
+    business_date: date,
+    notification_state: str,
+    action_items: list[dict[str, Any]],
+) -> str:
+    if notification_state == "resolved":
+        return f"{EVENT_TYPE}:{business_date.isoformat()}:resolved"
+    return (
+        f"{EVENT_TYPE}:{business_date.isoformat()}:blocked:"
+        f"{_gap_signature(action_items)}"
+    )
 
 
 def _gap_signature(gap_items: list[dict[str, Any]]) -> str:
@@ -372,32 +466,79 @@ def _outbox_content(
 ) -> str:
     if not gap_items:
         return (
-            "鑫泰铝业智能大脑已重新核对 MES、数据中枢、扫码补录和钉钉证据。\n\n"
+            "鑫泰铝业智能大脑完成本轮事实核对。\n\n"
             f"- 业务日：{business_date.isoformat()}\n"
             "- 结果：日报缺失事实已补齐，相关事件已自动关闭\n"
             f"- 本轮关单：{resolved_count} 项\n"
             f"- 追踪号：{trace_id}"
         )
+    action_items = _human_action_items(gap_items)
+    source_recheck_count = sum(
+        item.get("automation_status") == "rechecking_sources"
+        for item in gap_items
+    )
+    dependency_count = sum(
+        item.get("automation_status") == "waiting_for_dependencies"
+        for item in gap_items
+    )
     item_lines = []
-    for item in gap_items[:8]:
+    for item in action_items[:8]:
         owner_label = OWNER_ROLE_LABELS.get(str(item.get("owner_role")), "管理调度")
-        action_label = "立即补录" if item.get("entry_route") == "/entry/fill" else "查看处理"
         action_url = _public_action_url(_outbox_action_route(str(item["action_route"])))
         item_lines.append(
             f"- {_field_label(item['field'])}（责任：{owner_label}）："
-            f"{item['next_step']} [{action_label}]({action_url})"
+            f"{item['next_step']} [立即补录]({action_url})"
         )
-    if len(gap_items) > 8:
-        item_lines.append(f"- 另有 {len(gap_items) - 8} 项，请在异常中心查看")
+    if len(action_items) > 8:
+        item_lines.append(f"- 另有 {len(action_items) - 8} 项可在异常中心查看")
     resolved_line = f"- 本轮已补齐：{resolved_count} 项\n" if resolved_count else ""
     return (
-        "鑫泰铝业智能大脑已重新核对 MES、数据中枢、扫码补录和钉钉证据。\n\n"
+        "鑫泰铝业智能大脑完成本轮事实核对。\n\n"
         f"- 业务日：{business_date.isoformat()}\n"
-        f"- 待补事实：{len(gap_items)} 项\n"
+        f"- 需要人工补录：{len(action_items)} 项\n"
+        f"- 后台处理中：来源复查 {source_recheck_count} 项，"
+        f"依赖补齐 {dependency_count} 项；状态不变不会重复提醒\n"
         f"{resolved_line}"
         + "\n".join(item_lines)
         + f"\n- 追踪号：{trace_id}"
     )
+
+
+def _human_action_required(item: Mapping[str, Any]) -> bool:
+    return (
+        str(item.get("entry_route") or "") == "/entry/fill"
+        and bool(item.get("entry_fields"))
+    )
+
+
+def _human_action_items(gap_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [item for item in gap_items if _human_action_required(item)]
+
+
+def _automation_status(item: Mapping[str, Any]) -> str:
+    if _human_action_required(item):
+        return "waiting_for_owner"
+    if str(item.get("fill_strategy") or "") == "dependency_fill":
+        return "waiting_for_dependencies"
+    return "rechecking_sources"
+
+
+def _safe_count(value: Any) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _latest_action_outbox_id(events: list[AgentEvent]) -> int | None:
+    message_ids = [
+        _safe_count(
+            (event.payload or {}).get("action_notification_outbox_id")
+            or (event.payload or {}).get("outbox_message_id")
+        )
+        for event in events
+    ]
+    return max(message_ids, default=0) or None
 
 
 def _outbox_action_route(action_route: str) -> str:
