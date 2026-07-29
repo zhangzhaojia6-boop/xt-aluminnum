@@ -186,6 +186,29 @@ def test_hermes_mutating_workflows_use_official_gateway_lifecycle() -> None:
         assert 'systemctl stop hermes-gateway' not in source
 
 
+def test_production_deploy_rejects_hermes_restart_journal_failures() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    journal_gate = _extract_shell_function(source, 'verify_hermes_restart_journal')
+
+    assert 'journalctl -u hermes-gateway --since "@$since_epoch"' in journal_gate
+    assert "Failed with result ['\\\"]exit-code['\\\"]" in journal_gate
+    assert 'Feishu / Lark' in journal_gate
+    assert 'No adapter available for feishu' in journal_gate
+    assert 'restart_drain_timeout.*expected' in journal_gate
+    assert 'systemctl show -p Result --value hermes-gateway' in journal_gate
+    assert 'HERMES_RESTART_JOURNAL=clean' in journal_gate
+
+    epoch_index = source.find('HERMES_RESTART_EPOCH="$(date +%s)"')
+    stop_index = source.find('stop_hermes_gateway', epoch_index)
+    stream_index = source.find('report_stream_connection "yes" 40 3', stop_index)
+    gate_index = source.find(
+        'verify_hermes_restart_journal "$HERMES_RESTART_EPOCH"',
+        stream_index,
+    )
+    assert -1 not in (epoch_index, stop_index, stream_index, gate_index)
+    assert epoch_index < stop_index < stream_index < gate_index
+
+
 @pytest.mark.parametrize(
     ('cli_exit_code', 'expected_exit_code'),
     ((0, 0), (1, 1)),

@@ -1402,6 +1402,32 @@ jobs:
             fi
           }
 
+          verify_hermes_restart_journal() {
+            local since_epoch="$1"
+            local journal_file
+            local service_result
+            journal_file="$(mktemp /tmp/hermes-restart-journal.XXXXXX)"
+            if ! journalctl -u hermes-gateway --since "@$since_epoch" --no-pager -o cat > "$journal_file" 2>&1; then
+              rm -f "$journal_file"
+              echo "HERMES_RESTART_JOURNAL=unavailable"
+              return 1
+            fi
+            if grep -Eiq \
+              "Failed with result ['\"]exit-code['\"]|Platform ['\"]Feishu / Lark['\"] requirements not met|Platform ['\"]feishu['\"]|No adapter available for feishu|restart_drain_timeout.*expected|TimeoutStopSec.*expected" \
+              "$journal_file"; then
+              rm -f "$journal_file"
+              echo "HERMES_RESTART_JOURNAL=unexpected_lifecycle_warning"
+              return 1
+            fi
+            rm -f "$journal_file"
+            service_result="$(systemctl show -p Result --value hermes-gateway 2>/dev/null || true)"
+            if [ "$service_result" != "success" ]; then
+              echo "HERMES_RESTART_JOURNAL=service_result_${service_result:-unknown}"
+              return 1
+            fi
+            echo "HERMES_RESTART_JOURNAL=clean"
+          }
+
           report_status() {
             local version_required="$1"
             local contract_gate_script="$DATAHUB_REPO/backend/scripts/check_daily_report_field_contract.py"
@@ -1737,6 +1763,7 @@ jobs:
             npm run build
           )
 
+          HERMES_RESTART_EPOCH="$(date +%s)"
           stop_hermes_gateway
           git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"
           HERMES_CHECKOUT_DONE=1
@@ -1855,6 +1882,7 @@ jobs:
           echo "SMOKE_PERSISTENCE=$(verify_smoke_trace_persisted "$RAW_DATABASE_URL" "$smoke_trace")"
 
           report_stream_connection "yes" 40 3
+          verify_hermes_restart_journal "$HERMES_RESTART_EPOCH"
           echo "STREAM_PERSISTENCE=$(query_stream_persistence "$RAW_DATABASE_URL")"
 
           report_status "yes"
