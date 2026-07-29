@@ -50,6 +50,7 @@ def render_text(report: dict) -> str:
         f"MES read-only reliability: {report['status']}",
         f"business dates: {', '.join(report['business_dates'])}",
         f"source probes: {len(report['query_results'])}",
+        f"machine fact checks: {len(report.get('machine_fact_checks') or [])}",
         f"blockers: {len(report['blockers'])}",
     ]
     lines.extend(f"  - {item['code']}" for item in report['blockers'])

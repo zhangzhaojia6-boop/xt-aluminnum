@@ -16,6 +16,9 @@ from app.adapters.sqlserver_mes_adapter import (
 from app.core.business_time import local_now, production_business_window, resolve_production_business_date
 from app.core.redaction import redact_secret_text
 from app.models.mes import MesMaterialRecord, MesStockRecord, MesSyncRunLog, MesWorkshopProcessRecord
+from app.models.system import User
+from app.services.agent_command_service import read_machine_facts
+from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.mes_sync_service import SYNC_CURSOR_KEY, _run_with_adapter_retries, latest_sync_status
 
 
@@ -96,6 +99,137 @@ def _persisted_event_id(event: object, *, expected_type: str) -> str | None:
     if event_id in (None, '') or str(event.get('event_type') or '') != expected_type:
         return None
     return str(event_id)
+
+
+def _factory_scope_audit_user(db: Session) -> User | None:
+    try:
+        user = (
+            db.query(User)
+            .filter(User.is_active.is_(True), User.role == 'admin')
+            .order_by(User.id.asc())
+            .first()
+        )
+        if user is not None:
+            return user
+        return (
+            db.query(User)
+            .filter(User.is_active.is_(True), User.data_scope_type == 'all')
+            .order_by(User.id.asc())
+            .first()
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _build_machine_operation_fact_checks(
+    db: Session,
+    *,
+    adapter: SqlServerMesAdapter,
+    business_dates: Sequence[date],
+) -> list[dict[str, Any]]:
+    current_user = _factory_scope_audit_user(db)
+    if current_user is None:
+        return [
+            {
+                'business_date': item.isoformat(),
+                'status': 'blocked',
+                'source_status': 'missing',
+                'data_source': '',
+                'record_count': 0,
+                'complete_record_count': 0,
+                'review_required_count': 0,
+                'record_semantics': '',
+                'reason': 'factory_scope_actor_missing',
+            }
+            for item in business_dates
+        ]
+
+    mes_reader = HermesMesReadService(adapter)
+    checks = []
+    for business_date in business_dates:
+        try:
+            facts = read_machine_facts(
+                db,
+                intent='machine_operation',
+                business_date=business_date,
+                command_text='机器生产起止明细',
+                current_user=current_user,
+                mes_reader=mes_reader,
+            )
+        except Exception as exc:  # noqa: BLE001
+            checks.append(
+                {
+                    'business_date': business_date.isoformat(),
+                    'status': 'blocked',
+                    'source_status': 'failed',
+                    'data_source': '',
+                    'record_count': 0,
+                    'complete_record_count': 0,
+                    'review_required_count': 0,
+                    'record_semantics': '',
+                    'reason': _safe_error(exc),
+                }
+            )
+            continue
+
+        source_status = str((facts.get('source_status') or {}).get('mes') or 'missing')
+        data_source = str(facts.get('data_source') or '')
+        record_count = int(facts.get('record_count') or 0)
+        complete_record_count = int(facts.get('complete_record_count') or 0)
+        semantics = str(facts.get('record_semantics') or '')
+        if source_status != 'ok':
+            status = 'blocked'
+            reason = 'direct_mes_machine_fact_unavailable'
+        elif record_count == 0:
+            status = 'no_data'
+            reason = 'source_query_succeeded_no_machine_rows'
+        elif data_source != 'mes_readonly':
+            status = 'blocked'
+            reason = 'machine_fact_fell_back_to_projection'
+        elif complete_record_count <= 0:
+            status = 'blocked'
+            reason = 'machine_operation_time_incomplete'
+        elif semantics != 'mes_process_start_end_not_physical_power':
+            status = 'blocked'
+            reason = 'machine_operation_semantics_missing'
+        else:
+            status = 'pass'
+            reason = None
+        check = {
+            'business_date': business_date.isoformat(),
+            'status': status,
+            'source_status': source_status,
+            'data_source': data_source,
+            'fact_status': str(facts.get('fact_status') or ''),
+            'record_count': record_count,
+            'complete_record_count': complete_record_count,
+            'review_required_count': int(facts.get('review_required_count') or 0),
+            'record_semantics': semantics,
+        }
+        if reason:
+            check['reason'] = reason
+        checks.append(check)
+    return checks
+
+
+def _sanitize_machine_fact_check(item: Mapping[str, Any]) -> dict[str, Any]:
+    result = {
+        'business_date': str(item.get('business_date') or ''),
+        'status': str(item.get('status') or 'blocked'),
+        'source_status': str(item.get('source_status') or 'missing'),
+        'data_source': str(item.get('data_source') or ''),
+        'record_count': int(item.get('record_count') or 0),
+        'complete_record_count': int(item.get('complete_record_count') or 0),
+        'review_required_count': int(item.get('review_required_count') or 0),
+        'record_semantics': str(item.get('record_semantics') or ''),
+    }
+    fact_status = str(item.get('fact_status') or '')
+    if fact_status:
+        result['fact_status'] = fact_status
+    reason = str(item.get('reason') or '')
+    if reason:
+        result['reason'] = _safe_error(reason)
+    return result
 
 
 def run_controlled_fault_drills(*, event_publisher=None) -> list[dict[str, Any]]:
@@ -191,6 +325,7 @@ def evaluate_mes_readonly_reliability(
     successful_sync_dates: Iterable[str],
     sync_status: Mapping[str, Any],
     fault_drills: Iterable[Mapping[str, Any]] = (),
+    machine_fact_checks: Iterable[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     date_labels = [item.isoformat() for item in business_dates]
     sanitized_queries = [_sanitize_query_result(item) for item in query_results]
@@ -233,6 +368,10 @@ def evaluate_mes_readonly_reliability(
         }
         for item in fault_drills
     ]
+    safe_machine_fact_checks = [
+        _sanitize_machine_fact_check(item)
+        for item in machine_fact_checks
+    ]
 
     blockers = []
     if len(date_labels) != 3:
@@ -273,6 +412,28 @@ def evaluate_mes_readonly_reliability(
         for item in safe_fault_drills
     ):
         blockers.append(_blocker('controlled_fault_drill_failed'))
+    expected_machine_dates = set(date_labels)
+    checked_machine_dates = {
+        item['business_date']
+        for item in safe_machine_fact_checks
+    }
+    if checked_machine_dates != expected_machine_dates:
+        blockers.append(
+            _blocker(
+                'machine_fact_check_coverage_invalid',
+                expected=sorted(expected_machine_dates),
+                actual=sorted(checked_machine_dates),
+            )
+        )
+    for item in safe_machine_fact_checks:
+        if item['status'] not in {'pass', 'no_data'}:
+            blockers.append(
+                _blocker(
+                    'machine_operation_fact_unavailable',
+                    business_date=item['business_date'],
+                    reason=item.get('reason'),
+                )
+            )
 
     return {
         'status': 'pass' if not blockers else 'blocked',
@@ -290,6 +451,7 @@ def evaluate_mes_readonly_reliability(
         'sync_days': sync_days,
         'sync_status': safe_sync_status,
         'fault_drills': safe_fault_drills,
+        'machine_fact_checks': safe_machine_fact_checks,
         'blockers': blockers,
     }
 
@@ -402,5 +564,10 @@ def build_mes_readonly_reliability_report(
             run_controlled_fault_drills(event_publisher=fault_event_publisher)
             if run_fault_drills
             else ()
+        ),
+        machine_fact_checks=_build_machine_operation_fact_checks(
+            db,
+            adapter=adapter,
+            business_dates=business_dates,
         ),
     )

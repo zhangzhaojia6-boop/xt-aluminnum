@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models.mes import MesMaterialRecord, MesStockRecord, MesSyncRunLog, MesWorkshopProcessRecord
 from app.models.production import RealtimeEvent
+from app.models.system import User
 from app.services import mes_readonly_reliability_service as service
 from app.services.mes_readonly_reliability_service import (
     build_mes_readonly_reliability_report,
@@ -49,6 +50,22 @@ def _query_results() -> list[dict]:
     return results
 
 
+def _machine_fact_checks(business_dates=BUSINESS_DATES) -> list[dict]:
+    return [
+        {
+            'business_date': item.isoformat(),
+            'status': 'pass',
+            'source_status': 'ok',
+            'data_source': 'mes_readonly',
+            'record_count': 10,
+            'complete_record_count': 8,
+            'review_required_count': 2,
+            'record_semantics': 'mes_process_start_end_not_physical_power',
+        }
+        for item in business_dates
+    ]
+
+
 def _persisted_fault_drills():
     events = []
 
@@ -75,6 +92,7 @@ def _evaluate(**overrides):
             'last_run_status': 'success',
         },
         'fault_drills': fault_drills,
+        'machine_fact_checks': _machine_fact_checks(),
     }
     inputs.update(overrides)
     return evaluate_mes_readonly_reliability(**inputs)
@@ -201,6 +219,96 @@ def test_gate_blocks_fault_drill_when_event_persistence_is_not_proven() -> None:
     assert {item['code'] for item in result['blockers']} == {'controlled_fault_drill_failed'}
 
 
+def test_gate_blocks_when_machine_operation_facts_cannot_use_direct_mes() -> None:
+    checks = _machine_fact_checks()
+    checks[0].update(
+        status='blocked',
+        source_status='failed',
+        data_source='data_hub_projection',
+        record_count=1,
+        complete_record_count=1,
+        review_required_count=0,
+        reason='direct_mes_machine_fact_unavailable',
+    )
+    checks[2].update(
+        status='no_data',
+        record_count=0,
+        complete_record_count=0,
+        review_required_count=0,
+        reason='source_query_succeeded_no_machine_rows',
+    )
+
+    result = _evaluate(machine_fact_checks=checks)
+
+    assert {item['code'] for item in result['blockers']} == {
+        'machine_operation_fact_unavailable',
+    }
+    assert result['machine_fact_checks'][0] == checks[0]
+
+
+def test_machine_operation_fact_checks_keep_counts_without_raw_machine_rows(
+    monkeypatch,
+) -> None:
+    engine = create_engine('sqlite:///:memory:', future=True)
+    Base.metadata.create_all(engine, tables=[User.__table__])
+    db = sessionmaker(bind=engine, future=True)()
+    db.add(
+        User(
+            username='audit-admin',
+            password_hash='x',
+            name='审计管理员',
+            role='admin',
+            data_scope_type='all',
+            is_active=True,
+        )
+    )
+    db.commit()
+
+    def fake_read_machine_facts(
+        _db,
+        *,
+        intent,
+        business_date,
+        command_text,
+        current_user,
+        mes_reader,
+    ):
+        assert intent == 'machine_operation'
+        assert command_text == '机器生产起止明细'
+        assert current_user.role == 'admin'
+        assert mes_reader is not None
+        return {
+            'fact_status': 'partial',
+            'record_count': 12,
+            'complete_record_count': 9,
+            'review_required_count': 3,
+            'data_source': 'mes_readonly',
+            'record_semantics': 'mes_process_start_end_not_physical_power',
+            'source_status': {'mes': 'ok'},
+            'top_operations': [
+                {
+                    'device_name': '不应进入审计产物',
+                    'begin_at': business_date.isoformat(),
+                }
+            ],
+        }
+
+    monkeypatch.setattr(service, 'read_machine_facts', fake_read_machine_facts)
+
+    checks = service._build_machine_operation_fact_checks(
+        db,
+        adapter=object(),
+        business_dates=BUSINESS_DATES,
+    )
+
+    assert len(checks) == 3
+    assert all(item['status'] == 'pass' for item in checks)
+    assert all(item['complete_record_count'] == 9 for item in checks)
+    assert all('top_operations' not in item for item in checks)
+    assert '不应进入审计产物' not in str(checks)
+    db.close()
+
+
 def test_controlled_fault_drills_persist_database_events_without_workflow_dispatch(monkeypatch) -> None:
     from app.core import event_bus as event_bus_module
     from app.core.event_bus import DatabaseEventBus
@@ -298,6 +406,11 @@ def test_builder_combines_source_probes_projection_counts_and_sync_days(monkeypa
             'last_run_status': 'success',
         },
     )
+    monkeypatch.setattr(
+        service,
+        '_build_machine_operation_fact_checks',
+        lambda *_args, business_dates, **_kwargs: _machine_fact_checks(business_dates),
+    )
 
     report = build_mes_readonly_reliability_report(
         db,
@@ -314,6 +427,7 @@ def test_builder_combines_source_probes_projection_counts_and_sync_days(monkeypa
     assert len(report['query_results']) == 15
     assert all(item['projection_count'] == 1 for item in report['query_results'])
     assert all(item['outcome'] == 'success' for item in report['sync_days'])
+    assert all(item['status'] == 'pass' for item in report['machine_fact_checks'])
     db.close()
 
 
