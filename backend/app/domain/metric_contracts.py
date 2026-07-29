@@ -161,6 +161,35 @@ def _root_owner_correction_source_contract() -> FactSourceContract:
     )
 
 
+def _verified_owner_daily_source_contract() -> FactSourceContract:
+    return FactSourceContract(
+        source_type='verified_owner_daily',
+        source_keys=frozenset({'scan_supplement'}),
+        required_ref_fields=frozenset({
+            'source',
+            'source_key',
+            'correction_id',
+            'entry_id',
+            'event_id',
+            'actor_user_id',
+            'entry_field',
+            'owner_role',
+            'field',
+            'trace_id',
+            'business_date',
+        }),
+        source_ref_identity='verified_owner_daily',
+        source_ref_identity_field='source',
+        source_key_ref_field='source_key',
+        positive_integer_ref_fields=frozenset({
+            'correction_id',
+            'entry_id',
+            'event_id',
+            'actor_user_id',
+        }),
+    )
+
+
 def _promoted_workbook_source_contract(field_name: str) -> FactSourceContract:
     common_fields = {
         'source_ref',
@@ -293,6 +322,7 @@ def _confirmable_source_contracts() -> tuple[FactSourceContract, ...]:
     return (
         _dingtalk_source_contract(),
         _root_owner_correction_source_contract(),
+        _verified_owner_daily_source_contract(),
     )
 
 

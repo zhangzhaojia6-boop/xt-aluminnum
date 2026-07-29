@@ -30,7 +30,12 @@ DINGTALK_MAX_CHARS = 3500
 _OK_DIFF_STATUSES = {'matched', 'match', 'same', 'equal', 'ok', 'ready', 'passed'}
 _REVIEW_STATUS_MARKERS = ('blocked', 'failed', 'partial', 'error', 'empty', 'missing', 'review-needed', 'review_needed')
 _BUNDLE_READY_STATUSES = {'ready', 'ok', 'passed', 'completed', 'matched'}
-_NON_BLOCKING_ADOPTED_CONFLICT_TYPES = {'root_owner_correction', 'dingtalk_supplement', 'adopted_override'}
+_NON_BLOCKING_ADOPTED_CONFLICT_TYPES = {
+    'root_owner_correction',
+    'verified_owner_daily',
+    'dingtalk_supplement',
+    'adopted_override',
+}
 _SOURCE_LABELS = {
     'template_daily_report': '模板正式日报',
     'daily_fact_bundle': '日报事实包',
@@ -54,6 +59,7 @@ _FACT_SOURCE_LABELS = {
     'energy_cost': '数据中枢成本核算',
     'recovery_daily': '数据中枢回收日报',
     'root_owner_correction': '最高权限者确认',
+    'verified_owner_daily': '责任人扫码补录',
     'dingtalk_supplement': '钉钉补充事实',
     'mes_wms': '外部 MES/WMS',
 }

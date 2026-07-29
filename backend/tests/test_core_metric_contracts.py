@@ -91,26 +91,31 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'total_output_daily': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
             'mes_packaging_output',
             'manual_workbook',
         },
         'workshop_output_daily': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'finished_inbound_daily': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
             'mes_stock_header_records',
             'mes_stock_records',
         },
         'daily_input_weight': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'wip_total': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
             'mes_coil_snapshot_business_date',
             'mes_daily_wip_snapshot',
             'mes_wip_total_snapshot',
@@ -118,11 +123,13 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'total_electricity_kwh': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
             'manual_workbook',
         },
         'total_gas_m3': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'electricity_per_ton': {
             'dingtalk_supplement',
@@ -130,26 +137,32 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
         'daily_yield_rate': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'cost_per_ton': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'remaining_contract_weight': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'monthly_total_output': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'annual_total_output': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'anomaly_explanation_daily': {
             'dingtalk_supplement',
             'root_owner_correction',
+            'verified_owner_daily',
         },
         'dingtalk_specialist_evidence': {
             'dingtalk_supplement',

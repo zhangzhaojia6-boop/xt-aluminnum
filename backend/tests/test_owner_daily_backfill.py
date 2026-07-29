@@ -9,8 +9,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models.master import Workshop
+from app.models.agent_communication import AgentEvent
+from app.models.master import Team, Workshop
 from app.models.production import WorkOrder, WorkOrderEntry
+from app.models.reports import DailyFactCorrection
 from app.models.system import AuditLog, User
 from app.services.mobile_report import summary as mobile_summary
 
@@ -25,10 +27,13 @@ def _build_session(tmp_path):
         engine,
         tables=[
             Workshop.__table__,
+            Team.__table__,
             User.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
             AuditLog.__table__,
+            AgentEvent.__table__,
+            DailyFactCorrection.__table__,
         ],
     )
     return sessionmaker(bind=engine, future=True)()
@@ -89,6 +94,63 @@ def test_owner_daily_save_keeps_selected_recent_historical_date(tmp_path, monkey
         assert audit.old_value is None
         assert audit.new_value['business_date'] == '2026-07-17'
         assert audit.new_value['data'] == {'finished_inbound_daily': 85}
+        assert db.query(DailyFactCorrection).count() == 0
+    finally:
+        db.close()
+
+
+def test_owner_daily_assigned_gap_alias_creates_one_verified_correction(tmp_path, monkeypatch) -> None:
+    db = _build_session(tmp_path)
+    try:
+        owner = _seed_owner(db)
+        owner.role = 'quality_owner'
+        db.commit()
+        _freeze_owner_business_time(monkeypatch)
+        event = AgentEvent(
+            event_type='daily_fact_gap',
+            severity='warning',
+            status='open',
+            scope_type='factory',
+            source_type='daily_fact_closure',
+            source_ref='daily_fact_gap:2026-07-17:daily_yield_rate',
+            business_date=date(2026, 7, 17),
+            payload={
+                'field': 'daily_yield_rate',
+                'owner_role': 'quality_owner',
+                'entry_fields': ['plant_wide_yield_rate'],
+                'human_action_required': True,
+                'last_checked_trace_id': 'daily-fact-closure:2026-07-17',
+            },
+        )
+        db.add(event)
+        db.commit()
+
+        mobile_summary.save_owner_daily_entry(
+            db,
+            payload={'business_date': date(2026, 7, 17), 'data': {'plant_wide_yield_rate': 84.86}},
+            current_user=owner,
+        )
+        mobile_summary.save_owner_daily_entry(
+            db,
+            payload={'business_date': date(2026, 7, 17), 'data': {'plant_wide_yield_rate': 85.12}},
+            current_user=owner,
+        )
+
+        entry = db.query(WorkOrderEntry).one()
+        correction = db.query(DailyFactCorrection).one()
+        assert correction.field_name == 'daily_yield_rate'
+        assert correction.value_payload == {
+            'value': 85.12,
+            'source_type': 'verified_owner_daily',
+            'entry_id': entry.id,
+            'event_id': event.id,
+            'entry_field': 'plant_wide_yield_rate',
+            'owner_role': 'quality_owner',
+        }
+        assert correction.unit == '%'
+        assert correction.actor_user_id == owner.id
+        assert correction.trace_id == 'daily-fact-closure:2026-07-17'
+        assert correction.status == 'active'
     finally:
         db.close()
 

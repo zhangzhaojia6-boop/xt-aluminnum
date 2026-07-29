@@ -18,6 +18,7 @@ _SOURCE_TYPES = (
     'authorized_correction',
     'root_owner',
     'root_owner_correction',
+    'verified_owner_daily',
     'mes_wms',
     'mes_wms_readonly',
     'owner_daily',
@@ -113,5 +114,6 @@ def _source_type_label(source_type: str) -> str:
         'authorized_correction': '授权修正',
         'root_owner': '授权修正',
         'root_owner_correction': '授权修正',
+        'verified_owner_daily': '责任人扫码补录',
     }
     return labels.get(source_type, source_type)

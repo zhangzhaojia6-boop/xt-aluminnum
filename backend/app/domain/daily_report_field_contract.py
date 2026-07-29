@@ -200,6 +200,7 @@ def source_lane_for(source_type: str | None) -> str:
     if normalized in {
         "owner_daily",
         "owner_daily_month_sum",
+        "verified_owner_daily",
         "owner_or_energy_summary",
         "manual",
         "manual_mobile_coil",

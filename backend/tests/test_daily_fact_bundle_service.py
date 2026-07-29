@@ -2098,6 +2098,91 @@ def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: 
     assert closure_field["trace_id"] == "trace-root-owner-correction"
 
 
+def test_verified_owner_daily_correction_closes_its_assigned_fact(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        assert target_date == date(2026, 6, 19)
+        return {
+            "values": {"daily_yield_rate": 84.00},
+            "sources": {"daily_yield_rate": "owner_daily"},
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        fake_template_facts,
+    )
+    db_session.add(
+        User(
+            id=984,
+            username="quality-owner",
+            password_hash="hashed",
+            name="质检责任人",
+            role="quality_owner",
+        )
+    )
+    db_session.flush()
+    correction = DailyFactCorrection(
+        business_date=date(2026, 6, 19),
+        field_name="daily_yield_rate",
+        value_payload={
+            "value": 84.86,
+            "source_type": "verified_owner_daily",
+            "entry_id": 9419,
+            "event_id": 671,
+            "entry_field": "plant_wide_yield_rate",
+            "owner_role": "quality_owner",
+        },
+        unit="%",
+        source_text="owner_daily_entry:9419",
+        before_value=None,
+        reason="assigned_daily_fact_gap_owner_submission",
+        actor_user_id=984,
+        trace_id="daily-fact-closure:2026-06-19",
+    )
+    db_session.add(correction)
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+    )
+
+    fact = bundle["facts"]["daily_yield_rate"]
+    assert fact["value"] == 84.86
+    assert fact["source_type"] == "verified_owner_daily"
+    assert fact["priority"] == 70
+    assert fact["confidence"] == 0.75
+    assert fact["evidence_status"] == "confirmed"
+    assert fact["evidence_gaps"] == []
+    assert fact["source_detail"]["source"] == "verified_owner_daily"
+    assert fact["source_detail"]["source_key"] == "scan_supplement"
+    assert fact["source_detail"]["correction_id"] == correction.id
+    assert fact["source_detail"]["entry_id"] == 9419
+    assert fact["source_detail"]["event_id"] == 671
+    assert fact["source_detail"]["actor_user_id"] == 984
+    assert fact["source_detail"]["entry_field"] == "plant_wide_yield_rate"
+    assert fact["source_detail"]["owner_role"] == "quality_owner"
+    assert fact["source_detail"]["field"] == "daily_yield_rate"
+    assert fact["source_detail"]["trace_id"] == "daily-fact-closure:2026-06-19"
+    assert fact["source_detail"]["business_date"] == "2026-06-19"
+    assert fact["source_detail"]["business_window"]
+    assert fact["source_detail"]["metric_contract_version"] == "2026-07-11"
+    closure_field = _fact_closure_field(bundle, "daily_yield_rate")
+    assert closure_field["status"] == "confirmed"
+    assert closure_field["source"] == "verified_owner_daily"
+    conflict = next(item for item in bundle["conflicts"] if item["type"] == "verified_owner_daily")
+    assert conflict["previous_value"] == 84.00
+    assert conflict["adopted_value"] == 84.86
+    assert daily_fact_bundle._conflict_blocks_ready(conflict) is False
+
+
 def test_dingtalk_supplement_needs_its_own_trace_for_fact_closure(
     monkeypatch,
     db_session: Session,

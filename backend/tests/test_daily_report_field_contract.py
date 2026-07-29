@@ -146,6 +146,7 @@ def test_source_lane_order_is_single_and_answer_key_is_not_a_fact_source() -> No
         ("mes_packaging_output", contract_module.SOURCE_LANE_MES_WMS_READONLY),
         ("wms_direct", contract_module.SOURCE_LANE_MES_WMS_READONLY),
         ("owner_daily", contract_module.SOURCE_LANE_SCAN_SUPPLEMENT),
+        ("verified_owner_daily", contract_module.SOURCE_LANE_SCAN_SUPPLEMENT),
         ("contract_projection", contract_module.SOURCE_LANE_DATA_HUB_PROJECTION),
         ("history_report", contract_module.SOURCE_LANE_HISTORICAL_RECORD),
         ("previous_final_report", contract_module.SOURCE_LANE_HISTORICAL_RECORD),

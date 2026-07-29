@@ -54,6 +54,7 @@ _FACT_SOURCE_LABELS = {
     "mes_stock_records": "MES/WMS 只读入库记录",
     "mes_wip_total_snapshot": "MES 只读在制快照",
     "root_owner_correction": "负责人确认补录",
+    "verified_owner_daily": "责任人扫码补录",
     "external_readonly": "外部只读库",
     "data_hub": "数据中枢投影",
 }

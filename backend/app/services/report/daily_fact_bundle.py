@@ -47,6 +47,7 @@ SOURCE_PRIORITY = {
     for source_type in (
         "root_owner_correction",
         "dingtalk_supplement",
+        "verified_owner_daily",
         "mes_wms",
         "mes_packaging_output",
         "mes_wip_distribution",
@@ -673,6 +674,12 @@ def _apply_root_owner_corrections(
 
     for row in corrections:
         field_name = str(row.field_name)
+        correction_payload = dict(row.value_payload or {})
+        correction_source = (
+            "verified_owner_daily"
+            if correction_payload.get("source_type") == "verified_owner_daily"
+            else "root_owner_correction"
+        )
         old_fact = facts.get(field_name)
         old_value = old_fact.get("value") if isinstance(old_fact, Mapping) else None
         old_source = None
@@ -685,30 +692,75 @@ def _apply_root_owner_corrections(
         if isinstance(row.value_payload, Mapping):
             new_value = row.value_payload.get("value")
         new_unit = row.unit or old_unit
-        new_priority = _source_priority("root_owner_correction")
+        new_priority = _source_priority(correction_source)
         old_priority = _source_priority(str(old_source or "")) if old_fact else -1
         should_adopt = old_fact is None or new_priority >= old_priority
-        source_detail = {
-            "source": "root_owner_correction",
-            "correction_id": row.id,
-            "actor_user_id": row.actor_user_id,
-            "trace_id": row.trace_id,
-            "source_text": row.source_text,
-            "business_date": business_date,
-        }
+        if correction_source == "verified_owner_daily":
+            metric_contract = daily_report_metric_contract_for(field_name)
+            new_unit = row.unit or metric_contract.unit or old_unit
+            business_window = _business_window_for_field(field_name, business_date)
+            source_detail = {
+                "source": correction_source,
+                "source_key": "scan_supplement",
+                "correction_id": row.id,
+                "entry_id": correction_payload.get("entry_id"),
+                "event_id": correction_payload.get("event_id"),
+                "actor_user_id": row.actor_user_id,
+                "entry_field": correction_payload.get("entry_field"),
+                "owner_role": correction_payload.get("owner_role"),
+                "field": field_name,
+                "trace_id": row.trace_id,
+                "source_text": row.source_text,
+                "business_date": business_date,
+                "business_window": business_window,
+                "unit": new_unit,
+                "metric_contract_version": metric_contract.metric_contract_version,
+            }
+        else:
+            source_detail = {
+                "source": correction_source,
+                "correction_id": row.id,
+                "actor_user_id": row.actor_user_id,
+                "trace_id": row.trace_id,
+                "source_text": row.source_text,
+                "business_date": business_date,
+            }
         if should_adopt:
-            facts[field_name] = _fact_item(
+            adopted_fact = _fact_item(
                 value=new_value,
                 unit=new_unit,
-                source="root_owner_correction",
-                source_type="root_owner_correction",
+                source=correction_source,
+                source_type=correction_source,
                 priority=new_priority,
                 freshness="confirmed",
-                confidence=_source_confidence("root_owner_correction"),
+                confidence=_source_confidence(correction_source),
                 adoption_reason=row.reason,
                 source_detail=source_detail,
                 source_ref=source_detail,
             )
+            if correction_source == "verified_owner_daily":
+                evidence_gaps = [
+                    gap
+                    for gap in (
+                        metric_value_failure_reason(field_name, new_value),
+                        metric_unit_failure_reason(field_name, new_unit),
+                        fact_source_failure_reason(
+                            field_name,
+                            source_key="scan_supplement",
+                            source_type=correction_source,
+                            source_ref=source_detail,
+                            trace_id=str(row.trace_id or ""),
+                            business_date=business_date.isoformat(),
+                            business_window=str(source_detail["business_window"]),
+                            unit=str(new_unit or ""),
+                            metric_contract_version=str(source_detail["metric_contract_version"]),
+                        ),
+                    )
+                    if gap is not None
+                ]
+                adopted_fact["evidence_status"] = "confirmed" if not evidence_gaps else "needs_evidence"
+                adopted_fact["evidence_gaps"] = evidence_gaps
+            facts[field_name] = adopted_fact
         correction_refs.append(
             {
                 "id": row.id,
@@ -720,8 +772,8 @@ def _apply_root_owner_corrections(
             if should_adopt:
                 conflict = {
                     "field": field_name,
-                    "type": "root_owner_correction",
-                    "adopted_source": "root_owner_correction",
+                    "type": correction_source,
+                    "adopted_source": correction_source,
                     "previous_source": old_source,
                     "previous_value": old_value,
                     "adopted_value": new_value,
@@ -730,10 +782,10 @@ def _apply_root_owner_corrections(
             else:
                 conflict = {
                     "field": field_name,
-                    "type": "root_owner_correction",
+                    "type": correction_source,
                     "adopted_source": old_source,
                     "adopted_value": old_value,
-                    "candidate_source": "root_owner_correction",
+                    "candidate_source": correction_source,
                     "candidate_value": new_value,
                     "reason": "higher_priority_fact_retained",
                 }
@@ -1234,7 +1286,12 @@ def _conflict_blocks_ready(conflict: Any) -> bool:
     if not isinstance(conflict, Mapping):
         return True
     conflict_type = str(conflict.get("type") or "").strip()
-    if conflict_type in {"root_owner_correction", "dingtalk_supplement", "dingtalk_candidate_not_applied"}:
+    if conflict_type in {
+        "root_owner_correction",
+        "verified_owner_daily",
+        "dingtalk_supplement",
+        "dingtalk_candidate_not_applied",
+    }:
         return False
     if conflict_type == "source_error":
         return True

@@ -17,7 +17,9 @@ from app.core.business_time import OWNER_DAILY_BACKFILL_LOOKBACK_DAYS, OWNER_DAI
 from app.core.permissions import assert_mobile_report_access, assert_mobile_user_access, assert_scope_access
 from app.core.scope import build_scope_summary, scope_to_dict
 from app.core.workshop_templates import resolve_workshop_type
+from app.domain.metric_contracts import daily_report_contract_for
 from app.models.attendance import AttendanceSchedule
+from app.models.agent_communication import AgentEvent
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Team, Workshop
 from app.models.production import (
@@ -27,6 +29,7 @@ from app.models.production import (
     ShiftProductionData,
     WorkOrderEntry,
 )
+from app.models.reports import DailyFactCorrection
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import dingtalk_service
@@ -710,6 +713,7 @@ def create_coil_entry(
 
 
 OWNER_DAILY_ENTRY_TYPE = 'owner_daily'
+VERIFIED_OWNER_DAILY_SOURCE_TYPE = 'verified_owner_daily'
 OWNER_DAILY_ROLE_LABELS = {
     'consumable_stat': '内勤',
     'quality_owner': '质检内勤',
@@ -720,6 +724,163 @@ OWNER_DAILY_ROLE_LABELS = {
     'recovery_owner': '回收',
     'overhaul_owner': '大修',
 }
+
+
+def _matching_owner_daily_fact_events(
+    db: Session,
+    *,
+    business_date: date,
+    role: str,
+) -> list[AgentEvent]:
+    events = (
+        db.query(AgentEvent)
+        .filter(
+            AgentEvent.event_type == 'daily_fact_gap',
+            AgentEvent.business_date == business_date,
+            AgentEvent.status.in_(('open', 'pending')),
+        )
+        .order_by(AgentEvent.id.asc())
+        .all()
+    )
+    matches: list[AgentEvent] = []
+    for event in events:
+        event_payload = dict(event.payload or {})
+        if event_payload.get('human_action_required') is not True:
+            continue
+        if str(event_payload.get('owner_role') or '') != role:
+            continue
+        if not event_payload.get('field') or not event_payload.get('entry_fields'):
+            continue
+        matches.append(event)
+    return matches
+
+
+def _verified_owner_daily_corrections_for_entry(
+    db: Session,
+    *,
+    entry: WorkOrderEntry,
+    actor_user_id: int,
+) -> dict[int, DailyFactCorrection]:
+    rows = (
+        db.query(DailyFactCorrection)
+        .filter(
+            DailyFactCorrection.business_date == entry.business_date,
+            DailyFactCorrection.actor_user_id == actor_user_id,
+        )
+        .order_by(DailyFactCorrection.id.asc())
+        .all()
+    )
+    matches: dict[int, DailyFactCorrection] = {}
+    for row in rows:
+        value_payload = dict(row.value_payload or {})
+        if value_payload.get('source_type') != VERIFIED_OWNER_DAILY_SOURCE_TYPE:
+            continue
+        if value_payload.get('entry_id') != entry.id:
+            continue
+        try:
+            event_id = int(value_payload.get('event_id'))
+        except (TypeError, ValueError):
+            continue
+        matches[event_id] = row
+    return matches
+
+
+def _owner_daily_task_value(data: dict, event: AgentEvent) -> tuple[str | None, object | None]:
+    event_payload = dict(event.payload or {})
+    for raw_field in event_payload.get('entry_fields') or []:
+        entry_field = str(raw_field or '').strip()
+        if not entry_field:
+            continue
+        value = data.get(entry_field)
+        if value not in (None, ''):
+            return entry_field, value
+    return None, None
+
+
+def _sync_verified_owner_daily_corrections(
+    db: Session,
+    *,
+    entry: WorkOrderEntry,
+    data: dict,
+    current_user: User,
+) -> None:
+    actor_user_id = int(current_user.id)
+    role = str(current_user.role or '')
+    existing_by_event = _verified_owner_daily_corrections_for_entry(
+        db,
+        entry=entry,
+        actor_user_id=actor_user_id,
+    )
+    events_by_id = {
+        event.id: event
+        for event in _matching_owner_daily_fact_events(
+            db,
+            business_date=entry.business_date,
+            role=role,
+        )
+    }
+    for event_id in existing_by_event:
+        event = db.get(AgentEvent, event_id)
+        if event is not None:
+            events_by_id.setdefault(event_id, event)
+
+    for event_id, event in events_by_id.items():
+        event_payload = dict(event.payload or {})
+        if event.business_date != entry.business_date:
+            continue
+        if str(event_payload.get('owner_role') or '') != role:
+            continue
+        field_name = str(event_payload.get('field') or '').strip()
+        if not field_name:
+            continue
+        try:
+            metric_contract = daily_report_contract_for(field_name)
+        except KeyError:
+            continue
+        entry_field, value = _owner_daily_task_value(data, event)
+        correction = existing_by_event.get(event_id)
+        if entry_field is None:
+            if correction is not None and correction.status == 'active':
+                correction.status = 'revoked'
+            continue
+        trace_id = str(
+            event_payload.get('last_checked_trace_id')
+            or event_payload.get('trace_id')
+            or ''
+        ).strip()
+        if not trace_id:
+            continue
+        value_payload = {
+            'value': value,
+            'source_type': VERIFIED_OWNER_DAILY_SOURCE_TYPE,
+            'entry_id': entry.id,
+            'event_id': event.id,
+            'entry_field': entry_field,
+            'owner_role': role,
+        }
+        if correction is None:
+            correction = DailyFactCorrection(
+                business_date=entry.business_date,
+                field_name=field_name,
+                value_payload=value_payload,
+                unit=metric_contract.unit,
+                source_text=f'owner_daily_entry:{entry.id}',
+                before_value=None,
+                reason='assigned_daily_fact_gap_owner_submission',
+                actor_user_id=actor_user_id,
+                trace_id=trace_id,
+                status='active',
+            )
+            db.add(correction)
+            existing_by_event[event_id] = correction
+        else:
+            correction.field_name = field_name
+            correction.value_payload = value_payload
+            correction.unit = metric_contract.unit
+            correction.source_text = f'owner_daily_entry:{entry.id}'
+            correction.reason = 'assigned_daily_fact_gap_owner_submission'
+            correction.trace_id = trace_id
+            correction.status = 'active'
 
 
 def _owner_daily_tracking_card(*, role: str, user_id: int, business_date: date) -> str:
@@ -856,6 +1017,12 @@ def save_owner_daily_entry(
     entry.entry_status = 'submitted'
     entry.submitted_at = datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE))
     db.flush()
+    _sync_verified_owner_daily_corrections(
+        db,
+        entry=entry,
+        data=data,
+        current_user=current_user,
+    )
     is_historical_backfill = business_date < resolved_business_date
     action_suffix = 'update' if old_value is not None else 'create'
     record_entity_change(

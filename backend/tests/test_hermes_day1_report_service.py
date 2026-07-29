@@ -629,6 +629,13 @@ def test_day1_report_uses_daily_fact_bundle_correction_for_judgment() -> None:
     assert '日报事实包' in product['brain_judgment']['source_names']
 
 
+def test_verified_owner_daily_is_non_blocking_and_has_a_chinese_label() -> None:
+    service = _service()
+
+    assert service._conflict_blocks_release({'type': 'verified_owner_daily'}) is False
+    assert service._source_label('verified_owner_daily') == '责任人扫码补录'
+
+
 def test_workshop_details_prefer_daily_fact_bundle_over_template_and_free_text_noise() -> None:
     service = _service()
 

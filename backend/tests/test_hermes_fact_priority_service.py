@@ -54,6 +54,7 @@ def test_priority_values_come_from_the_canonical_contract() -> None:
         'authorized_correction': source_lane_priority('authorized_correction'),
         'root_owner': source_lane_priority('root_owner'),
         'root_owner_correction': source_lane_priority('root_owner_correction'),
+        'verified_owner_daily': source_lane_priority('verified_owner_daily'),
         'mes_wms': source_lane_priority('mes_wms'),
         'mes_wms_readonly': source_lane_priority('mes_wms_readonly'),
         'owner_daily': source_lane_priority('owner_daily'),
@@ -94,3 +95,17 @@ def test_mes_wms_wins_over_scan_supplement_and_hub() -> None:
 
     assert result.value == 363.0
     assert result.source_type == 'mes_wms'
+
+
+def test_verified_owner_daily_is_treated_as_a_labeled_scan_supplement() -> None:
+    result = choose_fact_value(
+        field_key='daily_yield_rate',
+        candidates=[
+            {'source_type': 'data_hub', 'value': 84.0, 'source_label': '数据中枢'},
+            {'source_type': 'verified_owner_daily', 'value': 84.86, 'source_label': '质检责任人'},
+        ],
+    )
+
+    assert result.value == 84.86
+    assert result.source_type == 'verified_owner_daily'
+    assert '责任人扫码补录' in result.reason
