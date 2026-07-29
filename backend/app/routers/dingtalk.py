@@ -25,6 +25,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from app.adapters import get_mes_adapter
 from app.config import settings
 from app.core.auth import create_access_token
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
@@ -68,6 +69,7 @@ from app.services.hermes_day1_intent_service import (
 from app.services.hermes_day1_orchestrator import run_day1_super_brain
 from app.services.hermes_factory_brain_intent_service import classify_factory_brain_intent
 from app.services.hermes_factory_brain_types import FactoryBrainIntent
+from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.hermes_root_owner_production_orchestrator import (
     run_root_owner_production_turn,
 )
@@ -1283,6 +1285,7 @@ def dingtalk_agent_inbound(
                     **source_payload,
                     **({'day1_parse_error': day1_parse_error.code} if day1_parse_error is not None else {}),
                 },
+                mes_reader=HermesMesReadService(get_mes_adapter()),
                 chat_inbox=ingress_inbox,
             )
             _set_inbound_receipt_status(db, receipt_id, 'completed', commit=False)

@@ -337,6 +337,42 @@ def test_snapshot_conflicts_and_missing_facts_become_fact_alerts(db_session: Ses
     assert payload["fact_missing"][0]["trace_id"] is None
 
 
+def test_machine_gap_is_appended_without_hiding_daily_fact_missing_alerts(db_session: Session) -> None:
+    facts = _facts()
+    del facts["total_electricity_kwh"]
+    _add_snapshot(db_session, facts=facts, value_suffix="machine-plus-daily-gap")
+    db_session.add(
+        AgentEvent(
+            event_type="machine_fact_gap",
+            severity="warning",
+            status="open",
+            scope_type="factory",
+            source_type="hermes_machine_fact",
+            source_ref=f"machine_fact_gap:{TARGET_DATE.isoformat()}:machine_stop:2",
+            business_date=TARGET_DATE,
+            occurred_at=datetime(2026, 7, 8, 8, 10, tzinfo=SHANGHAI),
+            payload={
+                "field": "machine_stop_records",
+                "fact_status": "missing",
+                "entry_route": "/entry/fill",
+                "fill_strategy": "owner_daily_machine_stop",
+                "owner_role": "overhaul_owner",
+                "entry_fields": ["machine_stop_records"],
+                "action_route": "/entry/fill?business_date=2026-07-07&entry_fields=machine_stop_records",
+                "last_checked_trace_id": "trace-machine-gap",
+            },
+        )
+    )
+    db_session.commit()
+
+    payload = _overview(db_session)
+
+    assert [item["field"] for item in payload["fact_missing"]] == [
+        "total_electricity_kwh",
+        "machine_stop_records",
+    ]
+
+
 def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session: Session) -> None:
     facts = _facts()
     del facts["total_electricity_kwh"]

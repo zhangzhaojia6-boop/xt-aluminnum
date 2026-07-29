@@ -1,6 +1,11 @@
 import pytest
 
-from app.core.workshop_templates import get_workshop_template, get_workshop_template_definition, resolve_workshop_type
+from app.core.workshop_templates import (
+    OVERHAUL_OWNER_FIELDS,
+    get_workshop_template,
+    get_workshop_template_definition,
+    resolve_workshop_type,
+)
 from app.services.work_order_service import split_entry_form_payload
 
 
@@ -9,6 +14,13 @@ def test_resolve_workshop_type_prefers_explicit_type_and_supports_aliases() -> N
     assert resolve_workshop_type(workshop_type='hot_rolling', workshop_code=None, workshop_name=None) == 'hot_roll'
     assert resolve_workshop_type(workshop_type='cutting', workshop_code=None, workshop_name=None) == 'shearing'
     assert resolve_workshop_type(workshop_type='inventory', workshop_code=None, workshop_name=None) == 'inventory'
+
+
+def test_overhaul_owner_can_fill_structured_machine_stop_records() -> None:
+    field = next(item for item in OVERHAUL_OWNER_FIELDS if item["name"] == "machine_stop_records")
+
+    assert field["type"] == "machine_stop_list"
+    assert field["role_write"] == ["overhaul_owner"]
 
 
 @pytest.mark.parametrize(
@@ -252,7 +264,7 @@ def test_inventory_template_splits_contract_progress_fields_for_contracts_role()
     ]
 
 
-def test_recovery_and_overhaul_owner_fields_keep_previous_daily_entry_shape() -> None:
+def test_recovery_and_overhaul_owner_fields_keep_daily_entry_shape_with_machine_stops() -> None:
     from app.routers.mobile import ROLE_FIELD_MAPPING
 
     recovery_fields = ROLE_FIELD_MAPPING['recovery_owner']['direct_fields']
@@ -266,6 +278,7 @@ def test_recovery_and_overhaul_owner_fields_keep_previous_daily_entry_shape() ->
     ]
     assert ROLE_FIELD_MAPPING['overhaul_owner']['label'] == '大修磨辊子+能耗'
     assert [field['name'] for field in overhaul_fields] == [
+        'machine_stop_records',
         'roller_grinding_count',
         'overhaul_energy_kwh',
         'overhaul_gas_m3',

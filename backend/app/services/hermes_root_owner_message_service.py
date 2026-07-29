@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from difflib import SequenceMatcher
 import re
 
-from app.core.business_time import resolve_production_business_date
+from app.core.business_time import resolve_production_business_date, resolve_yearless_business_date
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +121,22 @@ def understand_root_owner_message(
         )
 
     business_date, date_reason = _resolve_business_date(normalized, base_business_date)
+
+    machine_intent = _match_machine_intent(normalized)
+    if machine_intent is not None:
+        intent, metric_keys = machine_intent
+        return RootOwnerMessagePlan(
+            raw_text=raw_text,
+            normalized_text=normalized,
+            business_date=business_date,
+            domain="machine",
+            intent=intent,
+            metric_keys=metric_keys,
+            confidence=0.84,
+            needs_clarification=False,
+            clarification_question=None,
+            recognition_reason=_join_reasons("machine_semantic_match", intent, date_reason, typo_changed),
+        )
 
     semantic_quantity = _semantic_quantity_metric(normalized)
     if semantic_quantity is not None:
@@ -327,6 +343,35 @@ def _score_domains(text: str) -> dict[str, int]:
 
 
 def _resolve_business_date(text: str, default_business_date: date) -> tuple[date, str]:
+    explicit_match = re.search(
+        r"(?P<year>20\d{2})(?:[-/.]|年)(?P<month>\d{1,2})(?:[-/.]|月)(?P<day>\d{1,2})(?:日|号)?",
+        text,
+    )
+    if explicit_match:
+        try:
+            return (
+                date(
+                    int(explicit_match.group("year")),
+                    int(explicit_match.group("month")),
+                    int(explicit_match.group("day")),
+                ),
+                "explicit_calendar_date",
+            )
+        except ValueError:
+            pass
+    yearless_match = re.search(r"(?P<month>\d{1,2})月(?P<day>\d{1,2})(?:日|号)", text)
+    if yearless_match:
+        try:
+            return (
+                resolve_yearless_business_date(
+                    month=int(yearless_match.group("month")),
+                    day=int(yearless_match.group("day")),
+                    reference_date=default_business_date,
+                ),
+                "explicit_yearless_date",
+            )
+        except ValueError:
+            pass
     if _has_any(text, ("前天",)):
         return default_business_date - timedelta(days=2), "explicit_day_before_yesterday"
     if _has_any(text, ("昨天", "昨日")):
@@ -334,6 +379,51 @@ def _resolve_business_date(text: str, default_business_date: date) -> tuple[date
     if _has_any(text, ("今天", "今日")):
         return default_business_date, "explicit_today"
     return default_business_date, ""
+
+
+def _match_machine_intent(text: str) -> tuple[str, tuple[str, ...]] | None:
+    has_machine_entity = bool(
+        re.search(r"(?:\d+|[一二三四五六七八九十两]+)\s*(?:号|#)?\s*(?:机|机台|机列)", text)
+        or _has_any(text, ("机器", "设备", "机台", "机列", "开停机"))
+    )
+    if not has_machine_entity:
+        return None
+
+    stop_reason_terms = (
+        "为什么停",
+        "停了什么原因",
+        "停机原因",
+        "维修",
+        "故障",
+        "换辊",
+        "检修",
+        "停机异常",
+        "停机多久",
+        "停了多久",
+        "停机多长时间",
+        "停了多长时间",
+    )
+    if _has_any(text, stop_reason_terms) or (
+        _has_any(text, _CAUSE_TERMS) and _has_any(text, ("停", "维修", "故障", "换辊", "检修"))
+    ):
+        return "machine_stop", ("machine_stop_detail",)
+
+    operation_terms = (
+        "开停机",
+        "开机",
+        "停机明细",
+        "几点开",
+        "几点停",
+        "运行明细",
+        "运行记录",
+        "生产起止",
+        "起止时间",
+        "生产开始",
+        "生产结束",
+    )
+    if _has_any(text, operation_terms):
+        return "machine_operation", ("machine_operation_detail",)
+    return None
 
 
 def _has_ambiguous_time_expression(text: str) -> bool:

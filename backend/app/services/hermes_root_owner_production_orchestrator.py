@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -13,6 +13,7 @@ from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACTS
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.system import User
 from app.services import agent_communication_service
+from app.services.agent_command_service import read_machine_facts
 from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.hermes_root_owner_evidence_service import (
     EvidenceCandidate,
@@ -24,6 +25,7 @@ from app.services.hermes_root_owner_message_service import (
     understand_root_owner_message,
 )
 from app.services.hermes_root_owner_reply_channel_service import ensure_root_owner_private_reply_channel
+from app.services.machine_fact_gap_service import sync_machine_fact_gap_event
 
 
 _HERMES_PUBLIC_NAME = "鑫泰铝业智能大脑"
@@ -152,6 +154,36 @@ def run_root_owner_production_turn(
         question = plan.clarification_question or "你想看生产、库存、能耗还是异常？"
         answer = f"{_HERMES_PUBLIC_NAME}需要先确认：{question}"
         status = "clarifying"
+    elif plan.domain == "machine":
+        machine_facts = read_machine_facts(
+            db,
+            intent=plan.intent,
+            business_date=plan.business_date,
+            command_text=plan.normalized_text,
+            current_user=current_user,
+            mes_reader=mes_reader,
+        )
+        gap_event = sync_machine_fact_gap_event(
+            db,
+            business_date=plan.business_date,
+            intent=plan.intent,
+            machine_filter=machine_facts.get("machine_filter"),
+            facts=machine_facts,
+            trace_id=clean_trace_id,
+        )
+        decision = _machine_evidence_decision(
+            plan=plan,
+            facts=machine_facts,
+            gap_event=gap_event,
+            trace_id=clean_trace_id,
+        )
+        answer = _build_machine_answer(
+            plan=plan,
+            facts=machine_facts,
+            gap_event=gap_event,
+            trace_id=clean_trace_id,
+        )
+        status = "answered"
     else:
         decision = collect_root_owner_evidence(
             db,
@@ -194,7 +226,11 @@ def run_root_owner_production_turn(
         title=f"{_HERMES_PUBLIC_NAME}私聊回复",
         content=answer,
         business_date=plan.business_date,
-        source_summary=(decision.primary.source_key if decision.primary else "clarification"),
+        source_summary=(
+            decision.primary.source_key
+            if decision.primary
+            else ("machine_fact_gap" if plan.domain == "machine" else "clarification")
+        ),
         trace_id=clean_trace_id,
         payload={
             "chat_inbox_id": inbox.id,
@@ -293,6 +329,187 @@ def _recognition_context_from_run(run: AgentRun) -> tuple[str, tuple[str, ...], 
     except ValueError:
         business_date = None
     return domain, metric_keys, business_date
+
+
+def _machine_evidence_decision(
+    *,
+    plan: RootOwnerMessagePlan,
+    facts: Mapping[str, Any],
+    gap_event: Any,
+    trace_id: str,
+) -> EvidenceDecision:
+    fact_count = int(
+        (
+            facts.get("record_count")
+            if plan.intent == "machine_operation"
+            else facts.get("stop_count")
+        )
+        or 0
+    )
+    fact_status = str(facts.get("fact_status") or ("confirmed" if fact_count > 0 else "missing"))
+    is_confirmed = fact_status == "confirmed"
+    source_key = "mes_readonly" if facts.get("data_source") == "mes_readonly" else "data_hub_projection"
+    candidate = (
+        EvidenceCandidate(
+            source_key=source_key,
+            source_type="external_readonly" if source_key == "mes_readonly" else "data_hub",
+            domain="machine",
+            priority=20 if source_key == "mes_readonly" else 40,
+            status=fact_status,
+            value=dict(facts),
+            summary=f"{plan.business_date.isoformat()} 机器事实 {fact_count} 条",
+            trace_ref={
+                "trace_id": trace_id,
+                "event_id": getattr(gap_event, "id", None),
+            },
+        )
+        if fact_count > 0
+        else None
+    )
+    return EvidenceDecision(
+        primary=candidate if is_confirmed else None,
+        candidates=(candidate,) if candidate is not None else (),
+        conflicts=(),
+        missing_sources=[] if is_confirmed else [source_key],
+        trace={
+            "trace_id": trace_id,
+            "source_status": {
+                source_key: {
+                    "status": "ok" if is_confirmed else fact_status,
+                    "fact_count": fact_count,
+                }
+            },
+            "machine_fact_gap": {
+                "event_id": getattr(gap_event, "id", None),
+                "status": getattr(gap_event, "status", None),
+                "action_route": (
+                    (getattr(gap_event, "payload", None) or {}).get("action_route")
+                ),
+            },
+        },
+    )
+
+
+def _build_machine_answer(
+    *,
+    plan: RootOwnerMessagePlan,
+    facts: Mapping[str, Any],
+    gap_event: Any,
+    trace_id: str,
+) -> str:
+    machine_label = (
+        f"{facts.get('machine_filter')}号机"
+        if facts.get("machine_filter")
+        else "相关机器"
+    )
+    if plan.intent == "machine_operation":
+        operations = [
+            item
+            for item in facts.get("top_operations") or []
+            if isinstance(item, Mapping)
+        ]
+        if not operations:
+            return (
+                f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()} 暂未查到"
+                f"{machine_label}可证明的 MES 生产起止记录。"
+                "这不代表机器没有运行，也不能当作物理通断电结论；"
+                "我已在异常中心生成来源复查任务。"
+                f"状态：missing。追踪编号：{trace_id}。"
+            )
+        if facts.get("fact_status") != "confirmed":
+            details = "；".join(_format_machine_operation(item) for item in operations)
+            return (
+                f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()} 查到"
+                f"{machine_label}工序记录，但生产起止时间不完整：{details}。"
+                "这些记录不足以证明完整开停明细，也不等同于物理通断电；"
+                "我已在异常中心生成 MES 来源复查任务。"
+                f"状态：partial。追踪编号：{trace_id}。"
+            )
+        details = "；".join(_format_machine_operation(item) for item in operations)
+        return (
+            f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()} {details}。"
+            "以上是 MES 工序生产起止记录，不等同于设备物理开关机或通断电。"
+            f"来源：{_machine_source_labels(facts)}。状态：confirmed。追踪编号：{trace_id}。"
+        )
+
+    stops = [
+        item
+        for item in facts.get("top_stops") or []
+        if isinstance(item, Mapping)
+    ]
+    if not stops:
+        action_route = str(
+            (getattr(gap_event, "payload", None) or {}).get("action_route")
+            or "/entry/fill"
+        )
+        return (
+            f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()} 暂未查到"
+            f"{machine_label}可信的停机时长和原因。"
+            f"我已生成大修内勤补录任务：{action_route}。"
+            f"状态：missing。追踪编号：{trace_id}。"
+        )
+    if facts.get("fact_status") != "confirmed":
+        action_route = str(
+            (getattr(gap_event, "payload", None) or {}).get("action_route")
+            or "/entry/fill"
+        )
+        details = "；".join(_format_machine_stop(item) for item in stops)
+        return (
+            f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()} 已查到部分停机记录："
+            f"{details}。停机原因仍不完整，我已生成大修内勤补录任务：{action_route}。"
+            f"状态：partial。追踪编号：{trace_id}。"
+        )
+    details = "；".join(_format_machine_stop(item) for item in stops)
+    return (
+        f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()} {details}。"
+        f"来源：{_machine_source_labels(facts)}。状态：confirmed。追踪编号：{trace_id}。"
+    )
+
+
+def _format_machine_operation(item: Mapping[str, Any]) -> str:
+    device = str(item.get("device_name") or "未标记机台")
+    begin_at = _format_machine_time(item.get("begin_at"))
+    end_at = _format_machine_time(item.get("end_at"))
+    elapsed = item.get("elapsed_minutes")
+    elapsed_text = f"，历时 {elapsed} 分钟" if elapsed is not None else ""
+    workshop = str(item.get("workshop_name") or "未标记车间")
+    process = str(item.get("process_name") or "未标记工序")
+    return f"{device} {begin_at} 至 {end_at}{elapsed_text}（{workshop}/{process}）"
+
+
+def _format_machine_stop(item: Mapping[str, Any]) -> str:
+    device = str(item.get("equipment_name") or "未标记机台")
+    minutes = int(item.get("downtime_minutes") or 0)
+    reason = str(item.get("downtime_reason") or "未填写原因")
+    shift = str(item.get("shift_name") or "未标记班次")
+    return f"{device}停机 {minutes} 分钟，原因：{reason}（{shift}）"
+
+
+def _format_machine_time(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "时间缺失"
+    try:
+        return datetime.fromisoformat(text).strftime("%H:%M")
+    except ValueError:
+        return text
+
+
+def _machine_source_labels(facts: Mapping[str, Any]) -> str:
+    if facts.get("data_source") == "mes_readonly":
+        return "MES 只读库"
+    sources = {
+        str(item.get("data_source") or "")
+        for key in ("top_operations", "top_stops")
+        for item in facts.get(key) or []
+        if isinstance(item, Mapping)
+    }
+    labels = []
+    if any("owner_daily_machine_stop" in source for source in sources):
+        labels.append("责任人扫码补录")
+    if any(source.replace("owner_daily_machine_stop", "").strip("+") for source in sources):
+        labels.append("数据中枢投影")
+    return "、".join(labels) or "数据中枢投影"
 
 
 def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:

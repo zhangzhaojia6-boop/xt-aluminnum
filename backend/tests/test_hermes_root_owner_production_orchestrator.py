@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Base
 from app.models.agent_communication import (
+    AgentEvent,
     AgentOutboxMessage,
     AgentRun,
     ChatInboxMessage,
@@ -148,6 +149,132 @@ def test_turn_answers_with_dingtalk_primary_and_records_trace(monkeypatch) -> No
             assert payload["dispatch"]["detail"] == "sent"
         finally:
             reread_db.close()
+    finally:
+        db.close()
+
+
+def test_machine_turn_reads_direct_mes_and_explains_record_semantics(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_root_owner())
+    db.commit()
+
+    class MesReader:
+        def read_sources(self, *, business_date, query_keys):
+            assert business_date == date(2026, 7, 21)
+            assert query_keys == ['workshop_process_records']
+            return {
+                'records': {
+                    'workshop_process_records': [
+                        {
+                            'source_id': 'mes-operation-2-20260721',
+                            'event_time': '2026-07-21T12:30:00+08:00',
+                            'metadata': {
+                                'DeviceName': '2号机',
+                                'WorkShopName': '热轧车间',
+                                'ProcessName': '热轧',
+                                'BeginDatetime': '2026-07-21T08:00:00+08:00',
+                                'EndDatetime': '2026-07-21T12:30:00+08:00',
+                                'WorkerName': '不得进入回答',
+                            },
+                        },
+                    ],
+                },
+                'source_status': {
+                    'mes': 'ok',
+                    'sources': {'workshop_process_records': {'status': 'ok', 'count': 1}},
+                },
+                'source_errors': {},
+            }
+
+    monkeypatch.setattr(
+        'app.services.hermes_root_owner_production_orchestrator.agent_communication_service.dispatch_outbox_message',
+        lambda _db, outbox_message_id, *, sender=None: SimpleNamespace(
+            status='sent',
+            detail='sent',
+            outbox_message_id=outbox_message_id,
+        ),
+    )
+
+    try:
+        result = run_root_owner_production_turn(
+            db,
+            text='7月21日2号机几点开、几点停？',
+            current_user=db.get(User, 1),
+            sender_external_id='dt-root-001',
+            trace_id='trace-root-machine-operation',
+            source_payload={'source': 'test'},
+            default_business_date=date(2026, 7, 29),
+            mes_reader=MesReader(),
+        )
+
+        assert result.status == 'answered'
+        assert '2号机 08:00 至 12:30，历时 270 分钟' in result.answer
+        assert '不等同于设备物理开关机或通断电' in result.answer
+        assert 'MES 只读库' in result.answer
+        assert '不得进入回答' not in result.answer
+        assert db.query(AgentEvent).count() == 0
+        run = db.query(AgentRun).one()
+        assert run.result_payload['recognition']['domain'] == 'machine'
+        assert run.result_payload['evidence']['primary_source'] == 'mes_readonly'
+        assert '不得进入回答' not in repr(run.result_payload)
+    finally:
+        db.close()
+
+
+def test_machine_turn_marks_incomplete_mes_times_partial_and_opens_recheck(monkeypatch) -> None:
+    db = _db_session()
+    db.add(_root_owner())
+    db.commit()
+
+    class PartialMesReader:
+        def read_sources(self, *, business_date, query_keys):
+            return {
+                'records': {
+                    'workshop_process_records': [
+                        {
+                            'source_id': 'mes-operation-partial-2-20260721',
+                            'metadata': {
+                                'DeviceName': '2号机',
+                                'WorkShopName': '热轧车间',
+                                'ProcessName': '热轧',
+                                'EndDatetime': '2026-07-21T12:30:00+08:00',
+                            },
+                        },
+                    ],
+                },
+                'source_status': {'mes': 'ok'},
+                'source_errors': {},
+            }
+
+    monkeypatch.setattr(
+        'app.services.hermes_root_owner_production_orchestrator.agent_communication_service.dispatch_outbox_message',
+        lambda _db, outbox_message_id, *, sender=None: SimpleNamespace(
+            status='sent',
+            detail='sent',
+            outbox_message_id=outbox_message_id,
+        ),
+    )
+
+    try:
+        result = run_root_owner_production_turn(
+            db,
+            text='7月21日2号机几点开、几点停？',
+            current_user=db.get(User, 1),
+            sender_external_id='dt-root-001',
+            trace_id='trace-root-machine-operation-partial',
+            source_payload={'source': 'test'},
+            default_business_date=date(2026, 7, 29),
+            mes_reader=PartialMesReader(),
+        )
+
+        assert '生产起止时间不完整' in result.answer
+        assert '状态：partial' in result.answer
+        assert '不等同于物理通断电' in result.answer
+        event = db.query(AgentEvent).one()
+        assert event.status == 'open'
+        assert event.payload['fill_strategy'] == 'mes_source_recheck'
+        run = db.query(AgentRun).one()
+        assert run.result_payload['evidence']['primary_source'] is None
     finally:
         db.close()
 

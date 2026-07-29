@@ -1203,6 +1203,8 @@ def test_agent_command_marks_invalid_mes_process_interval_without_inventing_dura
         assert operation['timing_status'] == 'invalid_interval'
         assert operation['elapsed_minutes'] is None
         assert payload['facts']['invalid_interval_count'] == 1
+        assert payload['facts']['fact_status'] == 'partial'
+        assert payload['status_color'] == 'yellow'
         assert '需复核' in payload['answer']
     finally:
         _restore_overrides(previous_overrides, db)
@@ -1332,6 +1334,8 @@ def test_agent_command_machine_stop_facts_stay_within_user_workshop(monkeypatch)
         assert payload['facts']['status'] == 'connected'
         assert payload['facts']['stop_count'] == 0
         assert payload['facts']['top_stops'] == []
+        assert payload['facts']['fact_status'] == 'missing'
+        assert payload['status_color'] == 'yellow'
         assert '热轧' not in payload['answer']
         assert '热轧换辊待维修确认' not in payload['answer']
 

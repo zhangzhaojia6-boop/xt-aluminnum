@@ -71,8 +71,49 @@
               {{ field.label }}
               <span v-if="field.unit" class="ue-field__unit">{{ field.unit }}</span>
             </label>
+            <div v-if="field.type === 'machine_stop_list'" class="ue-machine-stops">
+              <article
+                v-for="(record, recordIndex) in machineStopRows(field.name)"
+                :key="recordIndex"
+                class="ue-machine-stop"
+              >
+                <div class="ue-machine-stop__heading">
+                  <b>第 {{ recordIndex + 1 }} 条</b>
+                  <button
+                    type="button"
+                    class="ue-icon-button"
+                    :aria-label="`删除第 ${recordIndex + 1} 条停机记录`"
+                    title="删除"
+                    @click="removeMachineStopRecord(field.name, recordIndex)"
+                  >
+                    <Delete />
+                  </button>
+                </div>
+                <div class="ue-machine-stop__grid">
+                  <input v-model.trim="record.machine_name" class="ue-input" type="text" placeholder="机台，如 2号机" aria-label="机台" />
+                  <input v-model.trim="record.workshop_name" class="ue-input" type="text" placeholder="车间" aria-label="车间" readonly />
+                  <input v-model.trim="record.shift_name" class="ue-input" type="text" placeholder="班次" aria-label="班次" />
+                  <input
+                    v-model.number="record.downtime_minutes"
+                    class="ue-input ue-input--number"
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    max="1440"
+                    step="1"
+                    placeholder="停机分钟"
+                    aria-label="停机分钟"
+                  />
+                  <input v-model.trim="record.downtime_reason" class="ue-input ue-machine-stop__reason" type="text" placeholder="停机原因" aria-label="停机原因" />
+                </div>
+              </article>
+              <button type="button" class="ue-add-record" @click="addMachineStopRecord(field.name)">
+                <Plus />
+                添加停机记录
+              </button>
+            </div>
             <el-select
-              v-if="field.type === 'select'"
+              v-else-if="field.type === 'select'"
               v-model="form[field.name]"
               filterable
               allow-create
@@ -283,6 +324,7 @@
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Delete, Plus } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.js'
 import {
@@ -541,7 +583,7 @@ function resolveFieldOptions(field) {
 }
 
 function isWideField(field) {
-  return field.type === 'textarea' || field.type === 'spec'
+  return field.type === 'textarea' || field.type === 'spec' || field.type === 'machine_stop_list'
 }
 
 async function loadDynamicOptions(fields) {
@@ -596,6 +638,37 @@ function applyScanLookupResult(result) {
   lockedFieldsToken.value = ''
 }
 
+function newMachineStopRecord() {
+  return {
+    workshop_name: workshopName.value,
+    machine_name: '',
+    machine_code: '',
+    shift_name: '',
+    downtime_minutes: null,
+    downtime_reason: '',
+  }
+}
+
+function initialFieldValue(field) {
+  if (field.type === 'number') return null
+  if (field.type === 'machine_stop_list') return [newMachineStopRecord()]
+  return ''
+}
+
+function machineStopRows(fieldName) {
+  return Array.isArray(form[fieldName]) ? form[fieldName] : []
+}
+
+function addMachineStopRecord(fieldName) {
+  if (!Array.isArray(form[fieldName])) form[fieldName] = []
+  form[fieldName].push(newMachineStopRecord())
+}
+
+function removeMachineStopRecord(fieldName, index) {
+  if (!Array.isArray(form[fieldName])) return
+  form[fieldName].splice(index, 1)
+}
+
 async function handleScanLookup(qr) {
   try {
     const result = qr ? await scanLookup(qr) : await scan()
@@ -613,7 +686,15 @@ function normalizedFormValues() {
   for (const group of groups.value) {
     for (const field of group.fields) {
       const value = form[field.name]
-      values[field.name] = field.type === 'number' ? normalizeNumberValue(value) : value
+      if (field.type === 'number') {
+        values[field.name] = normalizeNumberValue(value)
+      } else if (field.type === 'machine_stop_list') {
+        values[field.name] = Array.isArray(value)
+          ? value.map((record) => ({ ...record }))
+          : []
+      } else {
+        values[field.name] = value
+      }
     }
   }
   return values
@@ -763,7 +844,7 @@ function buildOwnerDailyPayload(sc) {
 function resetOwnerDailyForm() {
   for (const group of groups.value) {
     for (const field of group.fields) {
-      form[field.name] = field.type === 'number' ? null : ''
+      form[field.name] = initialFieldValue(field)
       if (field.type === 'spec') initSpecParts(field.name, '', field.spec_suffix)
     }
   }
@@ -802,8 +883,8 @@ function summarize(item) {
   if (mode.value === 'owner_daily') {
     const ownerParts = groups.value
       .flatMap(group => group.fields)
-      .filter(field => d[field.name] !== null && d[field.name] !== undefined && d[field.name] !== '')
-      .map(field => `${field.label} ${d[field.name]}${field.unit || ''}`)
+      .map(field => summarizeOwnerField(field, d[field.name]))
+      .filter(Boolean)
     if (ownerParts.length) return ownerParts.slice(0, 2).join(' · ')
   }
   const parts = []
@@ -813,6 +894,25 @@ function summarize(item) {
   if (d.energy_kwh) parts.push(d.energy_kwh + 'kWh')
   if (d.downtime_minutes) parts.push(d.downtime_minutes + 'min')
   return parts.join(' ') || JSON.stringify(d).slice(0, 40)
+}
+
+function summarizeOwnerField(field, value) {
+  if (field.type !== 'machine_stop_list') {
+    if (value === null || value === undefined || value === '') return ''
+    return `${field.label} ${value}${field.unit || ''}`
+  }
+  const records = Array.isArray(value)
+    ? value.filter((record) => record?.machine_name || record?.downtime_minutes || record?.downtime_reason)
+    : []
+  if (!records.length) return ''
+  const details = records.slice(0, 2).map((record) => {
+    const machine = record.machine_name || '未标记机台'
+    const minutes = record.downtime_minutes ? `${record.downtime_minutes}分钟` : '时长待补'
+    const reason = record.downtime_reason ? `（${record.downtime_reason}）` : ''
+    return `${machine}停机${minutes}${reason}`
+  })
+  if (records.length > 2) details.push(`另${records.length - 2}条`)
+  return details.join('、')
 }
 
 function handleSplitCoil() {
@@ -874,7 +974,7 @@ async function loadData() {
 
     for (const g of groups.value) {
       for (const f of g.fields) {
-        if (!(f.name in form)) form[f.name] = f.type === 'number' ? null : ''
+        if (!(f.name in form)) form[f.name] = initialFieldValue(f)
         if (f.type === 'spec') initSpecParts(f.name, form[f.name], f.spec_suffix)
       }
     }
@@ -1595,6 +1695,72 @@ onMounted(loadData)
   pointer-events: none;
 }
 
+.ue-machine-stops {
+  display: grid;
+  gap: 10px;
+}
+
+.ue-machine-stop {
+  padding: 12px;
+  border: 1px solid rgba(0, 197, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(2, 12, 23, 0.64);
+}
+
+.ue-machine-stop__heading {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: var(--xt-text-secondary);
+  font-size: 13px;
+}
+
+.ue-machine-stop__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.ue-icon-button {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 36px;
+  padding: 0;
+  border: 1px solid rgba(255, 104, 104, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 104, 104, 0.08);
+  color: var(--xt-danger);
+  cursor: pointer;
+}
+
+.ue-icon-button svg,
+.ue-add-record svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ue-add-record {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid rgba(0, 197, 255, 0.28);
+  border-radius: 6px;
+  background: rgba(0, 197, 255, 0.08);
+  color: var(--xt-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .ue-history {
   background:
     linear-gradient(145deg, var(--ue-surface), rgba(4, 13, 26, 0.82)),
@@ -1640,6 +1806,14 @@ onMounted(loadData)
 
   .ue-field--wide,
   .ue-field--spec {
+    grid-column: 1 / -1;
+  }
+
+  .ue-machine-stop__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ue-machine-stop__reason {
     grid-column: 1 / -1;
   }
 

@@ -36,6 +36,7 @@ from app.services import dingtalk_service
 from app.services.audit_service import record_entity_change
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_for_equipment
 from app.services.locked_fields_service import LockedFieldsTokenInvalid, verify_locked_fields_token
+from app.services.machine_fact_gap_service import resolve_machine_stop_gap_events
 from app.services.pilot_observability_service import log_pilot_event
 from app.services.real_master_data import OWNER_DAILY_ROLES
 from app.services.work_order._utils import _normalize_flow_payload
@@ -887,6 +888,62 @@ def _owner_daily_tracking_card(*, role: str, user_id: int, business_date: date) 
     return f"OWNER-{role}-{user_id}-{business_date.isoformat()}"
 
 
+def _normalize_machine_stop_records(
+    data: dict,
+    *,
+    role: str,
+    workshop_name: str,
+) -> dict:
+    if 'machine_stop_records' not in data:
+        return data
+    if role != 'overhaul_owner':
+        raise HTTPException(status_code=403, detail='当前岗位不能填报机器停机明细。')
+    raw_records = data.get('machine_stop_records')
+    if raw_records in (None, ''):
+        data['machine_stop_records'] = []
+        return data
+    if not isinstance(raw_records, list):
+        raise HTTPException(status_code=422, detail='机器停机明细格式不正确。')
+    if len(raw_records) > 50:
+        raise HTTPException(status_code=422, detail='单次最多填报 50 条机器停机明细。')
+
+    records: list[dict] = []
+    for index, raw_record in enumerate(raw_records, start=1):
+        if not isinstance(raw_record, dict):
+            raise HTTPException(status_code=422, detail=f'第 {index} 条机器停机明细格式不正确。')
+        machine_name = str(raw_record.get('machine_name') or '').strip()
+        shift_name = str(raw_record.get('shift_name') or '').strip()
+        reason = str(raw_record.get('downtime_reason') or '').strip()
+        raw_minutes = raw_record.get('downtime_minutes')
+        if not any((machine_name, shift_name, reason, raw_minutes not in (None, ''))):
+            continue
+        if not machine_name:
+            raise HTTPException(status_code=422, detail=f'第 {index} 条机器停机明细缺少机台。')
+        try:
+            minutes_decimal = Decimal(str(raw_minutes))
+        except (InvalidOperation, TypeError, ValueError):
+            raise HTTPException(status_code=422, detail=f'第 {index} 条停机分钟数不正确。') from None
+        if not minutes_decimal.is_finite():
+            raise HTTPException(status_code=422, detail=f'第 {index} 条停机分钟数不正确。')
+        if minutes_decimal != minutes_decimal.to_integral_value():
+            raise HTTPException(status_code=422, detail=f'第 {index} 条停机分钟数必须是整数。')
+        minutes = int(minutes_decimal)
+        if minutes <= 0 or minutes > 24 * 60:
+            raise HTTPException(status_code=422, detail=f'第 {index} 条停机分钟数须在 1 到 1440 之间。')
+        if not reason:
+            raise HTTPException(status_code=422, detail=f'第 {index} 条机器停机明细缺少原因。')
+        records.append({
+            'workshop_name': workshop_name,
+            'machine_name': machine_name[:64],
+            'machine_code': str(raw_record.get('machine_code') or '').strip()[:64],
+            'shift_name': shift_name[:64],
+            'downtime_minutes': minutes,
+            'downtime_reason': reason[:500],
+        })
+    data['machine_stop_records'] = records
+    return data
+
+
 def _owner_daily_response(entry: WorkOrderEntry, *, workshop: Workshop | None, current_user: User) -> dict:
     return {
         'id': entry.id,
@@ -964,7 +1021,12 @@ def save_owner_daily_entry(
         raise HTTPException(status_code=422, detail='填报日期不能晚于当前业务日。')
     if business_date < earliest_business_date:
         raise HTTPException(status_code=422, detail='历史补录仅支持最近 7 天。')
-    data = dict(payload.get('data') or {})
+    workshop = db.get(Workshop, workshop_id)
+    data = _normalize_machine_stop_records(
+        dict(payload.get('data') or {}),
+        role=role,
+        workshop_name=workshop.name if workshop is not None else '',
+    )
     from app.models.production import WorkOrder
 
     tracking_card_no = _owner_daily_tracking_card(role=role, user_id=current_user.id, business_date=business_date)
@@ -1023,6 +1085,14 @@ def save_owner_daily_entry(
         data=data,
         current_user=current_user,
     )
+    machine_stop_records = data.get('machine_stop_records')
+    if isinstance(machine_stop_records, list) and machine_stop_records:
+        resolve_machine_stop_gap_events(
+            db,
+            business_date=business_date,
+            records=machine_stop_records,
+            trace_id=f'owner-daily:{entry.id}:machine-stop:{uuid4().hex[:8]}',
+        )
     is_historical_backfill = business_date < resolved_business_date
     action_suffix = 'update' if old_value is not None else 'create'
     record_entity_change(
@@ -1046,7 +1116,7 @@ def save_owner_daily_entry(
     )
     db.commit()
     db.refresh(entry)
-    return _owner_daily_response(entry, workshop=db.get(Workshop, workshop_id), current_user=current_user)
+    return _owner_daily_response(entry, workshop=workshop, current_user=current_user)
 
 
 def _flow_context_from_external_snapshot(db: Session, payload: dict) -> dict:

@@ -608,6 +608,14 @@ RECOVERY_OWNER_FIELDS = [
 
 OVERHAUL_OWNER_FIELDS = [
     {
+        'name': 'machine_stop_records',
+        'label': '机器停机明细',
+        'type': 'machine_stop_list',
+        'required': False,
+        'role_write': ['overhaul_owner'],
+        'role_read': ['overhaul_owner', 'admin', 'manager'],
+    },
+    {
         'name': 'roller_grinding_count',
         'label': '磨辊子数量',
         'type': 'number',

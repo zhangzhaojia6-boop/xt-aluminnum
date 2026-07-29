@@ -385,3 +385,53 @@ def test_asks_short_clarification_when_message_is_not_business_question() -> Non
     assert plan.domain == "general"
     assert plan.needs_clarification is True
     assert plan.clarification_question == "你想看生产、库存、能耗还是异常？"
+
+
+def test_understands_flexible_machine_operation_questions_and_explicit_dates() -> None:
+    cases = (
+        ("7月21日2号机几点开、几点停？", "machine_operation"),
+        ("查下 2026-07-21 二号机的运行明细", "machine_operation"),
+        ("查下 2026/7/21 二号机的运行明细", "machine_operation"),
+        ("7月21日2#机为什么停了", "machine_stop"),
+        ("昨天那台设备维修是什么原因", "machine_stop"),
+        ("7月21号2号机停机多久", "machine_stop"),
+    )
+
+    for message, expected_intent in cases:
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 7, 29),
+        )
+
+        assert plan.domain == "machine", message
+        assert plan.intent == expected_intent, message
+        assert plan.metric_keys == (
+            ("machine_operation_detail",)
+            if expected_intent == "machine_operation"
+            else ("machine_stop_detail",)
+        ), message
+        assert plan.needs_clarification is False, message
+
+    assert understand_root_owner_message(
+        cases[0][0],
+        default_business_date=date(2026, 7, 29),
+    ).business_date == date(2026, 7, 21)
+    assert understand_root_owner_message(
+        cases[1][0],
+        default_business_date=date(2026, 7, 29),
+    ).business_date == date(2026, 7, 21)
+    assert understand_root_owner_message(
+        cases[2][0],
+        default_business_date=date(2026, 7, 29),
+    ).business_date == date(2026, 7, 21)
+
+
+def test_does_not_treat_unrelated_single_machine_character_as_machine_query() -> None:
+    for message in ("机会不错", "手机没电", "司机到了"):
+        plan = understand_root_owner_message(
+            message,
+            default_business_date=date(2026, 7, 29),
+        )
+
+        assert plan.domain == "general", message
+        assert plan.needs_clarification is True, message

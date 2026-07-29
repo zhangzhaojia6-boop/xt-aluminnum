@@ -14,6 +14,7 @@ from app.models.master import Team, Workshop
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.reports import DailyFactCorrection
 from app.models.system import AuditLog, User
+from app.services.machine_fact_gap_service import sync_machine_fact_gap_event
 from app.services.mobile_report import summary as mobile_summary
 
 
@@ -227,6 +228,126 @@ def test_owner_daily_retry_updates_one_row_and_records_old_and_new_values(tmp_pa
         assert audits[1].new_value['data'] == {'finished_inbound_daily': 86}
         assert audits[1].ip_address == '127.0.0.1'
         assert audits[1].user_agent == 'pytest'
+    finally:
+        db.close()
+
+
+def test_overhaul_owner_machine_stop_submission_resolves_matching_gap(tmp_path, monkeypatch) -> None:
+    db = _build_session(tmp_path)
+    try:
+        owner = _seed_owner(db)
+        owner.role = 'overhaul_owner'
+        owner.name = '大修内勤'
+        db.commit()
+        _freeze_owner_business_time(monkeypatch)
+        gap = sync_machine_fact_gap_event(
+            db,
+            business_date=date(2026, 7, 17),
+            intent='machine_stop',
+            machine_filter='2',
+            facts={'stop_count': 0, 'top_stops': []},
+            trace_id='trace-machine-owner-gap',
+        )
+        db.commit()
+
+        payload = mobile_summary.save_owner_daily_entry(
+            db,
+            payload={
+                'business_date': date(2026, 7, 17),
+                'data': {
+                    'machine_stop_records': [
+                        {
+                            'workshop_name': '伪造车间',
+                            'machine_name': '2号机',
+                            'shift_name': '白班',
+                            'downtime_minutes': 42,
+                            'downtime_reason': '换辊待维修确认',
+                        },
+                    ],
+                },
+            },
+            current_user=owner,
+        )
+
+        db.refresh(gap)
+        assert gap.status == 'resolved'
+        assert gap.payload['resolution_trace_id'].startswith('owner-daily:')
+        assert payload['data']['machine_stop_records'] == [
+            {
+                'workshop_name': '成品库',
+                'machine_name': '2号机',
+                'machine_code': '',
+                'shift_name': '白班',
+                'downtime_minutes': 42,
+                'downtime_reason': '换辊待维修确认',
+            },
+        ]
+    finally:
+        db.close()
+
+
+def test_machine_stop_submission_requires_a_reason(tmp_path, monkeypatch) -> None:
+    db = _build_session(tmp_path)
+    try:
+        owner = _seed_owner(db)
+        owner.role = 'overhaul_owner'
+        db.commit()
+        _freeze_owner_business_time(monkeypatch)
+
+        with pytest.raises(HTTPException) as exc_info:
+            mobile_summary.save_owner_daily_entry(
+                db,
+                payload={
+                    'business_date': date(2026, 7, 17),
+                    'data': {
+                        'machine_stop_records': [
+                            {
+                                'machine_name': '2号机',
+                                'downtime_minutes': 42,
+                                'downtime_reason': '',
+                            },
+                        ],
+                    },
+                },
+                current_user=owner,
+            )
+
+        assert exc_info.value.status_code == 422
+        assert '缺少原因' in exc_info.value.detail
+        assert db.query(WorkOrderEntry).count() == 0
+    finally:
+        db.close()
+
+
+def test_machine_stop_submission_rejects_fractional_minutes(tmp_path, monkeypatch) -> None:
+    db = _build_session(tmp_path)
+    try:
+        owner = _seed_owner(db)
+        owner.role = 'overhaul_owner'
+        db.commit()
+        _freeze_owner_business_time(monkeypatch)
+
+        with pytest.raises(HTTPException) as exc_info:
+            mobile_summary.save_owner_daily_entry(
+                db,
+                payload={
+                    'business_date': date(2026, 7, 17),
+                    'data': {
+                        'machine_stop_records': [
+                            {
+                                'machine_name': '2号机',
+                                'downtime_minutes': 42.5,
+                                'downtime_reason': '换辊',
+                            },
+                        ],
+                    },
+                },
+                current_user=owner,
+            )
+
+        assert exc_info.value.status_code == 422
+        assert '整数' in exc_info.value.detail
+        assert db.query(WorkOrderEntry).count() == 0
     finally:
         db.close()
 

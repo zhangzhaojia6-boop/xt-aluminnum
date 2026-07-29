@@ -119,7 +119,17 @@ def build_persisted_daily_fact_surface(
         "status": "available" if snapshot is not None else "missing",
         "agent_failure_audit": "unavailable",
     }
-    fact_tasks = _daily_fact_gap_event_alerts(db, target_date=target_date)
+    daily_fact_tasks = _fact_gap_event_alerts(
+        db,
+        target_date=target_date,
+        event_types=("daily_fact_gap",),
+    )
+    machine_fact_tasks = _fact_gap_event_alerts(
+        db,
+        target_date=target_date,
+        event_types=("machine_fact_gap",),
+    )
+    fact_tasks = [*daily_fact_tasks, *machine_fact_tasks]
     if snapshot is None:
         return {
             "fact_closure": closure,
@@ -132,7 +142,10 @@ def build_persisted_daily_fact_surface(
         }
 
     fact_conflicts = _fact_conflict_alerts(conflicts, target_date=target_date)
-    fact_missing = fact_tasks or _fact_missing_alerts(closure, target_date=target_date)
+    fact_missing = [
+        *(daily_fact_tasks or _fact_missing_alerts(closure, target_date=target_date)),
+        *machine_fact_tasks,
+    ]
     return {
         "fact_closure": closure,
         "fact_closure_available": True,
@@ -219,17 +232,18 @@ def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> li
     return alerts
 
 
-def _daily_fact_gap_event_alerts(
+def _fact_gap_event_alerts(
     db: Session | None,
     *,
     target_date: date,
+    event_types: tuple[str, ...],
 ) -> list[dict[str, Any]]:
     if db is None:
         return []
     events = (
         db.query(AgentEvent)
         .filter(
-            AgentEvent.event_type == "daily_fact_gap",
+            AgentEvent.event_type.in_(event_types),
             AgentEvent.business_date == target_date,
             AgentEvent.status.in_(("new", "open", "pending", "resolved")),
         )

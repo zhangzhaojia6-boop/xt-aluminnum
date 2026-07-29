@@ -2120,6 +2120,7 @@ def test_dingtalk_agent_inbound_root_owner_private_uses_production_loop_for_soft
         assert seen["text"] == "今天咋样"
         assert seen["sender_external_id"] == "dt-root-soft-001"
         assert seen["trace_id"] == "trace-root-soft-route-001"
+        assert seen["mes_reader"] is not None
     finally:
         _restore_db_override(previous_overrides, db)
 

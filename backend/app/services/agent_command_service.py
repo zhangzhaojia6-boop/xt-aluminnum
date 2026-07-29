@@ -3,10 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 import hashlib
+import math
 import re
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy import inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -24,13 +26,14 @@ from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
 from app.models.master import Equipment
 from app.models.mes import MesWorkshopProcessRecord
-from app.models.production import ShiftProductionData
+from app.models.production import ShiftProductionData, WorkOrderEntry
 from app.models.quality import DataQualityIssue, QualityIssueLog
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import agent_communication_service
 from app.services import energy_service
 from app.services import realtime_service
+from app.services.hermes_mes_read_service import HermesMesReadService
 from app.services.rag_service import query_knowledge
 
 
@@ -321,15 +324,17 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
     if intent == 'consumable_usage':
         return _extract_consumable_facts(db, business_date=business_date, current_user=current_user)
     if intent == 'machine_operation':
-        return _extract_machine_operation_facts(
+        return read_machine_facts(
             db,
+            intent=intent,
             business_date=business_date,
             command_text=text,
             current_user=current_user,
         )
     if intent == 'machine_stop':
-        return _extract_machine_stop_facts(
+        return read_machine_facts(
             db,
+            intent=intent,
             business_date=business_date,
             command_text=text,
             current_user=current_user,
@@ -416,6 +421,33 @@ def _extract_energy_cost_facts(db: Session, *, business_date, current_user: User
     }
 
 
+def read_machine_facts(
+    db: Session,
+    *,
+    intent: str,
+    business_date: date,
+    command_text: str,
+    current_user: User,
+    mes_reader: HermesMesReadService | None = None,
+) -> dict[str, Any]:
+    if intent == 'machine_operation':
+        return _extract_machine_operation_facts(
+            db,
+            business_date=business_date,
+            command_text=command_text,
+            current_user=current_user,
+            mes_reader=mes_reader,
+        )
+    if intent == 'machine_stop':
+        return _extract_machine_stop_facts(
+            db,
+            business_date=business_date,
+            command_text=command_text,
+            current_user=current_user,
+        )
+    raise AgentCommandError('unsupported_machine_intent')
+
+
 def _extract_machine_stop_facts(
     db: Session,
     *,
@@ -456,19 +488,89 @@ def _extract_machine_stop_facts(
             'data_source': row.data_source,
         })
 
+    owner_daily_entries: list[WorkOrderEntry] = []
+    if inspect(db.connection()).has_table(WorkOrderEntry.__tablename__):
+        owner_daily_query = db.query(WorkOrderEntry).filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type == 'owner_daily',
+            WorkOrderEntry.entry_status == 'submitted',
+        )
+        if scoped_workshop_id is not None:
+            owner_daily_query = owner_daily_query.filter(WorkOrderEntry.workshop_id == scoped_workshop_id)
+        owner_daily_entries = owner_daily_query.order_by(
+            WorkOrderEntry.updated_at.desc(),
+            WorkOrderEntry.id.desc(),
+        ).all()
+    seen_owner_daily_items: set[tuple[str, str, str, int, str]] = set()
+    for entry in owner_daily_entries:
+        payload = dict(entry.extra_payload or {})
+        records = payload.get('machine_stop_records')
+        if not isinstance(records, list):
+            continue
+        workshop = db.get(Workshop, entry.workshop_id)
+        for raw_record in records:
+            if not isinstance(raw_record, dict):
+                continue
+            machine_name = _clean(raw_record.get('machine_name') or raw_record.get('equipment_name'))
+            if machine_filter and not _matches_machine_name_filter(machine_name, machine_filter):
+                continue
+            minutes = _valid_downtime_minutes(raw_record.get('downtime_minutes'))
+            if minutes is None:
+                continue
+            workshop_name = (
+                _clean(workshop.name) if workshop is not None else _clean(raw_record.get('workshop_name'))
+            ) or '未标记车间'
+            reason = _clean(raw_record.get('downtime_reason')) or '未填写原因'
+            shift_name = _clean(raw_record.get('shift_name')) or '未标记班次'
+            dedupe_key = (workshop_name, machine_name, shift_name, minutes, reason)
+            if dedupe_key in seen_owner_daily_items:
+                continue
+            seen_owner_daily_items.add(dedupe_key)
+            owner_daily_item = {
+                'workshop_name': workshop_name,
+                'workshop_code': _clean(workshop.code) if workshop is not None else '',
+                'equipment_name': machine_name or '未标记机列',
+                'equipment_code': _clean(raw_record.get('machine_code')),
+                'shift_name': shift_name,
+                'downtime_minutes': minutes,
+                'downtime_reason': reason,
+                'data_status': entry.entry_status,
+                'data_source': 'owner_daily_machine_stop',
+                'trace_id': f'owner-daily:{entry.id}:machine-stop',
+            }
+            if not _merge_owner_daily_stop_item(stop_items, owner_daily_item):
+                stop_items.append(owner_daily_item)
+
+    stop_items.sort(key=lambda item: item['downtime_minutes'], reverse=True)
     max_minutes = max([item['downtime_minutes'] for item in stop_items], default=0)
+    complete_stop_count = sum(
+        _clean(item.get('downtime_reason')) not in {'', '未填写原因'}
+        for item in stop_items
+    )
+    fact_status = (
+        'confirmed'
+        if stop_items and complete_stop_count == len(stop_items)
+        else ('partial' if stop_items else 'missing')
+    )
+    data_sources = list(dict.fromkeys(item['data_source'] for item in stop_items if item.get('data_source')))
+    status_color = _highest_status_color(
+        _machine_stop_status_color(max_minutes),
+        'yellow' if fact_status != 'confirmed' else 'green',
+    )
     return {
         'status': 'connected',
+        'fact_status': fact_status,
         'scope_label': _scope_label_for_facts(db, current_user),
-        'status_color': _machine_stop_status_color(max_minutes),
+        'status_color': status_color,
         'business_date': business_date.isoformat(),
         'business_day_start': production_business_day_start_label(),
         'machine_filter': machine_filter,
         'stop_count': len(stop_items),
+        'complete_stop_count': complete_stop_count,
         'total_downtime_minutes': sum(item['downtime_minutes'] for item in stop_items),
         'max_downtime_minutes': max_minutes,
         'top_stops': stop_items[:5],
-        'data_source': 'shift_production_data',
+        'data_source': '+'.join(data_sources),
     }
 
 
@@ -478,42 +580,65 @@ def _extract_machine_operation_facts(
     business_date: date,
     command_text: str,
     current_user: User,
+    mes_reader: HermesMesReadService | None = None,
 ) -> dict[str, Any]:
     machine_filter = _extract_machine_filter(command_text)
     scoped_workshop_id = _scoped_workshop_id_for_facts(current_user)
     scoped_workshop = db.get(Workshop, int(scoped_workshop_id)) if scoped_workshop_id is not None else None
-    rows = (
-        db.query(MesWorkshopProcessRecord)
-        .filter(
-            MesWorkshopProcessRecord.business_date == business_date,
-            MesWorkshopProcessRecord.device_name.isnot(None),
-        )
-        .order_by(MesWorkshopProcessRecord.end_time.desc(), MesWorkshopProcessRecord.id.desc())
-        .all()
-    )
-
     operation_items: list[dict[str, Any]] = []
-    for row in rows:
-        if scoped_workshop is not None and not _matches_workshop_name(row.workshop_name, scoped_workshop):
-            continue
-        if machine_filter and not _matches_machine_name_filter(row.device_name, machine_filter):
-            continue
-        payload = dict(row.source_payload or {})
-        begin_at = _parse_mes_process_datetime(payload.get('BeginDatetime'))
-        end_at = _parse_mes_process_datetime(row.end_time or payload.get('EndDatetime'))
-        timing_status, elapsed_minutes = _classify_mes_process_interval(begin_at, end_at)
-        operation_items.append({
-            'device_name': _clean(row.device_name) or '未标记机台',
-            'workshop_name': _clean(row.workshop_name) or '未标记车间',
-            'process_name': _clean(row.process_name) or '未标记工序',
-            'begin_at': begin_at.isoformat() if begin_at is not None else None,
-            'end_at': end_at.isoformat() if end_at is not None else None,
-            'elapsed_minutes': elapsed_minutes,
-            'timing_status': timing_status,
-            'source_type': 'mes_workshop_process_records',
-            'source_ref': row.source_id,
-            'trace_id': f'mes-process:{row.source_id}',
-        })
+    operation_source = 'mes_workshop_process_records'
+    direct_source_status: dict[str, Any] | None = None
+    if mes_reader is not None:
+        try:
+            direct_payload = mes_reader.read_sources(
+                business_date=business_date,
+                query_keys=['workshop_process_records'],
+            )
+            direct_source_status = filter_sensitive_mapping(direct_payload.get('source_status') or {})
+            operation_items = _direct_mes_operation_items(
+                direct_payload,
+                machine_filter=machine_filter,
+                scoped_workshop=scoped_workshop,
+            )
+            if operation_items:
+                operation_source = 'mes_readonly'
+        except Exception as exc:
+            direct_source_status = {
+                'mes': 'failed',
+                'reason': filter_sensitive_mapping({'error': str(exc)}).get('error'),
+            }
+
+    if not operation_items:
+        rows = (
+            db.query(MesWorkshopProcessRecord)
+            .filter(
+                MesWorkshopProcessRecord.business_date == business_date,
+                MesWorkshopProcessRecord.device_name.isnot(None),
+            )
+            .order_by(MesWorkshopProcessRecord.end_time.desc(), MesWorkshopProcessRecord.id.desc())
+            .all()
+        )
+        for row in rows:
+            if scoped_workshop is not None and not _matches_workshop_name(row.workshop_name, scoped_workshop):
+                continue
+            if machine_filter and not _matches_machine_name_filter(row.device_name, machine_filter):
+                continue
+            payload = dict(row.source_payload or {})
+            begin_at = _parse_mes_process_datetime(payload.get('BeginDatetime'))
+            end_at = _parse_mes_process_datetime(row.end_time or payload.get('EndDatetime'))
+            timing_status, elapsed_minutes = _classify_mes_process_interval(begin_at, end_at)
+            operation_items.append({
+                'device_name': _clean(row.device_name) or '未标记机台',
+                'workshop_name': _clean(row.workshop_name) or '未标记车间',
+                'process_name': _clean(row.process_name) or '未标记工序',
+                'begin_at': begin_at.isoformat() if begin_at is not None else None,
+                'end_at': end_at.isoformat() if end_at is not None else None,
+                'elapsed_minutes': elapsed_minutes,
+                'timing_status': timing_status,
+                'source_type': 'mes_workshop_process_records',
+                'source_ref': row.source_id,
+                'trace_id': f'mes-process:{row.source_id}',
+            })
 
     stop_facts = _extract_machine_stop_facts(
         db,
@@ -529,18 +654,25 @@ def _extract_machine_operation_facts(
     )
     point_event_count = sum(item['timing_status'] == 'point_event' for item in operation_items)
     interval_count = sum(item['timing_status'] == 'process_interval' for item in operation_items)
+    fact_status = (
+        'confirmed'
+        if operation_items and interval_count == len(operation_items)
+        else ('partial' if operation_items else 'missing')
+    )
     status_color = _highest_status_color(
         stop_facts.get('status_color'),
-        'yellow' if review_count else 'green',
+        'yellow' if review_count or fact_status != 'confirmed' else 'green',
     )
     return {
         'status': 'connected',
+        'fact_status': fact_status,
         'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': status_color,
         'business_date': business_date.isoformat(),
         'business_day_start': production_business_day_start_label(),
         'machine_filter': machine_filter,
         'record_count': len(operation_items),
+        'complete_record_count': interval_count,
         'interval_count': interval_count,
         'point_event_count': point_event_count,
         'invalid_interval_count': invalid_count,
@@ -552,8 +684,85 @@ def _extract_machine_operation_facts(
             stop_items[0].get('downtime_reason') if stop_items else None
         ),
         'record_semantics': 'mes_process_start_end_not_physical_power',
-        'data_source': 'mes_workshop_process_records',
+        'data_source': operation_source,
+        'source_status': direct_source_status,
     }
+
+
+def _direct_mes_operation_items(
+    payload: dict[str, Any],
+    *,
+    machine_filter: str | None,
+    scoped_workshop: Workshop | None,
+) -> list[dict[str, Any]]:
+    records = (payload.get('records') or {}).get('workshop_process_records') or []
+    if not isinstance(records, list):
+        return []
+    operation_items: list[dict[str, Any]] = []
+    for raw_record in records:
+        if not isinstance(raw_record, dict):
+            continue
+        device_name = _first_record_value(raw_record, 'DeviceName', 'device_name', 'MachineName', 'machine_name')
+        workshop_name = _first_record_value(
+            raw_record,
+            'WorkShopName',
+            'WorkshopName',
+            'workshop_name',
+        )
+        if not device_name:
+            continue
+        if scoped_workshop is not None and not _matches_workshop_name(workshop_name, scoped_workshop):
+            continue
+        if machine_filter and not _matches_machine_name_filter(device_name, machine_filter):
+            continue
+        process_name = _first_record_value(raw_record, 'ProcessName', 'process_name', 'CurrentProcess')
+        begin_at = _parse_mes_process_datetime(
+            _first_record_value(raw_record, 'BeginDatetime', 'StartDatetime', 'begin_at', 'start_at')
+        )
+        end_at = _parse_mes_process_datetime(
+            _first_record_value(
+                raw_record,
+                'EndDatetime',
+                'end_at',
+                'event_time',
+            )
+        )
+        timing_status, elapsed_minutes = _classify_mes_process_interval(begin_at, end_at)
+        source_ref = _clean(
+            raw_record.get('source_id')
+            or raw_record.get('source_ref')
+            or raw_record.get('source_path')
+        )
+        operation_items.append({
+            'device_name': _clean(device_name) or '未标记机台',
+            'workshop_name': _clean(workshop_name) or '未标记车间',
+            'process_name': _clean(process_name) or '未标记工序',
+            'begin_at': begin_at.isoformat() if begin_at is not None else None,
+            'end_at': end_at.isoformat() if end_at is not None else None,
+            'elapsed_minutes': elapsed_minutes,
+            'timing_status': timing_status,
+            'source_type': 'mes_readonly',
+            'source_ref': source_ref or None,
+            'trace_id': f'mes-process:{source_ref}' if source_ref else None,
+        })
+    return operation_items
+
+
+def _first_record_value(record: dict[str, Any], *names: str) -> Any:
+    sources = [record]
+    metadata = record.get('metadata')
+    if isinstance(metadata, dict):
+        sources.append(metadata)
+    lowered_sources = [
+        {str(key).casefold(): value for key, value in source.items()}
+        for source in sources
+    ]
+    for name in names:
+        for lowered in lowered_sources:
+            value = lowered.get(name.casefold())
+            if value not in (None, ''):
+                return value
+    return None
 
 
 def _resolve_requested_business_date(text: str, *, default_business_date: date) -> date:
@@ -657,9 +866,9 @@ def _scope_label_for_facts(db: Session, current_user: User | None) -> str:
 
 def _extract_machine_filter(text: str) -> str | None:
     value = _clean(text)
-    match = re.search(r'(\d+)\s*(?:#|号)?\s*机', value)
+    match = re.search(r'(\d+|[一二三四五六七八九十两]+)\s*(?:#|号)?\s*(?:机|机台|机列)', value)
     if match:
-        return match.group(1)
+        return _normalize_machine_number(match.group(1))
     return None
 
 
@@ -672,14 +881,91 @@ def _matches_machine_filter(equipment: Equipment | None, machine_filter: str) ->
 def _matches_machine_name_filter(value: Any, machine_filter: str) -> bool:
     token = str(machine_filter)
     name = str(value or '')
+    parsed_token = _extract_machine_filter(name)
+    if parsed_token is not None:
+        return parsed_token == token
     return (
-        f'{token}号' in name
-        or f'{token}#' in name
+        bool(re.search(rf'(?<!\d){re.escape(token)}#(?!\d)', name))
         or name.strip() == token
         or name.endswith(f'-{token}')
         or name.endswith(f'#{token}')
         or name == token
     )
+
+
+def _normalize_machine_number(value: str) -> str:
+    token = _clean(value)
+    if token.isdigit():
+        return str(int(token))
+    digit_by_character = {
+        '零': 0,
+        '一': 1,
+        '二': 2,
+        '两': 2,
+        '三': 3,
+        '四': 4,
+        '五': 5,
+        '六': 6,
+        '七': 7,
+        '八': 8,
+        '九': 9,
+    }
+    if '十' in token:
+        left, right = token.split('十', 1)
+        tens = digit_by_character.get(left, 1) if left else 1
+        ones = digit_by_character.get(right, 0) if right else 0
+        return str(tens * 10 + ones)
+    if token in digit_by_character:
+        return str(digit_by_character[token])
+    return token
+
+
+def _valid_downtime_minutes(value: Any) -> int | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or number <= 0 or number > 24 * 60:
+        return None
+    minutes = round(number)
+    return minutes if 1 <= minutes <= 24 * 60 else None
+
+
+def _merge_owner_daily_stop_item(
+    stop_items: list[dict[str, Any]],
+    owner_daily_item: dict[str, Any],
+) -> bool:
+    owner_machine = _machine_identity(owner_daily_item.get('equipment_name'))
+    owner_workshop = _normalized_scope_name(owner_daily_item.get('workshop_name'))
+    owner_shift = _clean(owner_daily_item.get('shift_name')).casefold()
+    owner_minutes = _int_or_zero(owner_daily_item.get('downtime_minutes'))
+    for item in stop_items:
+        if _machine_identity(item.get('equipment_name')) != owner_machine:
+            continue
+        if _normalized_scope_name(item.get('workshop_name')) != owner_workshop:
+            continue
+        if _clean(item.get('shift_name')).casefold() != owner_shift:
+            continue
+        if _int_or_zero(item.get('downtime_minutes')) != owner_minutes:
+            continue
+        reason = _clean(owner_daily_item.get('downtime_reason'))
+        if reason and reason != '未填写原因':
+            item['downtime_reason'] = reason
+        sources = [
+            source
+            for raw_source in (item.get('data_source'), owner_daily_item.get('data_source'))
+            for source in str(raw_source or '').split('+')
+            if source
+        ]
+        item['data_source'] = '+'.join(dict.fromkeys(sources))
+        item['trace_id'] = owner_daily_item.get('trace_id')
+        return True
+    return False
+
+
+def _machine_identity(value: Any) -> str:
+    text = _clean(value)
+    return _extract_machine_filter(text) or text.replace(' ', '').casefold()
 
 
 def _machine_stop_status_color(minutes: int) -> str:
@@ -875,6 +1161,13 @@ def _load_live_aggregation(db: Session, *, business_date, current_user: User) ->
 
 
 def _resolve_status_color(*, facts: dict[str, Any], citations: list[dict[str, Any]]) -> str:
+    fact_status = str(facts.get('fact_status') or '')
+    if fact_status == 'partial':
+        return 'yellow'
+    if fact_status == 'missing':
+        if facts.get('record_semantics'):
+            return 'yellow'
+        return 'green' if citations else 'yellow'
     if facts.get('status_color'):
         return str(facts['status_color'])
     if facts.get('status') == 'connected':
@@ -1032,10 +1325,15 @@ def _build_answer_for_intent(
     if intent == 'machine_operation' and facts.get('status') == 'connected':
         record_count = _int_or_zero(facts.get('record_count'))
         review_count = _int_or_zero(facts.get('review_required_count'))
+        fact_status = str(facts.get('fact_status') or 'missing')
         reported_minutes = _int_or_zero(facts.get('reported_downtime_minutes'))
         reported_reason = _clean(facts.get('reported_downtime_reason'))
         reported_reason_text = f'（{reported_reason}）' if reported_reason else ''
-        conclusion = '已读取 MES 工序生产起止' if record_count else '当前未找到匹配的 MES 工序生产起止'
+        conclusion = (
+            '已读取 MES 工序生产起止'
+            if fact_status == 'confirmed'
+            else ('已找到 MES 工序记录，但生产起止时间不完整' if record_count else '当前未找到匹配的 MES 工序生产起止')
+        )
         review_text = f'；需复核 {review_count} 条' if review_count else ''
         return _format_answer(
             scope_label=_answer_scope_label(facts),
@@ -1063,7 +1361,12 @@ def _build_answer_for_intent(
         and (_int_or_zero(facts.get('stop_count')) > 0 or not citations)
     ):
         stop_count = _int_or_zero(facts.get('stop_count'))
-        conclusion = '发现停机记录' if stop_count else '当前未找到匹配停机记录'
+        fact_status = str(facts.get('fact_status') or 'missing')
+        conclusion = (
+            '发现停机记录'
+            if fact_status == 'confirmed'
+            else ('已找到停机记录，但原因仍不完整' if stop_count else '当前未找到匹配停机记录')
+        )
         return _format_answer(
             scope_label=_answer_scope_label(facts),
             status_color=status_color,
@@ -1075,7 +1378,7 @@ def _build_answer_for_intent(
             ),
             reason=_format_machine_stop_reason(facts.get('top_stops') or []),
             action='超过 30 分钟需车间负责人确认恢复时间；超过 60 分钟需升级到总控群。',
-            sources='班次生产数据 / shift_production_data',
+            sources=_format_machine_stop_sources(facts),
         )
 
     if intent == 'quality_anomaly' and facts.get('status') == 'connected':
@@ -1189,6 +1492,20 @@ def _format_machine_stop_reason(items: list[dict[str, Any]]) -> str:
         f"{first.get('workshop_name')} {first.get('equipment_name')} "
         f"原因：{first.get('downtime_reason') or '未填写原因'}。"
     )
+
+
+def _format_machine_stop_sources(facts: dict[str, Any]) -> str:
+    sources = {
+        source
+        for source in str(facts.get('data_source') or '').split('+')
+        if source
+    }
+    labels = []
+    if any(source != 'owner_daily_machine_stop' for source in sources):
+        labels.append('班次生产数据 / shift_production_data')
+    if 'owner_daily_machine_stop' in sources:
+        labels.append('责任人扫码补录 / owner_daily')
+    return '；'.join(labels) or '班次生产数据与责任人扫码补录（未命中）'
 
 
 def _format_energy_per_ton(value: Any) -> str:
