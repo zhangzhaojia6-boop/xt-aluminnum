@@ -153,6 +153,96 @@ def _extract_hermes_gateway_verifier(source: str) -> str:
     return textwrap.dedent(capture_body[start:end])
 
 
+def test_hermes_mutating_workflows_use_official_gateway_lifecycle() -> None:
+    production = _read('.github/workflows/production-sync-status.yml')
+    dingtalk = _read('.github/workflows/configure-dingtalk-stream-prod.yml')
+    codex = _read('.github/workflows/configure-hermes-codex-prod.yml')
+
+    production_stop = _extract_shell_function(production, 'stop_hermes_gateway')
+    dingtalk_restart = _extract_shell_function(dingtalk, 'restart_hermes_gateway')
+    codex_restart = _extract_shell_function(codex, 'restart_hermes_gateway')
+
+    assert '-m hermes_cli.main gateway stop --system' in production_stop
+    assert 'HERMES_GATEWAY_STOP=command_failed' in production_stop
+    assert 'systemctl is-active --quiet hermes-gateway' in production_stop
+    assert 'HERMES_GATEWAY_STOP=still_active' in production_stop
+    assert '-m hermes_cli.main gateway restart --system' in dingtalk_restart
+    assert '-m hermes_cli.main gateway restart --system' in codex_restart
+    for source in (production, dingtalk, codex):
+        assert 'systemctl restart hermes-gateway' not in source
+        assert 'systemctl stop hermes-gateway' not in source
+
+
+@pytest.mark.parametrize(
+    ('cli_exit_code', 'expected_exit_code'),
+    ((0, 0), (1, 1)),
+)
+def test_production_stop_uses_official_hermes_cli_and_propagates_failure(
+    cli_exit_code: int,
+    expected_exit_code: int,
+) -> None:
+    bash = _require_bash()
+    source = _read('.github/workflows/production-sync-status.yml')
+    stop_body = textwrap.dedent(
+        _extract_shell_function(source, 'stop_hermes_gateway')
+    )
+    tmp_root = REPO_ROOT
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', newline='\n', suffix='.sh', dir=tmp_root, delete=False) as handle:
+        script_path = Path(handle.name)
+    fake_python_path = script_path.with_suffix('.python')
+    marker_path = script_path.with_suffix('.log')
+    try:
+        fake_python_path.write_text(
+            '#!/usr/bin/env bash\nprintf "cli:%s\\n" "$*" >> "$MARKER_PATH"\nexit "$CLI_EXIT_CODE"\n',
+            encoding='utf-8',
+            newline='\n',
+        )
+        fake_python_path.chmod(fake_python_path.stat().st_mode | stat.S_IXUSR)
+        script_path.write_text(
+            "\n".join(
+                [
+                    '#!/usr/bin/env bash',
+                    'set -euo pipefail',
+                    f'FAKE_PYTHON="{fake_python_path.as_posix()}"',
+                    f'MARKER_PATH="{marker_path.as_posix()}"',
+                    f'CLI_EXIT_CODE={cli_exit_code}',
+                    'HERMES_HOME=/test/hermes',
+                    'export MARKER_PATH CLI_EXIT_CODE',
+                    'readlink() { printf "%s\\n" "$FAKE_PYTHON"; }',
+                    'systemctl() {',
+                    '  if [ "$1" = "show" ]; then printf "4242\\n"; return 0; fi',
+                    '  if [ "$1" = "is-active" ]; then return 1; fi',
+                    '  printf "systemctl:%s\\n" "$*" >> "$MARKER_PATH"',
+                    '}',
+                    stop_body,
+                    'if stop_hermes_gateway; then exit 0; else rc=$?; exit "$rc"; fi',
+                    '',
+                ]
+            ),
+            encoding='utf-8',
+            newline='\n',
+        )
+        result = subprocess.run(
+            [bash, script_path.name],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=tmp_root,
+            timeout=15,
+        )
+        marker_lines = marker_path.read_text(encoding='utf-8').splitlines() if marker_path.exists() else []
+    finally:
+        if marker_path.exists():
+            os.unlink(marker_path)
+        if fake_python_path.exists():
+            os.unlink(fake_python_path)
+        if script_path.exists():
+            os.unlink(script_path)
+
+    assert result.returncode == expected_exit_code
+    assert marker_lines == ['cli:-P -m hermes_cli.main gateway stop --system']
+
+
 def test_mes_readonly_audit_workflow_is_pinned_sanitized_and_compare_only() -> None:
     path = '.github/workflows/mes-readonly-audit-prod.yml'
     payload = _load(path)
@@ -269,7 +359,8 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert datahub_exists_index < trusted_fetch_index < hermes_exists_index < trusted_head_index < set_restore_index
     assert set_restore_index < pre_index < alembic_index < post_index < reset_restore_index
     rollback_body = _extract_shell_function(source, 'rollback_on_error')
-    assert 'systemctl stop aluminum-bypass hermes-gateway' in rollback_body
+    assert 'stop_hermes_gateway' in rollback_body
+    assert 'systemctl stop aluminum-bypass' in rollback_body
     assert 'ROLLBACK_DATABASE_DOWNGRADE_TO=$PRE_MIGRATION_REVISIONS' in rollback_body
     assert 'ROLLBACK_FAILED_DATABASE_DOWNGRADE' in rollback_body
     assert 'alembic downgrade "$PRE_MIGRATION_REVISIONS"' in rollback_body
@@ -283,7 +374,8 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert 'ROLLBACK_FAILED_' in rollback_body
     assert '|| true' not in rollback_body
     assert 'DEPLOY_FAILED_ROLLBACK_DONE' in rollback_body
-    stop_index = rollback_body.find('systemctl stop aluminum-bypass hermes-gateway')
+    hermes_stop_index = rollback_body.find('stop_hermes_gateway')
+    stop_index = rollback_body.find('systemctl stop aluminum-bypass')
     migration_downgrade_index = rollback_body.find('alembic downgrade "$PRE_MIGRATION_REVISIONS"')
     repo_restore_index = rollback_body.find('checkout --detach "$PREVIOUS_DATAHUB_HEAD"')
     db_restore_index = rollback_body.find('pg_restore --single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges -d "$DATABASE_LIBPQ_URL" "$DB_BACKUP"')
@@ -291,8 +383,8 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     frontend_restore_index = rollback_body.find('npm run build')
     runtime_restore_index = rollback_body.find('restore_hermes_runtime_dropin')
     restart_index = rollback_body.find('systemctl restart aluminum-bypass')
-    assert -1 not in (stop_index, migration_downgrade_index, repo_restore_index, db_restore_index, deps_restore_index, frontend_restore_index, runtime_restore_index, restart_index)
-    assert stop_index < migration_downgrade_index < repo_restore_index < db_restore_index < deps_restore_index < frontend_restore_index < runtime_restore_index < restart_index
+    assert -1 not in (hermes_stop_index, stop_index, migration_downgrade_index, repo_restore_index, db_restore_index, deps_restore_index, frontend_restore_index, runtime_restore_index, restart_index)
+    assert hermes_stop_index < stop_index < migration_downgrade_index < repo_restore_index < db_restore_index < deps_restore_index < frontend_restore_index < runtime_restore_index < restart_index
     assert 'ROLLBACK_FAILED_READYZ' in rollback_body
     assert source.rfind('trap - EXIT') > source.find('report_status "yes"')
     assert '/versionz' in source
@@ -567,7 +659,7 @@ def test_production_sync_deploy_applies_stream_config_inside_rollback_boundary()
     assert 'echo "$stream_app_secret"' not in apply_body
 
     trap_index = source.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT")
-    stop_index = source.find('systemctl stop hermes-gateway', trap_index)
+    stop_index = source.find('stop_hermes_gateway', trap_index)
     apply_index = source.find('apply_dingtalk_stream_config', stop_index)
     restart_index = source.find('systemctl restart aluminum-bypass', apply_index)
     assert -1 not in (trap_index, stop_index, apply_index, restart_index)
@@ -732,10 +824,10 @@ def test_production_sync_status_builds_reversible_isolated_hermes_runtime() -> N
     prepare_index = deployment.find('prepare_hermes_runtime "$HERMES_SHA"')
     backup_index = deployment.find('backup_hermes_runtime_dropin')
     trap_index = deployment.find("trap 'rc=$?; if [ \"$rc\" -ne 0 ]; then rollback_on_error \"$rc\"; fi' EXIT")
-    stop_index = deployment.find('systemctl stop hermes-gateway')
+    stop_index = deployment.find('stop_hermes_gateway')
     checkout_index = deployment.find('git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"')
     switch_index = deployment.find('write_hermes_runtime_dropin "$HERMES_TARGET_RUNTIME_ENV"')
-    restart_index = deployment.find('systemctl restart hermes-gateway')
+    restart_index = deployment.find('systemctl start hermes-gateway')
     assert -1 not in (capture_index, prepare_index, trap_index, backup_index, stop_index, checkout_index, switch_index, restart_index)
     assert capture_index < prepare_index < backup_index < trap_index < stop_index < checkout_index < switch_index < restart_index
 
@@ -1121,7 +1213,7 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert -1 not in (apply_trap_index, first_mutation_index)
     assert apply_trap_index < first_mutation_index
     assert 'upsert_env_value "$DATAHUB_ENV_FILE" "DINGTALK_AUTHORIZED_GROUP_IDS" "*"' in source
-    assert 'systemctl restart hermes-gateway' in source
+    assert 'restart_hermes_gateway' in source
     assert '/readyz' in source
     assert 'systemctl show -p ActiveEnterTimestamp' in source
     assert 'systemctl show -p MainPID' in source
@@ -1606,7 +1698,7 @@ def test_configure_dingtalk_verify_input_contract_requires_thresholds_timezone_a
     assert 'umask 077' in source
     assert 'restart_epoch="$(date +%s)"' in source
     restart_index = source.find('restart_epoch="$(date +%s)"')
-    restart_call_index = source.find('systemctl restart hermes-gateway', restart_index)
+    restart_call_index = source.find('restart_hermes_gateway', restart_index)
     assert -1 not in (restart_index, restart_call_index)
     assert restart_index < restart_call_index
     assert 'backup_dir/$(basename "$file")' not in source
@@ -1879,7 +1971,7 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'rollback_on_login_error' in source
     assert 'restore_optional_file "$backup_dir/auth.json" "$auth_file"' in source
     assert 'restore_optional_file "$backup_dir/config.yaml" "$config_file"' in source
-    assert 'systemctl restart hermes-gateway' in source
+    assert 'restart_hermes_gateway' in source
     assert 'HERMES_CODEX_LOGIN_VERIFIED' in source
     assert 'DINGTALK_STREAM_CONNECTION=connected' in source
     assert 'set -x' not in source
@@ -2243,6 +2335,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                     f'MARKER_PATH="{marker_path.as_posix()}"',
                     'DATAHUB_REPO="$PWD/repo-datahub"',
                     'HERMES_REPO=/repo-hermes',
+                    'HERMES_HOME=/hermes-home',
                     'DATAHUB_ENV_FILE="$PWD/env-datahub"',
                     'HERMES_ENV_FILE="$PWD/env-hermes"',
                     'DATAHUB_CHECKOUT_DONE=1',
@@ -2271,6 +2364,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                     'restore_env_backup() { echo "env_restore:$1" >> "$MARKER_PATH"; }',
                     'restore_hermes_runtime_dropin() { echo "runtime_restore" >> "$MARKER_PATH"; }',
                     'reload_or_restart_nginx() { echo "nginx_reload" >> "$MARKER_PATH"; }',
+                    'stop_hermes_gateway() { return 0; }',
                     'git() { echo "git:$*" >> "$MARKER_PATH"; }',
                     'systemctl() { echo "systemctl:$*" >> "$MARKER_PATH"; }',
                     'pg_restore() { echo "pg_restore:$*" >> "$MARKER_PATH"; return "$PG_RESTORE_EXIT_CODE"; }',
@@ -2295,7 +2389,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
             os.unlink(script_path)
 
     assert result.returncode == expected_returncode
-    assert marker_lines[0] == 'systemctl:stop aluminum-bypass hermes-gateway'
+    assert marker_lines[0] == 'systemctl:stop aluminum-bypass'
     downgrade_index = marker_lines.index(
         'python:-m alembic downgrade 0052_hermes_factory_brain'
     )
@@ -2307,15 +2401,15 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
     )
     assert any(line.startswith('pg_restore:--single-transaction --exit-on-error --clean --if-exists --no-owner --no-privileges') for line in marker_lines)
     db_restore_index = next(index for index, line in enumerate(marker_lines) if line.startswith('pg_restore:'))
-    assert marker_lines.index('systemctl:stop aluminum-bypass hermes-gateway') < downgrade_index
+    assert marker_lines.index('systemctl:stop aluminum-bypass') < downgrade_index
     assert downgrade_index < datahub_restore_index < db_restore_index
     if pg_restore_exit_code:
         assert not any(line.startswith('npm:') for line in marker_lines)
         assert 'systemctl:restart aluminum-bypass' not in marker_lines
-        assert 'systemctl:restart hermes-gateway' not in marker_lines
+        assert 'systemctl:start hermes-gateway' not in marker_lines
     else:
         assert 'systemctl:restart aluminum-bypass' in marker_lines
-        assert 'systemctl:restart hermes-gateway' in marker_lines
+        assert 'systemctl:start hermes-gateway' in marker_lines
 
 
 def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
@@ -2333,6 +2427,7 @@ def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
                     'set -euo pipefail',
                     'DATAHUB_REPO="$PWD/repo-datahub"',
                     'HERMES_REPO=/repo-hermes',
+                    'HERMES_HOME=/hermes-home',
                     'DATAHUB_ENV_FILE="$PWD/env-datahub"',
                     'HERMES_ENV_FILE="$PWD/env-hermes"',
                     'DATAHUB_CHECKOUT_DONE=0',
@@ -2348,6 +2443,7 @@ def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
                     'restore_env_backup() { return 0; }',
                     'restore_hermes_runtime_dropin() { return 0; }',
                     'reload_or_restart_nginx() { return 0; }',
+                    'stop_hermes_gateway() { return 0; }',
                     'systemctl() { return 0; }',
                     'pg_restore() { return 0; }',
                     'npm() { return 0; }',
@@ -2392,10 +2488,12 @@ def test_configure_dingtalk_apply_failure_restores_env_backups() -> None:
                     f'MARKER_PATH="{marker_path.name}"',
                     'DATAHUB_ENV_FILE=datahub.env',
                     'HERMES_ENV_FILE=hermes.env',
+                    'HERMES_HOME=/hermes-home',
                     'datahub_env_backup=datahub.env.bak',
                     'hermes_env_backup=hermes.env.bak',
                     'restore_env_backup() { echo "restore:$1:$2:$3" >> "$MARKER_PATH"; }',
                     'reload_or_restart_nginx() { echo "nginx" >> "$MARKER_PATH"; }',
+                    'restart_hermes_gateway() { systemctl restart hermes-gateway; }',
                     'systemctl() { echo "systemctl:$*" >> "$MARKER_PATH"; }',
                     'curl() { echo "curl:$*" >> "$MARKER_PATH"; }',
                     rollback_body,

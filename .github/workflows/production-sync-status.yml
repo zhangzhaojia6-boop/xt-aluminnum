@@ -230,6 +230,29 @@ jobs:
           HERMES_TARGET_RUNTIME_ENV=""
           HERMES_GATEWAY_ARGS=""
 
+          stop_hermes_gateway() {
+            local main_pid
+            local runtime_python
+            main_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null || true)"
+            if ! [[ "$main_pid" =~ ^[1-9][0-9]*$ ]]; then
+              echo "HERMES_GATEWAY_STOP=not_running"
+              return 0
+            fi
+            runtime_python="$(readlink -f "/proc/$main_pid/exe" 2>/dev/null || true)"
+            if [ -z "$runtime_python" ] || [ ! -x "$runtime_python" ]; then
+              echo "HERMES_GATEWAY_STOP=runtime_unavailable"
+              return 1
+            fi
+            if ! HERMES_HOME="$HERMES_HOME" "$runtime_python" -P -m hermes_cli.main gateway stop --system; then
+              echo "HERMES_GATEWAY_STOP=command_failed"
+              return 1
+            fi
+            if systemctl is-active --quiet hermes-gateway; then
+              echo "HERMES_GATEWAY_STOP=still_active"
+              return 1
+            fi
+          }
+
           capture_hermes_gateway_command_contract() {
             local attempts="${1:-5}"
             local delay_seconds="${2:-1}"
@@ -1474,7 +1497,7 @@ jobs:
             local rollback_current_revisions=""
             trap - EXIT ERR
             echo "DEPLOY_FAILED_ROLLBACK_START"
-            if ! systemctl stop aluminum-bypass hermes-gateway; then
+            if ! stop_hermes_gateway || ! systemctl stop aluminum-bypass; then
               echo "ROLLBACK_FAILED_STOP_RUNTIME_SERVICES"
               echo "DEPLOY_FAILED_ROLLBACK_INCOMPLETE"
               exit 97
@@ -1581,7 +1604,7 @@ jobs:
               echo "ROLLBACK_FAILED_ALUMINUM_BYPASS_SERVICE"
               rollback_failed=1
             fi
-            if ! systemctl restart hermes-gateway; then
+            if ! systemctl start hermes-gateway; then
               echo "ROLLBACK_FAILED_HERMES_GATEWAY_SERVICE"
               rollback_failed=1
             fi
@@ -1696,7 +1719,7 @@ jobs:
             npm run build
           )
 
-          systemctl stop hermes-gateway
+          stop_hermes_gateway
           git -C "$HERMES_REPO" checkout --detach "$HERMES_SHA"
           HERMES_CHECKOUT_DONE=1
           write_hermes_runtime_dropin "$HERMES_TARGET_RUNTIME_ENV"
@@ -1710,7 +1733,7 @@ jobs:
           upsert_env_value "$DATAHUB_ENV_FILE" "HERMES_BUILD_SHA" "$HERMES_SHA"
 
           systemctl restart aluminum-bypass
-          systemctl restart hermes-gateway
+          systemctl start hermes-gateway
           reload_or_restart_nginx
 
           readyz_ok=0

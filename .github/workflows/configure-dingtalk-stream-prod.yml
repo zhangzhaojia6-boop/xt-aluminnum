@@ -346,6 +346,25 @@ jobs:
           HERMES_HOME="$(detect_hermes_home)"
           HERMES_ENV_FILE="$HERMES_HOME/.env"
 
+          HERMES_RUNTIME_PYTHON=""
+
+          restart_hermes_gateway() {
+            local main_pid
+            local runtime_python
+            main_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null || true)"
+            if [[ "$main_pid" =~ ^[1-9][0-9]*$ ]]; then
+              runtime_python="$(readlink -f "/proc/$main_pid/exe" 2>/dev/null || true)"
+              if [ -n "$runtime_python" ] && [ -x "$runtime_python" ]; then
+                HERMES_RUNTIME_PYTHON="$runtime_python"
+              fi
+            fi
+            if [ -z "$HERMES_RUNTIME_PYTHON" ] || [ ! -x "$HERMES_RUNTIME_PYTHON" ]; then
+              echo "HERMES_GATEWAY_RESTART=runtime_unavailable"
+              return 1
+            fi
+            HERMES_HOME="$HERMES_HOME" "$HERMES_RUNTIME_PYTHON" -P -m hermes_cli.main gateway restart --system
+          }
+
           reload_or_restart_nginx() {
             if systemctl reload nginx; then
               return 0
@@ -390,7 +409,7 @@ jobs:
               echo "ROLLBACK_FAILED_ALUMINUM_BYPASS_SERVICE"
               rollback_failed=1
             fi
-            if ! systemctl restart hermes-gateway; then
+            if ! restart_hermes_gateway; then
               echo "ROLLBACK_FAILED_HERMES_GATEWAY_SERVICE"
               rollback_failed=1
             fi
@@ -1049,7 +1068,7 @@ jobs:
             run_acceptance_gate PRE
             verify_duplicate_replay
             restart_epoch="$(date +%s)"
-            systemctl restart hermes-gateway
+            restart_hermes_gateway
             report_stream_connection "yes" 40 3
             local_after_pid="$(systemctl show -p MainPID --value hermes-gateway)"
             local_after_start=""
@@ -1094,7 +1113,7 @@ jobs:
           upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
 
           systemctl restart aluminum-bypass
-          systemctl restart hermes-gateway
+          restart_hermes_gateway
           reload_or_restart_nginx
           report_stream_connection "yes" 40 3
           scan_secret_exposure POST_APPLY

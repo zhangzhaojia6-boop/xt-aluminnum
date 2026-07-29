@@ -187,6 +187,10 @@ jobs:
           auth_file="$hermes_home/auth.json"
           config_file="$hermes_home/config.yaml"
 
+          restart_hermes_gateway() {
+            HERMES_HOME="$hermes_home" "$runtime_python" -P -m hermes_cli.main gateway restart --system
+          }
+
           run_as_service() {
             runuser -u "$service_user" -- env \
               HOME="$service_home" \
@@ -341,7 +345,7 @@ jobs:
               echo "HERMES_CODEX_ROLLBACK_CONFIG_FAILED"
               rollback_failed=1
             fi
-            if ! systemctl restart hermes-gateway; then
+            if ! restart_hermes_gateway; then
               echo "HERMES_CODEX_ROLLBACK_RESTART_FAILED"
               rollback_failed=1
             elif ! systemctl is-active --quiet hermes-gateway; then
@@ -557,7 +561,7 @@ jobs:
           chown "$service_user:$service_group" "$auth_file" "$config_file"
           chmod 600 "$auth_file" "$config_file"
           report_codex_state yes
-          systemctl restart hermes-gateway
+          restart_hermes_gateway
           systemctl is-active --quiet hermes-gateway
           wait_for_stream
           report_codex_state yes
