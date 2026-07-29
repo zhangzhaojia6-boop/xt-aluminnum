@@ -518,7 +518,7 @@ export function buildAlertWorkQueues(events = []) {
         id: event.id,
         text: event.summary || '待处理异常',
         detail: event.detail || '',
-        route: event.detailRoute || item.route,
+        route: event.actionRoute || event.detailRoute || item.route,
         actionRoute: event.actionRoute || '',
         ownerRole: event.ownerRole || '',
         fillStrategy: event.fillStrategy || '',

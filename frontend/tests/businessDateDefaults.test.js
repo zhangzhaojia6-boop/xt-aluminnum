@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import {
   ownerDailyBusinessDateOptions,
+  resolveRecentRequestedBusinessDate,
   resolveRequestedEntryField,
   resolveRequestedEntryFields,
   resolveOwnerDailyRequestedBusinessDate,
@@ -92,6 +93,22 @@ test('owner daily fill accepts only an in-range business date from an alert link
   const source = readSource('src/views/mobile/UnifiedEntryForm.vue')
   assert.match(source, /route\.query\.business_date/)
   assert.match(source, /resolveOwnerDailyRequestedBusinessDate/)
+})
+
+test('fact task fill accepts only a recent business date and applies it to shift forms', () => {
+  assert.equal(
+    resolveRecentRequestedBusinessDate('2026-07-17', '2026-07-19'),
+    '2026-07-17'
+  )
+  assert.equal(resolveRecentRequestedBusinessDate('2026-07-20', '2026-07-19'), '')
+  assert.equal(resolveRecentRequestedBusinessDate('2026-06-01', '2026-07-19'), '')
+  assert.equal(resolveRecentRequestedBusinessDate('not-a-date', '2026-07-19'), '')
+
+  const source = readSource('src/views/mobile/UnifiedEntryForm.vue')
+  assert.match(source, /resolveRecentRequestedBusinessDate/)
+  assert.match(source, /requestedTaskBusinessDate/)
+  assert.match(source, /business_date:\s*requestedTaskBusinessDate/)
+  assert.match(source, /补录任务日期无效或已超出可补录范围/)
 })
 
 test('requested entry field only resolves when the signed-in role can see it', () => {

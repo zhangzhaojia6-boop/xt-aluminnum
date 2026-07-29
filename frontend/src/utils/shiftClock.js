@@ -66,10 +66,14 @@ export function ownerDailyBusinessDateOptions(latestBusinessDate) {
   })
 }
 
-export function resolveOwnerDailyRequestedBusinessDate(value, latestBusinessDate) {
+export function resolveRecentRequestedBusinessDate(value, latestBusinessDate) {
   const requested = Array.isArray(value) ? value[0] : value
   const normalized = String(requested || '').trim()
   return ownerDailyBusinessDateOptions(latestBusinessDate).includes(normalized) ? normalized : ''
+}
+
+export function resolveOwnerDailyRequestedBusinessDate(value, latestBusinessDate) {
+  return resolveRecentRequestedBusinessDate(value, latestBusinessDate)
 }
 
 export function resolveRequestedEntryField(value, fields = []) {

@@ -291,7 +291,7 @@ test('open fact task keeps management trace route separate from the owner fill a
     .find((queue) => queue.key === 'reporting')
   assert.equal(
     reportingQueue.items[0].route,
-    '/manage/alerts?trace_id=daily-fact-closure%3A2026-05-19'
+    '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh'
   )
   assert.equal(
     reportingQueue.items[0].actionRoute,
@@ -334,7 +334,7 @@ test('reporting work queue shows open owner fill actions before resolved facts',
   ]).find((queue) => queue.key === 'reporting')
 
   assert.equal(reportingQueue.items[0].id, 'owner-fill')
-  assert.equal(reportingQueue.items[0].route, '/manage/alerts?trace_id=owner-fill')
+  assert.equal(reportingQueue.items[0].route, '/entry/fill?field=foundry_daily')
   assert.equal(reportingQueue.items[0].actionRoute, '/entry/fill?field=foundry_daily')
   assert.equal(reportingQueue.items[1].id, 'source-review')
   assert.equal(reportingQueue.items[2].id, 'resolved-fact')

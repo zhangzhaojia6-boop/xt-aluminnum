@@ -306,6 +306,7 @@ import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
 import {
   inferOwnerDailyBusinessDate,
   ownerDailyBusinessDateOptions,
+  resolveRecentRequestedBusinessDate,
   resolveRequestedEntryFields,
   resolveOwnerDailyRequestedBusinessDate,
 } from '../../utils/shiftClock.js'
@@ -836,7 +837,6 @@ async function loadData() {
   error.value = ''
   try {
     const [shift, fields] = await Promise.all([fetchCurrentShift(), fetchEntryFields()])
-    shiftContext.value = shift
     if (fields.error) {
       error.value = fields.error
       return
@@ -847,11 +847,27 @@ async function loadData() {
     mode.value = fields.mode || 'per_shift'
     submitTarget.value = fields.submit_target || (fields.mode === 'per_coil' ? 'coil_entry' : 'shift_report')
     identityField.value = fields.identity_field || null
+    const requestedTaskBusinessDateRaw = route.query.business_date ?? route.query.businessDate
+    const hasRequestedTaskBusinessDate = Array.isArray(requestedTaskBusinessDateRaw)
+      ? requestedTaskBusinessDateRaw.some((value) => String(value || '').trim())
+      : Boolean(String(requestedTaskBusinessDateRaw || '').trim())
+    const requestedTaskBusinessDate = resolveRecentRequestedBusinessDate(
+      requestedTaskBusinessDateRaw,
+      shift.business_date,
+    )
+    if (hasRequestedTaskBusinessDate && !requestedTaskBusinessDate) {
+      error.value = '补录任务日期无效或已超出可补录范围，请返回异常中心重新发起。'
+      return
+    }
+    const effectiveShift = requestedTaskBusinessDate && mode.value !== 'owner_daily'
+      ? { ...shift, business_date: requestedTaskBusinessDate, report_id: null }
+      : shift
+    shiftContext.value = effectiveShift
     if (!groups.value.length) {
       error.value = fields.error || '当前二维码没有可填报字段，请联系管理员检查岗位模板。'
       return
     }
-    if (!shift.shift_id && mode.value !== 'owner_daily') {
+    if (!effectiveShift.shift_id && mode.value !== 'owner_daily') {
       error.value = '未找到当前班次，请联系管理员配置班次。'
       return
     }
@@ -871,9 +887,9 @@ async function loadData() {
     loadDynamicOptions(allFields)
 
     let savedMachineEnergyRecords = []
-    if (shift.report_id && mode.value === 'per_shift') {
+    if ((effectiveShift.report_id || requestedTaskBusinessDate) && mode.value === 'per_shift') {
       try {
-        const report = await fetchMobileReport(shift.business_date, shift.shift_id)
+        const report = await fetchMobileReport(effectiveShift.business_date, effectiveShift.shift_id)
         if (report?.data) {
           for (const [k, v] of Object.entries(report.data)) {
             if (k in form && v != null) form[k] = v
@@ -904,7 +920,7 @@ async function loadData() {
 
     if (mode.value === 'per_coil') {
       try {
-        const coils = await fetchCoilList(shift.business_date, shift.shift_id)
+        const coils = await fetchCoilList(effectiveShift.business_date, effectiveShift.shift_id)
         history.value = Array.isArray(coils) ? coils : []
         coilSeq.value = history.value.length + 1
       } catch { /* no coils yet */ }
