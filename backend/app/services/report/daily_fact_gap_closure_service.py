@@ -180,6 +180,8 @@ def sync_daily_fact_gap_events(
             **payload,
             "summary": f"{_field_label(field)} 已补齐可信事实",
             "fact_status": "confirmed",
+            "human_action_required": False,
+            "automation_status": "resolved",
             "resolved_at": checked_at.isoformat(),
             "resolution_trace_id": trace_id,
             "last_checked_at": checked_at.isoformat(),

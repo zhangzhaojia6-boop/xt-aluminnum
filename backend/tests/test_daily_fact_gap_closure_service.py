@@ -271,6 +271,9 @@ def test_sync_resolves_disappeared_gaps_and_reports_full_closure() -> None:
         by_field = {event.payload["field"]: event for event in db.query(AgentEvent).all()}
         assert partial["resolved"] == 1
         assert by_field["total_output_daily"].status == "resolved"
+        assert by_field["total_output_daily"].payload["fact_status"] == "confirmed"
+        assert by_field["total_output_daily"].payload["human_action_required"] is False
+        assert by_field["total_output_daily"].payload["automation_status"] == "resolved"
         assert by_field["hot_roll_daily"].status == "open"
 
         closed = sync_daily_fact_gap_events(
