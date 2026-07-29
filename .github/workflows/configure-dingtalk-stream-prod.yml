@@ -348,12 +348,59 @@ jobs:
 
           HERMES_RUNTIME_PYTHON=""
 
+          resolve_hermes_runtime_python() {
+            local runtime_pid="$1"
+            python3 - "$runtime_pid" <<'PY'
+          from pathlib import Path
+          import os
+          import re
+          import shlex
+          import subprocess
+          import sys
+
+          runtime_pid = sys.argv[1]
+          runtime_executable = Path(f"/proc/{runtime_pid}/exe").resolve()
+          raw_args = Path(f"/proc/{runtime_pid}/cmdline").read_bytes().split(b"\0")
+          args = [item.decode("utf-8", errors="strict") for item in raw_args if item]
+          if args:
+              candidate = Path(args[0])
+              if (
+                  candidate.is_absolute()
+                  and candidate.is_file()
+                  and os.access(candidate, os.X_OK)
+                  and candidate.resolve() == runtime_executable
+              ):
+                  print(args[0])
+                  raise SystemExit(0)
+
+          service_exec = subprocess.check_output(
+              ["systemctl", "show", "-p", "ExecStart", "--value", "hermes-gateway"],
+              text=True,
+          ).strip()
+          match = re.search(r"path=(\S+)\s*;\s*argv\[\]=(.*?)\s*;", service_exec)
+          if match is None:
+              raise SystemExit(1)
+          service_args = shlex.split(match.group(2))
+          if not service_args:
+              raise SystemExit(1)
+          candidate = Path(service_args[0])
+          if (
+              not candidate.is_absolute()
+              or not candidate.is_file()
+              or not os.access(candidate, os.X_OK)
+              or candidate.resolve() != runtime_executable
+          ):
+              raise SystemExit(1)
+          print(service_args[0])
+          PY
+          }
+
           restart_hermes_gateway() {
             local main_pid
             local runtime_python
             main_pid="$(systemctl show -p MainPID --value hermes-gateway 2>/dev/null || true)"
             if [[ "$main_pid" =~ ^[1-9][0-9]*$ ]]; then
-              runtime_python="$(readlink -f "/proc/$main_pid/exe" 2>/dev/null || true)"
+              runtime_python="$(resolve_hermes_runtime_python "$main_pid" 2>/dev/null || true)"
               if [ -n "$runtime_python" ] && [ -x "$runtime_python" ]; then
                 HERMES_RUNTIME_PYTHON="$runtime_python"
               fi

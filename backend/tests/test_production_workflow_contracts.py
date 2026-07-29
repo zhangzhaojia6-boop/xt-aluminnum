@@ -159,14 +159,27 @@ def test_hermes_mutating_workflows_use_official_gateway_lifecycle() -> None:
     codex = _read('.github/workflows/configure-hermes-codex-prod.yml')
 
     production_stop = _extract_shell_function(production, 'stop_hermes_gateway')
+    production_resolver = _extract_shell_function(
+        production, 'resolve_hermes_runtime_python'
+    )
     dingtalk_restart = _extract_shell_function(dingtalk, 'restart_hermes_gateway')
+    dingtalk_resolver = _extract_shell_function(
+        dingtalk, 'resolve_hermes_runtime_python'
+    )
     codex_restart = _extract_shell_function(codex, 'restart_hermes_gateway')
 
     assert '-m hermes_cli.main gateway stop --system' in production_stop
     assert 'HERMES_GATEWAY_STOP=command_failed' in production_stop
     assert 'systemctl is-active --quiet hermes-gateway' in production_stop
     assert 'HERMES_GATEWAY_STOP=still_active' in production_stop
+    assert '/proc/{runtime_pid}/cmdline' in production_resolver
+    assert 'candidate.resolve() == runtime_executable' in production_resolver
+    assert '"ExecStart", "--value", "hermes-gateway"' in production_resolver
+    assert 'service_args[0]' in production_resolver
     assert '-m hermes_cli.main gateway restart --system' in dingtalk_restart
+    assert '/proc/{runtime_pid}/cmdline' in dingtalk_resolver
+    assert 'candidate.resolve() == runtime_executable' in dingtalk_resolver
+    assert '"ExecStart", "--value", "hermes-gateway"' in dingtalk_resolver
     assert '-m hermes_cli.main gateway restart --system' in codex_restart
     for source in (production, dingtalk, codex):
         assert 'systemctl restart hermes-gateway' not in source
@@ -208,7 +221,7 @@ def test_production_stop_uses_official_hermes_cli_and_propagates_failure(
                     f'CLI_EXIT_CODE={cli_exit_code}',
                     'HERMES_HOME=/test/hermes',
                     'export MARKER_PATH CLI_EXIT_CODE',
-                    'readlink() { printf "%s\\n" "$FAKE_PYTHON"; }',
+                    'resolve_hermes_runtime_python() { printf "%s\\n" "$FAKE_PYTHON"; }',
                     'systemctl() {',
                     '  if [ "$1" = "show" ]; then printf "4242\\n"; return 0; fi',
                     '  if [ "$1" = "is-active" ]; then return 1; fi',
@@ -744,8 +757,7 @@ def test_production_sync_status_reports_hermes_runtime_without_exposing_process_
 
     assert 'systemctl show -p MainPID --value hermes-gateway' in report_body
     assert 'readlink -f "/proc/$runtime_pid/exe"' not in report_body
-    assert 'Path(f"/proc/{runtime_pid}/cmdline")' in report_body
-    assert 'service_args[0]' in report_body
+    assert 'resolve_hermes_runtime_python "$runtime_pid"' in report_body
     assert 'args.index("-m", 1)' in report_body
     assert 'HERMES_RUNTIME_PYTHON=' in report_body
     assert 'HERMES_RUNTIME_PYTHON_VERSION=' in report_body
