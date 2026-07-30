@@ -634,6 +634,41 @@ def test_entry_fields_maps_inventory_inner_clerk_qr_to_storage_owner_fields() ->
     assert 'consignment_weight' in field_names
 
 
+def test_entry_fields_exposes_wip_total_to_inventory_planning_owner() -> None:
+    class EntryFieldsDB:
+        def get(self, *_args, **_kwargs):
+            return SimpleNamespace(id=11, code='CPK', name='成品库', workshop_type='inventory')
+
+    current_user = User(
+        id=68,
+        username='CPK-PL',
+        password_hash='x',
+        name='计划内勤',
+        role='planning_owner',
+        workshop_id=11,
+        is_mobile_user=True,
+        is_active=True,
+    )
+
+    payload = entry_fields(db=EntryFieldsDB(), current_user=current_user)
+
+    assert payload['mode'] == 'owner_daily'
+    assert payload['submit_target'] == 'owner_daily'
+    assert payload['role_label'] == '全公司合同'
+    fields = {
+        field['name']: field
+        for field in payload['groups'][0]['fields']
+    }
+    wip_field = fields['wip_total']
+    assert wip_field['label'] == '在制料总量'
+    assert wip_field['type'] == 'number'
+    assert wip_field['unit'] == '吨'
+    assert wip_field['required'] is False
+    assert wip_field['role_write'] == ['contracts']
+    assert wip_field['role_read'] == ['contracts', 'admin', 'manager']
+    assert wip_field['hint'] == 'MES 在制快照缺失或需人工确认时，由计划内勤补录并保留任务 trace。'
+
+
 def test_entry_fields_ignores_workshop_template_override_for_machine_operator(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'mobile-entry-fields.db'}", future=True)
     Base.metadata.create_all(engine, tables=[Workshop.__table__, WorkshopTemplateConfig.__table__])

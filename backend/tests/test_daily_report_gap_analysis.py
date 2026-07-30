@@ -83,13 +83,15 @@ def test_classifies_computed_cost_as_dependency_fill_not_direct_entry() -> None:
     assert item["entry_fields"] == []
 
 
-def test_classifies_wip_total_gap_as_mes_wip_or_dingtalk() -> None:
+def test_classifies_wip_total_gap_as_mes_wip_or_planning_owner_fill() -> None:
     item = classify_daily_report_field_gap("wip_total")
 
     assert item["group"] == "wip"
     assert item["source_lane"] == "mes_wip_snapshot_or_dingtalk"
-    assert item["entry_route"] == "/manage/alerts"
-    assert item["fill_strategy"] == "source_recheck"
+    assert item["entry_route"] == "/entry/fill"
+    assert item["fill_strategy"] == "owner_daily"
+    assert item["owner_role"] == "planning_owner"
+    assert item["entry_fields"] == ["wip_total"]
     assert "在制" in item["next_step"]
 
 

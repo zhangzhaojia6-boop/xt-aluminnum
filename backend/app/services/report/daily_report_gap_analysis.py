@@ -103,11 +103,11 @@ FIELD_ACTIONS: dict[str, dict[str, Any]] = {
     },
     "wip_total": {
         "source_lane": "mes_wip_snapshot_or_dingtalk",
-        "entry_route": "/manage/alerts",
-        "fill_strategy": "source_recheck",
+        "entry_route": "/entry/fill",
+        "fill_strategy": "owner_daily",
         "owner_role": "planning_owner",
-        "entry_fields": [],
-        "next_step": "先复核 MES 在制快照单位；与人工截图冲突时用钉钉/扫码证据覆盖并留 trace。",
+        "entry_fields": ["wip_total"],
+        "next_step": "先复核 MES 在制快照和单位；仍缺失或需人工确认时，由计划内勤扫码补录并保留任务 trace。",
     },
     "total_electricity_kwh": {
         "source_lane": "dingtalk_or_scan_fill_energy",

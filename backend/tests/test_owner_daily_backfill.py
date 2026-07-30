@@ -156,6 +156,57 @@ def test_owner_daily_assigned_gap_alias_creates_one_verified_correction(tmp_path
         db.close()
 
 
+def test_planning_owner_wip_gap_submission_creates_traced_verified_correction(tmp_path, monkeypatch) -> None:
+    db = _build_session(tmp_path)
+    try:
+        owner = _seed_owner(db)
+        owner.role = 'planning_owner'
+        db.commit()
+        _freeze_owner_business_time(monkeypatch)
+        event = AgentEvent(
+            event_type='daily_fact_gap',
+            severity='warning',
+            status='open',
+            scope_type='factory',
+            source_type='daily_fact_closure',
+            source_ref='daily_fact_gap:2026-07-17:wip_total',
+            business_date=date(2026, 7, 17),
+            payload={
+                'field': 'wip_total',
+                'owner_role': 'planning_owner',
+                'entry_fields': ['wip_total'],
+                'human_action_required': True,
+                'last_checked_trace_id': 'daily-fact-closure:2026-07-17',
+            },
+        )
+        db.add(event)
+        db.commit()
+
+        mobile_summary.save_owner_daily_entry(
+            db,
+            payload={'business_date': date(2026, 7, 17), 'data': {'wip_total': 1189}},
+            current_user=owner,
+        )
+
+        entry = db.query(WorkOrderEntry).one()
+        correction = db.query(DailyFactCorrection).one()
+        assert correction.field_name == 'wip_total'
+        assert correction.value_payload == {
+            'value': 1189,
+            'source_type': 'verified_owner_daily',
+            'entry_id': entry.id,
+            'event_id': event.id,
+            'entry_field': 'wip_total',
+            'owner_role': 'planning_owner',
+        }
+        assert correction.unit == '吨'
+        assert correction.actor_user_id == owner.id
+        assert correction.trace_id == 'daily-fact-closure:2026-07-17'
+        assert correction.status == 'active'
+    finally:
+        db.close()
+
+
 @pytest.mark.parametrize('requested_date', [date(2026, 7, 11), date(2026, 7, 20)])
 def test_owner_daily_save_rejects_dates_outside_seven_day_window(tmp_path, monkeypatch, requested_date) -> None:
     db = _build_session(tmp_path)

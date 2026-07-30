@@ -654,6 +654,16 @@ OVERHAUL_OWNER_FIELDS = [
 
 CONTRACT_PROGRESS_FIELDS = [
     {
+        'name': 'wip_total',
+        'label': '在制料总量',
+        'type': 'number',
+        'unit': '吨',
+        'required': False,
+        'role_write': ['contracts'],
+        'role_read': ['contracts', 'admin', 'manager'],
+        'hint': 'MES 在制快照缺失或需人工确认时，由计划内勤补录并保留任务 trace。',
+    },
+    {
         'name': 'daily_contract_weight',
         'label': '当日接合同',
         'type': 'number',

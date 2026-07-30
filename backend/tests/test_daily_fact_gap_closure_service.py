@@ -173,14 +173,14 @@ def test_sync_keeps_source_rechecks_and_dependencies_in_trace_without_notifying_
         first = sync_daily_fact_gap_events(
             db,
             business_date=TARGET_DATE,
-            bundle=_bundle("wip_total", "total_cost_10k"),
+            bundle=_bundle("wip_1850_cold", "total_cost_10k"),
             trace_id="trace-auto-recheck",
             now=NOW,
         )
         second = sync_daily_fact_gap_events(
             db,
             business_date=TARGET_DATE,
-            bundle=_bundle("wip_total", "total_cost_10k"),
+            bundle=_bundle("wip_1850_cold", "total_cost_10k"),
             trace_id="trace-auto-recheck",
             now=NOW + timedelta(minutes=15),
         )
@@ -195,11 +195,45 @@ def test_sync_keeps_source_rechecks_and_dependencies_in_trace_without_notifying_
         assert first["outbox_message_id"] is None
         assert second["outbox_message_id"] is None
         assert db.query(AgentOutboxMessage).count() == 0
-        assert events["wip_total"]["automation_status"] == "rechecking_sources"
-        assert events["wip_total"]["automation_check_count"] == 2
+        assert events["wip_1850_cold"]["automation_status"] == "rechecking_sources"
+        assert events["wip_1850_cold"]["automation_check_count"] == 2
         assert events["total_cost_10k"]["automation_status"] == "waiting_for_dependencies"
         assert events["total_cost_10k"]["automation_check_count"] == 2
         assert all(payload["human_action_required"] is False for payload in events.values())
+    finally:
+        db.close()
+
+
+def test_sync_assigns_missing_wip_total_to_existing_planning_owner_entry() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+
+        result = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("wip_total"),
+            trace_id="trace-wip-owner",
+            now=NOW,
+        )
+        db.commit()
+
+        event = db.query(AgentEvent).one()
+        assert result["outbox_message_id"] is not None
+        assert event.payload["human_action_required"] is True
+        assert event.payload["automation_status"] == "waiting_for_owner"
+        assert event.payload["owner_role"] == "planning_owner"
+        assert event.payload["entry_fields"] == ["wip_total"]
+        route = urlparse(event.payload["action_route"])
+        assert route.path == "/entry/fill"
+        assert parse_qs(route.query) == {
+            "business_date": ["2026-07-21"],
+            "field": ["wip_total"],
+            "entry_fields": ["wip_total"],
+            "entry_field": ["wip_total"],
+            "owner_role": ["planning_owner"],
+            "trace_id": ["trace-wip-owner"],
+        }
     finally:
         db.close()
 
