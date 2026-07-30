@@ -247,10 +247,11 @@ def test_inventory_template_splits_utility_fields_for_utility_manager_role() -> 
     assert [field['name'] for field in utility_template['extra_fields']] == []
 
 
-def test_inventory_template_splits_contract_progress_fields_for_contracts_role() -> None:
+def test_inventory_template_exposes_wip_and_contract_progress_to_planning_role() -> None:
     contracts_template = get_workshop_template('inventory', user_role='contracts')
 
     assert [field['name'] for field in contracts_template['extra_fields']] == [
+        'wip_total',
         'daily_contract_weight',
         'daily_hot_roll_contract_weight',
         'month_to_date_contract_weight',
