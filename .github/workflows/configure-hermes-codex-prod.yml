@@ -11,23 +11,25 @@ on:
         description: Type 'prod-hermes-codex' to confirm production Hermes Codex operations
         required: true
       mode:
-        description: Inspect state, prove real inference, or start a separate Hermes Codex OAuth login
+        description: Inspect state, configure the model, prove real inference, or start a separate Hermes Codex OAuth login
         required: true
         default: status
         type: choice
         options:
           - status
+          - configure
           - inference
           - login
       expected_hermes_sha:
         description: Exact Hermes HEAD expected on production
         required: true
       model:
-        description: Codex model to activate after a successful login
+        description: Codex model to activate in production
         required: true
-        default: gpt-5.6-sol
+        default: gpt-5.6-luna
         type: choice
         options:
+          - gpt-5.6-luna
           - gpt-5.6-sol
       device_code_public_key_b64:
         description: Base64 PEM public key used to encrypt the one-time device code during login
@@ -51,6 +53,7 @@ jobs:
           MODE: ${{ github.event.inputs.mode }}
           EXPECTED_HERMES_SHA: ${{ github.event.inputs.expected_hermes_sha }}
           MODEL: ${{ github.event.inputs.model }}
+          REASONING_EFFORT: max
           DEVICE_CODE_PUBLIC_KEY_B64: ${{ github.event.inputs.device_code_public_key_b64 }}
           RUN_ID: ${{ github.run_id }}
         run: |
@@ -62,13 +65,20 @@ jobs:
           test -n "$SSH_KNOWN_HOSTS"
 
           case "$MODE" in
-            status|inference|login) ;;
+            status|configure|inference|login) ;;
             *)
               echo "unsupported mode: $MODE"
               exit 2
               ;;
           esac
-          test "$MODEL" = "gpt-5.6-sol"
+          case "$MODEL" in
+            gpt-5.6-luna|gpt-5.6-sol) ;;
+            *)
+              echo "unsupported model: $MODEL"
+              exit 2
+              ;;
+          esac
+          test "$REASONING_EFFORT" = "max"
           printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
           if [ "$MODE" = "login" ]; then
             test -n "$DEVICE_CODE_PUBLIC_KEY_B64"
@@ -91,6 +101,7 @@ jobs:
           append_remote_assignment MODE "$MODE"
           append_remote_assignment EXPECTED_HERMES_SHA "$EXPECTED_HERMES_SHA"
           append_remote_assignment MODEL "$MODEL"
+          append_remote_assignment REASONING_EFFORT "$REASONING_EFFORT"
           append_remote_assignment DEVICE_CODE_PUBLIC_KEY_B64 "$DEVICE_CODE_PUBLIC_KEY_B64"
           append_remote_assignment RUN_ID "$RUN_ID"
 
@@ -115,8 +126,15 @@ jobs:
           device_code_public_key=""
           handoff_file=""
 
-          test "$MODE" = "status" || test "$MODE" = "inference" || test "$MODE" = "login"
-          test "$MODEL" = "gpt-5.6-sol"
+          case "$MODE" in
+            status|configure|inference|login) ;;
+            *) exit 2 ;;
+          esac
+          case "$MODEL" in
+            gpt-5.6-luna|gpt-5.6-sol) ;;
+            *) exit 2 ;;
+          esac
+          test "$REASONING_EFFORT" = "max"
           printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
           test -d "$HERMES_REPO/.git"
 
@@ -212,7 +230,7 @@ jobs:
           report_codex_state() {
             local require_ready="${1:-no}"
             local state_output
-            state_output="$(run_as_service "$runtime_python" -P - "$MODEL" <<'PY'
+            state_output="$(run_as_service "$runtime_python" -P - "$MODEL" "$REASONING_EFFORT" <<'PY'
           import re
           import sys
 
@@ -220,11 +238,15 @@ jobs:
           from hermes_cli.config import read_raw_config
 
           expected_model = sys.argv[1]
+          expected_reasoning_effort = sys.argv[2]
           status = get_codex_auth_status()
           config = read_raw_config()
           model_config = config.get("model") if isinstance(config, dict) else {}
           if not isinstance(model_config, dict):
               model_config = {"default": model_config}
+          agent_config = config.get("agent") if isinstance(config, dict) else {}
+          if not isinstance(agent_config, dict):
+              agent_config = {}
 
           def safe(value: object) -> str:
               text = str(value or "")
@@ -234,11 +256,19 @@ jobs:
           rate_limited = bool(status.get("rate_limited"))
           provider = safe(model_config.get("provider"))
           model = safe(model_config.get("default"))
-          ready = logged_in and not rate_limited and provider == "openai-codex" and model == expected_model
+          reasoning_effort = safe(agent_config.get("reasoning_effort"))
+          ready = (
+              logged_in
+              and not rate_limited
+              and provider == "openai-codex"
+              and model == expected_model
+              and reasoning_effort == expected_reasoning_effort
+          )
           print(f"HERMES_CODEX_AUTH_LOGGED_IN={'yes' if logged_in else 'no'}")
           print(f"HERMES_CODEX_AUTH_RATE_LIMITED={'yes' if rate_limited else 'no'}")
           print(f"HERMES_MODEL_PROVIDER={provider}")
           print(f"HERMES_MODEL_DEFAULT={model}")
+          print(f"HERMES_REASONING_EFFORT={reasoning_effort}")
           print(f"HERMES_CODEX_READY={'yes' if ready else 'no'}")
           raise SystemExit(0 if ready else 1)
           PY
@@ -250,6 +280,66 @@ jobs:
               return 0
             }
             printf '%s\n' "$state_output"
+          }
+
+          configure_codex_model() {
+            run_as_service "$runtime_python" -P - "$MODEL" "$REASONING_EFFORT" <<'PY'
+          import sys
+
+          from hermes_cli.auth import (
+              DEFAULT_CODEX_BASE_URL,
+              _auth_store_lock,
+              _load_auth_store,
+              _save_auth_store,
+              get_codex_auth_status,
+          )
+          from hermes_cli.config import (
+              clear_model_endpoint_credentials,
+              get_config_path,
+              read_raw_config,
+              require_readable_config_before_write,
+          )
+          from utils import atomic_yaml_write
+
+          model = sys.argv[1]
+          reasoning_effort = sys.argv[2]
+          if model not in {"gpt-5.6-luna", "gpt-5.6-sol"}:
+              raise SystemExit("unsupported model")
+          if reasoning_effort != "max":
+              raise SystemExit("unsupported reasoning effort")
+
+          auth_status = get_codex_auth_status()
+          if not auth_status.get("logged_in") or auth_status.get("rate_limited"):
+              raise SystemExit("Codex OAuth is not ready")
+
+          config_path = get_config_path()
+          require_readable_config_before_write(config_path)
+          config = read_raw_config()
+          current = config.get("model")
+          if isinstance(current, dict):
+              model_config = dict(current)
+          elif isinstance(current, str) and current.strip():
+              model_config = {"default": current.strip()}
+          else:
+              model_config = {}
+          model_config["provider"] = "openai-codex"
+          model_config["default"] = model
+          model_config["base_url"] = DEFAULT_CODEX_BASE_URL
+          clear_model_endpoint_credentials(model_config)
+          config["model"] = model_config
+
+          current_agent = config.get("agent")
+          agent_config = dict(current_agent) if isinstance(current_agent, dict) else {}
+          agent_config["reasoning_effort"] = reasoning_effort
+          config["agent"] = agent_config
+          atomic_yaml_write(config_path, config, sort_keys=False)
+
+          with _auth_store_lock():
+              store = _load_auth_store()
+              store["active_provider"] = "openai-codex"
+              _save_auth_store(store)
+          print("HERMES_CODEX_CONFIG_UPDATED=yes")
+          PY
           }
 
           stream_runtime_state_is_connected() {
@@ -331,11 +421,11 @@ jobs:
             device_code_public_key=""
           }
 
-          rollback_on_login_error() {
+          rollback_on_operation_error() {
             local exit_code="${1:-1}"
             local rollback_failed=0
             trap - EXIT ERR
-            echo "HERMES_CODEX_LOGIN_FAILED_ROLLBACK_START"
+            echo "HERMES_CODEX_OPERATION_FAILED_ROLLBACK_START"
             cleanup_login_ephemeral
             if ! restore_optional_file "$backup_dir/auth.json" "$auth_file"; then
               echo "HERMES_CODEX_ROLLBACK_AUTH_FAILED"
@@ -353,10 +443,10 @@ jobs:
               rollback_failed=1
             fi
             if [ "$rollback_failed" -eq 0 ]; then
-              echo "HERMES_CODEX_LOGIN_FAILED_ROLLBACK_DONE"
+              echo "HERMES_CODEX_OPERATION_FAILED_ROLLBACK_DONE"
               exit "$exit_code"
             fi
-            echo "HERMES_CODEX_LOGIN_FAILED_ROLLBACK_INCOMPLETE"
+            echo "HERMES_CODEX_OPERATION_FAILED_ROLLBACK_INCOMPLETE"
             exit 98
           }
 
@@ -422,7 +512,21 @@ jobs:
           find "$backup_dir" -type f -exec chmod 600 {} +
           echo "HERMES_CODEX_BACKUP=$backup_dir"
 
-          trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_login_error "$rc"; fi' EXIT
+          trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_operation_error "$rc"; fi' EXIT
+
+          if [ "$MODE" = "configure" ]; then
+            configure_codex_model
+            chown "$service_user:$service_group" "$config_file"
+            chmod 600 "$config_file"
+            report_codex_state yes
+            restart_hermes_gateway
+            systemctl is-active --quiet hermes-gateway
+            wait_for_stream
+            report_codex_state yes
+            echo "HERMES_CODEX_CONFIG_VERIFIED"
+            trap - EXIT
+            exit 0
+          fi
 
           oauth_log="$(mktemp /tmp/hermes-codex-oauth.XXXXXX)"
           device_code_public_key="$(mktemp /tmp/hermes-codex-device-public.XXXXXX)"
@@ -513,50 +617,7 @@ jobs:
           fi
           cleanup_login_ephemeral
 
-          run_as_service "$runtime_python" -P - "$MODEL" <<'PY'
-          import sys
-
-          from hermes_cli.auth import (
-              DEFAULT_CODEX_BASE_URL,
-              _auth_store_lock,
-              _load_auth_store,
-              _save_auth_store,
-          )
-          from hermes_cli.config import (
-              clear_model_endpoint_credentials,
-              get_config_path,
-              read_raw_config,
-              require_readable_config_before_write,
-          )
-          from utils import atomic_yaml_write
-
-          model = sys.argv[1]
-          if model != "gpt-5.6-sol":
-              raise SystemExit("unsupported model")
-
-          config_path = get_config_path()
-          require_readable_config_before_write(config_path)
-          config = read_raw_config()
-          current = config.get("model")
-          if isinstance(current, dict):
-              model_config = dict(current)
-          elif isinstance(current, str) and current.strip():
-              model_config = {"default": current.strip()}
-          else:
-              model_config = {}
-          model_config["provider"] = "openai-codex"
-          model_config["default"] = model
-          model_config["base_url"] = DEFAULT_CODEX_BASE_URL
-          clear_model_endpoint_credentials(model_config)
-          config["model"] = model_config
-          atomic_yaml_write(config_path, config, sort_keys=False)
-
-          with _auth_store_lock():
-              store = _load_auth_store()
-              store["active_provider"] = "openai-codex"
-              _save_auth_store(store)
-          print("HERMES_CODEX_CONFIG_UPDATED=yes")
-          PY
+          configure_codex_model
 
           chown "$service_user:$service_group" "$auth_file" "$config_file"
           chmod 600 "$auth_file" "$config_file"

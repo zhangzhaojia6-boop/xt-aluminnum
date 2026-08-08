@@ -1957,9 +1957,10 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
         'cancel-in-progress': False,
     }
     assert inputs['confirm']['required'] is True
-    assert inputs['mode']['options'] == ['status', 'inference', 'login']
-    assert 'test "$MODE" = "status" || test "$MODE" = "inference" || test "$MODE" = "login"' in source
-    assert inputs['model']['default'] == 'gpt-5.6-sol'
+    assert inputs['mode']['options'] == ['status', 'configure', 'inference', 'login']
+    assert 'status|configure|inference|login' in source
+    assert inputs['model']['default'] == 'gpt-5.6-luna'
+    assert inputs['model']['options'] == ['gpt-5.6-luna', 'gpt-5.6-sol']
     assert 'expected_hermes_sha' in inputs
     assert inputs['device_code_public_key_b64']['required'] is False
     assert job['if'] == "github.event.inputs.confirm == 'prod-hermes-codex'"
@@ -1994,6 +1995,11 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'HERMES_CODEX_AUTH_RATE_LIMITED=' in source
     assert 'HERMES_MODEL_PROVIDER=' in source
     assert 'HERMES_MODEL_DEFAULT=' in source
+    assert 'HERMES_REASONING_EFFORT=' in source
+    assert 'REASONING_EFFORT: max' in source
+    assert 'test "$REASONING_EFFORT" = "max"' in source
+    assert 'agent_config["reasoning_effort"] = reasoning_effort' in source
+    assert 'HERMES_CODEX_CONFIG_VERIFIED' in source
     assert 'run_as_service_with_timeout 240s' in source
     assert '--provider openai-codex --model "$MODEL" -z "$inference_prompt"' in source
     assert 'HERMES_CODEX_INFERENCE_ANSWER=' in source
@@ -2003,7 +2009,7 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'HERMES_CODEX_INFERENCE_FORBIDDEN_IDENTITY' in source
     assert 'cp -p "$auth_file" "$backup_dir/auth.json"' in source
     assert 'cp -p "$config_file" "$backup_dir/config.yaml"' in source
-    assert 'rollback_on_login_error' in source
+    assert 'rollback_on_operation_error' in source
     assert 'restore_optional_file "$backup_dir/auth.json" "$auth_file"' in source
     assert 'restore_optional_file "$backup_dir/config.yaml" "$config_file"' in source
     assert 'restart_hermes_gateway' in source
