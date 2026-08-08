@@ -42,7 +42,6 @@ PROTECT_MARKERS = (
 )
 
 FREEZE_MARKERS = (
-    "reference-command",
     "ui-reference",
     "/review/",
     "/mobile/",
@@ -161,7 +160,6 @@ def candidate_paths(repo_root: str | Path) -> list[str]:
         "backend/app/routers/*.py",
         "frontend/src/layout/**/*.vue",
         "frontend/src/views/**/*.vue",
-        "frontend/src/reference-command/**/*",
         "docs/**/*.md",
     ]
     required_paths = [

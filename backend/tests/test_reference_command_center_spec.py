@@ -124,13 +124,11 @@ def test_manage_shell_keeps_three_primary_pages_and_admin_entries() -> None:
     assert "现场填报" not in shell
 
 
-def test_reference_prototype_pages_are_not_mounted_as_runtime_routes() -> None:
+def test_removed_reference_prototype_pages_stay_removed() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
-    route_map = _read_repo_file("docs/current-route-map.md")
 
+    assert not _repo_file("frontend/src/reference-command").exists()
     assert "../reference-command/pages" not in router
-    assert "frontend/src/reference-command/pages/*" in route_map
-    assert "历史参考原型" in route_map
 
 
 def test_today_page_connects_algorithm_daily_report_and_wip_snapshot() -> None:

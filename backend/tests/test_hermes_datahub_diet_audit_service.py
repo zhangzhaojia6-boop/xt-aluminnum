@@ -17,7 +17,7 @@ def test_diet_audit_protects_evidence_paths() -> None:
 
 
 def test_diet_audit_freezes_legacy_routes_before_delete() -> None:
-    item = classify_audit_item("frontend/src/reference-command/pages/README.md")
+    item = classify_audit_item("frontend/src/views/review/LegacyReview.vue")
 
     assert item["classification"] in {"freeze", "candidate_delete"}
     assert item["action"] != "delete_now"
@@ -26,12 +26,20 @@ def test_diet_audit_freezes_legacy_routes_before_delete() -> None:
 def test_diet_audit_report_contains_no_delete_now() -> None:
     report = render_diet_audit_report([
         "backend/app/models/agent_communication.py",
-        "frontend/src/reference-command/pages/README.md",
+        "frontend/src/views/review/LegacyReview.vue",
     ])
 
     assert "delete_now" not in report
     assert "protect" in report
     assert "freeze" in report or "candidate_delete" in report
+
+
+def test_diet_audit_ignores_removed_reference_command_tree() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    item = classify_audit_item("frontend/src/reference-command/pages/README.md")
+
+    assert item["classification"] == "review"
+    assert not any(path.startswith("frontend/src/reference-command/") for path in candidate_paths(repo_root))
 
 
 def test_diet_audit_classifies_mes_and_wms_representatives_as_protect() -> None:
