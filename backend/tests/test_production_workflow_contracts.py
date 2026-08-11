@@ -2012,6 +2012,7 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'HERMES_CODEX_INFERENCE_VERIFIED' in source
     assert 'HERMES_CODEX_INFERENCE_FAILED' in source
     assert '鑫泰铝业智能大脑' in source
+    assert 'required_identity_terms = ("鑫泰铝业", "智能", "大脑")' in source
     assert 'HERMES_CODEX_INFERENCE_FORBIDDEN_IDENTITY' in source
     assert 'cp -p "$auth_file" "$backup_dir/auth.json"' in source
     assert 'cp -p "$config_file" "$backup_dir/config.yaml"' in source

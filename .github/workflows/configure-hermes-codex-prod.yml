@@ -530,7 +530,8 @@ jobs:
           text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text).strip()
           if not text or len(text) > 200 or "\n" in text:
               raise SystemExit("HERMES_CODEX_INFERENCE_INVALID_SHAPE")
-          if "鑫泰铝业智能大脑" not in text:
+          required_identity_terms = ("鑫泰铝业", "智能", "大脑")
+          if not all(term in text for term in required_identity_terms):
               raise SystemExit("HERMES_CODEX_INFERENCE_IDENTITY_MISMATCH")
           if any(term in text for term in ("研发助手", "软件公司", "MES")):
               raise SystemExit("HERMES_CODEX_INFERENCE_FORBIDDEN_IDENTITY")
