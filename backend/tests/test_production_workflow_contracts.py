@@ -1999,6 +1999,12 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'REASONING_EFFORT: max' in source
     assert 'test "$REASONING_EFFORT" = "max"' in source
     assert 'agent_config["reasoning_effort"] = reasoning_effort' in source
+    assert 'FAST_REASONING_EFFORT: high' in source
+    assert 'agent_config["adaptive_reasoning"]' in source
+    assert 'agent_config["disabled_toolsets"] = []' in source
+    assert 'platform_toolsets["dingtalk"] = ["hermes-dingtalk"]' in source
+    assert 'approvals_config["mode"] = "off"' in source
+    assert 'HERMES_FULL_ACCESS_READY=' in source
     assert 'HERMES_CODEX_CONFIG_VERIFIED' in source
     assert 'run_as_service_with_timeout 240s' in source
     assert '--provider openai-codex --model "$MODEL" -z "$inference_prompt"' in source

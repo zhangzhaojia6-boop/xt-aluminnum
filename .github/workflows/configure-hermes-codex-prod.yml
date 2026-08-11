@@ -54,6 +54,7 @@ jobs:
           EXPECTED_HERMES_SHA: ${{ github.event.inputs.expected_hermes_sha }}
           MODEL: ${{ github.event.inputs.model }}
           REASONING_EFFORT: max
+          FAST_REASONING_EFFORT: high
           DEVICE_CODE_PUBLIC_KEY_B64: ${{ github.event.inputs.device_code_public_key_b64 }}
           RUN_ID: ${{ github.run_id }}
         run: |
@@ -79,6 +80,7 @@ jobs:
               ;;
           esac
           test "$REASONING_EFFORT" = "max"
+          test "$FAST_REASONING_EFFORT" = "high"
           printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
           if [ "$MODE" = "login" ]; then
             test -n "$DEVICE_CODE_PUBLIC_KEY_B64"
@@ -102,6 +104,7 @@ jobs:
           append_remote_assignment EXPECTED_HERMES_SHA "$EXPECTED_HERMES_SHA"
           append_remote_assignment MODEL "$MODEL"
           append_remote_assignment REASONING_EFFORT "$REASONING_EFFORT"
+          append_remote_assignment FAST_REASONING_EFFORT "$FAST_REASONING_EFFORT"
           append_remote_assignment DEVICE_CODE_PUBLIC_KEY_B64 "$DEVICE_CODE_PUBLIC_KEY_B64"
           append_remote_assignment RUN_ID "$RUN_ID"
 
@@ -230,7 +233,7 @@ jobs:
           report_codex_state() {
             local require_ready="${1:-no}"
             local state_output
-            state_output="$(run_as_service "$runtime_python" -P - "$MODEL" "$REASONING_EFFORT" <<'PY'
+            state_output="$(run_as_service "$runtime_python" -P - "$MODEL" "$REASONING_EFFORT" "$FAST_REASONING_EFFORT" <<'PY'
           import re
           import sys
 
@@ -239,6 +242,7 @@ jobs:
 
           expected_model = sys.argv[1]
           expected_reasoning_effort = sys.argv[2]
+          expected_fast_effort = sys.argv[3]
           status = get_codex_auth_status()
           config = read_raw_config()
           model_config = config.get("model") if isinstance(config, dict) else {}
@@ -247,6 +251,15 @@ jobs:
           agent_config = config.get("agent") if isinstance(config, dict) else {}
           if not isinstance(agent_config, dict):
               agent_config = {}
+          adaptive_config = agent_config.get("adaptive_reasoning")
+          if not isinstance(adaptive_config, dict):
+              adaptive_config = {}
+          platform_toolsets = config.get("platform_toolsets") if isinstance(config, dict) else {}
+          if not isinstance(platform_toolsets, dict):
+              platform_toolsets = {}
+          approvals_config = config.get("approvals") if isinstance(config, dict) else {}
+          if not isinstance(approvals_config, dict):
+              approvals_config = {}
 
           def safe(value: object) -> str:
               text = str(value or "")
@@ -257,18 +270,35 @@ jobs:
           provider = safe(model_config.get("provider"))
           model = safe(model_config.get("default"))
           reasoning_effort = safe(agent_config.get("reasoning_effort"))
+          fast_effort = safe(adaptive_config.get("fast_effort"))
+          disabled_toolsets = agent_config.get("disabled_toolsets")
+          dingtalk_toolsets = platform_toolsets.get("dingtalk")
+          approval_mode = safe(approvals_config.get("mode"))
+          full_access_ready = (
+              adaptive_config.get("enabled") is True
+              and fast_effort == expected_fast_effort
+              and disabled_toolsets == []
+              and dingtalk_toolsets == ["hermes-dingtalk"]
+              and approval_mode == "off"
+          )
           ready = (
               logged_in
               and not rate_limited
               and provider == "openai-codex"
               and model == expected_model
               and reasoning_effort == expected_reasoning_effort
+              and full_access_ready
           )
           print(f"HERMES_CODEX_AUTH_LOGGED_IN={'yes' if logged_in else 'no'}")
           print(f"HERMES_CODEX_AUTH_RATE_LIMITED={'yes' if rate_limited else 'no'}")
           print(f"HERMES_MODEL_PROVIDER={provider}")
           print(f"HERMES_MODEL_DEFAULT={model}")
           print(f"HERMES_REASONING_EFFORT={reasoning_effort}")
+          print(f"HERMES_ADAPTIVE_REASONING={fast_effort}_to_{reasoning_effort}")
+          print(f"HERMES_DINGTALK_TOOLSET={safe(','.join(dingtalk_toolsets or []))}")
+          print(f"HERMES_DISABLED_TOOLSETS={len(disabled_toolsets) if isinstance(disabled_toolsets, list) else 'unset'}")
+          print(f"HERMES_APPROVALS_MODE={approval_mode}")
+          print(f"HERMES_FULL_ACCESS_READY={'yes' if full_access_ready else 'no'}")
           print(f"HERMES_CODEX_READY={'yes' if ready else 'no'}")
           raise SystemExit(0 if ready else 1)
           PY
@@ -283,7 +313,7 @@ jobs:
           }
 
           configure_codex_model() {
-            run_as_service "$runtime_python" -P - "$MODEL" "$REASONING_EFFORT" <<'PY'
+            run_as_service "$runtime_python" -P - "$MODEL" "$REASONING_EFFORT" "$FAST_REASONING_EFFORT" <<'PY'
           import sys
 
           from hermes_cli.auth import (
@@ -303,10 +333,13 @@ jobs:
 
           model = sys.argv[1]
           reasoning_effort = sys.argv[2]
+          fast_reasoning_effort = sys.argv[3]
           if model not in {"gpt-5.6-luna", "gpt-5.6-sol"}:
               raise SystemExit("unsupported model")
           if reasoning_effort != "max":
               raise SystemExit("unsupported reasoning effort")
+          if fast_reasoning_effort != "high":
+              raise SystemExit("unsupported fast reasoning effort")
 
           auth_status = get_codex_auth_status()
           if not auth_status.get("logged_in") or auth_status.get("rate_limited"):
@@ -331,7 +364,24 @@ jobs:
           current_agent = config.get("agent")
           agent_config = dict(current_agent) if isinstance(current_agent, dict) else {}
           agent_config["reasoning_effort"] = reasoning_effort
+          agent_config["adaptive_reasoning"] = {
+              "enabled": True,
+              "fast_effort": fast_reasoning_effort,
+          }
+          agent_config["disabled_toolsets"] = []
           config["agent"] = agent_config
+
+          platform_toolsets = config.get("platform_toolsets")
+          if not isinstance(platform_toolsets, dict):
+              platform_toolsets = {}
+          platform_toolsets["dingtalk"] = ["hermes-dingtalk"]
+          config["platform_toolsets"] = platform_toolsets
+
+          approvals_config = config.get("approvals")
+          if not isinstance(approvals_config, dict):
+              approvals_config = {}
+          approvals_config["mode"] = "off"
+          config["approvals"] = approvals_config
           atomic_yaml_write(config_path, config, sort_keys=False)
 
           with _auth_store_lock():
