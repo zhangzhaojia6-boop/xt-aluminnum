@@ -7,16 +7,18 @@ from typing import cast
 from zoneinfo import ZoneInfo
 
 import pytest
+from app.database import Base
+from app.models.agent_communication import MultimodalEvidence
+from app.models.reports import (
+    DailyFactBundleRun,
+    DailyFactBundleSnapshot,
+    DailyFactCorrection,
+)
+from app.models.system import User
+from app.tasks import daily_fact_closure as task_module
 from sqlalchemy import Table, create_engine
 from sqlalchemy.orm import Query, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
-
-from app.database import Base
-from app.models.agent_communication import MultimodalEvidence
-from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot, DailyFactCorrection
-from app.models.system import User
-from app.tasks import daily_fact_closure as task_module
-
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 
@@ -108,6 +110,7 @@ def test_daily_fact_closure_uses_last_completed_business_date(
         "business_date": "2026-07-07",
         "trace_id": "daily-fact-closure:2026-07-07",
         "status": "blocked",
+        "release_ready": False,
     }
     assert db_session.query(DailyFactBundleRun).count() == 1
     snapshot = db_session.query(DailyFactBundleSnapshot).one()
@@ -344,7 +347,7 @@ def test_scheduled_daily_fact_closure_uses_managed_session(
     monkeypatch.setattr(
         task_module,
         "run_daily_fact_closure",
-        lambda db: {"status": "pass", "same_session": db is fake_session},
+        lambda db, **_kwargs: {"status": "pass", "same_session": db is fake_session},
     )
 
     result = task_module.run_scheduled_daily_fact_closure()
@@ -387,6 +390,7 @@ def test_open_gap_refresh_rechecks_each_date_and_continues_after_one_failure(
         "list_open_daily_fact_gap_dates",
         lambda _db: [date(2026, 7, 21), date(2026, 7, 20)],
     )
+    monkeypatch.setattr(task_module, "_daily_report_release_pending", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(task_module, "run_daily_fact_closure", fake_run)
     result = task_module.run_open_daily_fact_gap_refresh()
 
@@ -397,6 +401,96 @@ def test_open_gap_refresh_rechecks_each_date_and_continues_after_one_failure(
         "business_date": "2026-07-20",
         "status": "failed",
         "error": "RuntimeError",
+    }
+
+
+def test_open_gap_refresh_retries_current_unreleased_report_after_cutoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checked_at = datetime(2026, 7, 22, 10, 15, tzinfo=SHANGHAI)
+    target_date = date(2026, 7, 21)
+    checked_dates: list[date] = []
+
+    class SessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+    monkeypatch.setattr(task_module, "get_sessionmaker", lambda: SessionContext)
+    monkeypatch.setattr(task_module, "local_now", lambda now=None: checked_at)
+    monkeypatch.setattr(task_module, "list_open_daily_fact_gap_dates", lambda _db: [])
+    monkeypatch.setattr(
+        task_module,
+        "last_completed_production_business_date",
+        lambda now=None: target_date,
+    )
+    monkeypatch.setattr(task_module, "_daily_report_release_pending", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        task_module,
+        "run_daily_fact_gap_refresh_for_date",
+        lambda *, target_date, now=None: checked_dates.append(target_date) or {
+            "business_date": target_date.isoformat(),
+            "status": "pass",
+        },
+    )
+
+    result = task_module.run_open_daily_fact_gap_refresh()
+
+    assert checked_dates == [target_date]
+    assert result["checked_dates"] == 1
+
+
+def test_complete_fact_refresh_releases_report_after_cutoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generated_dates: list[date] = []
+    monkeypatch.setattr(
+        task_module,
+        "generate_daily_reports",
+        lambda target_date=None: generated_dates.append(target_date) or {
+            "status": "ok",
+            "report_status": "ready",
+            "delivery": {"status": "sent"},
+        },
+    )
+
+    result = task_module._release_daily_report_if_ready(
+        {
+            "business_date": "2026-07-21",
+            "status": "pass",
+            "release_ready": True,
+        },
+        checked_at=datetime(2026, 7, 22, 10, 5, tzinfo=SHANGHAI),
+    )
+
+    assert generated_dates == [date(2026, 7, 21)]
+    assert result["report_release"]["report_status"] == "ready"
+    assert result["report_release"]["delivery"]["status"] == "sent"
+
+
+def test_complete_fact_refresh_waits_until_report_cutoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        task_module,
+        "generate_daily_reports",
+        lambda **_kwargs: pytest.fail("report must not be generated before 10:00"),
+    )
+
+    result = task_module._release_daily_report_if_ready(
+        {
+            "business_date": "2026-07-21",
+            "status": "pass",
+            "release_ready": True,
+        },
+        checked_at=datetime(2026, 7, 22, 9, 59, tzinfo=SHANGHAI),
+    )
+
+    assert result["report_release"] == {
+        "status": "waiting_for_cutoff",
+        "cutoff": "10:00",
     }
 
 
