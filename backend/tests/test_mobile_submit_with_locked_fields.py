@@ -130,6 +130,57 @@ def test_mobile_coil_entry_accepts_snapshot_without_lock_token(tmp_path) -> None
     assert response.status_code == 200
 
 
+def test_mobile_coil_entry_reuses_existing_row_after_response_is_lost(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    payload = {
+        'tracking_card_no': 'TRACK-RETRY-1',
+        'alloy_grade': '6061',
+        'input_spec': '1.2×1200',
+        'input_weight': 1000,
+        'output_weight': 960,
+        'business_date': '2026-05-03',
+        'shift_id': 1,
+    }
+    client = _client_with_db(session_factory)
+    try:
+        first = client.post('/api/v1/mobile/coil-entry', json=payload)
+        second = client.post('/api/v1/mobile/coil-entry', json=payload)
+    finally:
+        app.dependency_overrides.clear()
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()['id'] == first.json()['id']
+    with session_factory() as db:
+        rows = db.query(WorkOrderEntry).filter(WorkOrderEntry.entry_type == 'mobile_coil').all()
+    assert len(rows) == 1
+
+
+def test_mobile_coil_entry_rejects_changed_payload_for_existing_row(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    payload = {
+        'tracking_card_no': 'TRACK-RETRY-2',
+        'alloy_grade': '6061',
+        'input_spec': '1.2×1200',
+        'input_weight': 1000,
+        'output_weight': 960,
+        'business_date': '2026-05-03',
+        'shift_id': 1,
+    }
+    client = _client_with_db(session_factory)
+    try:
+        first = client.post('/api/v1/mobile/coil-entry', json=payload)
+        changed = client.post('/api/v1/mobile/coil-entry', json={**payload, 'output_weight': 950})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert first.status_code == 200
+    assert changed.status_code == 409
+    assert changed.json()['detail'] == 'coil_entry_already_submitted'
+
+
 def test_mobile_coil_entry_accepts_manual_entry_even_if_mes_has_different_values(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)

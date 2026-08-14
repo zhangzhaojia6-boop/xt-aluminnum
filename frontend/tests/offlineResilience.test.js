@@ -6,6 +6,10 @@ import {
   findRestorableDraftKey
 } from '../src/composables/useLocalDraft.js'
 import { isRetryableNetworkError } from '../src/composables/useRetryQueue.js'
+import { readFileSync } from 'node:fs'
+
+const localDraftSource = readFileSync(new URL('../src/composables/useLocalDraft.js', import.meta.url), 'utf8')
+const unifiedEntrySource = readFileSync(new URL('../src/views/mobile/UnifiedEntryForm.vue', import.meta.url), 'utf8')
 
 test('buildDynamicDraftKey includes workshop shift date machineId and tracking card', () => {
   assert.equal(
@@ -57,4 +61,16 @@ test('isRetryableNetworkError only treats transport failures as retryable', () =
   assert.equal(isRetryableNetworkError({ message: 'Network Error' }), true)
   assert.equal(isRetryableNetworkError({ response: { status: 400 } }), false)
   assert.equal(isRetryableNetworkError({ response: { status: 500 } }), false)
+})
+
+test('local draft flushes immediately when the page leaves or becomes hidden', () => {
+  assert.match(localDraftSource, /pagehide/)
+  assert.match(localDraftSource, /visibilitychange/)
+  assert.match(localDraftSource, /persistSnapshot\(\)/)
+})
+
+test('successful unified entry stays cleared until the user edits again', () => {
+  assert.match(unifiedEntrySource, /draftReady\.value = false\s+clearDraft\(draftKey\)/)
+  assert.match(unifiedEntrySource, /@input="armDraftAfterEdit"/)
+  assert.match(unifiedEntrySource, /@change="armDraftAfterEdit"/)
 })

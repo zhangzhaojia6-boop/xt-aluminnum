@@ -44,6 +44,15 @@ function hasMeaningfulValue(value) {
   return true
 }
 
+function removeStoredDraft(key) {
+  if (!key || typeof localStorage === 'undefined') return
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // Keep the in-memory form usable when browser storage is unavailable.
+  }
+}
+
 export function buildDynamicDraftKey({ workshopId, shiftId, businessDate, trackingCardNo, machineId }) {
   return `draft:${normalizeSegment(workshopId)}:${normalizeSegment(shiftId)}:${normalizeSegment(businessDate)}:${normalizeSegment(machineId)}:${normalizeSegment(trackingCardNo)}`
 }
@@ -89,7 +98,7 @@ export function useLocalDraft({
     const currentSnapshot = snapshot.value
     if (!isMeaningful(currentSnapshot)) {
       if (lastSavedKey) {
-        localStorage.removeItem(lastSavedKey)
+        removeStoredDraft(lastSavedKey)
         lastSavedKey = ''
       }
       autoSavedLabel.value = ''
@@ -99,17 +108,32 @@ export function useLocalDraft({
     const draftKey = currentDraftKey.value
     const savedAt = new Date().toISOString()
     if (lastSavedKey && lastSavedKey !== draftKey) {
-      localStorage.removeItem(lastSavedKey)
+      removeStoredDraft(lastSavedKey)
     }
-    localStorage.setItem(
-      draftKey,
-      JSON.stringify({
-        saved_at: savedAt,
-        data: currentSnapshot
-      })
-    )
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          saved_at: savedAt,
+          data: currentSnapshot
+        })
+      )
+    } catch {
+      return
+    }
     lastSavedKey = draftKey
     autoSavedLabel.value = formatAutoSavedLabel(savedAt)
+  }
+
+  function flushSnapshot() {
+    clearAutosaveTimer()
+    persistSnapshot()
+  }
+
+  function handleVisibilityChange() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      flushSnapshot()
+    }
   }
 
   function schedulePersist() {
@@ -128,7 +152,7 @@ export function useLocalDraft({
     if (!matchedKey) return
     const matchedEntry = entries.find((item) => item.key === matchedKey)
     if (!matchedEntry?.payload?.data || !isMeaningful(matchedEntry.payload.data)) {
-      localStorage.removeItem(matchedKey)
+      removeStoredDraft(matchedKey)
       return
     }
     restoreDraftPayload.value = matchedEntry.payload.data
@@ -150,7 +174,7 @@ export function useLocalDraft({
 
   function discardDraft() {
     if (lastSavedKey) {
-      localStorage.removeItem(lastSavedKey)
+      removeStoredDraft(lastSavedKey)
       lastSavedKey = ''
     }
     restoreDraftPayload.value = null
@@ -162,7 +186,7 @@ export function useLocalDraft({
   function clearDraft(key = currentDraftKey.value) {
     if (typeof localStorage === 'undefined') return
     if (key) {
-      localStorage.removeItem(key)
+      removeStoredDraft(key)
     }
     if (lastSavedKey === key || !key) {
       lastSavedKey = ''
@@ -174,8 +198,21 @@ export function useLocalDraft({
 
   watch([scope, snapshot, enabled], schedulePersist, { deep: true })
 
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flushSnapshot)
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+  }
+
   onBeforeUnmount(() => {
-    clearAutosaveTimer()
+    flushSnapshot()
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('pagehide', flushSnapshot)
+    }
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   })
 
   return {

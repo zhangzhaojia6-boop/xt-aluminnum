@@ -40,6 +40,7 @@ async function setupOwnerDailySession(page, options = {}) {
     '2026-07-17': { finished_inbound_daily: 85 },
   }
   let submittedPayload = null
+  let submitAttempts = 0
 
   await page.route('**/api/v1/auth/me', (route) => route.fulfill({
     status: 200,
@@ -113,6 +114,11 @@ async function setupOwnerDailySession(page, options = {}) {
     })
   })
   await page.route('**/api/v1/mobile/owner-daily', async (route) => {
+    submitAttempts += 1
+    if (options.failFirstSubmit && submitAttempts === 1) {
+      await route.abort('failed')
+      return
+    }
     submittedPayload = route.request().postDataJSON()
     await route.fulfill({
       status: 200,
@@ -162,6 +168,9 @@ test('owner daily can load and submit a recent historical business date on mobil
   await expect.poll(() => submittedPayload()?.business_date).toBe('2026-07-17')
   expect(submittedPayload()?.data.finished_inbound_daily).toBe(86)
   await expect(page.getByText('成品入库 86吨')).toBeVisible()
+  await page.goto('/entry')
+  await page.goto('/entry/fill?business_date=2026-07-17')
+  await expect(page.getByRole('dialog', { name: '发现本机暂存内容' })).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath('owner-daily-backfill.png'), fullPage: true })
 })
@@ -186,13 +195,36 @@ test('Hermes fact action link focuses every visible storage field without changi
   await expect(page.getByLabel('业务日期')).toHaveValue('2026-07-17')
   await expect(page.getByTestId('field-park_inbound_daily')).toHaveClass(/ue-field--requested/)
   await expect(page.getByTestId('field-new_plant_inbound_daily')).toHaveClass(/ue-field--requested/)
-  await expect(page.getByTestId('field-finished_inbound_daily')).not.toHaveClass(/ue-field--requested/)
+  await expect(page.getByLabel(/成品入库/)).toHaveCount(0)
   await expect(page.getByLabel(/园区入库日合/)).toBeFocused()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   await page.screenshot({
     path: testInfo.outputPath(`fact-action-fields-${testInfo.project.name}.png`),
     fullPage: true,
   })
+})
+
+
+test('owner daily survives a network interruption and replays one queued submission', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const submittedPayload = await setupOwnerDailySession(page, {
+    existingDataByDate: {},
+    failFirstSubmit: true,
+  })
+
+  await page.goto('/entry/fill?business_date=2026-07-17&entry_fields=finished_inbound_daily')
+  await page.getByLabel(/成品入库/).fill('88')
+  await page.getByRole('button', { name: '提交 2026-07-17' }).click()
+
+  await expect(page.getByText('1 条等待网络恢复')).toBeVisible()
+  await expect(page.getByRole('button', { name: '等待网络' })).toBeDisabled()
+
+  await page.evaluate(() => window.dispatchEvent(new Event('online')))
+
+  await expect.poll(() => submittedPayload()?.data?.finished_inbound_daily).toBe(88)
+  await expect(page.getByText('1 条等待网络恢复')).toHaveCount(0)
+  await expect(page.getByText(/已自动暂存/)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '提交 2026-07-17' })).toBeEnabled()
 })
 
 

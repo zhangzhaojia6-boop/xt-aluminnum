@@ -615,6 +615,62 @@ def _validate_coil_entry_weights(payload: dict) -> None:
             raise HTTPException(status_code=422, detail='output_plus_scrap_exceeds_input')
 
 
+def _serialize_mobile_coil_entry(entry: WorkOrderEntry, work_order) -> dict:
+    extra_payload = dict(entry.extra_payload or {})
+    return {
+        'id': entry.id,
+        'tracking_card_no': work_order.tracking_card_no,
+        'alloy_grade': work_order.alloy_grade,
+        'input_spec': entry.input_spec,
+        'output_spec': entry.output_spec,
+        'input_weight': float(entry.input_weight) if entry.input_weight is not None else None,
+        'output_weight': float(entry.output_weight) if entry.output_weight is not None else None,
+        'scrap_weight': float(entry.scrap_weight) if entry.scrap_weight is not None else None,
+        'operator_notes': entry.operator_notes,
+        'extra_payload': extra_payload,
+        'previous_process': extra_payload.get('previous_process') or extra_payload.get('flow', {}).get('previous_process'),
+        'next_process': extra_payload.get('next_process') or extra_payload.get('flow', {}).get('next_process'),
+        'business_date': entry.business_date,
+        'created_at': None,
+    }
+
+
+def _coil_retry_matches(entry: WorkOrderEntry, work_order, payload: dict) -> bool:
+    def same_number(left, right) -> bool:
+        if left in (None, '') or right in (None, ''):
+            return left in (None, '') and right in (None, '')
+        return Decimal(str(left)) == Decimal(str(right))
+
+    alloy_grade = payload.get('alloy_grade')
+    if alloy_grade not in (None, '') and str(work_order.alloy_grade or '').strip() != str(alloy_grade).strip():
+        return False
+
+    for field in ('input_weight', 'output_weight', 'spool_weight'):
+        if not same_number(getattr(entry, field), payload.get(field)):
+            return False
+
+    expected_scrap = payload.get('scrap_weight')
+    if expected_scrap in (None, '') and payload.get('input_weight') and payload.get('output_weight'):
+        expected_scrap = round(
+            float(payload['input_weight'])
+            - float(payload['output_weight'])
+            - float(payload.get('spool_weight') or 0)
+            - float(payload.get('trim_weight') or 0)
+            - float(payload.get('tray_weight') or 0),
+            2,
+        )
+    if not same_number(entry.scrap_weight, expected_scrap):
+        return False
+
+    for field in ('input_spec', 'output_spec', 'material_state', 'operator_notes'):
+        if str(getattr(entry, field) or '').strip() != str(payload.get(field) or '').strip():
+            return False
+    for field in ('on_machine_time', 'off_machine_time'):
+        if getattr(entry, field) != payload.get(field):
+            return False
+    return True
+
+
 def create_coil_entry(
     db: Session,
     *,
@@ -638,6 +694,23 @@ def create_coil_entry(
         )
         db.add(wo)
         db.flush()
+
+    existing_entry = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.work_order_id == wo.id,
+            WorkOrderEntry.shift_id == payload['shift_id'],
+            WorkOrderEntry.business_date == payload['business_date'],
+        )
+        .first()
+    )
+    if existing_entry is not None:
+        existing_owner_id = existing_entry.created_by_user_id or existing_entry.created_by
+        if existing_owner_id not in (None, current_user.id):
+            raise HTTPException(status_code=409, detail='coil_entry_already_submitted')
+        if not _coil_retry_matches(existing_entry, wo, payload):
+            raise HTTPException(status_code=409, detail='coil_entry_already_submitted')
+        return _serialize_mobile_coil_entry(existing_entry, wo)
 
     bound_machine = get_bound_machine_for_user(db, user_id=current_user.id)
     reporting_machine = resolve_reporting_machine_for_equipment(db, bound_machine)
@@ -695,22 +768,7 @@ def create_coil_entry(
         machine_id=entry.machine_id,
     )
 
-    return {
-        'id': entry.id,
-        'tracking_card_no': wo.tracking_card_no,
-        'alloy_grade': wo.alloy_grade,
-        'input_spec': entry.input_spec,
-        'output_spec': entry.output_spec,
-        'input_weight': float(entry.input_weight) if entry.input_weight is not None else None,
-        'output_weight': float(entry.output_weight) if entry.output_weight is not None else None,
-        'scrap_weight': float(entry.scrap_weight) if entry.scrap_weight is not None else None,
-        'operator_notes': entry.operator_notes,
-        'extra_payload': dict(entry.extra_payload or {}),
-        'previous_process': (entry.extra_payload or {}).get('previous_process') or (entry.extra_payload or {}).get('flow', {}).get('previous_process'),
-        'next_process': (entry.extra_payload or {}).get('next_process') or (entry.extra_payload or {}).get('flow', {}).get('next_process'),
-        'business_date': entry.business_date,
-        'created_at': None,
-    }
+    return _serialize_mobile_coil_entry(entry, wo)
 
 
 OWNER_DAILY_ENTRY_TYPE = 'owner_daily'

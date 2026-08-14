@@ -1,5 +1,11 @@
 <template>
-  <div class="unified-entry" data-testid="unified-entry" data-visual-pass="stitch-image2-second-pass-mobile">
+  <div
+    class="unified-entry"
+    data-testid="unified-entry"
+    data-visual-pass="stitch-image2-second-pass-mobile"
+    @input="armDraftAfterEdit"
+    @change="armDraftAfterEdit"
+  >
     <header class="ue-identity" :style="{ '--role-color': roleColor }">
       <div class="ue-identity__main">
         <strong>{{ roleLabel }}</strong>
@@ -8,7 +14,10 @@
     </header>
 
     <div v-if="loading" class="ue-loading">加载中…</div>
-    <div v-else-if="error" class="ue-error">{{ error }}</div>
+    <div v-else-if="error" class="ue-error">
+      <span>{{ error }}</span>
+      <button type="button" @click="loadData">重试</button>
+    </div>
 
     <template v-else>
       <div v-if="mode === 'per_coil'" class="ue-coil-header">
@@ -52,7 +61,7 @@
         </div>
       </section>
 
-      <section v-for="(group, gi) in groups" :key="gi" class="ue-group">
+      <section v-for="(group, gi) in visibleGroups" :key="gi" class="ue-group">
         <h3 class="ue-group__title">{{ group.label }}</h3>
         <div class="ue-fields">
           <div
@@ -295,8 +304,11 @@
       </section>
 
       <div class="ue-actions">
-        <button class="ue-submit" data-testid="unified-entry-submit" :disabled="submitting || ownerDailyLoading" @click="handleSubmit">
-          {{ submitting ? '提交中…' : ownerDailyLoading ? '加载中…' : submitButtonText }}
+        <div v-if="entrySaveState" class="ue-save-state" :class="{ 'ue-save-state--queued': pendingCount > 0 }">
+          {{ entrySaveState }}
+        </div>
+        <button class="ue-submit" data-testid="unified-entry-submit" :disabled="submitting || ownerDailyLoading || Boolean(queuedSubmissionKey)" @click="handleSubmit">
+          {{ submitting ? '提交中…' : queuedSubmissionKey ? '等待网络' : ownerDailyLoading ? '加载中…' : submitButtonText }}
         </button>
         <button
           v-if="mode === 'per_coil' && lastCoilData"
@@ -317,12 +329,20 @@
           </div>
         </div>
       </section>
+
+      <el-dialog v-model="restoreDialogVisible" title="发现本机暂存内容" width="92%" :close-on-click-modal="false">
+        <span>{{ restoreDraftSavedAt ? `${restoreDraftSavedAt} 暂存` : '本机有未提交内容' }}</span>
+        <template #footer>
+          <el-button @click="discardDraft">放弃</el-button>
+          <el-button type="primary" @click="restoreDraft">恢复</el-button>
+        </template>
+      </el-dialog>
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
@@ -330,7 +350,6 @@ import { useAuthStore } from '../../stores/auth.js'
 import {
   fetchCurrentShift,
   fetchEntryFields,
-  saveMobileReport,
   submitMobileReport,
   fetchMobileReport,
   fetchCoilList,
@@ -345,6 +364,15 @@ import { validateEntryWeights } from '../../utils/entryWeightValidation.js'
 import { requestErrorMessage } from '../../utils/reportStatus.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
 import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
+import { useLocalDraft } from '../../composables/useLocalDraft.js'
+import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRetryQueue.js'
+import { usePerformance } from '../../composables/usePerformance.js'
+import { reportFrontendPerf } from '../../api/telemetry.js'
+import {
+  buildEntryRetryRecord,
+  filterEntryGroups,
+  isMeaningfulEntryDraft,
+} from '../../utils/unifiedEntryReliability.js'
 import {
   inferOwnerDailyBusinessDate,
   ownerDailyBusinessDateOptions,
@@ -356,6 +384,9 @@ import { formatShiftLabel } from '../../utils/display.js'
 
 const auth = useAuthStore()
 const route = useRoute()
+const entryStartedAt = typeof performance !== 'undefined' ? performance.now() : 0
+
+usePerformance('UnifiedEntryForm')
 
 const loading = ref(true)
 const error = ref('')
@@ -369,10 +400,22 @@ const lockedFieldsToken = ref('')
 const mesReferenceFields = ref([])
 const groups = ref([])
 const requestedEntryFields = ref([])
+const targetedDependencyFields = computed(() => (
+  mode.value === 'per_coil' && requestedEntryFields.value.length > 0
+    ? groups.value.flatMap((group) => group.fields || []).filter((field) => field.required).map((field) => field.name)
+    : []
+))
+const visibleGroups = computed(() => filterEntryGroups(
+  groups.value,
+  requestedEntryFields.value,
+  targetedDependencyFields.value,
+))
 const readonlyFields = ref([])
 const entryRoleLabel = ref('')
 const visibleReadonlyFields = computed(() =>
-  readonlyFields.value.filter((rf) => !rf.hidden)
+  requestedEntryFields.value.length === 0
+    ? readonlyFields.value.filter((rf) => !rf.hidden)
+    : []
 )
 const mode = ref('per_shift')
 const submitTarget = ref('shift_report')
@@ -381,6 +424,9 @@ const history = ref([])
 const coilSeq = ref(1)
 const lastCoilData = ref(null)
 const { canScan, scanning, scan, scanLookup } = useScanLookup()
+const { enqueuePendingRequest, pendingCount } = useRetryQueue()
+const queuedSubmissionKey = ref('')
+const draftReady = ref(false)
 
 const shiftContext = ref(null)
 const workshopName = computed(() => shiftContext.value?.workshop_name || '')
@@ -393,6 +439,29 @@ const businessDate = computed(() => (
 const ownerDailyDateOptions = computed(() => ownerDailyBusinessDateOptions(
   shiftContext.value?.business_date || inferOwnerDailyBusinessDate()
 ))
+const localDraftScope = computed(() => ({
+  workshopId: shiftContext.value?.workshop_id || auth.user?.workshop_id || '',
+  shiftId: shiftContext.value?.shift_id || '',
+  businessDate: businessDate.value,
+  machineId: auth.boundMachineId || '',
+  trackingCardNo: mode.value === 'per_coil'
+    ? String(form[identityField.value || 'tracking_card_no'] || '')
+    : `${submitTarget.value}:${auth.user?.id || auth.role || 'mobile'}`,
+}))
+const localDraftSnapshot = computed(() => ({
+  form: { ...form },
+  specParts: { ...specParts },
+  quality: {
+    has_issue: quality.has_issue,
+    issue_type: quality.issue_type,
+    issue_note: quality.issue_note,
+    photo_name: quality.photo_name,
+  },
+}))
+const entrySaveState = computed(() => {
+  if (pendingCount.value > 0) return `${pendingCount.value} 条等待网络恢复`
+  return autoSavedLabel.value
+})
 const workshopMachines = computed(() =>
   Array.isArray(shiftContext.value?.workshop_machines) ? shiftContext.value.workshop_machines : []
 )
@@ -439,7 +508,11 @@ const quality = reactive({
   photo_name: '',
   photo_data_url: '',
 })
-const showQualityModule = computed(() => mode.value === 'per_coil' && auth.role === 'machine_operator')
+const showQualityModule = computed(() => (
+  mode.value === 'per_coil'
+  && auth.role === 'machine_operator'
+  && requestedEntryFields.value.length === 0
+))
 const COIL_DIRECT_FIELDS = new Set([
   'tracking_card_no',
   'alloy_grade',
@@ -495,6 +568,10 @@ const submitButtonText = computed(() => {
 const showMachineEnergyDetails = computed(() =>
   auth.role === 'energy_stat'
   && mode.value === 'per_shift'
+  && (
+    requestedEntryFields.value.length === 0
+    || requestedEntryFields.value.includes('machine_energy_records')
+  )
   && Array.isArray(form.machine_energy_records)
   && form.machine_energy_records.length > 0
 )
@@ -509,6 +586,53 @@ const mesReferenceRows = computed(() => mesReferenceFields.value.map((item) => (
   ...item,
   manual: formatReferenceValue(form[item.key]) || '未填',
 })))
+
+function applyLocalDraft(snapshot) {
+  if (!snapshot) return
+  if (snapshot.form) Object.assign(form, snapshot.form)
+  if (snapshot.specParts) Object.assign(specParts, snapshot.specParts)
+  if (snapshot.quality) Object.assign(quality, snapshot.quality)
+}
+
+function armDraftAfterEdit() {
+  if (!loading.value && !ownerDailyLoading.value && !submitting.value) {
+    draftReady.value = true
+  }
+}
+
+const {
+  autoSavedLabel,
+  checkForRestorableDraft,
+  clearDraft,
+  currentDraftKey,
+  discardDraft,
+  restoreDialogVisible,
+  restoreDraft,
+  restoreDraftSavedAt,
+} = useLocalDraft({
+  scope: localDraftScope,
+  snapshot: localDraftSnapshot,
+  applyDraft: applyLocalDraft,
+  enabled: computed(() => draftReady.value && Boolean(businessDate.value)),
+  isMeaningful: isMeaningfulEntryDraft,
+})
+
+watch(pendingCount, (count) => {
+  if (count !== 0 || !queuedSubmissionKey.value) return
+  const replayedDraftKey = queuedSubmissionKey.value
+  queuedSubmissionKey.value = ''
+  draftReady.value = false
+  clearDraft(replayedDraftKey)
+})
+
+function recordEntryMetric(metric, startedAt) {
+  if (typeof performance === 'undefined' || !startedAt) return
+  reportFrontendPerf({
+    route: 'UnifiedEntryForm',
+    metric,
+    value: Math.max(0, performance.now() - startedAt),
+  })
+}
 
 function formatReferenceValue(value) {
   if (value === null || value === undefined) return ''
@@ -755,7 +879,7 @@ function syncMachineEnergyRows(savedRecords = []) {
 }
 
 function validateVisibleRequiredFields() {
-  for (const group of groups.value) {
+  for (const group of visibleGroups.value) {
     for (const field of group.fields) {
       if (field.required && isEmptyValue(form[field.name])) {
         ElMessage.warning(`请先填写：${field.label}`)
@@ -767,7 +891,7 @@ function validateVisibleRequiredFields() {
 }
 
 function validateBusinessRules() {
-  const visibleFields = groups.value.flatMap((group) => group.fields || [])
+  const visibleFields = visibleGroups.value.flatMap((group) => group.fields || [])
   const message = validateEntryWeights(form, visibleFields)
   if (message) {
     ElMessage.warning(message)
@@ -854,6 +978,7 @@ function resetOwnerDailyForm() {
 async function loadOwnerDailyEntryForDate() {
   const targetDate = ownerDailySelectedDate.value || shiftContext.value?.business_date
   if (!targetDate) return
+  draftReady.value = false
   ownerDailyLoading.value = true
   resetOwnerDailyForm()
   try {
@@ -868,6 +993,11 @@ async function loadOwnerDailyEntryForDate() {
     ElMessage.error(requestErrorMessage(e, '历史数据加载失败'))
   } finally {
     ownerDailyLoading.value = false
+    if (!loading.value) {
+      await nextTick()
+      checkForRestorableDraft()
+      draftReady.value = true
+    }
   }
 }
 
@@ -933,6 +1063,7 @@ function handleSplitCoil() {
 }
 
 async function loadData() {
+  draftReady.value = false
   loading.value = true
   error.value = ''
   try {
@@ -1031,6 +1162,9 @@ async function loadData() {
     loading.value = false
     await nextTick()
     focusRequestedEntryField()
+    if (!error.value && businessDate.value) checkForRestorableDraft()
+    draftReady.value = !error.value && Boolean(businessDate.value)
+    if (!error.value) recordEntryMetric('entry_ready_ms', entryStartedAt)
   }
 }
 
@@ -1050,10 +1184,14 @@ async function handleSubmit() {
   if (!validateVisibleRequiredFields()) return
   if (!validateBusinessRules()) return
 
+  const submitStartedAt = typeof performance !== 'undefined' ? performance.now() : 0
+  const draftKey = currentDraftKey.value
+  let retryPayload = null
   submitting.value = true
   try {
     if (submitTarget.value === 'coil_entry') {
-      const saved = await createCoilEntry(buildCoilEntryPayload(sc), { skipErrorToast: true })
+      retryPayload = buildCoilEntryPayload(sc)
+      const saved = await createCoilEntry(retryPayload, { skipErrorToast: true })
       ElMessage.success(`第${coilSeq.value}卷 录入成功`)
       lastCoilData.value = { ...form }
       history.value.unshift(saved?.data ? saved : { seq: coilSeq.value, ...form })
@@ -1066,17 +1204,36 @@ async function handleSubmit() {
       mesReferenceFields.value = []
       resetQuality()
     } else if (submitTarget.value === 'owner_daily') {
-      const saved = await saveOwnerDailyEntry(buildOwnerDailyPayload(sc), { skipErrorToast: true })
+      retryPayload = buildOwnerDailyPayload(sc)
+      const saved = await saveOwnerDailyEntry(retryPayload, { skipErrorToast: true })
       if (saved?.business_date) ownerDailySelectedDate.value = saved.business_date
       ElMessage.success('提交成功')
       history.value = saved ? [saved] : []
     } else {
-      const payload = buildMobileReportPayload(sc)
-      await saveMobileReport(payload)
-      await submitMobileReport(payload)
+      retryPayload = buildMobileReportPayload(sc)
+      await submitMobileReport(retryPayload)
       ElMessage.success('提交成功')
     }
+    draftReady.value = false
+    clearDraft(draftKey)
+    recordEntryMetric('entry_submit_ms', submitStartedAt)
   } catch (e) {
+    if (retryPayload && isRetryableNetworkError(e)) {
+      try {
+        await enqueuePendingRequest(buildEntryRetryRecord({
+          submitTarget: submitTarget.value,
+          payload: retryPayload,
+          draftKey,
+        }))
+        queuedSubmissionKey.value = draftKey
+        recordEntryMetric('entry_queued_ms', submitStartedAt)
+        ElMessage.warning('已保存，网络恢复后自动提交')
+        return
+      } catch {
+        ElMessage.error('网络不可用，内容仍保存在本机')
+        return
+      }
+    }
     ElMessage.error(requestErrorMessage(e, '提交失败'))
   } finally {
     submitting.value = false
@@ -1197,6 +1354,17 @@ onMounted(loadData)
 }
 
 .ue-error { color: var(--xt-danger); }
+
+.ue-error button {
+  display: block;
+  margin: 14px auto 0;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  min-height: 40px;
+  padding: 0 18px;
+  cursor: pointer;
+}
 
 .ue-coil-header {
   display: flex;
@@ -1607,6 +1775,17 @@ onMounted(loadData)
     radial-gradient(circle at 50% 0%, rgba(0, 197, 255, 0.14), transparent 54%);
   box-shadow: 0 -16px 38px rgba(0, 0, 0, 0.34), 0 0 34px rgba(0, 197, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(14px);
+}
+
+.ue-save-state {
+  margin: 0 4px 8px;
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
+.ue-save-state--queued {
+  color: var(--xt-warning);
 }
 
 .ue-submit {
