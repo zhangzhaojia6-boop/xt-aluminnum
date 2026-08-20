@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from dataclasses import FrozenInstanceError
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,6 +16,16 @@ from app.domain import daily_report_field_contract as contract_module
 from app.domain import metric_contracts
 from app.services.report import daily_report_contract_validation
 from app.services.report import template_daily_field_contract
+
+
+def _validation_contract(contract, **overrides):
+    payload = {
+        field_name: getattr(contract, field_name)
+        for field_name in contract.__dataclass_fields__
+    }
+    payload["entry_workshop_types"] = ()
+    payload.update(overrides)
+    return SimpleNamespace(**payload)
 
 
 def test_normative_contract_keeps_the_approved_127_field_denominator() -> None:
@@ -169,11 +180,50 @@ def test_contract_validation_rejects_entry_alias_not_writable_by_owner_role() ->
     } in payload["errors"]
 
 
-def test_contract_validation_rejects_workshop_scoped_alias_outside_real_context() -> None:
+def test_contract_validation_requires_explicit_scope_for_workshop_scoped_roles() -> None:
     contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
-    contracts["hot_roll_daily"] = replace(
+    contracts["hot_roll_daily"] = _validation_contract(
         contracts["hot_roll_daily"],
-        entry_fields=("cast_speed",),
+        entry_fields=("trim_weight",),
+    )
+
+    payload = daily_report_contract_validation.validate_daily_report_contract(
+        contracts=contracts,
+        check_document=False,
+    )
+
+    assert {
+        "code": "missing_entry_workshop_scope",
+        "field": "hot_roll_daily",
+        "detail": {
+            "owner_role": "machine_operator",
+            "entry_route": "/entry/fill",
+        },
+    } in payload["errors"]
+
+
+def test_contract_validation_accepts_explicit_scope_for_workshop_scoped_alias() -> None:
+    contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
+    contracts["hot_roll_daily"] = _validation_contract(
+        contracts["hot_roll_daily"],
+        entry_fields=("trim_weight",),
+        entry_workshop_types=("hot_roll",),
+    )
+
+    payload = daily_report_contract_validation.validate_daily_report_contract(
+        contracts=contracts,
+        check_document=False,
+    )
+
+    assert payload["errors"] == []
+
+
+def test_contract_validation_rejects_alias_when_declared_workshop_scope_is_wrong() -> None:
+    contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
+    contracts["hot_roll_daily"] = _validation_contract(
+        contracts["hot_roll_daily"],
+        entry_fields=("trim_weight",),
+        entry_workshop_types=("casting",),
     )
 
     payload = daily_report_contract_validation.validate_daily_report_contract(
@@ -185,26 +235,10 @@ def test_contract_validation_rejects_workshop_scoped_alias_outside_real_context(
         "code": "unknown_entry_field_alias",
         "field": "hot_roll_daily",
         "detail": {
-            "alias": "cast_speed",
+            "alias": "trim_weight",
             "entry_route": "/entry/fill",
         },
     } in payload["errors"]
-
-
-def test_contract_validation_allows_generic_workshop_scoped_alias_only_when_all_contexts_support_it() -> None:
-    contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
-    contracts["wip_total"] = replace(
-        contracts["wip_total"],
-        owner_role="energy_stat",
-        entry_fields=("energy_note",),
-    )
-
-    payload = daily_report_contract_validation.validate_daily_report_contract(
-        contracts=contracts,
-        check_document=False,
-    )
-
-    assert payload["errors"] == []
 
 
 @pytest.mark.parametrize(
@@ -334,6 +368,32 @@ def test_template_only_fields_still_expose_gap_actions(
     assert action.deadline == contract_module.OWNER_DAILY_LATE_TIME
     assert action.next_step
     assert field_name not in contract_module.DAILY_REPORT_FIELD_CONTRACTS
+
+
+def test_workshop_scoped_gap_actions_declare_explicit_entry_workshop_types() -> None:
+    expected = {
+        "cast_roll_active_lines": ("casting",),
+        "foundry_daily": ("casting",),
+        "hot_roll_daily": ("hot_roll",),
+        "cold_1650_daily": ("cold_roll",),
+        "cold_1850_daily": ("cold_roll",),
+        "cold_2050_daily": ("cold_roll",),
+        "rolling_daily": ("cold_roll",),
+        "online_anneal_daily": ("annealing",),
+        "straightening_daily": ("straightening",),
+        "finishing_daily": ("finishing",),
+        "coating_daily": ("coating",),
+    }
+
+    actual = {
+        field_name: tuple(
+            getattr(contract_module.daily_report_gap_action_for(field_name), "entry_workshop_types", ())
+        )
+        for field_name, action in contract_module.DAILY_REPORT_GAP_ACTIONS.items()
+        if action.owner_role == "machine_operator" and action.entry_route == "/entry/fill"
+    }
+
+    assert actual == expected
 
 
 def test_source_lane_order_is_single_and_answer_key_is_not_a_fact_source() -> None:

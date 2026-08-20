@@ -22,6 +22,7 @@ def classify_daily_report_field_gap(field_name: str) -> dict[str, Any]:
         "deadline": action.deadline,
         "entry_fields": entry_fields,
         "entry_field": entry_fields[0] if entry_fields else None,
+        "entry_workshop_types": list(action.entry_workshop_types),
         "next_step": action.next_step,
     }
 

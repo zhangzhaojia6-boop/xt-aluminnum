@@ -30,6 +30,16 @@ def test_classifies_finished_inbound_as_two_existing_storage_fields() -> None:
     assert item["fill_strategy"] == "owner_daily"
     assert item["owner_role"] == "storage_owner"
     assert item["entry_fields"] == ["park_inbound_daily", "new_plant_inbound_daily"]
+    assert item["entry_workshop_types"] == []
+
+
+def test_classifies_workshop_scoped_gap_with_explicit_entry_workshop_types() -> None:
+    item = classify_daily_report_field_gap("hot_roll_daily")
+
+    assert item["entry_route"] == "/entry/fill"
+    assert item["owner_role"] == "machine_operator"
+    assert item["entry_fields"] == ["output_weight"]
+    assert item["entry_workshop_types"] == ["hot_roll"]
 
 
 def test_builds_one_fill_route_with_date_trace_role_and_all_concrete_fields() -> None:

@@ -31,16 +31,6 @@ _OWNER_FIELD_GROUPS = {
     "contract_owner_fields": template_module.CONTRACT_OWNER_FIELDS,
     "contract_progress_fields": template_module.CONTRACT_PROGRESS_FIELDS,
 }
-_FIELD_WORKSHOP_CONTEXT_PREFIXES: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
-    (("cast_roll_", "foundry_", "cast_2_", "cast_3_"), ("casting",)),
-    (("hot_roll_",), ("hot_roll",)),
-    (("cold_1650_", "cold_1850_", "cold_2050_", "rolling_"), ("cold_roll",)),
-    (("online_anneal_",), ("annealing",)),
-    (("straightening_",), ("straightening",)),
-    (("finishing_",), ("finishing",)),
-    (("shearing_",), ("shearing",)),
-    (("coating_",), ("coating",)),
-)
 
 
 def _normalize_writable_template_fields(
@@ -103,58 +93,37 @@ def collect_writable_template_fields(
     }
 
 
-def _known_workshop_types() -> tuple[str, ...]:
-    workshop_types = {
-        normalized
-        for raw_value in template_module.WORKSHOP_TYPE_BY_WORKSHOP_CODE.values()
-        for normalized in (template_module.normalize_workshop_type(raw_value),)
-        if normalized
-    }
-    return tuple(sorted(workshop_types))
+def _normalize_entry_workshop_types(values: Any) -> tuple[str, ...]:
+    if values is None:
+        return ()
+    if isinstance(values, Sequence) and not isinstance(values, str):
+        raw_values = values
+    else:
+        raw_values = (values,)
+
+    normalized_values: list[str] = []
+    seen: set[str] = set()
+    for raw_value in raw_values:
+        normalized = template_module.normalize_workshop_type(str(raw_value or "").strip())
+        if not normalized or normalized in seen:
+            continue
+        normalized_values.append(normalized)
+        seen.add(normalized)
+    return tuple(normalized_values)
 
 
-def _explicit_workshop_contexts_for_contract(
+def _entry_alias_is_writable_in_declared_contexts(
     *,
-    field_name: str,
-    owner_role: str,
-) -> tuple[str, ...]:
-    if owner_role == "planning_owner":
-        return ("inventory",)
-    for prefixes, workshop_types in _FIELD_WORKSHOP_CONTEXT_PREFIXES:
-        if field_name.startswith(prefixes):
-            return workshop_types
-    return ()
-
-
-def _applicable_workshop_contexts(owner_role: str) -> tuple[str, ...]:
-    contexts: list[str] = []
-    for workshop_type in _known_workshop_types():
-        if template_module.role_writable_field_names(owner_role, workshop_type):
-            contexts.append(workshop_type)
-    return tuple(contexts)
-
-
-def _entry_alias_is_writable_in_real_contexts(
-    *,
-    field_name: str,
     owner_role: str,
     alias: str,
+    entry_workshop_types: Sequence[str],
 ) -> bool:
-    mapping = template_module.role_field_mapping_for_context(owner_role, None)
-    if mapping is None:
-        return False
-    if "direct_fields" in mapping:
+    contexts = tuple(entry_workshop_types)
+    if not contexts:
         return alias in template_module.role_writable_field_names(owner_role)
-
-    workshop_contexts = _explicit_workshop_contexts_for_contract(
-        field_name=field_name,
-        owner_role=owner_role,
-    ) or _applicable_workshop_contexts(owner_role)
-    if not workshop_contexts:
-        return False
     return all(
         alias in template_module.role_writable_field_names(owner_role, workshop_type)
-        for workshop_type in workshop_contexts
+        for workshop_type in contexts
     )
 
 
@@ -332,18 +301,36 @@ def validate_daily_report_contract(
             for value in getattr(contract, "entry_fields", ())
             if str(value).strip()
         )
+        entry_workshop_types = _normalize_entry_workshop_types(
+            getattr(contract, "entry_workshop_types", ())
+        )
         if entry_route == ENTRY_FILL_ROUTE and not entry_fields:
             add(
                 "missing_entry_fields",
                 {"entry_route": ENTRY_FILL_ROUTE},
                 field=field_name,
             )
+        owner_role = str(getattr(contract, "owner_role", "") or "").strip()
+        if (
+            entry_route == ENTRY_FILL_ROUTE
+            and entry_fields
+            and template_module.role_requires_explicit_workshop_scope(owner_role)
+            and not entry_workshop_types
+        ):
+            add(
+                "missing_entry_workshop_scope",
+                {
+                    "owner_role": owner_role,
+                    "entry_route": entry_route,
+                },
+                field=field_name,
+            )
+            continue
         for alias in entry_fields:
-            owner_role = str(getattr(contract, "owner_role", "") or "").strip()
-            if not _entry_alias_is_writable_in_real_contexts(
-                field_name=field_name,
+            if not _entry_alias_is_writable_in_declared_contexts(
                 owner_role=owner_role,
                 alias=alias,
+                entry_workshop_types=entry_workshop_types,
             ):
                 add(
                     "unknown_entry_field_alias",

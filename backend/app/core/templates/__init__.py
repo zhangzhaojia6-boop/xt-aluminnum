@@ -1110,6 +1110,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
 WORKSHOP_TEMPLATES = DEFAULT_WORKSHOP_TEMPLATES
 
 _POWER_ROLES = frozenset({'admin', 'manager', 'factory_director'})
+_GLOBAL_CONTEXT_EXTRA_FILTER_ROLES = frozenset({'planning_owner'})
 
 ROLE_FIELD_MAPPING = {
     'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
@@ -1139,6 +1140,13 @@ def role_field_mapping_for_context(role: str, workshop_type: str | None) -> dict
     if role == 'consumable_stat' and normalized_workshop_type == 'inventory':
         return {'direct_fields': INVENTORY_OWNER_FIELDS, 'label': '成品库'}
     return ROLE_FIELD_MAPPING.get(role)
+
+
+def role_requires_explicit_workshop_scope(owner_role: str) -> bool:
+    mapping = role_field_mapping_for_context(owner_role, None)
+    if mapping is None or 'direct_fields' in mapping:
+        return False
+    return owner_role not in _GLOBAL_CONTEXT_EXTRA_FILTER_ROLES
 
 
 def _field_name(field: Mapping[str, Any]) -> str:
@@ -1237,7 +1245,7 @@ from app.core.templates import permissions as permissions
 from app.core.templates import resolver as resolver
 
 _MODULES = (resolver, loader, permissions)
-_PUBLIC_ALL = ['WORK_ORDER_FIELD_NAMES', 'WORK_ORDER_ENTRY_FIELD_NAMES', 'NUMERIC_FIELD_NAMES', 'TIME_FIELD_NAMES', 'WORKSHOP_TYPE_BY_WORKSHOP_CODE', 'WORKSHOP_TYPE_ALIASES', 'ENERGY_OWNER_FIELDS', 'MAINTENANCE_OWNER_FIELDS', 'HYDRAULIC_OWNER_FIELDS', 'CONSUMABLE_OWNER_FIELDS', 'CONTRACT_OWNER_FIELDS', 'QC_OWNER_FIELDS', 'INVENTORY_OWNER_FIELDS', 'UTILITY_OWNER_FIELDS', 'SHIPMENT_OUTFLOW_OWNER_FIELDS', 'RECOVERY_OWNER_FIELDS', 'OVERHAUL_OWNER_FIELDS', 'CONTRACT_PROGRESS_FIELDS', 'DEFAULT_WORKSHOP_TEMPLATES', 'WORKSHOP_TEMPLATES', 'ROLE_FIELD_MAPPING', 'role_field_mapping_for_context', 'role_writable_field_names', 'normalize_workshop_type', 'normalize_template_key', 'resolve_template_key', 'resolve_workshop_type', 'get_workshop_template_definition', 'normalize_template_definition_payload', 'get_workshop_template', '_merge_supplemental_sections']
+_PUBLIC_ALL = ['WORK_ORDER_FIELD_NAMES', 'WORK_ORDER_ENTRY_FIELD_NAMES', 'NUMERIC_FIELD_NAMES', 'TIME_FIELD_NAMES', 'WORKSHOP_TYPE_BY_WORKSHOP_CODE', 'WORKSHOP_TYPE_ALIASES', 'ENERGY_OWNER_FIELDS', 'MAINTENANCE_OWNER_FIELDS', 'HYDRAULIC_OWNER_FIELDS', 'CONSUMABLE_OWNER_FIELDS', 'CONTRACT_OWNER_FIELDS', 'QC_OWNER_FIELDS', 'INVENTORY_OWNER_FIELDS', 'UTILITY_OWNER_FIELDS', 'SHIPMENT_OUTFLOW_OWNER_FIELDS', 'RECOVERY_OWNER_FIELDS', 'OVERHAUL_OWNER_FIELDS', 'CONTRACT_PROGRESS_FIELDS', 'DEFAULT_WORKSHOP_TEMPLATES', 'WORKSHOP_TEMPLATES', 'ROLE_FIELD_MAPPING', 'role_field_mapping_for_context', 'role_requires_explicit_workshop_scope', 'role_writable_field_names', 'normalize_workshop_type', 'normalize_template_key', 'resolve_template_key', 'resolve_workshop_type', 'get_workshop_template_definition', 'normalize_template_definition_payload', 'get_workshop_template', '_merge_supplemental_sections']
 
 
 def _all_names() -> set[str]:

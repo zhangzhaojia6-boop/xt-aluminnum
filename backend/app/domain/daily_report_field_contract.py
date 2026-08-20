@@ -101,6 +101,7 @@ class DailyReportFieldContract:
     fill_strategy: str
     entry_route: str
     entry_fields: tuple[str, ...]
+    entry_workshop_types: tuple[str, ...]
     next_step: str
     reference_role: str = REFERENCE_ROLE_COMPARE_ONLY
     contract_version: str = DAILY_REPORT_FIELD_CONTRACT_VERSION
@@ -116,6 +117,7 @@ class DailyReportGapAction:
     owner_role: str
     deadline: str
     entry_fields: tuple[str, ...]
+    entry_workshop_types: tuple[str, ...]
     next_step: str
 
 
@@ -126,6 +128,7 @@ _GROUP_GAP_DEFAULTS: dict[str, dict[str, object]] = {
         "fill_strategy": "dependency_fill",
         "owner_role": "factory_dispatch",
         "entry_fields": (),
+        "entry_workshop_types": (),
         "next_step": "先查钉钉日报消息和 MES/WMS 最终口径；没有最终来源时由负责人扫码补录。",
     },
     "workshop_output": {
@@ -134,6 +137,7 @@ _GROUP_GAP_DEFAULTS: dict[str, dict[str, object]] = {
         "fill_strategy": "shift_report",
         "owner_role": "machine_operator",
         "entry_fields": ("output_weight",),
+        "entry_workshop_types": (),
         "next_step": "优先查钉钉车间日报；MES 过程数据只做证据，最终缺口由车间或日报负责人扫码补录。",
     },
     "manual_supplement": {
@@ -142,6 +146,7 @@ _GROUP_GAP_DEFAULTS: dict[str, dict[str, object]] = {
         "fill_strategy": "source_recheck",
         "owner_role": "factory_dispatch",
         "entry_fields": (),
+        "entry_workshop_types": (),
         "next_step": "这类字段通常不在 MES 最终页里，优先由专项负责人扫码补录或提交钉钉证据。",
     },
     "wip": {
@@ -150,6 +155,7 @@ _GROUP_GAP_DEFAULTS: dict[str, dict[str, object]] = {
         "fill_strategy": "source_recheck",
         "owner_role": "planning_owner",
         "entry_fields": (),
+        "entry_workshop_types": (),
         "next_step": "先查 MES 在制快照并复核单位；MES 口径缺失或截图为准时，由专项负责人补在制证据。",
     },
     "energy": {
@@ -158,6 +164,7 @@ _GROUP_GAP_DEFAULTS: dict[str, dict[str, object]] = {
         "fill_strategy": "source_recheck",
         "owner_role": "energy_chief",
         "entry_fields": (),
+        "entry_workshop_types": (),
         "next_step": "优先采用钉钉能耗表或电工扫码填报；物联网能耗库未配置时不要强算正式值。",
     },
     "contract_input": {
@@ -166,6 +173,7 @@ _GROUP_GAP_DEFAULTS: dict[str, dict[str, object]] = {
         "fill_strategy": "source_recheck",
         "owner_role": "planning_owner",
         "entry_fields": (),
+        "entry_workshop_types": (),
         "next_step": "合同、投料、入库先查 MES/WMS 最终单据；缺少最终口径时由内勤或日报负责人补录。",
     },
     "yield": {
@@ -174,6 +182,7 @@ _GROUP_GAP_DEFAULTS: dict[str, dict[str, object]] = {
         "fill_strategy": "dependency_fill",
         "owner_role": "quality_owner",
         "entry_fields": (),
+        "entry_workshop_types": (),
         "next_step": "成品率必须保留分子分母；缺任一输入时由质量或日报负责人确认后补录。",
     },
     "cost": {
@@ -182,6 +191,7 @@ _GROUP_GAP_DEFAULTS: dict[str, dict[str, object]] = {
         "fill_strategy": "dependency_fill",
         "owner_role": "factory_dispatch",
         "entry_fields": (),
+        "entry_workshop_types": (),
         "next_step": "成本依赖电费、气费和折算吨数；缺输入时先补能耗和产量，再由负责人确认。",
     },
 }
@@ -191,6 +201,7 @@ _COMPUTED_GAP_DEFAULTS: dict[str, object] = {
     "fill_strategy": "dependency_fill",
     "owner_role": "factory_dispatch",
     "entry_fields": (),
+    "entry_workshop_types": (),
 }
 
 _FIELD_GAP_OVERRIDES: dict[str, dict[str, object]] = {
@@ -327,6 +338,51 @@ _FIELD_GAP_OVERRIDES: dict[str, dict[str, object]] = {
         "owner_role": "shipment_outflow_owner",
         "entry_fields": ("daily_shearing_output",),
     },
+    "cast_roll_active_lines": {
+        "entry_workshop_types": ("casting",),
+    },
+    "foundry_daily": {
+        "entry_workshop_types": ("casting",),
+    },
+    "hot_roll_daily": {
+        "entry_workshop_types": ("hot_roll",),
+    },
+    "cold_1650_daily": {
+        "entry_workshop_types": ("cold_roll",),
+    },
+    "cold_1650_pass_daily": {
+        "entry_workshop_types": ("cold_roll",),
+    },
+    "cold_1850_daily": {
+        "entry_workshop_types": ("cold_roll",),
+    },
+    "cold_1850_pass_daily": {
+        "entry_workshop_types": ("cold_roll",),
+    },
+    "cold_2050_daily": {
+        "entry_workshop_types": ("cold_roll",),
+    },
+    "cold_2050_pass_daily": {
+        "entry_workshop_types": ("cold_roll",),
+    },
+    "rolling_daily": {
+        "entry_workshop_types": ("cold_roll",),
+    },
+    "rolling_pass_daily": {
+        "entry_workshop_types": ("cold_roll",),
+    },
+    "online_anneal_daily": {
+        "entry_workshop_types": ("annealing",),
+    },
+    "straightening_daily": {
+        "entry_workshop_types": ("straightening",),
+    },
+    "finishing_daily": {
+        "entry_workshop_types": ("finishing",),
+    },
+    "coating_daily": {
+        "entry_workshop_types": ("coating",),
+    },
 }
 
 
@@ -441,6 +497,9 @@ def _build_contract(field_name: str) -> DailyReportFieldContract:
         fill_strategy=str(gap_action["fill_strategy"]),
         entry_route=str(gap_action["entry_route"]),
         entry_fields=tuple(str(value) for value in gap_action["entry_fields"]),
+        entry_workshop_types=tuple(
+            str(value) for value in gap_action.get("entry_workshop_types", ()) if str(value).strip()
+        ),
         next_step=str(gap_action["next_step"]),
     )
 
@@ -457,6 +516,7 @@ def _build_gap_action(field_name: str) -> DailyReportGapAction:
             owner_role=contract.owner_role,
             deadline=contract.deadline,
             entry_fields=contract.entry_fields,
+            entry_workshop_types=contract.entry_workshop_types,
             next_step=contract.next_step,
         )
 
@@ -471,6 +531,9 @@ def _build_gap_action(field_name: str) -> DailyReportGapAction:
         owner_role=str(gap_action["owner_role"]),
         deadline=_gap_deadline(gap_action),
         entry_fields=tuple(str(value) for value in gap_action["entry_fields"]),
+        entry_workshop_types=tuple(
+            str(value) for value in gap_action.get("entry_workshop_types", ()) if str(value).strip()
+        ),
         next_step=str(gap_action["next_step"]),
     )
 
