@@ -106,6 +106,97 @@ def test_contract_units_and_tolerances_cover_representative_field_kinds() -> Non
     assert contract_module.daily_report_field_contract_for("finished_inbound_month").unit == "吨"
 
 
+def test_finished_inbound_daily_contract_exposes_fill_schema() -> None:
+    contract = contract_module.daily_report_field_contract_for("finished_inbound_daily")
+
+    assert contract.owner_role == "storage_owner"
+    assert contract.entry_route == "/entry/fill"
+    assert contract.entry_fields == ("park_inbound_daily", "new_plant_inbound_daily")
+    assert contract.deadline
+
+
+@pytest.mark.parametrize(
+    ("field_name", "expected"),
+    (
+        (
+            "total_output_daily",
+            {
+                "source_lane": "dingtalk_or_final_daily_report",
+                "entry_route": "/manage/alerts",
+                "fill_strategy": "dependency_fill",
+                "owner_role": "factory_dispatch",
+                "entry_fields": (),
+                "deadline": "10:00",
+            },
+        ),
+        (
+            "finished_inbound_daily",
+            {
+                "source_lane": "dingtalk_or_wms_final",
+                "entry_route": "/entry/fill",
+                "fill_strategy": "owner_daily",
+                "owner_role": "storage_owner",
+                "entry_fields": ("park_inbound_daily", "new_plant_inbound_daily"),
+                "deadline": contract_module.OWNER_DAILY_LATE_TIME,
+            },
+        ),
+        (
+            "wip_total",
+            {
+                "source_lane": "mes_wip_snapshot_or_dingtalk",
+                "entry_route": "/entry/fill",
+                "fill_strategy": "owner_daily",
+                "owner_role": "planning_owner",
+                "entry_fields": ("wip_total",),
+                "deadline": contract_module.OWNER_DAILY_LATE_TIME,
+            },
+        ),
+        (
+            "total_electricity_kwh",
+            {
+                "source_lane": "dingtalk_or_scan_fill_energy",
+                "entry_route": "/entry/fill",
+                "fill_strategy": "owner_daily",
+                "owner_role": "energy_chief",
+                "entry_fields": ("total_electricity_kwh",),
+                "deadline": contract_module.OWNER_DAILY_LATE_TIME,
+            },
+        ),
+        (
+            "daily_yield_rate",
+            {
+                "source_lane": "computed_or_quality_confirmation",
+                "entry_route": "/entry/fill",
+                "fill_strategy": "owner_confirmation",
+                "owner_role": "quality_owner",
+                "entry_fields": ("plant_wide_yield_rate",),
+                "deadline": contract_module.OWNER_DAILY_LATE_TIME,
+            },
+        ),
+    ),
+)
+def test_high_value_gap_action_projection_comes_from_domain_contract(
+    field_name: str,
+    expected: dict[str, object],
+) -> None:
+    action = contract_module.daily_report_gap_action_for(field_name)
+
+    assert isinstance(action, contract_module.DailyReportGapAction)
+    assert action.field == field_name
+    assert action.group == contract_module.daily_report_field_contract_for(field_name).group
+    assert action.source_lane == expected["source_lane"]
+    assert action.entry_route == expected["entry_route"]
+    assert action.fill_strategy == expected["fill_strategy"]
+    assert action.owner_role == expected["owner_role"]
+    assert action.entry_fields == expected["entry_fields"]
+    assert action.deadline == expected["deadline"]
+    assert action.next_step
+
+    contract = contract_module.daily_report_field_contract_for(field_name)
+    assert contract.gap_source_lane == action.source_lane
+    assert action.source_lane != contract.source_lanes[0]
+
+
 def test_existing_metric_tolerance_lookup_reuses_normative_contract() -> None:
     for field_name, contract in contract_module.DAILY_REPORT_FIELD_CONTRACTS.items():
         assert metric_contracts.daily_report_tolerance_for(field_name) == contract.tolerance
