@@ -30,7 +30,7 @@ This plan is invalid and must stop if a fresh pre-implementation query no longer
 - Test: `backend/tests/test_daily_report_field_contract.py`
 - Test: `backend/tests/test_daily_report_gap_analysis.py`
 
-- [ ] **Step 1: RED — require the metadata schema and five representative actions**
+- [x] **Step 1: RED — require the metadata schema and five representative actions**
 
 Add one schema-level test. Existing tests already cover the 127 count, tolerance and source order, so do not duplicate those loops here.
 
@@ -45,7 +45,7 @@ def test_field_contract_exposes_gap_metadata_schema() -> None:
 
 Run only this test and confirm it fails because the current contract lacks action metadata.
 
-- [ ] **Step 2: GREEN — add group defaults and field overrides to the contract**
+- [x] **Step 2: GREEN — add group defaults and field overrides to the contract**
 
 Extend the frozen contract with:
 
@@ -60,7 +60,7 @@ next_step: str
 
 Move the existing observable values from `GROUP_ACTIONS`, `FIELD_ACTIONS`, and `_is_computed_field` into private group defaults and field overrides in `daily_report_field_contract.py`. Preserve current owner, route, entry fields, fill strategy, gap-specific `source_lane` and next-step text exactly. Do not derive the gap source lane from `source_lanes[0]`; they describe different interfaces. `/entry/fill` actions use the existing `OWNER_DAILY_LATE_TIME`; automatic/dependency actions use the existing `10:00` report cutoff and are not rendered as human deadlines. Use the existing contract version because this is backward-compatible metadata completion, not a field-set or source-order change.
 
-- [ ] **Step 3: RED — require one contract gap projection**
+- [x] **Step 3: RED — require one contract gap projection**
 
 Add focused public tests for these high-value fields:
 
@@ -80,7 +80,7 @@ for field in (
 
 Confirm RED because `daily_report_gap_action_for()` does not exist.
 
-- [ ] **Step 4: GREEN — delegate the compatibility classifier to the contract**
+- [x] **Step 4: GREEN — delegate the compatibility classifier to the contract**
 
 Add immutable `DailyReportGapAction` and `daily_report_gap_action_for(field_name)`. Change `classify_daily_report_field_gap()` to return its compatibility dictionary. Then delete `GROUP_ACTIONS`, `FIELD_ACTIONS`, and `_is_computed_field` from `daily_report_gap_analysis.py`.
 
@@ -99,7 +99,7 @@ python -m pytest backend/tests/test_daily_report_field_contract.py backend/tests
 - Test: `backend/tests/test_daily_fact_gap_closure_service.py`
 - Test: `backend/tests/test_persisted_daily_fact_surface.py`
 
-- [ ] **Step 1: RED — require provenance on a real open event**
+- [x] **Step 1: RED — require provenance on a real open event**
 
 Extend one existing event test:
 
@@ -113,11 +113,11 @@ Confirm RED on the missing keys.
 
 Add one legacy-payload test proving an event without `action_route`, `entry_fields`, `owner_role`, `deadline` or `contract_version` still renders through the existing safe fallback.
 
-- [ ] **Step 2: GREEN — propagate metadata without resetting event history**
+- [x] **Step 2: GREEN — propagate metadata without resetting event history**
 
 Carry `deadline` and `contract_version` from `classify_daily_report_field_gap()` through `_real_source_gap_items()` into create, reopen and refresh payload paths. Preserve first-detected trace, notification dedupe and resolution history.
 
-- [ ] **Step 3: RED — require the persisted alert surface to expose provenance**
+- [x] **Step 3: RED — require the persisted alert surface to expose provenance**
 
 Add to the existing surface test:
 
@@ -127,7 +127,7 @@ assert item["deadline"]
 assert item["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
 ```
 
-- [ ] **Step 4: GREEN — add two fields to the existing surface**
+- [x] **Step 4: GREEN — add two fields to the existing surface**
 
 In `build_persisted_daily_fact_surface`, copy only `deadline` and `contract_version` from event payload. Do not change routes, status, source priority or alert grouping. Update exact-dictionary assertions for the two intentional fields; use subset assertions only in the legacy compatibility test.
 
@@ -145,15 +145,15 @@ python -m pytest backend/tests/test_daily_fact_gap_closure_service.py backend/te
 - Modify: `frontend/src/views/manage/alerts/AlertsPage.vue`
 - Test: `frontend/tests/manageAlertsTimeline.test.js`
 
-- [ ] **Step 1: RED — normalize and render an action deadline**
+- [x] **Step 1: RED — normalize and render an action deadline**
 
 Extend one existing daily-fact alert fixture with `deadline: "09:30"` and `contract_version`. Assert the normalizer accepts snake_case input, exposes `deadline` plus camelCase `contractVersion`, and queue metadata contains `截止 09:30` for a human `/entry/fill` action. Add a legacy fixture without deadline/version; it must render normally and must not contain `截止`.
 
-- [ ] **Step 2: GREEN — preserve provenance and add compact queue metadata**
+- [x] **Step 2: GREEN — preserve provenance and add compact queue metadata**
 
 Add `deadline` and `contractVersion` to `dailyFactEvent()`. In `queueItemMeta()`, put `截止 ${item.deadline}` first and only for `/entry/fill`; keep the owner second. When mobile space is tight, omit the low-value “补录入口已发送/待发送” phrase before omitting the deadline or owner. Do not add explanatory copy, cards, tooltips or a new page.
 
-- [ ] **Step 3: Run the focused frontend test**
+- [x] **Step 3: Run the focused frontend test**
 
 ```powershell
 cd frontend
@@ -171,7 +171,7 @@ node --test --test-name-pattern="daily fact|deadline|work queue" tests/manageAle
 - Read only: `backend/app/core/templates/__init__.py`
 - Read only: `backend/app/routers/mobile.py`
 
-- [ ] **Step 1: RED — reject unknown entry fields and incomplete metadata**
+- [x] **Step 1: RED — reject unknown entry fields and incomplete metadata**
 
 Add one contract validation path that fails when:
 
@@ -182,11 +182,11 @@ Add one contract validation path that fails when:
 - a tolerance exceeds 20;
 - output-skill reference is not compare-only.
 
-- [ ] **Step 2: GREEN — implement read-only validation**
+- [x] **Step 2: GREEN — implement read-only validation**
 
 Put `validate_daily_report_contract()` in `daily_report_contract_validation.py`, not in the domain module. It may import the domain contract and `app.core.templates`; the domain must not import routers, services or FastAPI. Make `check_daily_report_field_contract.py --json` call this adapter and fail non-zero on errors. Add focused `/mobile/entry-fields` tests proving the five representative aliases are visible to their responsible roles. Do not modify form templates or the endpoint response shape.
 
-- [ ] **Step 3: Run contract gates**
+- [x] **Step 3: Run contract gates**
 
 ```powershell
 $env:PYTHONPATH='backend'

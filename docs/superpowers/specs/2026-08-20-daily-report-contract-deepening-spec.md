@@ -35,7 +35,7 @@
   -> daily_report_gap_analysis.py
 
 真实表单控件
-  -> workshop_templates.py + mobile.py
+  -> core/templates + mobile.py
 ```
 
 同一个日报字段需要跨多个模块才能回答“是什么、从哪来、谁负责、何时截止、怎么补”。这使后续 Hermes 主动追缺、行动批次聚合和 `/entry/fill` 容易产生规则漂移。
@@ -110,6 +110,7 @@ deadline: str
 fill_strategy: str
 entry_route: str
 entry_fields: tuple[str, ...]
+entry_workshop_types: tuple[str, ...]
 validation_kind: str
 minimum: float | None
 applicability_policy: str
@@ -127,6 +128,7 @@ fill_strategy: str
 owner_role: str
 deadline: str
 entry_fields: tuple[str, ...]
+entry_workshop_types: tuple[str, ...]
 next_step: str
 contract_version: str
 ```
@@ -180,6 +182,8 @@ contract_version: str
 新增合同校验：
 
 - 合同声明的每个 `entry_field` 必须存在于当前既有表单模板定义。
+- 需要车间上下文的角色必须由合同显式声明 `entry_workshop_types`，禁止按字段名前缀推断。
+- 每个补录 alias 必须在声明的角色与车间上下文中真实可写，不能只是在某个模板里出现过。
 - `/entry/fill` 行动必须至少有一个可填写字段。
 - 依赖型或自动复查型字段必须进入 `/manage/alerts`，不能伪造人工输入控件。
 
