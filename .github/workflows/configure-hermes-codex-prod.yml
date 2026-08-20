@@ -274,6 +274,14 @@ jobs:
           disabled_toolsets = agent_config.get("disabled_toolsets")
           dingtalk_toolsets = platform_toolsets.get("dingtalk")
           approval_mode = safe(approvals_config.get("mode"))
+          expected_fallback_model = "gpt-5.6-sol" if expected_model == "gpt-5.6-luna" else "gpt-5.6-luna"
+          fallback_chain = config.get("fallback_providers")
+          first_fallback = fallback_chain[0] if isinstance(fallback_chain, list) and fallback_chain else {}
+          codex_fallback_ready = (
+              isinstance(first_fallback, dict)
+              and first_fallback.get("provider") == "openai-codex"
+              and first_fallback.get("model") == expected_fallback_model
+          )
           full_access_ready = (
               adaptive_config.get("enabled") is True
               and fast_effort == expected_fast_effort
@@ -287,6 +295,7 @@ jobs:
               and provider == "openai-codex"
               and model == expected_model
               and reasoning_effort == expected_reasoning_effort
+              and codex_fallback_ready
               and full_access_ready
           )
           print(f"HERMES_CODEX_AUTH_LOGGED_IN={'yes' if logged_in else 'no'}")
@@ -298,6 +307,8 @@ jobs:
           print(f"HERMES_DINGTALK_TOOLSET={safe(','.join(dingtalk_toolsets or []))}")
           print(f"HERMES_DISABLED_TOOLSETS={len(disabled_toolsets) if isinstance(disabled_toolsets, list) else 'unset'}")
           print(f"HERMES_APPROVALS_MODE={approval_mode}")
+          print(f"HERMES_CODEX_FALLBACK={safe(first_fallback.get('model'))}")
+          print(f"HERMES_CODEX_FALLBACK_READY={'yes' if codex_fallback_ready else 'no'}")
           print(f"HERMES_FULL_ACCESS_READY={'yes' if full_access_ready else 'no'}")
           print(f"HERMES_CODEX_READY={'yes' if ready else 'no'}")
           raise SystemExit(0 if ready else 1)
@@ -360,6 +371,23 @@ jobs:
           model_config["base_url"] = DEFAULT_CODEX_BASE_URL
           clear_model_endpoint_credentials(model_config)
           config["model"] = model_config
+
+          fallback_model = "gpt-5.6-sol" if model == "gpt-5.6-luna" else "gpt-5.6-luna"
+          existing_fallbacks = config.get("fallback_providers")
+          retained_fallbacks = [
+              dict(item)
+              for item in existing_fallbacks
+              if isinstance(item, dict) and item.get("provider") != "openai-codex"
+          ] if isinstance(existing_fallbacks, list) else []
+          config["fallback_providers"] = [
+              {
+                  "provider": "openai-codex",
+                  "model": fallback_model,
+                  "base_url": DEFAULT_CODEX_BASE_URL,
+              },
+              *retained_fallbacks,
+          ]
+          config.pop("fallback_model", None)
 
           current_agent = config.get("agent")
           agent_config = dict(current_agent) if isinstance(current_agent, dict) else {}

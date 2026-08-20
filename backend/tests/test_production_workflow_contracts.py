@@ -2005,6 +2005,9 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'platform_toolsets["dingtalk"] = ["hermes-dingtalk"]' in source
     assert 'approvals_config["mode"] = "off"' in source
     assert 'HERMES_FULL_ACCESS_READY=' in source
+    assert 'HERMES_CODEX_FALLBACK_READY=' in source
+    assert 'config["fallback_providers"]' in source
+    assert '"gpt-5.6-sol" if model == "gpt-5.6-luna" else "gpt-5.6-luna"' in source
     assert 'HERMES_CODEX_CONFIG_VERIFIED' in source
     assert 'run_as_service_with_timeout 240s' in source
     assert '--provider openai-codex --model "$MODEL" -z "$inference_prompt"' in source
