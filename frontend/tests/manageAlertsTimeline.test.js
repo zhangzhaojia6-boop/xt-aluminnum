@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createAlertsTimeline } from '../src/composables/useAlertsTimeline.js'
-import { buildAlertWorkQueues } from '../src/components/manage/_alertEventNormalize.js'
+import { buildAlertQueueItemMeta, buildAlertWorkQueues } from '../src/components/manage/_alertEventNormalize.js'
 
 function makeFakes({ fdOk = true, qOk = true, rOk = true, liveOk = true } = {}) {
   return {
@@ -265,6 +265,8 @@ test('open fact task keeps management trace route separate from the owner fill a
         owner_role: 'energy_chief',
         fill_strategy: 'owner_daily',
         delivery_status: 'sent',
+        deadline: '09:30',
+        contract_version: '2026-07-18',
       }],
     }),
     now: new Date('2026-05-20T08:00:00'),
@@ -286,6 +288,8 @@ test('open fact task keeps management trace route separate from the owner fill a
   assert.equal(t.events.value[0].ownerRole, 'energy_chief')
   assert.equal(t.events.value[0].fillStrategy, 'owner_daily')
   assert.equal(t.events.value[0].deliveryStatus, 'sent')
+  assert.equal(t.events.value[0].deadline, '09:30')
+  assert.equal(t.events.value[0].contractVersion, '2026-07-18')
 
   const reportingQueue = buildAlertWorkQueues(t.events.value)
     .find((queue) => queue.key === 'reporting')
@@ -338,6 +342,61 @@ test('reporting work queue shows open owner fill actions before resolved facts',
   assert.equal(reportingQueue.items[0].actionRoute, '/entry/fill?field=foundry_daily')
   assert.equal(reportingQueue.items[1].id, 'source-review')
   assert.equal(reportingQueue.items[2].id, 'resolved-fact')
+})
+
+test('work queue meta puts deadline first and owner second for manual fill alerts', () => {
+  const reportingQueue = buildAlertWorkQueues([
+    {
+      id: 'owner-fill-deadline',
+      groupKey: 'daily-fact:owner-fill-deadline',
+      domain: 'reporting',
+      summary: '待责任人补录',
+      detailRoute: '/manage/alerts?trace_id=owner-fill-deadline',
+      actionRoute: '/entry/fill?field=total_electricity_kwh',
+      ownerRole: 'energy_chief',
+      deliveryStatus: 'sent',
+      deadline: '09:30',
+      status: 'open',
+    },
+  ]).find((queue) => queue.key === 'reporting')
+
+  assert.equal(reportingQueue.items[0].deadline, '09:30')
+  assert.equal(
+    buildAlertQueueItemMeta(reportingQueue.items[0], { energy_chief: '全厂总电工' }),
+    '截止 09:30 · 全厂总电工'
+  )
+})
+
+test('legacy work queue item without deadline still renders and does not show fake deadline', async () => {
+  const t = createAlertsTimeline({
+    ...makeEmptyFakes(),
+    fetchDailyProduction: async () => ({
+      fact_closure_available: true,
+      fact_missing: [{
+        id: 'legacy-fill',
+        field: 'finished_inbound_daily',
+        status: 'open',
+        target_date: '2026-05-19',
+        trace_id: 'trace-legacy-fill',
+        detail_route: '/manage/alerts?trace_id=trace-legacy-fill',
+        action_route: '/entry/fill?business_date=2026-05-19&field=finished_inbound_daily',
+        owner_role: 'quality_owner',
+        fill_strategy: 'owner_daily',
+        delivery_status: 'pending',
+      }],
+    }),
+    now: new Date('2026-05-20T08:00:00'),
+  })
+
+  await t.load()
+
+  assert.equal(t.events.value[0].deadline, '')
+  assert.equal(t.events.value[0].contractVersion, '')
+  const reportingQueue = buildAlertWorkQueues(t.events.value)
+    .find((queue) => queue.key === 'reporting')
+  const meta = buildAlertQueueItemMeta(reportingQueue.items[0], { quality_owner: '质检内勤' })
+  assert.equal(meta, '质检内勤')
+  assert.doesNotMatch(meta, /截止/)
 })
 
 test('missing canonical capability becomes a system fallback without business counts', async () => {

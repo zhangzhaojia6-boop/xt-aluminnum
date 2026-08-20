@@ -118,6 +118,7 @@ import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import DomainFilterChips from '../../../components/manage/DomainFilterChips.vue'
 import EventTimeline from '../../../components/manage/EventTimeline.vue'
 import {
+  buildAlertQueueItemMeta,
   buildAlertWorkQueues,
   groupAlertEvents,
 } from '../../../components/manage/_alertEventNormalize.js'
@@ -211,16 +212,7 @@ const OWNER_ROLE_LABELS = {
 }
 
 function queueItemMeta(item) {
-  const parts = []
-  if (item.ownerRole) parts.push(OWNER_ROLE_LABELS[item.ownerRole] || item.ownerRole)
-  if (item.actionRoute?.startsWith('/entry/fill')) {
-    parts.push(item.deliveryStatus === 'sent' ? '补录入口已发送' : '待发送补录入口')
-  } else if (item.fillStrategy === 'source_recheck') {
-    parts.push('来源复查')
-  } else if (item.fillStrategy === 'dependency_fill') {
-    parts.push('依赖补齐')
-  }
-  return parts.join(' · ')
+  return buildAlertQueueItemMeta(item, OWNER_ROLE_LABELS)
 }
 const alertStats = computed(() => {
   const total = businessEvents.value.length

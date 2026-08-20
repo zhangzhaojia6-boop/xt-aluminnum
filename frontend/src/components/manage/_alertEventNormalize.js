@@ -368,6 +368,8 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
     ownerRole: row.owner_role || row.ownerRole || '',
     fillStrategy: row.fill_strategy || row.fillStrategy || '',
     deliveryStatus: row.delivery_status || row.deliveryStatus || '',
+    deadline: row.deadline || '',
+    contractVersion: row.contract_version || row.contractVersion || '',
     traceId,
     factStatus,
     status: workflowStatus === 'resolved' ? 'resolved' : 'open',
@@ -523,10 +525,34 @@ export function buildAlertWorkQueues(events = []) {
         ownerRole: event.ownerRole || '',
         fillStrategy: event.fillStrategy || '',
         deliveryStatus: event.deliveryStatus || '',
+        deadline: event.deadline || '',
         status: event.status || 'open',
         rawCount: Number(event.rawCount || 1),
         traceCount: safeArray(event.traceIds).length,
       })),
     }
   })
+}
+
+export function buildAlertQueueItemMeta(item = {}, ownerRoleLabels = {}) {
+  const parts = []
+  const deadline = String(item.deadline || '').trim()
+  const ownerLabel = item.ownerRole
+    ? (ownerRoleLabels[item.ownerRole] || item.ownerRole)
+    : ''
+
+  if (item.actionRoute?.startsWith('/entry/fill') && deadline) {
+    parts.push(`截止 ${deadline}`)
+  }
+  if (ownerLabel) {
+    parts.push(ownerLabel)
+  }
+  if (!item.actionRoute?.startsWith('/entry/fill')) {
+    if (item.fillStrategy === 'source_recheck') {
+      parts.push('来源复查')
+    } else if (item.fillStrategy === 'dependency_fill') {
+      parts.push('依赖补齐')
+    }
+  }
+  return parts.join(' · ')
 }
