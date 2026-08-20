@@ -686,7 +686,20 @@ def test_production_sync_deploy_applies_stream_config_inside_rollback_boundary()
     assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_USERS" "*"' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_CHATS" ""' in apply_body
-    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "false"' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_FREE_RESPONSE_CHATS" ""' in apply_body
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "true"' in apply_body
+    assert 'HERMES_DM_ALLOWED_USERS="666327013924069283,076765530923422118,081323311123422118"' in source
+    assert 'configure_hermes_dingtalk_access()' in source
+    assert 'extra["dm_allowed_users"] = dm_allowed_users' in source
+    assert 'extra["require_mention"] = True' in source
+    assert 'extra["allowed_chats"] = []' in source
+    assert 'extra["free_response_chats"] = []' in source
+    assert 'HERMES_CONFIG_BACKUP="$(backup_env_file "$HERMES_CONFIG_FILE")"' in source
+    assert 'restore_env_backup "$HERMES_CONFIG_FILE" "$HERMES_CONFIG_BACKUP"' in source
+    assert 'HERMES_DM_ALLOWED_USERS_MATCH=' in source
+    assert 'HERMES_GROUP_REQUIRE_MENTION=' in source
+    assert 'HERMES_GROUP_SCOPE=' in source
+    assert 'all_application_groups' in source
     assert 'upsert_env_value "$HERMES_ENV_FILE" "HERMES_LANGUAGE" "zh"' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "XINTAI_SOUL_SYNC_ENABLED" "true"' in apply_body
     assert 'upsert_env_value "$HERMES_ENV_FILE" "XINTAI_EVIDENCE_RELAY_ENABLED" "true"' in apply_body
@@ -740,6 +753,7 @@ def test_production_sync_stream_config_applier_writes_expected_values_without_lo
                 '    printf "%s=%s\\n" "$key" "$value" >> "$file"',
                 '  fi',
                 '}',
+                'configure_hermes_dingtalk_access() { :; }',
                 textwrap.dedent(_extract_shell_function(source, 'apply_dingtalk_stream_config')),
                 'apply_dingtalk_stream_config',
                 '',
@@ -769,7 +783,8 @@ def test_production_sync_stream_config_applier_writes_expected_values_without_lo
     assert f'DINGTALK_CLIENT_SECRET={app_secret}' in hermes_values
     assert 'DINGTALK_ALLOWED_USERS=*' in hermes_values
     assert 'DINGTALK_ALLOWED_CHATS=' in hermes_values
-    assert 'DINGTALK_REQUIRE_MENTION=false' in hermes_values
+    assert 'DINGTALK_FREE_RESPONSE_CHATS=' in hermes_values
+    assert 'DINGTALK_REQUIRE_MENTION=true' in hermes_values
     assert 'HERMES_LANGUAGE=zh' in hermes_values
     assert f'XINTAI_DINGTALK_STREAM_RELAY_TOKEN={relay_token}' in hermes_values
 
@@ -1224,8 +1239,22 @@ def test_configure_dingtalk_stream_prod_workflow_targets_real_gateway_contract()
     assert 'append_remote_assignment()' in source
     assert 'printf -v REMOTE_PREAMBLE' in source
     assert 'AUTHORIZED_GROUP_IDS: ${{ github.event.inputs.authorized_group_ids }}' not in source
-    assert 'DINGTALK_ALLOWED_CHATS' not in source
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_CHATS" ""' in source
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_FREE_RESPONSE_CHATS" ""' in source
     assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_USERS" "*"' in source
+    assert 'HERMES_DM_ALLOWED_USERS="666327013924069283,076765530923422118,081323311123422118"' in source
+    assert 'configure_hermes_dingtalk_access()' in source
+    assert 'extra["dm_allowed_users"] = dm_allowed_users' in source
+    assert 'extra["require_mention"] = True' in source
+    assert 'extra["allowed_chats"] = []' in source
+    assert 'extra["free_response_chats"] = []' in source
+    assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "false"' not in source
+    assert 'hermes_config_backup="$(backup_env_file "$HERMES_CONFIG_FILE" hermes.config)"' in source
+    assert 'restore_env_backup "$HERMES_CONFIG_FILE" "$hermes_config_backup" hermes_config' in source
+    assert 'HERMES_DM_ALLOWED_USERS_MATCH=' in source
+    assert 'HERMES_GROUP_REQUIRE_MENTION=' in source
+    assert 'HERMES_GROUP_SCOPE=' in source
+    assert 'all_application_groups' in source
     assert '^XT-P1-[A-Za-z0-9][A-Za-z0-9._-]{7,120}$' in source
     assert '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' in source
     assert '^[0-9a-f]{64}$' in source
@@ -2389,6 +2418,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                     'HERMES_HOME=/hermes-home',
                     'DATAHUB_ENV_FILE="$PWD/env-datahub"',
                     'HERMES_ENV_FILE="$PWD/env-hermes"',
+                    'HERMES_CONFIG_FILE="$PWD/config-hermes"',
                     'DATAHUB_CHECKOUT_DONE=1',
                     'HERMES_CHECKOUT_DONE=1',
                     'NEEDS_DB_RESTORE=1',
@@ -2401,6 +2431,7 @@ def test_production_sync_status_db_restore_harness_stops_services_before_restore
                     'PREVIOUS_HERMES_HEAD=old-hermes',
                     'DATAHUB_ENV_BACKUP="$PWD/datahub.env.bak"',
                     'HERMES_ENV_BACKUP="$PWD/hermes.env.bak"',
+                    'HERMES_CONFIG_BACKUP="$PWD/hermes.config.bak"',
                     'mkdir -p "$DATAHUB_REPO/backend/.venv/bin" "$DATAHUB_REPO/frontend"',
                     'touch "$DB_BACKUP"',
                     'export MARKER_PATH',
@@ -2481,6 +2512,7 @@ def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
                     'HERMES_HOME=/hermes-home',
                     'DATAHUB_ENV_FILE="$PWD/env-datahub"',
                     'HERMES_ENV_FILE="$PWD/env-hermes"',
+                    'HERMES_CONFIG_FILE="$PWD/config-hermes"',
                     'DATAHUB_CHECKOUT_DONE=0',
                     'HERMES_CHECKOUT_DONE=0',
                     'NEEDS_DB_RESTORE=0',
@@ -2488,6 +2520,7 @@ def test_production_sync_status_rollback_requires_readyz_recovery() -> None:
                     'DATABASE_LIBPQ_URL=postgresql://ignored',
                     'DATAHUB_ENV_BACKUP=' ,
                     'HERMES_ENV_BACKUP=' ,
+                    'HERMES_CONFIG_BACKUP=' ,
                     'mkdir -p "$DATAHUB_REPO/backend/.venv/bin" "$DATAHUB_REPO/frontend"',
                     'printf "#!/usr/bin/env bash\nexit 0\n" > "$DATAHUB_REPO/backend/.venv/bin/python"',
                     'chmod +x "$DATAHUB_REPO/backend/.venv/bin/python"',
@@ -2539,9 +2572,11 @@ def test_configure_dingtalk_apply_failure_restores_env_backups() -> None:
                     f'MARKER_PATH="{marker_path.name}"',
                     'DATAHUB_ENV_FILE=datahub.env',
                     'HERMES_ENV_FILE=hermes.env',
+                    'HERMES_CONFIG_FILE=hermes.config',
                     'HERMES_HOME=/hermes-home',
                     'datahub_env_backup=datahub.env.bak',
                     'hermes_env_backup=hermes.env.bak',
+                    'hermes_config_backup=hermes.config.bak',
                     'restore_env_backup() { echo "restore:$1:$2:$3" >> "$MARKER_PATH"; }',
                     'reload_or_restart_nginx() { echo "nginx" >> "$MARKER_PATH"; }',
                     'restart_hermes_gateway() { systemctl restart hermes-gateway; }',

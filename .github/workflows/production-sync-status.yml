@@ -143,6 +143,7 @@ jobs:
           NEEDS_DB_RESTORE=0
           DATAHUB_ENV_BACKUP=""
           HERMES_ENV_BACKUP=""
+          HERMES_CONFIG_BACKUP=""
           DB_BACKUP=""
           DATABASE_LIBPQ_URL=""
           PREVIOUS_DATAHUB_HEAD="$(git -C "$DATAHUB_REPO" rev-parse HEAD)"
@@ -220,6 +221,8 @@ jobs:
 
           HERMES_HOME="$(detect_hermes_home)"
           HERMES_ENV_FILE="$HERMES_HOME/.env"
+          HERMES_CONFIG_FILE="$HERMES_HOME/config.yaml"
+          HERMES_DM_ALLOWED_USERS="666327013924069283,076765530923422118,081323311123422118"
           HERMES_MANAGED_UV="$HERMES_HOME/bin/uv"
           HERMES_UV_VERSION="0.11.28"
           HERMES_RUNTIME_ENV_ROOT="$HERMES_HOME/runtime-envs"
@@ -1463,6 +1466,7 @@ jobs:
 
             report_managed_uv_state
             report_hermes_runtime
+            report_hermes_dingtalk_access
             if capture_hermes_gateway_command_contract; then
               echo "HERMES_GATEWAY_DEPLOY_CONTRACT=ready"
             else
@@ -1478,6 +1482,70 @@ jobs:
               return 0
             fi
             systemctl restart nginx
+          }
+
+          configure_hermes_dingtalk_access() {
+            local runtime_python="$HERMES_TARGET_RUNTIME_ENV/bin/python"
+            test -x "$runtime_python"
+            HERMES_HOME="$HERMES_HOME" "$runtime_python" -P - "$HERMES_DM_ALLOWED_USERS" <<'PY'
+          import sys
+
+          from hermes_cli.config import get_config_path, read_raw_config, require_readable_config_before_write
+          from utils import atomic_yaml_write
+
+          dm_allowed_users = [item.strip() for item in sys.argv[1].split(",") if item.strip()]
+          if len(dm_allowed_users) != 3 or len(set(dm_allowed_users)) != 3:
+              raise SystemExit("invalid DingTalk DM allowlist")
+
+          config_path = get_config_path()
+          require_readable_config_before_write(config_path)
+          config = read_raw_config()
+          platforms = config.get("platforms")
+          platforms = dict(platforms) if isinstance(platforms, dict) else {}
+          dingtalk = platforms.get("dingtalk")
+          dingtalk = dict(dingtalk) if isinstance(dingtalk, dict) else {}
+          extra = dingtalk.get("extra")
+          extra = dict(extra) if isinstance(extra, dict) else {}
+          extra["dm_allowed_users"] = dm_allowed_users
+          extra["require_mention"] = True
+          extra["allowed_chats"] = []
+          extra["free_response_chats"] = []
+          dingtalk["extra"] = extra
+          platforms["dingtalk"] = dingtalk
+          config["platforms"] = platforms
+          atomic_yaml_write(config_path, config, sort_keys=False)
+          print("HERMES_DINGTALK_ACCESS_CONFIGURED=yes")
+          PY
+          }
+
+          report_hermes_dingtalk_access() {
+            local runtime_python=""
+            local runtime_pid
+            if [ -n "$HERMES_TARGET_RUNTIME_ENV" ] && [ -x "$HERMES_TARGET_RUNTIME_ENV/bin/python" ]; then
+              runtime_python="$HERMES_TARGET_RUNTIME_ENV/bin/python"
+            else
+              runtime_pid="$(systemctl show -p MainPID --value hermes-gateway)"
+              runtime_python="$(resolve_hermes_runtime_python "$runtime_pid")"
+            fi
+            HERMES_HOME="$HERMES_HOME" "$runtime_python" -P - "$HERMES_DM_ALLOWED_USERS" <<'PY'
+          import sys
+
+          from hermes_cli.config import read_raw_config
+
+          expected = {item.strip() for item in sys.argv[1].split(",") if item.strip()}
+          config = read_raw_config()
+          platforms = config.get("platforms") if isinstance(config, dict) else {}
+          dingtalk = platforms.get("dingtalk") if isinstance(platforms, dict) else {}
+          extra = dingtalk.get("extra") if isinstance(dingtalk, dict) else {}
+          extra = extra if isinstance(extra, dict) else {}
+          actual = {str(item).strip() for item in extra.get("dm_allowed_users", []) if str(item).strip()}
+          mention_required = extra.get("require_mention") is True
+          all_groups = not extra.get("allowed_chats") and not extra.get("free_response_chats")
+          print(f"HERMES_DM_ALLOWED_USER_COUNT={len(actual)}")
+          print(f"HERMES_DM_ALLOWED_USERS_MATCH={'yes' if actual == expected else 'no'}")
+          print(f"HERMES_GROUP_REQUIRE_MENTION={'yes' if mention_required else 'no'}")
+          print(f"HERMES_GROUP_SCOPE={'all_application_groups' if all_groups else 'restricted'}")
+          PY
           }
 
           apply_dingtalk_stream_config() {
@@ -1524,12 +1592,14 @@ jobs:
             upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_CLIENT_SECRET" "$stream_app_secret"
             upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_USERS" "*"
             upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_ALLOWED_CHATS" ""
-            upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "false"
+            upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_FREE_RESPONSE_CHATS" ""
+            upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "true"
             upsert_env_value "$HERMES_ENV_FILE" "HERMES_LANGUAGE" "zh"
             upsert_env_value "$HERMES_ENV_FILE" "XINTAI_SOUL_SYNC_ENABLED" "true"
             upsert_env_value "$HERMES_ENV_FILE" "XINTAI_EVIDENCE_RELAY_ENABLED" "true"
             upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DATAHUB_BASE_URL" "http://127.0.0.1:8000"
             upsert_env_value "$HERMES_ENV_FILE" "XINTAI_DINGTALK_STREAM_RELAY_TOKEN" "$stream_relay_token"
+            configure_hermes_dingtalk_access
             echo "HERMES_DINGTALK_ALLOWED_USERS_SCOPE=enterprise_app"
             echo "DINGTALK_STREAM_CONFIGURATION_APPLIED=yes"
           }
@@ -1592,6 +1662,11 @@ jobs:
             fi
             if ! restore_env_backup "$HERMES_ENV_FILE" "$HERMES_ENV_BACKUP"; then
               echo "ROLLBACK_FAILED_HERMES_ENV"
+              rollback_failed=1
+              rollback_state_failed=1
+            fi
+            if ! restore_env_backup "$HERMES_CONFIG_FILE" "$HERMES_CONFIG_BACKUP"; then
+              echo "ROLLBACK_FAILED_HERMES_CONFIG"
               rollback_failed=1
               rollback_state_failed=1
             fi
@@ -1719,6 +1794,7 @@ jobs:
 
           DATAHUB_ENV_BACKUP="$(backup_env_file "$DATAHUB_ENV_FILE")"
           HERMES_ENV_BACKUP="$(backup_env_file "$HERMES_ENV_FILE")"
+          HERMES_CONFIG_BACKUP="$(backup_env_file "$HERMES_CONFIG_FILE")"
           backup_hermes_runtime_dropin
 
           trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback_on_error "$rc"; fi' EXIT
