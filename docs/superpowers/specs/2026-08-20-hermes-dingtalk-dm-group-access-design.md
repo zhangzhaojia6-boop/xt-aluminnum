@@ -26,11 +26,19 @@
 
 ## 3. 选定方案
 
-复用现有 NousResearch Hermes 钉钉适配器，增加独立的私聊白名单：
+复用现有 NousResearch Hermes 钉钉适配器，在 `config.yaml` 增加独立的私聊白名单：
 
-```text
-DINGTALK_DM_ALLOWED_USERS=<张兆嘉 userid>,<孟玉杰 userid 1>,<孟玉杰 userid 2>
+```yaml
+platforms:
+  dingtalk:
+    extra:
+      dm_allowed_users:
+        - "666327013924069283"
+        - "076765530923422118"
+        - "081323311123422118"
 ```
+
+NousResearch Hermes 规定非密钥行为配置进入 `config.yaml`，因此不新增 `.env` 行为变量。
 
 群聊授权与私聊授权分开：
 
@@ -49,11 +57,11 @@ DINGTALK_DM_ALLOWED_USERS=<张兆嘉 userid>,<孟玉杰 userid 1>,<孟玉杰 use
 
 ## 4. 配置规则
 
-- `DINGTALK_DM_ALLOWED_USERS`：固定为上述三个 `userid`。
-- `DINGTALK_REQUIRE_MENTION=true`：所有群聊必须真实 `@机器人`。
-- `DINGTALK_ALLOWED_CHATS` 保持为空：不建立硬群边界。
-- `DINGTALK_FREE_RESPONSE_CHATS` 保持为空：没有免 `@` 群。
-- `DINGTALK_ALLOW_ALL_USERS=true`：允许组织成员通过群聊进入网关；私聊仍由适配器的独立白名单先行拦截。
+- `platforms.dingtalk.extra.dm_allowed_users`：固定为上述三个 `userid`。
+- `platforms.dingtalk.extra.require_mention=true`：所有群聊必须真实 `@机器人`。
+- `platforms.dingtalk.extra.allowed_chats` 保持为空：不建立硬群边界。
+- `platforms.dingtalk.extra.free_response_chats` 保持为空：没有免 `@` 群。
+- 保留现有 `DINGTALK_ALLOWED_USERS=*` 基础网关范围，让组织成员可在群聊通过鉴权；私聊由适配器的独立白名单先行拦截。
 - 未授权私聊的行为固定为静默忽略，不返回配对码或提示消息。
 
 ## 5. 权限边界
