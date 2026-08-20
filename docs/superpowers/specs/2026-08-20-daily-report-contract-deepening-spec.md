@@ -62,12 +62,12 @@
 
 一个规范日报字段的静态业务定义，包含：
 
-- 字段标识和显示名称。
+- 字段标识。
 - 分组和单位。
 - 业务时间范围。
 - 容差。
 - 来源计划。
-- 责任角色和升级角色。
+- 责任角色。
 - 截止时间。
 - 缺项处理策略。
 - 补录入口及现有表单字段映射。
@@ -100,14 +100,12 @@ validate_daily_report_contract() -> DailyReportContractValidation
 
 ```python
 field_name: str
-label: str
 group: str
 unit: str
 business_time_scope: str
 tolerance: float
 source_lanes: tuple[str, ...]
 owner_role: str
-escalation_role: str
 deadline: str
 fill_strategy: str
 entry_route: str
@@ -127,7 +125,6 @@ source_lane: str
 entry_route: str
 fill_strategy: str
 owner_role: str
-escalation_role: str
 deadline: str
 entry_fields: tuple[str, ...]
 next_step: str
@@ -188,6 +185,15 @@ contract_version: str
 
 后续迁移 `/mobile/entry-fields` 时复用该 adapter。
 
+### 5.5 管理端现有异常队列
+
+本轮不新建页面，只增强现有 `/manage/alerts`：
+
+- 事实缺项 surface 返回 `deadline` 和 `contract_version`。
+- 前端事件标准化保留这两个字段。
+- 人工补录事项显示截止时间。
+- 自动复查或依赖型事项不伪造人工截止提示。
+
 ## 6. 业务时间与截止
 
 保持现有业务时间事实：
@@ -214,13 +220,14 @@ contract_version: str
 
 - 127 字段集合完全相同。
 - 每个字段原有单位和容差相同。
-- `classify_daily_report_field_gap()` 对现有字段的可观察结果保持兼容，并新增合同版本、升级角色和截止时间。
+- `classify_daily_report_field_gap()` 对现有字段的可观察结果保持兼容，并新增合同版本和截止时间。
 - 当前事实来源排序不变。
 - 当前 `/entry/fill` URL 参数行为不变。
 
 允许改变：
 
-- 缺项事件 payload 新增合同版本、升级角色和截止时间。
+- 缺项事件 payload 新增合同版本和截止时间。
+- 现有异常队列显示人工事项截止时间。
 - 调用者改为读取合同。
 - 重复规则表删除。
 
@@ -240,8 +247,9 @@ contract_version: str
 1. 迁移前后的缺项行动兼容快照一致。
 2. 关键字段 `total_output_daily`、`finished_inbound_daily`、`wip_total`、`total_electricity_kwh`、`daily_yield_rate` 的责任和补录路径正确。
 3. 依赖型字段不生成错误的 `/entry/fill`。
-4. 新建或更新的 `daily_fact_gap` payload 带合同版本、升级角色和截止时间。
+4. 新建或更新的 `daily_fact_gap` payload 带合同版本和截止时间。
 5. 日报 compare-only、MES 只读和钉钉证据测试不回归。
+6. `/manage/alerts` 的人工事项显示合同截止时间，自动事项不显示虚假截止。
 
 ### 9.3 生产门禁
 
@@ -257,6 +265,7 @@ contract_version: str
 - 不自动关闭历史 2725 个开放事件。
 - 不在本轮聚合行动批次。
 - 不新增提醒频率。
+- 不新增升级角色或升级提醒；它们在主动追缺阶段与真实消费者一起设计。
 - 不新增页面。
 - 不重写表单引擎。
 - 不接入尚未提供的能耗数据库。
