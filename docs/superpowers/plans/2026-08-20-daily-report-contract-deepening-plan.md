@@ -201,11 +201,11 @@ Expected contract count: exactly `127`.
 **Files:**
 - Update: `docs/superpowers/plans/2026-08-20-daily-report-contract-deepening-plan.md`
 
-- [ ] **Step 1: Run focused regression suites**
+- [x] **Step 1: Run focused regression suites**
 
 Run contract, gap analysis, gap closure, persisted surface, DailyFactBundle and the single manage-alert test file. Update exact-dictionary fixtures for the two intentional fields. Run frontend build because a production Vue file changed; do not broaden unrelated suites.
 
-- [ ] **Step 2: Run independent review**
+- [x] **Step 2: Run independent review**
 
 Use one code-reviewer and one security-reviewer. Required questions:
 
