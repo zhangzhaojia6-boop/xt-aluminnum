@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date
 from urllib.parse import parse_qs, urlparse
 
+import pytest
+
 from app.services.report.daily_report_gap_analysis import (
     build_daily_report_gap_action_route,
     build_daily_report_gap_plan,
@@ -95,6 +97,27 @@ def test_classifies_wip_total_gap_as_mes_wip_or_planning_owner_fill() -> None:
     assert "在制" in item["next_step"]
 
 
+@pytest.mark.parametrize(
+    ("field_name", "group", "entry_fields"),
+    (
+        ("remaining_contract_delta", "contract_input", ["remaining_contract_delta_weight"]),
+        ("recovery_daily", "manual_supplement", ["recovery_weight"]),
+    ),
+)
+def test_classifies_template_only_gap_fields_without_normative_contract(
+    field_name: str,
+    group: str,
+    entry_fields: list[str],
+) -> None:
+    item = classify_daily_report_field_gap(field_name)
+
+    assert item["field"] == field_name
+    assert item["group"] == group
+    assert item["entry_route"] == "/entry/fill"
+    assert item["fill_strategy"] == "owner_daily"
+    assert item["entry_fields"] == entry_fields
+
+
 def test_gap_plan_combines_missing_fields_and_alignment_differences() -> None:
     plan = build_daily_report_gap_plan(
         missing_fields=["total_electricity_kwh"],
@@ -114,6 +137,24 @@ def test_gap_plan_combines_missing_fields_and_alignment_differences() -> None:
     assert plan["items"][0]["problem_type"] == "missing_field"
     assert plan["items"][1]["field"] == "wip_total"
     assert plan["items"][1]["current_source"] == "mes_wip_distribution"
+
+
+def test_gap_plan_accepts_template_only_missing_fields() -> None:
+    plan = build_daily_report_gap_plan(
+        missing_fields=["remaining_contract_delta", "recovery_daily"],
+        alignment={"differences": []},
+    )
+
+    assert plan["status"] == "needs_action"
+    assert plan["item_count"] == 2
+    assert plan["summary"]["by_group"] == {
+        "contract_input": 1,
+        "manual_supplement": 1,
+    }
+    assert [item["field"] for item in plan["items"]] == [
+        "remaining_contract_delta",
+        "recovery_daily",
+    ]
 
 
 def test_gap_plan_is_ready_when_no_missing_or_difference() -> None:

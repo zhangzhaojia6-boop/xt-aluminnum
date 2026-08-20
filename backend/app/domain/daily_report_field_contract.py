@@ -403,8 +403,15 @@ def _is_computed_gap_field(field_name: str) -> bool:
     )
 
 
+def _group_gap_defaults(group: str) -> dict[str, object]:
+    defaults = _GROUP_GAP_DEFAULTS.get(group)
+    if defaults is None:
+        defaults = _GROUP_GAP_DEFAULTS["opening"]
+    return dict(defaults)
+
+
 def _gap_contract_data(field_name: str, group: str) -> dict[str, object]:
-    data = dict(_GROUP_GAP_DEFAULTS[group])
+    data = _group_gap_defaults(group)
     if _is_computed_gap_field(field_name):
         data.update(_COMPUTED_GAP_DEFAULTS)
     data.update(_FIELD_GAP_OVERRIDES.get(field_name) or {})
@@ -438,24 +445,44 @@ def _build_contract(field_name: str) -> DailyReportFieldContract:
     )
 
 
+def _build_gap_action(field_name: str) -> DailyReportGapAction:
+    contract = DAILY_REPORT_FIELD_CONTRACTS.get(field_name)
+    if contract is not None:
+        return DailyReportGapAction(
+            field=field_name,
+            group=contract.group,
+            source_lane=contract.gap_source_lane,
+            entry_route=contract.entry_route,
+            fill_strategy=contract.fill_strategy,
+            owner_role=contract.owner_role,
+            deadline=contract.deadline,
+            entry_fields=contract.entry_fields,
+            next_step=contract.next_step,
+        )
+
+    group = _field_group(field_name)
+    gap_action = _gap_contract_data(field_name, group)
+    return DailyReportGapAction(
+        field=field_name,
+        group=group,
+        source_lane=str(gap_action["source_lane"]),
+        entry_route=str(gap_action["entry_route"]),
+        fill_strategy=str(gap_action["fill_strategy"]),
+        owner_role=str(gap_action["owner_role"]),
+        deadline=_gap_deadline(gap_action),
+        entry_fields=tuple(str(value) for value in gap_action["entry_fields"]),
+        next_step=str(gap_action["next_step"]),
+    )
+
+
 DAILY_REPORT_FIELD_CONTRACTS = {
     field_name: _build_contract(field_name)
     for field_name in normative_daily_report_fields()
 }
 
 DAILY_REPORT_GAP_ACTIONS = {
-    field_name: DailyReportGapAction(
-        field=field_name,
-        group=contract.group,
-        source_lane=contract.gap_source_lane,
-        entry_route=contract.entry_route,
-        fill_strategy=contract.fill_strategy,
-        owner_role=contract.owner_role,
-        deadline=contract.deadline,
-        entry_fields=contract.entry_fields,
-        next_step=contract.next_step,
-    )
-    for field_name, contract in DAILY_REPORT_FIELD_CONTRACTS.items()
+    field_name: _build_gap_action(field_name)
+    for field_name in _ordered_template_fields()
 }
 
 

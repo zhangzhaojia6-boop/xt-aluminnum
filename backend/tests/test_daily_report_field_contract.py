@@ -202,6 +202,48 @@ def test_existing_metric_tolerance_lookup_reuses_normative_contract() -> None:
         assert metric_contracts.daily_report_tolerance_for(field_name) == contract.tolerance
 
 
+@pytest.mark.parametrize(
+    ("field_name", "expected"),
+    (
+        (
+            "remaining_contract_delta",
+            {
+                "group": "contract_input",
+                "entry_route": "/entry/fill",
+                "fill_strategy": "owner_daily",
+                "owner_role": "planning_owner",
+                "entry_fields": ("remaining_contract_delta_weight",),
+            },
+        ),
+        (
+            "recovery_daily",
+            {
+                "group": "manual_supplement",
+                "entry_route": "/entry/fill",
+                "fill_strategy": "owner_daily",
+                "owner_role": "recovery_owner",
+                "entry_fields": ("recovery_weight",),
+            },
+        ),
+    ),
+)
+def test_template_only_fields_still_expose_gap_actions(
+    field_name: str,
+    expected: dict[str, object],
+) -> None:
+    action = contract_module.daily_report_gap_action_for(field_name)
+
+    assert action.field == field_name
+    assert action.group == expected["group"]
+    assert action.entry_route == expected["entry_route"]
+    assert action.fill_strategy == expected["fill_strategy"]
+    assert action.owner_role == expected["owner_role"]
+    assert action.entry_fields == expected["entry_fields"]
+    assert action.deadline == contract_module.OWNER_DAILY_LATE_TIME
+    assert action.next_step
+    assert field_name not in contract_module.DAILY_REPORT_FIELD_CONTRACTS
+
+
 def test_source_lane_order_is_single_and_answer_key_is_not_a_fact_source() -> None:
     assert contract_module.FACT_SOURCE_LANE_ORDER == (
         contract_module.SOURCE_LANE_DINGTALK,
