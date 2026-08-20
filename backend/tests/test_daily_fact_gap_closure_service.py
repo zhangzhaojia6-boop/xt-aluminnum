@@ -337,6 +337,48 @@ def test_sync_backfills_missing_contract_provenance_on_refresh() -> None:
         db.close()
 
 
+def test_sync_uses_gap_plan_contract_provenance_for_template_only_field() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+
+        sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle={
+                "missing_fields": ["recovery_daily"],
+                "gap_plan": {
+                    "items": [{
+                        "field": "recovery_daily",
+                        "problem_type": "missing_field",
+                        "contract_version": "task1-template-contract",
+                    }],
+                },
+                "fact_closure": {"critical_fields": []},
+            },
+            trace_id="trace-recovery-template-gap",
+            now=NOW,
+        )
+        db.commit()
+
+        event = db.query(AgentEvent).one()
+        assert event.payload["field"] == "recovery_daily"
+        assert event.payload["contract_version"] == "task1-template-contract"
+        assert event.payload["entry_fields"] == ["recovery_weight"]
+        route = urlparse(event.payload["action_route"])
+        assert route.path == "/entry/fill"
+        assert parse_qs(route.query) == {
+            "business_date": ["2026-07-21"],
+            "field": ["recovery_daily"],
+            "entry_fields": ["recovery_weight"],
+            "entry_field": ["recovery_weight"],
+            "owner_role": ["recovery_owner"],
+            "trace_id": ["trace-recovery-template-gap"],
+        }
+    finally:
+        db.close()
+
+
 def test_sync_assigns_missing_wip_total_to_existing_planning_owner_entry() -> None:
     db = _db_session()
     try:

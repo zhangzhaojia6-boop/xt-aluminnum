@@ -396,13 +396,24 @@ def _real_source_gap_items(bundle: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "fill_strategy": str(action.get("fill_strategy") or "source_recheck"),
                 "owner_role": str(action.get("owner_role") or "factory_dispatch"),
                 "deadline": str(action.get("deadline") or ""),
-                "contract_version": daily_report_field_contract_for(field).contract_version,
+                "contract_version": _gap_contract_version(field, raw_action),
                 "entry_fields": list(action.get("entry_fields") or []),
                 "entry_field": action.get("entry_field"),
                 "next_step": str(action.get("next_step") or "请负责人补充可信事实并保留来源。"),
             }
         )
     return items
+
+
+def _gap_contract_version(field: str, payload: Mapping[str, Any] | None = None) -> str | None:
+    if isinstance(payload, Mapping):
+        explicit = str(payload.get("contract_version") or "").strip()
+        if explicit:
+            return explicit
+    try:
+        return daily_report_field_contract_for(field).contract_version
+    except KeyError:
+        return None
 
 
 def _preferred_bound_channel(db: Session) -> CommunicationChannel | None:

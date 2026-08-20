@@ -225,7 +225,7 @@ def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> li
                 "fill_strategy": gap_action["fill_strategy"],
                 "owner_role": gap_action["owner_role"],
                 "deadline": gap_action["deadline"],
-                "contract_version": daily_report_field_contract_for(field).contract_version,
+                "contract_version": _gap_contract_version(field, raw),
                 "entry_fields": gap_action["entry_fields"],
                 "next_step": gap_action["next_step"],
                 "action_route": action_route,
@@ -277,10 +277,7 @@ def _fact_gap_event_alerts(
             continue
         try:
             gap_action = classify_daily_report_field_gap(field)
-            contract_version = str(
-                payload.get("contract_version")
-                or daily_report_field_contract_for(field).contract_version
-            )
+            contract_version = _gap_contract_version(field, payload)
         except KeyError:
             gap_action = {
                 "entry_route": "/manage/alerts",
@@ -289,7 +286,7 @@ def _fact_gap_event_alerts(
                 "owner_role": "factory_dispatch",
                 "deadline": "",
             }
-            contract_version = str(payload.get("contract_version") or "")
+            contract_version = _gap_contract_version(field, payload)
         trace_id = _present_text(
             payload.get("last_checked_trace_id")
             or payload.get("trace_id")
@@ -350,6 +347,17 @@ def _fact_gap_event_alerts(
             }
         )
     return alerts
+
+
+def _gap_contract_version(field: str, payload: Mapping[str, Any] | None = None) -> str | None:
+    if isinstance(payload, Mapping):
+        explicit = str(payload.get("contract_version") or "").strip()
+        if explicit:
+            return explicit
+    try:
+        return daily_report_field_contract_for(field).contract_version
+    except KeyError:
+        return None
 
 
 def _alerts_route(trace_id: str | None) -> str:

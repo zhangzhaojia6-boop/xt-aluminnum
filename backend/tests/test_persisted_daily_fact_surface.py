@@ -20,6 +20,7 @@ from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
 from app.models.system import User
 from app.services.report import daily_overview_builder
+from app.services.report import daily_report_fact_closure
 from app.services.report.daily_report_fact_closure import CRITICAL_DAILY_FACT_FIELDS
 
 
@@ -493,6 +494,45 @@ def test_legacy_fact_gap_event_payload_falls_back_to_contract_defaults(db_sessio
         "&owner_role=storage_owner"
         "&trace_id=trace-legacy-gap"
     )
+
+
+def test_template_only_fact_missing_alert_uses_payload_contract_provenance() -> None:
+    alerts = daily_report_fact_closure._fact_missing_alerts(
+        {
+            "critical_fields": [{
+                "field": "recovery_daily",
+                "status": "missing",
+                "trace_id": "trace-recovery-daily",
+                "contract_version": "task1-template-contract",
+            }],
+        },
+        target_date=TARGET_DATE,
+    )
+
+    assert alerts == [{
+        "field": "recovery_daily",
+        "status": "missing",
+        "trace_id": "trace-recovery-daily",
+        "contract_version": "task1-template-contract",
+        "id": "recovery_daily:missing",
+        "target_date": TARGET_DATE.isoformat(),
+        "summary": "recovery_daily 缺少可信事实",
+        "entry_route": "/entry/fill",
+        "fill_strategy": "owner_daily",
+        "owner_role": "recovery_owner",
+        "deadline": "10:00",
+        "entry_fields": ["recovery_weight"],
+        "next_step": "这类字段通常不在 MES 最终页里，优先由专项负责人扫码补录或提交钉钉证据。",
+        "action_route": (
+            "/entry/fill?business_date=2026-07-07"
+            "&field=recovery_daily"
+            "&entry_fields=recovery_weight"
+            "&entry_field=recovery_weight"
+            "&owner_role=recovery_owner"
+            "&trace_id=trace-recovery-daily"
+        ),
+        "detail_route": "/manage/alerts?trace_id=trace-recovery-daily",
+    }]
 
 
 def test_snapshot_missing_unit_window_or_trace_stays_missing_and_not_confirmed(db_session: Session) -> None:
