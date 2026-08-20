@@ -11,6 +11,7 @@ from app.services.report import template_daily_field_contract
 
 
 EXPECTED_FIELD_COUNT = contract_module.DAILY_REPORT_NORMATIVE_FIELD_COUNT
+EXPECTED_TEMPLATE_FIELD_COUNT = 130
 MAXIMUM_TOLERANCE = 20.0
 EXPECTED_BUSINESS_TIME_STARTS = {
     contract_module.BUSINESS_TIME_STANDARD: "07:50",
@@ -169,6 +170,7 @@ def validate_daily_report_contract(
         if writable_template_fields is None
         else _normalize_writable_template_fields(writable_template_fields)
     )
+    selected_template_fields = set(template_daily_field_contract.all_contract_fields())
     errors: list[dict[str, Any]] = []
 
     def add(code: str, detail: Any, *, field: str | None = None) -> None:
@@ -181,6 +183,14 @@ def validate_daily_report_contract(
         add(
             "field_count_mismatch",
             {"expected": EXPECTED_FIELD_COUNT, "actual": len(selected_fields)},
+        )
+    if len(selected_template_fields) != EXPECTED_TEMPLATE_FIELD_COUNT:
+        add(
+            "template_field_count_mismatch",
+            {
+                "expected": EXPECTED_TEMPLATE_FIELD_COUNT,
+                "actual": len(selected_template_fields),
+            },
         )
 
     duplicates = sorted(
@@ -199,6 +209,16 @@ def validate_daily_report_contract(
             {
                 "missing_contracts": sorted(field_set - contract_set),
                 "extra_contracts": sorted(contract_set - field_set),
+            },
+        )
+    expected_template_only_fields = sorted(contract_module.TEMPLATE_ONLY_FIELD_REASONS)
+    actual_template_only_fields = sorted(selected_template_fields - field_set)
+    if actual_template_only_fields != expected_template_only_fields:
+        add(
+            "template_only_field_mismatch",
+            {
+                "expected": expected_template_only_fields,
+                "actual": actual_template_only_fields,
             },
         )
 
@@ -348,7 +368,7 @@ def validate_daily_report_contract(
     return {
         "contract_version": contract_module.DAILY_REPORT_FIELD_CONTRACT_VERSION,
         "contract_count": len(selected_fields),
-        "template_field_count": len(template_daily_field_contract.all_contract_fields()),
+        "template_field_count": len(selected_template_fields),
         "writable_template_field_count": len(selected_writable_fields),
         "maximum_tolerance": MAXIMUM_TOLERANCE,
         "business_time_starts": selected_business_times,

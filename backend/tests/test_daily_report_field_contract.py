@@ -241,6 +241,54 @@ def test_contract_validation_rejects_alias_when_declared_workshop_scope_is_wrong
     } in payload["errors"]
 
 
+def test_contract_validation_rejects_template_field_count_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    drifted_template_fields = set(template_daily_field_contract.all_contract_fields())
+    drifted_template_fields.add("unexpected_template_field")
+    monkeypatch.setattr(
+        template_daily_field_contract,
+        "all_contract_fields",
+        lambda: drifted_template_fields,
+    )
+
+    payload = daily_report_contract_validation.validate_daily_report_contract(
+        check_document=False,
+    )
+
+    assert {
+        "code": "template_field_count_mismatch",
+        "detail": {"expected": 130, "actual": 131},
+    } in payload["errors"]
+
+
+def test_contract_validation_rejects_template_only_field_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    drifted_template_fields = set(template_daily_field_contract.all_contract_fields())
+    drifted_template_fields.remove("recovery_daily")
+    drifted_template_fields.add("unexpected_template_only")
+    monkeypatch.setattr(
+        template_daily_field_contract,
+        "all_contract_fields",
+        lambda: drifted_template_fields,
+    )
+
+    payload = daily_report_contract_validation.validate_daily_report_contract(
+        check_document=False,
+    )
+
+    assert {
+        "code": "template_only_field_mismatch",
+        "detail": {
+            "expected": sorted(contract_module.TEMPLATE_ONLY_FIELD_REASONS),
+            "actual": sorted(
+                {"recovery_month", "remaining_contract_delta", "unexpected_template_only"}
+            ),
+        },
+    } in payload["errors"]
+
+
 @pytest.mark.parametrize(
     ("field_name", "expected"),
     (
