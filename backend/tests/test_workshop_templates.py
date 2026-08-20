@@ -2,6 +2,7 @@ import pytest
 
 from app.core.workshop_templates import (
     OVERHAUL_OWNER_FIELDS,
+    ROLE_FIELD_MAPPING,
     get_workshop_template,
     get_workshop_template_definition,
     resolve_workshop_type,
@@ -266,8 +267,6 @@ def test_inventory_template_exposes_wip_and_contract_progress_to_planning_role()
 
 
 def test_recovery_and_overhaul_owner_fields_keep_daily_entry_shape_with_machine_stops() -> None:
-    from app.routers.mobile import ROLE_FIELD_MAPPING
-
     recovery_fields = ROLE_FIELD_MAPPING['recovery_owner']['direct_fields']
     overhaul_fields = ROLE_FIELD_MAPPING['overhaul_owner']['direct_fields']
 

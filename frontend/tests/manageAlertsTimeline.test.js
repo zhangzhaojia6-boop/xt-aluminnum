@@ -363,7 +363,7 @@ test('work queue meta puts deadline first and owner second for manual fill alert
   assert.equal(reportingQueue.items[0].deadline, '09:30')
   assert.equal(
     buildAlertQueueItemMeta(reportingQueue.items[0], { energy_chief: '全厂总电工' }),
-    '截止 09:30 · 全厂总电工'
+    '截止 09:30 · 全厂总电工 · 已发送'
   )
 })
 
@@ -395,7 +395,7 @@ test('legacy work queue item without deadline still renders and does not show fa
   const reportingQueue = buildAlertWorkQueues(t.events.value)
     .find((queue) => queue.key === 'reporting')
   const meta = buildAlertQueueItemMeta(reportingQueue.items[0], { quality_owner: '质检内勤' })
-  assert.equal(meta, '质检内勤')
+  assert.equal(meta, '质检内勤 · 待发送')
   assert.doesNotMatch(meta, /截止/)
 })
 

@@ -540,14 +540,22 @@ export function buildAlertQueueItemMeta(item = {}, ownerRoleLabels = {}) {
   const ownerLabel = item.ownerRole
     ? (ownerRoleLabels[item.ownerRole] || item.ownerRole)
     : ''
+  const isOwnerFillRoute = item.actionRoute?.startsWith('/entry/fill')
+  const deliveryStatus = String(item.deliveryStatus || '').trim().toLowerCase()
 
-  if (item.actionRoute?.startsWith('/entry/fill') && deadline) {
+  if (isOwnerFillRoute && deadline) {
     parts.push(`截止 ${deadline}`)
   }
   if (ownerLabel) {
     parts.push(ownerLabel)
   }
-  if (!item.actionRoute?.startsWith('/entry/fill')) {
+  if (isOwnerFillRoute) {
+    if (deliveryStatus === 'sent') {
+      parts.push('已发送')
+    } else if (deliveryStatus) {
+      parts.push('待发送')
+    }
+  } else {
     if (item.fillStrategy === 'source_recheck') {
       parts.push('来源复查')
     } else if (item.fillStrategy === 'dependency_fill') {
