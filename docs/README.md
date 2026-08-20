@@ -56,6 +56,7 @@ Hermes 和智能体要在 NousResearch Hermes 基础上增强，负责理解、�
 - [去统计流与 Hermes 自成长运行 SPEC](./superpowers/specs/2026-08-14-statistics-free-operations-spec.md)
 - [去统计流与 Hermes 自成长实施计划](./superpowers/plans/2026-08-14-statistics-free-operations-implementation-plan.md)
 - [Hermes 钉钉私聊与群聊权限设计](./superpowers/specs/2026-08-20-hermes-dingtalk-dm-group-access-design.md)
+- [日报 127 字段合同深化 SPEC](./superpowers/specs/2026-08-20-daily-report-contract-deepening-spec.md)
 
 当前只执行实施计划的阶段 1：真实基线与 `/entry/fill` 可靠性。阶段 1 未通过真实验收前，不并行进入字段合同、开停机推断或管理大仪表盘改造。
 
