@@ -1,9 +1,20 @@
 from __future__ import annotations
 
-from datetime import date
 import logging
+from datetime import date
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -11,30 +22,23 @@ from app.core.deps import get_current_user, get_db
 from app.core.permissions import get_current_mobile_user
 from app.core.scope import build_scope_summary
 from app.core.workshop_templates import (
-    INVENTORY_OWNER_FIELDS,
-    OVERHAUL_OWNER_FIELDS,
-    QC_OWNER_FIELDS,
-    ROLE_FIELD_MAPPING,
-    RECOVERY_OWNER_FIELDS,
-    SHIPMENT_OUTFLOW_OWNER_FIELDS,
-    UTILITY_OWNER_FIELDS,
     WORKSHOP_TYPE_BY_WORKSHOP_CODE,
     get_workshop_template_definition,
-    role_field_mapping_for_context,
     resolve_workshop_type,
+    role_field_mapping_for_context,
 )
 from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.mobile import (
     MobileBootstrapOut,
     MobileCoilEntryOut,
-    MobileCoilFlowSuggestionOut,
     MobileCoilEntryPayload,
+    MobileCoilFlowSuggestionOut,
     MobileCurrentShiftOut,
     MobileMesPendingSupplementOut,
-    MobilePhotoUploadResponse,
     MobileOwnerDailyOut,
     MobileOwnerDailyPayload,
+    MobilePhotoUploadResponse,
     MobileReminderActionRequest,
     MobileReminderRecordOut,
     MobileReportHistoryResponse,
