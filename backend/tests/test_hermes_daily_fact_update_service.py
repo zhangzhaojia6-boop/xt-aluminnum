@@ -180,6 +180,59 @@ def test_plan_contract_message_produces_component_sum_and_remaining_contract_can
     assert all(item["source_ref"]["parser"] == "plan_contract_message_v1" for item in candidates)
 
 
+def test_plan_contract_message_deduplicates_whitespace_only_text_copies() -> None:
+    candidates = extract_daily_fact_update_candidates(
+        {
+            "recognized_text": (
+                "投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨 "
+                "当天合同443吨 热轧436吨 总余合同量2765吨"
+            ),
+            "payload": {
+                "message_text": (
+                    "投料量： 2050投料 463吨\n"
+                    "1850投料 0吨\n"
+                    "外加工 62吨\n"
+                    "中厚板 0吨\n"
+                    "当天合同 443吨\n"
+                    "热轧 436吨\n"
+                    "总余合同量 2765吨"
+                )
+            },
+        }
+    )
+
+    assert [item["field"] for item in candidates] == [
+        "daily_input_weight",
+        "cold_roll_input_daily",
+        "remaining_contract_weight",
+        "cold_2050_input_daily",
+        "cold_1850_input_daily",
+        "outsourced_input_daily",
+        "medium_plate_input_daily",
+        "daily_contract_weight",
+        "daily_hot_roll_contract_weight",
+    ]
+
+
+def test_plan_contract_message_keeps_genuinely_different_texts_ambiguous() -> None:
+    candidates = extract_daily_fact_update_candidates(
+        {
+            "recognized_text": (
+                "投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨 "
+                "当天合同443吨 热轧436吨 总余合同量2765吨"
+            ),
+            "payload": {
+                "message_text": (
+                    "投料量：2050投料464吨 1850投料0吨 外加工63吨 中厚板0吨 "
+                    "当天合同444吨 热轧437吨 总余合同量2764吨"
+                )
+            },
+        }
+    )
+
+    assert candidates == []
+
+
 def test_incomplete_plan_contract_message_is_not_partially_guessed() -> None:
     text = "投料量：2050投料463吨 1850投料0吨 外加工62吨 总余合同量2765吨"
 
