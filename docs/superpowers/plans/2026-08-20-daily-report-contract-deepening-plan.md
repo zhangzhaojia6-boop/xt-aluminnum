@@ -215,17 +215,17 @@ Use one code-reviewer and one security-reviewer. Required questions:
 - Can old event payloads still render safely?
 - Is the field-contract module deeper, or did the change only move dictionaries?
 
-- [ ] **Step 3: Run a real compare-only gate**
+- [x] **Step 3: Run a real compare-only gate**
 
 Run `check_daily_report_output_skill_alignment.py` for the latest completed production business day with output-skill reference in compare-only mode. Do not use `--help` as proof and do not adopt answer-key values.
 
 Hard pass conditions: `reference_mode=compare`, `reference_only=false`, and `real_source_gate_passed=true`. Any other mode is a failed production proof.
 
-- [ ] **Step 4: Commit, push and exact-SHA deploy**
+- [x] **Step 4: Commit, push and exact-SHA deploy**
 
 Commit the reviewed code, push `main`, wait for CI, then deploy via `production-sync-status.yml` using the exact data-hub SHA and unchanged trusted Hermes SHA.
 
-- [ ] **Step 5: Production acceptance**
+- [x] **Step 5: Production acceptance**
 
 Verify read-only:
 
@@ -251,6 +251,32 @@ Before these checks, run the existing open-gap refresh once after deploy. It ref
 ## Rollback
 
 No migration and no fact rewrite are introduced. On regression, deploy the previous exact data-hub SHA and rerun the same compare-only and health gates.
+
+## Execution Evidence
+
+Completed on 2026-08-20:
+
+- Data hub SHA deployed: `7f60cc072fe0c3727454c5c68fef5183ac587ce3`.
+- Hermes SHA unchanged: `4d4452067cb43ebcd437eba78b0c67d9f1c64652`.
+- CI run `32380580040`: frontend build, backend tests and compose Playwright smoke all passed.
+- Production deploy run `32382811640`: success.
+- Local merged verification: backend `254 passed`, alert timeline `25 passed`, frontend build passed.
+- Contract gate: `127` normative fields, `130` template fields, maximum tolerance `20`, compare-only source order, `errors=[]`.
+- Open-gap refresh: `7` dates processed through the normal task, status `pass`.
+- 2026-08-19 before/after: open gaps `82 -> 82`; human gaps `15`; deadline coverage `0 -> 15`; contract-version coverage `0 -> 15`.
+- Existing alert surface exposes deadline for all `15` human fill actions.
+- Daily closure Outbox stayed at count `81`, max ID `835`; the refresh created no duplicate human notification.
+- Production health: `/readyz=ready`, MES sync `ok`, pipeline `ok`, DingTalk Stream `connected`, both tracked worktrees clean.
+
+Compare-only was run directly against production facts and UTF-8 references for 2026-08-17 through 2026-08-19. It correctly remained blocked rather than false-green:
+
+| Date | Mode | Reference only | Denominator | Coverage | Matched | Missing | Real-source gate |
+|---|---|---:|---:|---:|---:|---:|---|
+| 2026-08-17 | compare | false | 127 | 3.94% | 5 | 93 | blocked |
+| 2026-08-18 | compare | false | 127 | 4.72% | 6 | 93 | blocked |
+| 2026-08-19 | compare | false | 127 | 3.94% | 5 | 79 | blocked |
+
+Deployment did not change these values. The original hard pass condition `real_source_gate_passed=true` is not achieved and is explicitly carried into the next loop; this plan proves contract provenance and no regression, not daily-report accuracy completion.
 
 ## GSTACK REVIEW REPORT
 
