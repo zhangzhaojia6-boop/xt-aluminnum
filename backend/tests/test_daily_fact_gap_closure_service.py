@@ -211,6 +211,82 @@ def test_sync_keeps_source_rechecks_and_dependencies_in_trace_without_notifying_
         db.close()
 
 
+def test_sync_preserves_existing_contract_provenance_on_refresh() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+        db.add(AgentEvent(
+            event_type="daily_fact_gap",
+            severity="warning",
+            status="open",
+            scope_type="factory",
+            source_type="daily_fact_closure",
+            source_ref=f"daily_fact_gap:{TARGET_DATE.isoformat()}:hot_roll_daily",
+            business_date=TARGET_DATE,
+            occurred_at=NOW,
+            payload={
+                "field": "hot_roll_daily",
+                "deadline": "09:00",
+                "contract_version": "legacy-version",
+                "action_route": "/entry/fill?trace_id=old-trace",
+            },
+        ))
+        db.commit()
+
+        sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-preserve-provenance",
+            now=NOW + timedelta(minutes=5),
+        )
+        db.commit()
+
+        event = db.query(AgentEvent).one()
+        assert event.payload["deadline"] == "09:00"
+        assert event.payload["contract_version"] == "legacy-version"
+        assert "trace-preserve-provenance" in event.payload["action_route"]
+    finally:
+        db.close()
+
+
+def test_sync_backfills_missing_contract_provenance_on_refresh() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+        db.add(AgentEvent(
+            event_type="daily_fact_gap",
+            severity="warning",
+            status="open",
+            scope_type="factory",
+            source_type="daily_fact_closure",
+            source_ref=f"daily_fact_gap:{TARGET_DATE.isoformat()}:hot_roll_daily",
+            business_date=TARGET_DATE,
+            occurred_at=NOW,
+            payload={
+                "field": "hot_roll_daily",
+                "action_route": "/entry/fill?trace_id=old-trace",
+            },
+        ))
+        db.commit()
+
+        sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-backfill-provenance",
+            now=NOW + timedelta(minutes=5),
+        )
+        db.commit()
+
+        event = db.query(AgentEvent).one()
+        assert event.payload["deadline"] == "10:00"
+        assert event.payload["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
+        assert "trace-backfill-provenance" in event.payload["action_route"]
+    finally:
+        db.close()
+
+
 def test_sync_assigns_missing_wip_total_to_existing_planning_owner_entry() -> None:
     db = _db_session()
     try:

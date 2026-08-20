@@ -104,6 +104,10 @@ def sync_daily_fact_gap_events(
         active_refs.add(source_ref)
         event = existing_by_ref.get(source_ref)
         previous_payload = dict(event.payload) if event is not None and isinstance(event.payload, Mapping) else {}
+        payload_item = dict(item)
+        for key in ("deadline", "contract_version"):
+            if _has_payload_value(previous_payload.get(key)):
+                payload_item[key] = previous_payload[key]
         was_reopened = False
         if event is None:
             event = AgentEvent(
@@ -128,7 +132,7 @@ def sync_daily_fact_gap_events(
         event.severity = "warning"
         event.payload = {
             **previous_payload,
-            **item,
+            **payload_item,
             "summary": f"{_field_label(field)} 缺少可信事实",
             "trace_id": trace_id,
             "first_detected_trace_id": previous_payload.get("first_detected_trace_id") or trace_id,
@@ -535,6 +539,10 @@ def _safe_count(value: Any) -> int:
         return max(0, int(value or 0))
     except (TypeError, ValueError):
         return 0
+
+
+def _has_payload_value(value: Any) -> bool:
+    return bool(str(value or "").strip())
 
 
 def _latest_action_outbox_id(events: list[AgentEvent]) -> int | None:
