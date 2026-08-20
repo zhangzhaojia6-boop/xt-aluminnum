@@ -169,6 +169,44 @@ def test_contract_validation_rejects_entry_alias_not_writable_by_owner_role() ->
     } in payload["errors"]
 
 
+def test_contract_validation_rejects_workshop_scoped_alias_outside_real_context() -> None:
+    contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
+    contracts["hot_roll_daily"] = replace(
+        contracts["hot_roll_daily"],
+        entry_fields=("cast_speed",),
+    )
+
+    payload = daily_report_contract_validation.validate_daily_report_contract(
+        contracts=contracts,
+        check_document=False,
+    )
+
+    assert {
+        "code": "unknown_entry_field_alias",
+        "field": "hot_roll_daily",
+        "detail": {
+            "alias": "cast_speed",
+            "entry_route": "/entry/fill",
+        },
+    } in payload["errors"]
+
+
+def test_contract_validation_allows_generic_workshop_scoped_alias_only_when_all_contexts_support_it() -> None:
+    contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
+    contracts["wip_total"] = replace(
+        contracts["wip_total"],
+        owner_role="energy_stat",
+        entry_fields=("energy_note",),
+    )
+
+    payload = daily_report_contract_validation.validate_daily_report_contract(
+        contracts=contracts,
+        check_document=False,
+    )
+
+    assert payload["errors"] == []
+
+
 @pytest.mark.parametrize(
     ("field_name", "expected"),
     (
