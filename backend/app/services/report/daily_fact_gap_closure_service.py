@@ -223,6 +223,23 @@ def sync_daily_fact_gap_events(
         else:
             notification_state = "resolved" if full_closure else "blocked"
             action_items = _human_action_items(gap_items)
+            assignments = []
+            for event in actionable_events:
+                payload = event.payload or {}
+                assignments.append(
+                    {
+                        "field": payload["field"],
+                        "owner_role": payload["owner_role"],
+                        "deadline": payload["deadline"],
+                        "contract_version": payload["contract_version"],
+                        "entry_route": payload["entry_route"],
+                        "entry_fields": list(payload.get("entry_fields") or []),
+                        "fill_strategy": payload["fill_strategy"],
+                        "business_date": business_date.isoformat(),
+                        "trace_id": payload["trace_id"],
+                        "action_route": payload["action_route"],
+                    }
+                )
             message = agent_communication_service.queue_bound_message(
                 db,
                 agent_code=AGENT_CODE,
@@ -246,21 +263,7 @@ def sync_daily_fact_gap_events(
                     "resolved_event_ids": [event.id for event in resolved_events],
                     "entry_route": "/entry/fill",
                     "gap_signature": _gap_signature(gap_items),
-                    "assignments": [
-                        {
-                            "field": item["field"],
-                            "owner_role": item["owner_role"],
-                            "deadline": item["deadline"],
-                            "contract_version": item["contract_version"],
-                            "entry_route": item["entry_route"],
-                            "entry_fields": item["entry_fields"],
-                            "fill_strategy": item["fill_strategy"],
-                            "business_date": business_date.isoformat(),
-                            "trace_id": trace_id,
-                            "action_route": item["action_route"],
-                        }
-                        for item in action_items
-                    ],
+                    "assignments": assignments,
                     "auto_recheck_event_ids": [
                         event.id
                         for event in open_events

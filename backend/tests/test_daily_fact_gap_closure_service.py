@@ -250,6 +250,56 @@ def test_sync_preserves_existing_contract_provenance_on_refresh() -> None:
         db.close()
 
 
+def test_sync_keeps_outbox_assignments_aligned_with_preserved_event_provenance() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+        db.add(AgentEvent(
+            event_type="daily_fact_gap",
+            severity="warning",
+            status="open",
+            scope_type="factory",
+            source_type="daily_fact_closure",
+            source_ref=f"daily_fact_gap:{TARGET_DATE.isoformat()}:hot_roll_daily",
+            business_date=TARGET_DATE,
+            occurred_at=NOW,
+            payload={
+                "field": "hot_roll_daily",
+                "deadline": "09:00",
+                "contract_version": "legacy-version",
+                "action_route": "/entry/fill?trace_id=old-trace",
+            },
+        ))
+        db.commit()
+
+        result = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-preserve-provenance",
+            now=NOW + timedelta(minutes=5),
+        )
+        db.commit()
+
+        event = db.query(AgentEvent).one()
+        outbox = db.get(AgentOutboxMessage, result["outbox_message_id"])
+        assert outbox is not None
+        assert outbox.payload["assignments"] == [{
+            "field": "hot_roll_daily",
+            "owner_role": event.payload["owner_role"],
+            "deadline": "09:00",
+            "contract_version": "legacy-version",
+            "entry_route": event.payload["entry_route"],
+            "entry_fields": event.payload["entry_fields"],
+            "fill_strategy": event.payload["fill_strategy"],
+            "business_date": "2026-07-21",
+            "trace_id": "trace-preserve-provenance",
+            "action_route": event.payload["action_route"],
+        }]
+    finally:
+        db.close()
+
+
 def test_sync_backfills_missing_contract_provenance_on_refresh() -> None:
     db = _db_session()
     try:
