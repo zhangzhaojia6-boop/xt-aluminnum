@@ -669,6 +669,36 @@ def test_entry_fields_exposes_wip_total_to_inventory_planning_owner() -> None:
     assert wip_field['hint'] == 'MES 在制快照缺失或需人工确认时，由计划内勤补录并保留任务 trace。'
 
 
+def test_entry_fields_exposes_heating_furnace_alias_to_energy_chief() -> None:
+    class EntryFieldsDB:
+        def get(self, *_args, **_kwargs):
+            return SimpleNamespace(id=6, code='RZ', name='热轧车间', workshop_type='hot_roll')
+
+    current_user = User(
+        id=69,
+        username='RZ-ENERGY',
+        password_hash='x',
+        name='水电气负责人',
+        role='energy_chief',
+        workshop_id=6,
+        is_mobile_user=True,
+        is_active=True,
+    )
+
+    payload = entry_fields(db=EntryFieldsDB(), current_user=current_user)
+
+    assert payload['mode'] == 'owner_daily'
+    assert payload['submit_target'] == 'owner_daily'
+    assert payload['role_label'] == '跨车间能耗合计'
+    fields = {
+        field['name']: field
+        for field in payload['groups'][0]['fields']
+    }
+    heating_furnace_field = fields['heating_furnace_gas_m3']
+    assert heating_furnace_field['label'] == '加热炉用气'
+    assert heating_furnace_field['role_write'] == ['utility_manager', 'energy_chief']
+
+
 def test_entry_fields_ignores_workshop_template_override_for_machine_operator(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'mobile-entry-fields.db'}", future=True)
     Base.metadata.create_all(engine, tables=[Workshop.__table__, WorkshopTemplateConfig.__table__])

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -12,6 +13,7 @@ from app.core.business_time import (
 )
 from app.domain import daily_report_field_contract as contract_module
 from app.domain import metric_contracts
+from app.services.report import daily_report_contract_validation
 from app.services.report import template_daily_field_contract
 
 
@@ -113,6 +115,36 @@ def test_finished_inbound_daily_contract_exposes_fill_schema() -> None:
     assert contract.entry_route == "/entry/fill"
     assert contract.entry_fields == ("park_inbound_daily", "new_plant_inbound_daily")
     assert contract.deadline
+
+
+def test_contract_validation_flags_missing_action_metadata_and_unknown_entry_alias() -> None:
+    contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
+    contracts["finished_inbound_daily"] = replace(
+        contracts["finished_inbound_daily"],
+        deadline="",
+        contract_version="",
+        entry_fields=("missing_entry_alias",),
+    )
+
+    payload = daily_report_contract_validation.validate_daily_report_contract(
+        contracts=contracts,
+        check_document=False,
+    )
+
+    errors_by_code: dict[str, list[dict[str, object]]] = {}
+    for error in payload["errors"]:
+        errors_by_code.setdefault(str(error["code"]), []).append(error)
+
+    metadata_error = errors_by_code["missing_action_metadata"][0]
+    assert metadata_error["field"] == "finished_inbound_daily"
+    assert metadata_error["detail"] == {"missing": ["contract_version", "deadline"]}
+
+    alias_error = errors_by_code["unknown_entry_field_alias"][0]
+    assert alias_error["field"] == "finished_inbound_daily"
+    assert alias_error["detail"] == {
+        "alias": "missing_entry_alias",
+        "entry_route": "/entry/fill",
+    }
 
 
 @pytest.mark.parametrize(

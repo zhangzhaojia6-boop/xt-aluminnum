@@ -54,23 +54,26 @@ def test_static_gate_json_is_machine_readable(tmp_path, capsys) -> None:
     assert payload["passed"] is True
     assert payload["status"] == "pass"
     assert payload["contract_version"] == contract_module.DAILY_REPORT_FIELD_CONTRACT_VERSION
-    assert payload["normative_field_count"] == 127
+    assert payload["contract_count"] == 127
     assert payload["template_field_count"] == 130
     assert payload["maximum_tolerance"] == 20.0
-    assert payload["document_fresh"] is True
-    assert payload["issues"] == []
+    assert payload["validation"]["document_fresh"] is True
+    assert payload["validation"]["errors"] == []
 
 
-def test_static_gate_rejects_contract_and_document_drift() -> None:
-    fields = list(contract_module.normative_daily_report_fields())
+def test_static_gate_rejects_contract_validation_drift() -> None:
     contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
-    contracts[fields[0]] = replace(contracts[fields[0]], unit="", tolerance=21.0)
-    contracts.pop(fields[1])
+    contracts["finished_inbound_daily"] = replace(
+        contracts["finished_inbound_daily"],
+        unit="",
+        deadline="",
+        tolerance=21.0,
+        entry_fields=("missing_entry_alias",),
+    )
     business_times = dict(contract_module.BUSINESS_TIME_STARTS)
     business_times[contract_module.BUSINESS_TIME_STANDARD] = "25:99"
 
-    issues = checker.collect_contract_issues(
-        fields=[*fields, fields[0]],
+    payload = checker.validation.validate_daily_report_contract(
         contracts=contracts,
         business_time_starts=business_times,
         owner_daily_submission_time="25:00",
@@ -78,16 +81,58 @@ def test_static_gate_rejects_contract_and_document_drift() -> None:
         source_order=tuple(reversed(contract_module.FACT_SOURCE_LANE_ORDER)),
         check_document=False,
     )
-    codes = {item["code"] for item in issues}
+    codes = {item["code"] for item in payload["errors"]}
 
-    assert "field_count_mismatch" in codes
-    assert "duplicate_fields" in codes
-    assert "contract_field_mismatch" in codes
+    assert "missing_action_metadata" in codes
     assert "invalid_unit" in codes
     assert "tolerance_above_maximum" in codes
+    assert "unknown_entry_field_alias" in codes
     assert "business_time_drift" in codes
     assert "owner_time_drift" in codes
     assert "source_order_drift" in codes
+
+
+def test_static_gate_json_returns_non_zero_with_structured_validation_errors(
+    tmp_path,
+    capsys,
+    monkeypatch,
+) -> None:
+    document_path = tmp_path / "daily-report-field-contract.md"
+    document_path.write_text(renderer.render_contract_markdown(), encoding="utf-8")
+    failing_validation = {
+        "contract_version": contract_module.DAILY_REPORT_FIELD_CONTRACT_VERSION,
+        "contract_count": 127,
+        "template_field_count": 130,
+        "maximum_tolerance": 20.0,
+        "business_time_starts": dict(contract_module.BUSINESS_TIME_STARTS),
+        "owner_daily_submission_time": contract_module.OWNER_DAILY_SUBMISSION_TIME,
+        "owner_daily_late_time": contract_module.OWNER_DAILY_LATE_TIME,
+        "source_order": list(contract_module.FACT_SOURCE_LANE_ORDER),
+        "document": str(document_path),
+        "document_fresh": False,
+        "errors": [
+            {
+                "code": "missing_action_metadata",
+                "field": "finished_inbound_daily",
+                "detail": {"missing": ["deadline"]},
+            }
+        ],
+    }
+
+    monkeypatch.setattr(
+        checker.validation,
+        "validate_daily_report_contract",
+        lambda **_kwargs: failing_validation,
+    )
+
+    exit_code = checker.main(["--document", str(document_path), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert payload["status"] == "blocked"
+    assert payload["contract_count"] == 127
+    assert payload["validation"]["document_fresh"] is False
+    assert payload["validation"]["errors"] == failing_validation["errors"]
 
 
 def test_fact_source_map_links_to_generated_daily_contract() -> None:
