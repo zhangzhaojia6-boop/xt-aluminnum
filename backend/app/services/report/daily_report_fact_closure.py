@@ -9,6 +9,7 @@ from urllib.parse import quote
 from sqlalchemy import literal
 from sqlalchemy.orm import Session
 
+from app.domain.daily_report_field_contract import daily_report_field_contract_for
 from app.domain.metric_contracts import daily_report_contract_for
 from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
@@ -223,6 +224,8 @@ def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> li
                 "entry_route": gap_action["entry_route"],
                 "fill_strategy": gap_action["fill_strategy"],
                 "owner_role": gap_action["owner_role"],
+                "deadline": gap_action["deadline"],
+                "contract_version": daily_report_field_contract_for(field).contract_version,
                 "entry_fields": gap_action["entry_fields"],
                 "next_step": gap_action["next_step"],
                 "action_route": action_route,
@@ -272,15 +275,35 @@ def _fact_gap_event_alerts(
         field = str(payload.get("field") or "").strip()
         if not field:
             continue
+        try:
+            gap_action = classify_daily_report_field_gap(field)
+            contract_version = str(
+                payload.get("contract_version")
+                or daily_report_field_contract_for(field).contract_version
+            )
+        except KeyError:
+            gap_action = {
+                "entry_route": "/manage/alerts",
+                "entry_fields": [],
+                "fill_strategy": "source_recheck",
+                "owner_role": "factory_dispatch",
+                "deadline": "",
+            }
+            contract_version = str(payload.get("contract_version") or "")
         trace_id = _present_text(
             payload.get("last_checked_trace_id")
             or payload.get("trace_id")
             or payload.get("resolution_trace_id")
         )
-        entry_route = str(payload.get("entry_route") or "/manage/alerts")
-        entry_fields = [str(value) for value in payload.get("entry_fields") or [] if str(value).strip()]
-        fill_strategy = str(payload.get("fill_strategy") or "source_recheck")
-        owner_role = str(payload.get("owner_role") or "factory_dispatch")
+        entry_route = str(payload.get("entry_route") or gap_action["entry_route"] or "/manage/alerts")
+        entry_fields = [
+            str(value)
+            for value in (payload.get("entry_fields") or gap_action["entry_fields"] or [])
+            if str(value).strip()
+        ]
+        fill_strategy = str(payload.get("fill_strategy") or gap_action["fill_strategy"] or "source_recheck")
+        owner_role = str(payload.get("owner_role") or gap_action["owner_role"] or "factory_dispatch")
+        deadline = str(payload.get("deadline") or gap_action["deadline"] or "")
         outbox_message_id = payload.get("outbox_message_id")
         action_route = (
             _alerts_route(trace_id)
@@ -314,6 +337,8 @@ def _fact_gap_event_alerts(
                 "entry_route": entry_route,
                 "fill_strategy": fill_strategy,
                 "owner_role": owner_role,
+                "deadline": deadline,
+                "contract_version": contract_version,
                 "entry_fields": entry_fields,
                 "action_route": action_route,
                 "detail_route": _alerts_route(trace_id),

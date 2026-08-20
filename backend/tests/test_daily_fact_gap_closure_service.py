@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 
 from app.models import Base
 from app.models.agent_communication import AgentEvent, AgentOutboxMessage
+from app.domain.daily_report_field_contract import DAILY_REPORT_FIELD_CONTRACT_VERSION
 from app.services import agent_communication_service
 from app.services.report import daily_fact_gap_closure_service
 from app.services.report.daily_fact_gap_closure_service import (
@@ -120,11 +121,15 @@ def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) ->
         assert by_field["total_output_daily"].payload["fill_strategy"] == "dependency_fill"
         assert by_field["total_output_daily"].payload["automation_status"] == "waiting_for_dependencies"
         assert by_field["total_output_daily"].payload["human_action_required"] is False
+        assert by_field["total_output_daily"].payload["deadline"] == "10:00"
+        assert by_field["total_output_daily"].payload["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
         assert by_field["hot_roll_daily"].payload["entry_route"] == "/entry/fill"
         assert by_field["hot_roll_daily"].payload["owner_role"] == "machine_operator"
         assert by_field["hot_roll_daily"].payload["entry_fields"] == ["output_weight"]
         assert by_field["hot_roll_daily"].payload["automation_status"] == "waiting_for_owner"
         assert by_field["hot_roll_daily"].payload["human_action_required"] is True
+        assert by_field["hot_roll_daily"].payload["deadline"] == "10:00"
+        assert by_field["hot_roll_daily"].payload["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
         hot_roll_route = urlparse(by_field["hot_roll_daily"].payload["action_route"])
         assert hot_roll_route.path == "/entry/fill"
         assert parse_qs(hot_roll_route.query) == {
@@ -147,6 +152,8 @@ def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) ->
         assert assignments["hot_roll_daily"]["business_date"] == "2026-07-21"
         assert assignments["hot_roll_daily"]["trace_id"] == "daily-fact-closure:2026-07-21"
         assert assignments["hot_roll_daily"]["action_route"] == by_field["hot_roll_daily"].payload["action_route"]
+        assert assignments["hot_roll_daily"]["deadline"] == "10:00"
+        assert assignments["hot_roll_daily"]["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
         assert "需要人工补录：1 项" in outbox[0].content
         assert "依赖补齐 1 项" in outbox[0].content
         assert "状态不变不会重复提醒" in outbox[0].content

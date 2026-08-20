@@ -11,6 +11,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
+from app.domain.daily_report_field_contract import (
+    DAILY_REPORT_FIELD_CONTRACT_VERSION,
+    daily_report_field_contract_for,
+)
 from app.domain.metric_contracts import daily_report_contract_for
 from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
@@ -335,6 +339,8 @@ def test_snapshot_conflicts_and_missing_facts_become_fact_alerts(db_session: Ses
     }]
     assert [item["field"] for item in payload["fact_missing"]] == ["total_electricity_kwh"]
     assert payload["fact_missing"][0]["trace_id"] is None
+    assert payload["fact_missing"][0]["deadline"] == daily_report_field_contract_for("total_electricity_kwh").deadline
+    assert payload["fact_missing"][0]["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
 
 
 def test_machine_gap_is_appended_without_hiding_daily_fact_missing_alerts(db_session: Session) -> None:
@@ -431,6 +437,8 @@ def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session
         "entry_route": "/entry/fill",
         "fill_strategy": "owner_daily",
         "owner_role": "energy_chief",
+        "deadline": daily_report_field_contract_for("total_electricity_kwh").deadline,
+        "contract_version": DAILY_REPORT_FIELD_CONTRACT_VERSION,
         "entry_fields": ["total_electricity_kwh"],
         "action_route": (
             "/entry/fill?business_date=2026-07-07"
@@ -444,6 +452,47 @@ def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session
         "delivery_status": "sent",
         "outbox_message_id": 21,
     }]
+
+
+def test_legacy_fact_gap_event_payload_falls_back_to_contract_defaults(db_session: Session) -> None:
+    event = AgentEvent(
+        event_type="daily_fact_gap",
+        severity="warning",
+        status="open",
+        scope_type="factory",
+        source_type="daily_fact_closure",
+        source_ref=f"daily_fact_gap:{TARGET_DATE.isoformat()}:finished_inbound_daily",
+        business_date=TARGET_DATE,
+        occurred_at=datetime(2026, 7, 8, 8, 5, tzinfo=SHANGHAI),
+        payload={
+            "field": "finished_inbound_daily",
+            "fact_status": "missing",
+            "summary": "成品入库量缺少可信事实",
+            "last_checked_trace_id": "trace-legacy-gap",
+        },
+    )
+    db_session.add(event)
+    db_session.commit()
+
+    payload = _overview(db_session)
+
+    assert len(payload["fact_missing"]) == 1
+    alert = payload["fact_missing"][0]
+    assert alert["field"] == "finished_inbound_daily"
+    assert alert["summary"] == "成品入库量缺少可信事实"
+    assert alert["entry_route"] == "/entry/fill"
+    assert alert["owner_role"] == "storage_owner"
+    assert alert["entry_fields"] == ["park_inbound_daily", "new_plant_inbound_daily"]
+    assert alert["deadline"] == daily_report_field_contract_for("finished_inbound_daily").deadline
+    assert alert["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
+    assert alert["action_route"] == (
+        "/entry/fill?business_date=2026-07-07"
+        "&field=finished_inbound_daily"
+        "&entry_fields=park_inbound_daily%2Cnew_plant_inbound_daily"
+        "&entry_field=park_inbound_daily"
+        "&owner_role=storage_owner"
+        "&trace_id=trace-legacy-gap"
+    )
 
 
 def test_snapshot_missing_unit_window_or_trace_stays_missing_and_not_confirmed(db_session: Session) -> None:

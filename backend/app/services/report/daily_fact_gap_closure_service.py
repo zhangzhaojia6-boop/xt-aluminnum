@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.business_time import local_now
+from app.domain.daily_report_field_contract import daily_report_field_contract_for
 from app.models.agent_communication import (
     AgentChannelBinding,
     AgentEvent,
@@ -245,6 +246,8 @@ def sync_daily_fact_gap_events(
                         {
                             "field": item["field"],
                             "owner_role": item["owner_role"],
+                            "deadline": item["deadline"],
+                            "contract_version": item["contract_version"],
                             "entry_route": item["entry_route"],
                             "entry_fields": item["entry_fields"],
                             "fill_strategy": item["fill_strategy"],
@@ -385,6 +388,8 @@ def _real_source_gap_items(bundle: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "entry_route": str(action.get("entry_route") or "/entry/fill"),
                 "fill_strategy": str(action.get("fill_strategy") or "source_recheck"),
                 "owner_role": str(action.get("owner_role") or "factory_dispatch"),
+                "deadline": str(action.get("deadline") or ""),
+                "contract_version": daily_report_field_contract_for(field).contract_version,
                 "entry_fields": list(action.get("entry_fields") or []),
                 "entry_field": action.get("entry_field"),
                 "next_step": str(action.get("next_step") or "请负责人补充可信事实并保留来源。"),
