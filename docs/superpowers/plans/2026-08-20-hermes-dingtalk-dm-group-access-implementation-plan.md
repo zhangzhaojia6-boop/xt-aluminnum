@@ -1,6 +1,6 @@
 # Hermes DingTalk DM and Group Access Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Restrict DingTalk bot DMs to Zhang Zhaojia and both verified Meng Yujie accounts while allowing every organization member to use Hermes in any group only after a real @ mention.
 
@@ -32,7 +32,7 @@ No database migration, new page, new robot, or new service is required.
 - Modify: `plugins/platforms/dingtalk/adapter.py:263-272,628-649,925-944`
 - Test: `tests/gateway/test_dingtalk.py:1020-1120`
 
-- [ ] **Step 1: Create an isolated Hermes checkout at the trusted production baseline**
+- [x] **Step 1: Create an isolated Hermes checkout at the trusted production baseline**
 
 Run from the data hub repository root:
 
@@ -44,7 +44,7 @@ git -C .worktrees/hermes-dm-access status --short --branch
 
 Expected: clean branch `feat/dingtalk-dm-group-access` at the exact production baseline.
 
-- [ ] **Step 2: Write failing adapter policy tests**
+- [x] **Step 2: Write failing adapter policy tests**
 
 Add these tests under `TestAllowedUsersGate` in `tests/gateway/test_dingtalk.py`:
 
@@ -80,7 +80,7 @@ Add these tests under `TestAllowedUsersGate` in `tests/gateway/test_dingtalk.py`
         assert adapter._should_process_message(mentioned, "@机器人 查询产量", True, "group-any") is True
 ```
 
-- [ ] **Step 3: Run the focused tests and verify red**
+- [x] **Step 3: Run the focused tests and verify red**
 
 Run:
 
@@ -91,7 +91,7 @@ uv run pytest tests/gateway/test_dingtalk.py::TestAllowedUsersGate -q
 
 Expected: failures because `_is_dm_user_allowed` does not exist.
 
-- [ ] **Step 4: Implement the smallest adapter change**
+- [x] **Step 4: Implement the smallest adapter change**
 
 Initialize the DM allowlist next to the existing global allowlist:
 
@@ -137,7 +137,7 @@ Replace the current all-message allowlist block in `_on_message` with:
 
 Do not log the rejected sender IDs in the DM-specific line.
 
-- [ ] **Step 5: Run focused and adjacent Hermes tests**
+- [x] **Step 5: Run focused and adjacent Hermes tests**
 
 Run:
 
@@ -148,7 +148,7 @@ uv run pytest tests/gateway/test_dingtalk.py -q
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit and publish the trusted Hermes change**
+- [x] **Step 6: Commit and publish the trusted Hermes change**
 
 ```powershell
 git add plugins/platforms/dingtalk/adapter.py tests/gateway/test_dingtalk.py
@@ -166,7 +166,7 @@ Expected: the fork's `main` advances from `d0f3ccef...`; save the resulting full
 - Modify: `.github/workflows/production-sync-status.yml`
 - Test: `backend/tests/test_production_workflow_contracts.py`
 
-- [ ] **Step 1: Write failing workflow contract assertions**
+- [x] **Step 1: Write failing workflow contract assertions**
 
 Add shared expected IDs and assertions to the existing DingTalk workflow tests:
 
@@ -188,7 +188,7 @@ assert 'upsert_env_value "$HERMES_ENV_FILE" "DINGTALK_REQUIRE_MENTION" "false"' 
 
 Apply equivalent assertions to both `configure-dingtalk-stream-prod.yml` and `production-sync-status.yml` contract tests.
 
-- [ ] **Step 2: Run the contract tests and verify red**
+- [x] **Step 2: Run the contract tests and verify red**
 
 Run:
 
@@ -199,7 +199,7 @@ python -m pytest backend/tests/test_production_workflow_contracts.py -q
 
 Expected: failures for missing DM IDs/config writes and the existing `require_mention=false` assignment.
 
-- [ ] **Step 3: Add one identical config writer to each workflow**
+- [x] **Step 3: Add one identical config writer to each workflow**
 
 Define the non-secret stable identity list near each remote script's constants:
 
@@ -247,7 +247,7 @@ PY
 
 Call it after the runtime Python is resolved and before restarting Hermes. Keep `DINGTALK_ALLOWED_USERS=*`; remove or change every managed `DINGTALK_REQUIRE_MENTION=false` assignment to `true` so an environment override cannot defeat YAML.
 
-- [ ] **Step 4: Extend backup and rollback to cover `config.yaml`**
+- [x] **Step 4: Extend backup and rollback to cover `config.yaml`**
 
 In each workflow, copy `HERMES_CONFIG_FILE` into the existing mode-700 backup directory before any write. On failure, atomically restore the config backup before restarting Hermes. Assert the backup exists and preserve owner/mode from the original file.
 
@@ -258,7 +258,7 @@ echo "HERMES_CONFIG_BACKUP_CREATED=yes"
 echo "HERMES_CONFIG_ROLLBACK_RESTORED=yes"
 ```
 
-- [ ] **Step 5: Add a redacted status verifier**
+- [x] **Step 5: Add a redacted status verifier**
 
 Read `config.yaml` with the Hermes runtime and emit only:
 
@@ -271,7 +271,7 @@ HERMES_GROUP_SCOPE=all_application_groups
 
 The verifier must compare a set of IDs but must not print the IDs or config contents.
 
-- [ ] **Step 6: Run data hub workflow tests**
+- [x] **Step 6: Run data hub workflow tests**
 
 Run:
 
@@ -284,7 +284,7 @@ git diff --check
 
 Expected: all tests pass, `YAML_OK`, and no whitespace errors.
 
-- [ ] **Step 7: Commit and push the data hub workflow change**
+- [x] **Step 7: Commit and push the data hub workflow change**
 
 ```powershell
 git add .github/workflows/configure-dingtalk-stream-prod.yml .github/workflows/production-sync-status.yml backend/tests/test_production_workflow_contracts.py docs/superpowers/specs/2026-08-20-hermes-dingtalk-dm-group-access-design.md
@@ -302,7 +302,7 @@ Save the full SHA as `DATAHUB_ACCESS_SHA`.
 - Runtime config: `/srv/hermes-cloud/runtime/.hermes/config.yaml`
 - Runtime service: `hermes-gateway.service`
 
-- [ ] **Step 1: Run pre-deploy read-only checks**
+- [x] **Step 1: Run pre-deploy read-only checks**
 
 ```powershell
 ssh root@8.140.218.13 'cd /srv/aluminum-bypass && git status --short --branch && git rev-parse HEAD; cd /srv/hermes-cloud/runtime/.hermes/hermes-agent && git status --short --branch && git rev-parse HEAD; systemctl is-active aluminum-bypass hermes-gateway; curl -fsS http://127.0.0.1:8000/readyz >/dev/null'
@@ -310,7 +310,7 @@ ssh root@8.140.218.13 'cd /srv/aluminum-bypass && git status --short --branch &&
 
 Expected: tracked worktrees clean, both services active, readiness succeeds.
 
-- [ ] **Step 2: Dispatch the existing exact-SHA production workflow**
+- [x] **Step 2: Dispatch the existing exact-SHA production workflow**
 
 ```powershell
 gh workflow run production-sync-status.yml --ref main -f confirm=prod-sync -f mode=deploy -f datahub_sha=$DATAHUB_ACCESS_SHA -f hermes_sha=$HERMES_ACCESS_SHA
@@ -327,7 +327,7 @@ DINGTALK_STREAM_CONNECTION=connected
 GO_LIVE_READY=true
 ```
 
-- [ ] **Step 3: Verify repository and service synchronization**
+- [x] **Step 3: Verify repository and service synchronization**
 
 Confirm local data hub, `origin/main`, production data hub, fork `main`, and production Hermes resolve to the two saved SHAs. Confirm both production worktrees have no tracked changes.
 
@@ -336,7 +336,7 @@ Confirm local data hub, `origin/main`, production data hub, fork `main`, and pro
 **Files:**
 - Test runtime only; do not persist synthetic messages.
 
-- [ ] **Step 1: Run a production-runtime synthetic adapter gate**
+- [x] **Step 1: Run a production-runtime synthetic adapter gate**
 
 Use the active Hermes runtime Python and `PlatformConfig` to instantiate the real production adapter config, then assert:
 
@@ -351,7 +351,7 @@ assert not adapter._should_process_message(unmentioned_message, "查询产量", 
 
 Expected: `HERMES_DINGTALK_ACCESS_SYNTHETIC_GATE=pass`.
 
-- [ ] **Step 2: Verify production runtime health**
+- [x] **Step 2: Verify production runtime health**
 
 Check:
 
@@ -369,11 +369,11 @@ Run the data hub actor classifier with production settings and assert that Zhang
 Zhaojia's `userid` yields `is_root_owner=True`, while both Meng Yujie IDs yield
 `is_root_owner=False`. This check must not mutate users or authorization data.
 
-- [ ] **Step 3: Re-run Luna and forced Sol failover probes**
+- [x] **Step 3: Re-run Luna and forced Sol failover probes**
 
 Run the existing Chinese identity inference against `gpt-5.6-luna`, then force an invalid primary model and require the configured `gpt-5.6-sol` fallback to answer. Do not send these probes to DingTalk users.
 
-- [ ] **Step 4: Record the final production evidence**
+- [x] **Step 4: Record the final production evidence**
 
 Update the plan checkboxes and report only redacted counts/statuses. Never print credentials, proxy values, auth tokens, full DingTalk payloads, or rejected user identifiers in logs.
 
@@ -387,3 +387,18 @@ The task is complete only when all of the following are true:
 - Any group can use Hermes only through a structured @ mention.
 - Zhang Zhaojia remains root owner; Meng Yujie remains a normal private-chat user.
 - DingTalk Stream, data hub, MES readiness, Luna, and Sol failover are all healthy.
+
+## Execution Evidence
+
+Completed on 2026-08-20:
+
+- Hermes fork SHA: `4d4452067cb43ebcd437eba78b0c67d9f1c64652`.
+- Data hub deployment SHA: `2df5671c8fde0d0702fa3c6564b4996a5df0166c`.
+- GitHub Actions production run: `32348766035`, conclusion `success`.
+- Hermes DingTalk adapter tests: `83 passed`.
+- Data hub production workflow contract tests: `52 passed`.
+- Production access gate: `HERMES_DINGTALK_ACCESS_SYNTHETIC_GATE=pass`.
+- Production root-owner gate: `HERMES_ROOT_OWNER_CLASSIFICATION=pass`.
+- Production configuration: DM count `3`, exact match `yes`, group mention required `yes`, group scope `all_application_groups`.
+- Runtime health: data hub and Hermes `active`, DingTalk Stream `connected`, `/readyz=ready`, MES sync and pipeline `ok`.
+- Model health: Luna primary inference passed; forced invalid primary successfully failed over to Sol.
