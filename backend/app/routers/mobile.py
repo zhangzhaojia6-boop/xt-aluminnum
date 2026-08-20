@@ -14,11 +14,13 @@ from app.core.workshop_templates import (
     INVENTORY_OWNER_FIELDS,
     OVERHAUL_OWNER_FIELDS,
     QC_OWNER_FIELDS,
+    ROLE_FIELD_MAPPING,
     RECOVERY_OWNER_FIELDS,
     SHIPMENT_OUTFLOW_OWNER_FIELDS,
     UTILITY_OWNER_FIELDS,
     WORKSHOP_TYPE_BY_WORKSHOP_CODE,
     get_workshop_template_definition,
+    role_field_mapping_for_context,
     resolve_workshop_type,
 )
 from app.models.master import Workshop
@@ -391,26 +393,8 @@ def save_owner_daily(
     return MobileOwnerDailyOut(**payload)
 
 
-ROLE_FIELD_MAPPING = {
-    'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
-    'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
-    'consumable_stat': {'extra_filter': 'consumable_stat', 'label': '辅材数据'},
-    'quality_owner': {'direct_fields': QC_OWNER_FIELDS, 'label': '全公司质检'},
-    'planning_owner': {'extra_filter': 'contracts', 'label': '全公司合同'},
-    'energy_chief': {'direct_fields': UTILITY_OWNER_FIELDS, 'label': '跨车间能耗合计'},
-    'storage_owner': {'direct_fields': INVENTORY_OWNER_FIELDS, 'label': '成品库'},
-    'shipment_outflow_owner': {'direct_fields': SHIPMENT_OUTFLOW_OWNER_FIELDS, 'label': '园区剪切流水'},
-    'recovery_owner': {'direct_fields': RECOVERY_OWNER_FIELDS, 'label': '回收产量'},
-    'overhaul_owner': {'direct_fields': OVERHAUL_OWNER_FIELDS, 'label': '大修磨辊子+能耗'},
-}
-
-
 def _role_field_mapping_for_context(role: str, workshop_type: str | None) -> dict | None:
-    if role == 'consumable_stat' and workshop_type == 'recycling':
-        return {'direct_fields': RECOVERY_OWNER_FIELDS, 'label': '回收产量'}
-    if role == 'consumable_stat' and workshop_type == 'inventory':
-        return {'direct_fields': INVENTORY_OWNER_FIELDS, 'label': '成品库'}
-    return ROLE_FIELD_MAPPING.get(role)
+    return role_field_mapping_for_context(role, workshop_type)
 
 QUALITY_ENTRY_FIELD_NAMES = {
     'quality_note',

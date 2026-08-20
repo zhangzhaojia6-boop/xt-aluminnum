@@ -274,7 +274,8 @@ def validate_daily_report_contract(
                 field=field_name,
             )
         for alias in entry_fields:
-            if alias not in selected_writable_fields:
+            owner_role = str(getattr(contract, "owner_role", "") or "").strip()
+            if alias not in template_module.role_writable_field_names(owner_role):
                 add(
                     "unknown_entry_field_alias",
                     {"alias": alias, "entry_route": entry_route},

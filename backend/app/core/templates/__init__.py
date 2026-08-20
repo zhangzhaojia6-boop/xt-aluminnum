@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from collections.abc import Mapping, Sequence
 from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -1110,6 +1111,123 @@ WORKSHOP_TEMPLATES = DEFAULT_WORKSHOP_TEMPLATES
 
 _POWER_ROLES = frozenset({'admin', 'manager', 'factory_director'})
 
+ROLE_FIELD_MAPPING = {
+    'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
+    'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
+    'consumable_stat': {'extra_filter': 'consumable_stat', 'label': '辅材数据'},
+    'quality_owner': {'direct_fields': QC_OWNER_FIELDS, 'label': '全公司质检'},
+    'planning_owner': {'extra_filter': 'contracts', 'label': '全公司合同'},
+    'energy_chief': {'direct_fields': UTILITY_OWNER_FIELDS, 'label': '跨车间能耗合计'},
+    'storage_owner': {'direct_fields': INVENTORY_OWNER_FIELDS, 'label': '成品库'},
+    'shipment_outflow_owner': {'direct_fields': SHIPMENT_OUTFLOW_OWNER_FIELDS, 'label': '园区剪切流水'},
+    'recovery_owner': {'direct_fields': RECOVERY_OWNER_FIELDS, 'label': '回收产量'},
+    'overhaul_owner': {'direct_fields': OVERHAUL_OWNER_FIELDS, 'label': '大修磨辊子+能耗'},
+}
+
+_TEMPLATE_SECTIONS_BY_MAPPING_SECTION = {
+    'entry': 'entry_fields',
+    'shift': 'shift_fields',
+    'extra': 'extra_fields',
+    'qc': 'qc_fields',
+}
+
+
+def role_field_mapping_for_context(role: str, workshop_type: str | None) -> dict[str, Any] | None:
+    normalized_workshop_type = normalize_workshop_type(workshop_type) if workshop_type else None
+    if role == 'consumable_stat' and normalized_workshop_type == 'recycling':
+        return {'direct_fields': RECOVERY_OWNER_FIELDS, 'label': '回收产量'}
+    if role == 'consumable_stat' and normalized_workshop_type == 'inventory':
+        return {'direct_fields': INVENTORY_OWNER_FIELDS, 'label': '成品库'}
+    return ROLE_FIELD_MAPPING.get(role)
+
+
+def _field_name(field: Mapping[str, Any]) -> str:
+    return str(field.get('name') or '').strip()
+
+
+def _field_names(fields: Sequence[Mapping[str, Any]]) -> set[str]:
+    return {
+        name
+        for field in fields
+        if isinstance(field, Mapping)
+        for name in (_field_name(field),)
+        if name
+    }
+
+
+def _field_is_writable_by_role(field: Mapping[str, Any], role: str) -> bool:
+    role_write = field.get('role_write', [])
+    if not role_write:
+        return True
+    return role == 'admin' or role in role_write
+
+
+def _selected_templates_for_role_lookup(
+    *,
+    template_definitions: Mapping[str, Mapping[str, Any]],
+    workshop_type: str | None,
+) -> tuple[Mapping[str, Any], ...]:
+    if not workshop_type:
+        return tuple(template_definitions.values())
+    normalized_workshop_type = normalize_workshop_type(workshop_type)
+    if not normalized_workshop_type:
+        return ()
+    template = template_definitions.get(normalized_workshop_type)
+    if template is None:
+        return ()
+    return (template,)
+
+
+def role_writable_field_names(
+    owner_role: str,
+    workshop_type: str | None = None,
+    *,
+    template_definitions: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[str, ...]:
+    mapping = role_field_mapping_for_context(owner_role, workshop_type)
+    if mapping is None:
+        return ()
+
+    if 'direct_fields' in mapping:
+        return tuple(sorted(_field_names(mapping['direct_fields'])))
+
+    selected_templates = _selected_templates_for_role_lookup(
+        template_definitions=DEFAULT_WORKSHOP_TEMPLATES if template_definitions is None else template_definitions,
+        workshop_type=workshop_type,
+    )
+    if not selected_templates:
+        return ()
+
+    field_names: set[str] = set()
+    if 'extra_filter' in mapping:
+        target_role = str(mapping['extra_filter'] or '').strip()
+        for template in selected_templates:
+            for section_name in ('extra_fields', 'qc_fields'):
+                for field in template.get(section_name, ()) or ():
+                    if isinstance(field, Mapping) and _field_is_writable_by_role(field, target_role):
+                        name = _field_name(field)
+                        if name:
+                            field_names.add(name)
+        return tuple(sorted(field_names))
+
+    sections = mapping.get('sections', ['entry'])
+    for section_name in sections:
+        template_section_name = _TEMPLATE_SECTIONS_BY_MAPPING_SECTION.get(str(section_name))
+        if not template_section_name:
+            continue
+        for template in selected_templates:
+            for field in template.get(template_section_name, ()) or ():
+                if isinstance(field, Mapping) and _field_is_writable_by_role(field, owner_role):
+                    name = _field_name(field)
+                    if name:
+                        field_names.add(name)
+    if owner_role == 'machine_operator' and 'entry' in sections:
+        field_names.add('tracking_card_no')
+    return tuple(sorted(field_names))
+
+
+_role_field_mapping_for_context = role_field_mapping_for_context
+
 
 import sys
 from types import ModuleType
@@ -1119,7 +1237,7 @@ from app.core.templates import permissions as permissions
 from app.core.templates import resolver as resolver
 
 _MODULES = (resolver, loader, permissions)
-_PUBLIC_ALL = ['WORK_ORDER_FIELD_NAMES', 'WORK_ORDER_ENTRY_FIELD_NAMES', 'NUMERIC_FIELD_NAMES', 'TIME_FIELD_NAMES', 'WORKSHOP_TYPE_BY_WORKSHOP_CODE', 'WORKSHOP_TYPE_ALIASES', 'ENERGY_OWNER_FIELDS', 'MAINTENANCE_OWNER_FIELDS', 'HYDRAULIC_OWNER_FIELDS', 'CONSUMABLE_OWNER_FIELDS', 'CONTRACT_OWNER_FIELDS', 'QC_OWNER_FIELDS', 'INVENTORY_OWNER_FIELDS', 'UTILITY_OWNER_FIELDS', 'SHIPMENT_OUTFLOW_OWNER_FIELDS', 'RECOVERY_OWNER_FIELDS', 'OVERHAUL_OWNER_FIELDS', 'CONTRACT_PROGRESS_FIELDS', 'DEFAULT_WORKSHOP_TEMPLATES', 'WORKSHOP_TEMPLATES', 'normalize_workshop_type', 'normalize_template_key', 'resolve_template_key', 'resolve_workshop_type', 'get_workshop_template_definition', 'normalize_template_definition_payload', 'get_workshop_template', '_merge_supplemental_sections']
+_PUBLIC_ALL = ['WORK_ORDER_FIELD_NAMES', 'WORK_ORDER_ENTRY_FIELD_NAMES', 'NUMERIC_FIELD_NAMES', 'TIME_FIELD_NAMES', 'WORKSHOP_TYPE_BY_WORKSHOP_CODE', 'WORKSHOP_TYPE_ALIASES', 'ENERGY_OWNER_FIELDS', 'MAINTENANCE_OWNER_FIELDS', 'HYDRAULIC_OWNER_FIELDS', 'CONSUMABLE_OWNER_FIELDS', 'CONTRACT_OWNER_FIELDS', 'QC_OWNER_FIELDS', 'INVENTORY_OWNER_FIELDS', 'UTILITY_OWNER_FIELDS', 'SHIPMENT_OUTFLOW_OWNER_FIELDS', 'RECOVERY_OWNER_FIELDS', 'OVERHAUL_OWNER_FIELDS', 'CONTRACT_PROGRESS_FIELDS', 'DEFAULT_WORKSHOP_TEMPLATES', 'WORKSHOP_TEMPLATES', 'ROLE_FIELD_MAPPING', 'role_field_mapping_for_context', 'role_writable_field_names', 'normalize_workshop_type', 'normalize_template_key', 'resolve_template_key', 'resolve_workshop_type', 'get_workshop_template_definition', 'normalize_template_definition_payload', 'get_workshop_template', '_merge_supplemental_sections']
 
 
 def _all_names() -> set[str]:

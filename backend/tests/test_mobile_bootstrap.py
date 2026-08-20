@@ -13,6 +13,7 @@ from app.core.business_time import (
     production_business_window,
     resolve_production_business_date,
 )
+from app.core import templates as template_module
 from app.core.deps import get_current_user, get_db
 from app.core.scope import build_scope_summary, can_view_work_order_entries
 from app.database import Base
@@ -697,6 +698,70 @@ def test_entry_fields_exposes_heating_furnace_alias_to_energy_chief() -> None:
     heating_furnace_field = fields['heating_furnace_gas_m3']
     assert heating_furnace_field['label'] == '加热炉用气'
     assert heating_furnace_field['role_write'] == ['utility_manager', 'energy_chief']
+
+
+def test_shared_role_writable_fields_match_mobile_entry_groups() -> None:
+    class EntryFieldsDB:
+        def __init__(self, workshop) -> None:
+            self._workshop = workshop
+
+        def get(self, *_args, **_kwargs):
+            return self._workshop
+
+    cases = [
+        (
+            User(
+                id=67,
+                username='CPK-FS',
+                password_hash='x',
+                name='成品库负责人',
+                role='storage_owner',
+                workshop_id=11,
+                is_mobile_user=True,
+                is_active=True,
+            ),
+            SimpleNamespace(id=11, code='CPK', name='成品库', workshop_type='inventory'),
+        ),
+        (
+            User(
+                id=68,
+                username='CPK-PL',
+                password_hash='x',
+                name='计划内勤',
+                role='planning_owner',
+                workshop_id=11,
+                is_mobile_user=True,
+                is_active=True,
+            ),
+            SimpleNamespace(id=11, code='CPK', name='成品库', workshop_type='inventory'),
+        ),
+        (
+            User(
+                id=69,
+                username='RZ-ENERGY',
+                password_hash='x',
+                name='水电气负责人',
+                role='energy_chief',
+                workshop_id=6,
+                is_mobile_user=True,
+                is_active=True,
+            ),
+            SimpleNamespace(id=6, code='RZ', name='热轧车间', workshop_type='hot_roll'),
+        ),
+    ]
+
+    for current_user, workshop in cases:
+        payload = entry_fields(db=EntryFieldsDB(workshop), current_user=current_user)
+        mobile_field_names = {
+            field['name']
+            for group in payload['groups']
+            for field in group['fields']
+        }
+
+        assert template_module.role_writable_field_names(
+            current_user.role,
+            workshop.workshop_type,
+        ) == tuple(sorted(mobile_field_names))
 
 
 def test_entry_fields_ignores_workshop_template_override_for_machine_operator(tmp_path) -> None:

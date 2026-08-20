@@ -147,6 +147,28 @@ def test_contract_validation_flags_missing_action_metadata_and_unknown_entry_ali
     }
 
 
+def test_contract_validation_rejects_entry_alias_not_writable_by_owner_role() -> None:
+    contracts = dict(contract_module.DAILY_REPORT_FIELD_CONTRACTS)
+    contracts["finished_inbound_daily"] = replace(
+        contracts["finished_inbound_daily"],
+        entry_fields=("alloy_grade",),
+    )
+
+    payload = daily_report_contract_validation.validate_daily_report_contract(
+        contracts=contracts,
+        check_document=False,
+    )
+
+    assert {
+        "code": "unknown_entry_field_alias",
+        "field": "finished_inbound_daily",
+        "detail": {
+            "alias": "alloy_grade",
+            "entry_route": "/entry/fill",
+        },
+    } in payload["errors"]
+
+
 @pytest.mark.parametrize(
     ("field_name", "expected"),
     (
