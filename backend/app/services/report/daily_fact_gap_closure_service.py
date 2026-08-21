@@ -253,6 +253,17 @@ def sync_daily_fact_gap_events(
             route_fields = {assignment["field"] for assignment in route_assignments}
             route_gap_items = [item for item in gap_items if item["field"] in route_fields]
             metadata = channel.metadata_payload if isinstance(channel.metadata_payload, Mapping) else {}
+            recipient_mode = _recipient_mode(metadata)
+            route_entry_route = _route_entry_route(
+                recipient_mode=recipient_mode,
+                route_assignments=route_assignments,
+            )
+            route_action_route = _route_action_route(
+                business_date=business_date,
+                trace_id=trace_id,
+                recipient_mode=recipient_mode,
+                route_assignments=route_assignments,
+            )
             message = agent_communication_service.queue_bound_message(
                 db,
                 agent_code=AGENT_CODE,
@@ -265,6 +276,8 @@ def sync_daily_fact_gap_events(
                     assignment_fields=route_fields,
                     resolved_count=len(resolved_events),
                     trace_id=trace_id,
+                    recipient_mode=recipient_mode,
+                    route_action_route=route_action_route,
                 ),
                 business_date=business_date,
                 source_summary=SOURCE_TYPE,
@@ -279,7 +292,10 @@ def sync_daily_fact_gap_events(
                     "gap_signature": _gap_signature(route_gap_items),
                     "recipient_name": metadata.get("recipient_name"),
                     "organization_path": metadata.get("organization_path"),
+                    "recipient_mode": recipient_mode,
                     "routing_status": route["routing_status"],
+                    "entry_route": route_entry_route,
+                    "action_route": route_action_route,
                     "assignments": route_assignments,
                     "auto_recheck_event_ids": [
                         event.id
@@ -334,6 +350,7 @@ def sync_daily_fact_gap_events(
                 "channel_id": channel.id,
                 "recipient_name": metadata.get("recipient_name"),
                 "organization_path": metadata.get("organization_path"),
+                "recipient_mode": _recipient_mode(metadata),
                 "routing_status": route["routing_status"],
             }
             notification_targets.append(target_snapshot)
@@ -553,6 +570,8 @@ def _outbox_content(
     assignment_fields: set[str],
     resolved_count: int,
     trace_id: str,
+    recipient_mode: str,
+    route_action_route: str | None,
 ) -> str:
     if not gap_items:
         return (
@@ -578,10 +597,19 @@ def _outbox_content(
     item_lines = []
     for item in action_items[:8]:
         owner_label = OWNER_ROLE_LABELS.get(str(item.get("owner_role")), "管理调度")
-        action_url = _public_action_url(_outbox_action_route(str(item["action_route"])))
+        if recipient_mode == "supervisor":
+            action_route = route_action_route or _supervisor_action_route(
+                business_date=business_date,
+                trace_id=trace_id,
+            )
+            action_label = "查看并跟进"
+        else:
+            action_route = _outbox_action_route(str(item["action_route"]))
+            action_label = "立即补录"
+        action_url = _public_action_url(action_route)
         item_lines.append(
             f"- {_field_label(item['field'])}（责任：{owner_label}）："
-            f"{item['next_step']} [立即补录]({action_url})"
+            f"{item['next_step']} [{action_label}]({action_url})"
         )
     if len(action_items) > 8:
         item_lines.append(f"- 另有 {len(action_items) - 8} 项可在异常中心查看")
@@ -688,6 +716,56 @@ def _public_action_url(action_route: str) -> str:
     if not base_url:
         return action_route
     return f"{base_url}{action_route}"
+
+
+def _recipient_mode(metadata: Mapping[str, Any]) -> str:
+    mode = str(metadata.get("daily_fact_recipient_mode") or "").strip().lower()
+    return "supervisor" if mode == "supervisor" else "specialist"
+
+
+def _route_entry_route(
+    *,
+    recipient_mode: str,
+    route_assignments: list[dict[str, Any]],
+) -> str | None:
+    if recipient_mode == "supervisor":
+        return "/manage/workshop-dashboard"
+    if not route_assignments:
+        return None
+    entry_route = str(route_assignments[0].get("entry_route") or "").strip()
+    return entry_route or None
+
+
+def _route_action_route(
+    *,
+    business_date: date,
+    trace_id: str,
+    recipient_mode: str,
+    route_assignments: list[dict[str, Any]],
+) -> str | None:
+    if recipient_mode == "supervisor":
+        return _supervisor_action_route(business_date=business_date, trace_id=trace_id)
+    if not route_assignments:
+        return None
+    action_route = str(route_assignments[0].get("action_route") or "").strip()
+    if action_route:
+        return _outbox_action_route(action_route)
+    entry_route = str(route_assignments[0].get("entry_route") or "").strip()
+    if not entry_route:
+        return None
+    query = urlencode({
+        "business_date": business_date.isoformat(),
+        "trace_id": trace_id,
+    })
+    return f"{entry_route}?{query}"
+
+
+def _supervisor_action_route(*, business_date: date, trace_id: str) -> str:
+    query = urlencode({
+        "business_date": business_date.isoformat(),
+        "trace_id": trace_id,
+    })
+    return f"/manage/workshop-dashboard?{query}"
 
 
 def _field_label(field: str) -> str:

@@ -122,7 +122,16 @@ def _bind_field_channel(
     recipient_name: str,
     organization_path: str,
     fields: list[str],
+    recipient_mode: str | None = None,
 ) -> CommunicationChannel:
+    metadata_payload = {
+        "daily_fact_notification": True,
+        "recipient_name": recipient_name,
+        "organization_path": organization_path,
+        "daily_fact_fields": fields,
+    }
+    if recipient_mode:
+        metadata_payload["daily_fact_recipient_mode"] = recipient_mode
     channel = agent_communication_service.register_channel(
         db,
         channel_type="dingtalk_work_notice",
@@ -131,12 +140,7 @@ def _bind_field_channel(
         target_type="user",
         target_key=target_key,
         dry_run=False,
-        metadata_payload={
-            "daily_fact_notification": True,
-            "recipient_name": recipient_name,
-            "organization_path": organization_path,
-            "daily_fact_fields": fields,
-        },
+        metadata_payload=metadata_payload,
     )
     agent_communication_service.bind_agent_to_channel(
         db,
@@ -207,6 +211,7 @@ def test_sync_routes_two_owner_roles_to_separate_work_notice_channels() -> None:
             "channel_id": messages[0].channel_id,
             "recipient_name": "质检内勤",
             "organization_path": "生产运行部/专项岗位",
+            "recipient_mode": "specialist",
             "routing_status": "owner_role_match",
         }]
         assert events["total_electricity_kwh"].payload["notification_targets"] == [{
@@ -214,6 +219,7 @@ def test_sync_routes_two_owner_roles_to_separate_work_notice_channels() -> None:
             "channel_id": messages[1].channel_id,
             "recipient_name": "总电工",
             "organization_path": "生产运行部/专项岗位",
+            "recipient_mode": "specialist",
             "routing_status": "owner_role_match",
         }]
     finally:
@@ -268,6 +274,121 @@ def test_sync_allows_one_field_to_route_to_multiple_explicit_workshop_channels()
             "annealing-one-director",
             "annealing-two-director",
         }
+    finally:
+        db.close()
+
+
+def test_sync_routes_supervisor_notifications_to_manage_dashboard_without_changing_fact_assignment(
+    monkeypatch,
+) -> None:
+    db = _db_session()
+    try:
+        monkeypatch.setattr(
+            daily_fact_gap_closure_service.settings,
+            "PUBLIC_APP_BASE_URL",
+            "https://hub.example.com",
+        )
+        agent_communication_service.register_agent(
+            db,
+            code="factory_dispatch",
+            name="鑫泰铝业智能大脑",
+        )
+        supervisor_channel = _bind_field_channel(
+            db,
+            channel_key="hot-roll-director-supervisor-work-notice",
+            target_key="hot-roll-director",
+            recipient_name="热轧车间主任",
+            organization_path="生产运行部/热轧车间",
+            fields=["hot_roll_daily"],
+            recipient_mode="supervisor",
+        )
+        specialist_channel = _bind_field_channel(
+            db,
+            channel_key="energy-chief-specialist-work-notice",
+            target_key="energy-chief",
+            recipient_name="总电工",
+            organization_path="生产运行部/能源组",
+            fields=["total_electricity_kwh"],
+        )
+
+        result = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily", "total_electricity_kwh"),
+            trace_id="trace-supervisor-route",
+            now=NOW,
+        )
+        db.commit()
+
+        messages = {
+            message.channel_id: message
+            for message in db.query(AgentOutboxMessage).order_by(AgentOutboxMessage.id).all()
+        }
+        assert set(messages) == {supervisor_channel.id, specialist_channel.id}
+
+        supervisor_message = messages[supervisor_channel.id]
+        assert supervisor_message.payload["recipient_mode"] == "supervisor"
+        assert supervisor_message.payload["entry_route"] == "/manage/workshop-dashboard"
+        assert supervisor_message.payload["action_route"] == (
+            "/manage/workshop-dashboard?"
+            "business_date=2026-07-21&trace_id=trace-supervisor-route"
+        )
+        assert "查看并跟进" in supervisor_message.content
+        assert "立即补录" not in supervisor_message.content
+        assert (
+            "[查看并跟进](https://hub.example.com/manage/workshop-dashboard?"
+            "business_date=2026-07-21&trace_id=trace-supervisor-route)"
+        ) in supervisor_message.content
+        assert "/entry/fill?" not in supervisor_message.content
+
+        specialist_message = messages[specialist_channel.id]
+        assert specialist_message.payload["recipient_mode"] == "specialist"
+        assert specialist_message.payload["entry_route"] == "/entry/fill"
+        assert specialist_message.payload["action_route"] == (
+            "/entry/fill?"
+            "business_date=2026-07-21&entry_fields=total_electricity_kwh"
+            "&entry_field=total_electricity_kwh&owner_role=energy_chief"
+            "&trace_id=trace-supervisor-route"
+        )
+        assert "立即补录" in specialist_message.content
+        assert (
+            "[立即补录](https://hub.example.com/entry/fill?"
+            "business_date=2026-07-21&entry_fields=total_electricity_kwh"
+            "&entry_field=total_electricity_kwh&owner_role=energy_chief"
+            "&trace_id=trace-supervisor-route)"
+        ) in specialist_message.content
+
+        events = {
+            event.payload["field"]: event
+            for event in db.query(AgentEvent).order_by(AgentEvent.id).all()
+        }
+        hot_roll_route = urlparse(events["hot_roll_daily"].payload["action_route"])
+        assert hot_roll_route.path == "/entry/fill"
+        assert parse_qs(hot_roll_route.query) == {
+            "business_date": ["2026-07-21"],
+            "field": ["hot_roll_daily"],
+            "entry_fields": ["output_weight"],
+            "entry_field": ["output_weight"],
+            "owner_role": ["machine_operator"],
+            "trace_id": ["trace-supervisor-route"],
+        }
+        assert events["hot_roll_daily"].payload["notification_targets"] == [{
+            "target_key": "hot-roll-director",
+            "channel_id": supervisor_channel.id,
+            "recipient_name": "热轧车间主任",
+            "organization_path": "生产运行部/热轧车间",
+            "routing_status": "field_match",
+            "recipient_mode": "supervisor",
+        }]
+        assert events["total_electricity_kwh"].payload["notification_targets"] == [{
+            "target_key": "energy-chief",
+            "channel_id": specialist_channel.id,
+            "recipient_name": "总电工",
+            "organization_path": "生产运行部/能源组",
+            "routing_status": "field_match",
+            "recipient_mode": "specialist",
+        }]
+        assert result["outbox_message_ids"] == [supervisor_message.id, specialist_message.id]
     finally:
         db.close()
 
@@ -519,6 +640,7 @@ def test_sync_prefers_exact_field_route_and_sends_only_unresolved_to_explicit_fa
             "channel_id": by_status["field_match"].channel_id,
             "recipient_name": "热轧车间主任",
             "organization_path": "生产运行部/热轧车间",
+            "recipient_mode": "specialist",
             "routing_status": "field_match",
         }]
         assert events["foundry_daily"].payload["notification_targets"] == [{
@@ -526,6 +648,7 @@ def test_sync_prefers_exact_field_route_and_sends_only_unresolved_to_explicit_fa
             "channel_id": by_status["unresolved"].channel_id,
             "recipient_name": "日报管理员",
             "organization_path": "生产运行部/管理调度",
+            "recipient_mode": "specialist",
             "routing_status": "unresolved",
         }]
     finally:
