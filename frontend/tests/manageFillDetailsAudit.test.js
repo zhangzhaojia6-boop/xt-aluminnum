@@ -540,6 +540,14 @@ test('WorkshopDashboardPage avoids a duplicate API load after selecting the defa
   assert.match(dashboardSrc, /watch\(selectedWorkshopId, \(\) => \{[\s\S]*if \(suppressWorkshopSelectionWatch\.value\)/)
 })
 
+test('WorkshopDashboardPage adopts the business date from a work-notice route', () => {
+  const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
+
+  assert.match(dashboardSrc, /const route = useRoute\(\)/)
+  assert.match(dashboardSrc, /const routeBusinessDate = normalizeBusinessDateQuery\(route\.query\.business_date\)/)
+  assert.match(dashboardSrc, /const targetDate = ref\(routeBusinessDate \|\| inferBusinessDate\(\)\)/)
+})
+
 test('WorkshopDashboardPage shows machine fill submit time', () => {
   const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
 
