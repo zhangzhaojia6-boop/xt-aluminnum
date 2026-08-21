@@ -313,6 +313,7 @@ def sync_daily_fact_gap_events(
                     business_date,
                     notification_state,
                     route_assignments,
+                    recipient_mode=recipient_mode,
                 ),
                 dedupe_window_minutes=OUTBOX_DEDUPE_MINUTES,
                 now=checked_at,
@@ -532,16 +533,28 @@ def _outbox_dedupe_key(
     business_date: date,
     notification_state: str,
     assignments: list[dict[str, Any]],
+    *,
+    recipient_mode: str,
 ) -> str:
     return (
         f"{EVENT_TYPE}:{business_date.isoformat()}:{notification_state}:"
-        f"{_assignment_signature(assignments)}"
+        f"{_assignment_signature(assignments, recipient_mode=recipient_mode)}"
     )
 
 
-def _assignment_signature(assignments: list[dict[str, Any]]) -> str:
+def _assignment_signature(
+    assignments: list[dict[str, Any]],
+    *,
+    recipient_mode: str,
+) -> str:
+    route_destination = _dedupe_route_destination(
+        recipient_mode=recipient_mode,
+        assignments=assignments,
+    )
     stable_assignments = [
         {
+            "recipient_mode": recipient_mode,
+            "route_destination": route_destination,
             "field": assignment.get("field"),
             "owner_role": assignment.get("owner_role"),
             "deadline": assignment.get("deadline"),
@@ -554,6 +567,19 @@ def _assignment_signature(assignments: list[dict[str, Any]]) -> str:
     ]
     raw = json.dumps(stable_assignments, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+
+
+def _dedupe_route_destination(
+    *,
+    recipient_mode: str,
+    assignments: list[dict[str, Any]],
+) -> str:
+    if recipient_mode == "supervisor":
+        return "/manage/workshop-dashboard"
+    if not assignments:
+        return "resolved"
+    entry_route = str(assignments[0].get("entry_route") or "").strip()
+    return entry_route or "resolved"
 
 
 def _gap_signature(gap_items: list[dict[str, Any]]) -> str:

@@ -772,6 +772,84 @@ def test_sync_dedupes_each_channel_by_its_assignment_signature_when_routes_chang
         db.close()
 
 
+def test_sync_breaks_dedupe_when_recipient_mode_changes_route_destination() -> None:
+    db = _db_session()
+    try:
+        agent_communication_service.register_agent(
+            db,
+            code="factory_dispatch",
+            name="鑫泰铝业智能大脑",
+        )
+        channel = _bind_field_channel(
+            db,
+            channel_key="hot-roll-recipient-mode-work-notice",
+            target_key="hot-roll-director",
+            recipient_name="热轧车间主任",
+            organization_path="生产运行部/热轧车间",
+            fields=["hot_roll_daily"],
+        )
+
+        first_fill = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-recipient-mode-dedupe",
+            now=NOW,
+        )
+        db.commit()
+        second_fill = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-recipient-mode-dedupe",
+            now=NOW + timedelta(minutes=5),
+        )
+        db.commit()
+
+        fill_message = db.get(AgentOutboxMessage, first_fill["outbox_message_id"])
+        assert fill_message is not None
+        assert second_fill["outbox_message_id"] == fill_message.id
+        assert second_fill["delivery_status"] == "unchanged"
+        assert fill_message.payload["recipient_mode"] == "specialist"
+        assert fill_message.payload["entry_route"] == "/entry/fill"
+
+        channel.metadata_payload = {
+            **(channel.metadata_payload or {}),
+            "daily_fact_recipient_mode": "supervisor",
+        }
+        db.commit()
+
+        first_supervisor = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-recipient-mode-dedupe",
+            now=NOW + timedelta(minutes=10),
+        )
+        db.commit()
+        second_supervisor = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-recipient-mode-dedupe",
+            now=NOW + timedelta(minutes=15),
+        )
+        db.commit()
+
+        supervisor_message = db.get(AgentOutboxMessage, first_supervisor["outbox_message_id"])
+        assert supervisor_message is not None
+        assert supervisor_message.id != fill_message.id
+        assert supervisor_message.dedupe_key != fill_message.dedupe_key
+        assert supervisor_message.payload["recipient_mode"] == "supervisor"
+        assert supervisor_message.payload["entry_route"] == "/manage/workshop-dashboard"
+        assert first_supervisor["delivery_status"] == "pending"
+        assert second_supervisor["outbox_message_id"] == supervisor_message.id
+        assert second_supervisor["delivery_status"] == "unchanged"
+        assert db.query(AgentOutboxMessage).count() == 2
+    finally:
+        db.close()
+
+
 def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) -> None:
     db = _db_session()
     try:
