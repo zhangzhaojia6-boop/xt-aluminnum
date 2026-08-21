@@ -180,6 +180,65 @@ def test_plan_contract_message_produces_component_sum_and_remaining_contract_can
     assert all(item["source_ref"]["parser"] == "plan_contract_message_v1" for item in candidates)
 
 
+def test_plan_contract_message_deduplicates_semantically_identical_text_copies() -> None:
+    recognized_text = (
+        "投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨 "
+        "当天合同443吨 热轧436吨 总余合同量2765吨"
+    )
+    trace_id = "plan-contract-semantic-duplicate-trace"
+
+    candidates = extract_daily_fact_update_candidates(
+        {
+            "trace_id": trace_id,
+            "recognized_text": recognized_text,
+            "payload": {
+                "message_text": (
+                    "投料量： ２０５０投料\u00a0４６３吨\n"
+                    "１８５０投料 ０吨\n"
+                    "外加工 ６２吨\n"
+                    "中厚板 ０吨\n"
+                    "当天合同 ４４３吨\n"
+                    "热轧 ４３６吨\n"
+                    "总余合同量 ２７６５吨"
+                )
+            },
+        }
+    )
+
+    assert [item["field"] for item in candidates] == [
+        "daily_input_weight",
+        "cold_roll_input_daily",
+        "remaining_contract_weight",
+        "cold_2050_input_daily",
+        "cold_1850_input_daily",
+        "outsourced_input_daily",
+        "medium_plate_input_daily",
+        "daily_contract_weight",
+        "daily_hot_roll_contract_weight",
+    ]
+    assert all(item["raw_text"] == recognized_text for item in candidates)
+    assert all(item["trace_id"] == trace_id for item in candidates)
+
+
+def test_plan_contract_message_keeps_genuinely_different_texts_ambiguous() -> None:
+    candidates = extract_daily_fact_update_candidates(
+        {
+            "recognized_text": (
+                "投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨 "
+                "当天合同443吨 热轧436吨 总余合同量2765吨"
+            ),
+            "payload": {
+                "message_text": (
+                    "投料量：2050投料464吨 1850投料0吨 外加工63吨 中厚板0吨 "
+                    "当天合同444吨 热轧437吨 总余合同量2764吨"
+                )
+            },
+        }
+    )
+
+    assert candidates == []
+
+
 def test_incomplete_plan_contract_message_is_not_partially_guessed() -> None:
     text = "投料量：2050投料463吨 1850投料0吨 外加工62吨 总余合同量2765吨"
 

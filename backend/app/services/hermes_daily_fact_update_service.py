@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 import re
 from typing import Any
+import unicodedata
 
 from app.services.dingtalk_verified_fact_extractor import (
     PLAN_CONTRACT_PARSER,
@@ -332,13 +333,18 @@ def _collect_text_parts(value: Any, *, parts: list[str], seen: set[str], depth: 
             _collect_text_parts(item, parts=parts, seen=seen, depth=depth + 1)
 
 
+def _semantic_text_key(value: str) -> str:
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", value))
+
+
 def _append_text_part(value: Any, *, parts: list[str], seen: set[str]) -> None:
     if not isinstance(value, str):
         return
     text = value.strip()
-    if text and text not in seen:
+    semantic_key = _semantic_text_key(text)
+    if text and semantic_key not in seen:
         parts.append(text)
-        seen.add(text)
+        seen.add(semantic_key)
 
 
 def _trace_id(evidence: Mapping[str, Any], payload: Mapping[str, Any]) -> str:
