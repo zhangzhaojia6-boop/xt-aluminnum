@@ -88,12 +88,12 @@ python -m pytest -q
 
 ### Task 5: Merge, Deploy, And Prove On Production
 
-- [ ] Commit and push the feature branch.
-- [ ] Merge to `main`, push `main`, and deploy the exact merged SHA.
-- [ ] Verify local, origin, and `/srv/aluminum-bypass` SHA parity and clean worktrees.
-- [ ] Verify `aluminum-bypass` and `hermes-gateway` are active and `/readyz` reports database and MES sync healthy.
-- [ ] Read-only replay production evidence `712` and `725` through `extract_daily_fact_update_candidates()`.
-- [ ] Confirm both yield 9 fields, both database rows remain `machine_only`, and the replay does not change the maximum outbox ID.
+- [x] Commit and push the feature branch.
+- [x] Merge to `main`, push `main`, and deploy the exact merged SHA.
+- [x] Verify local, origin, and `/srv/aluminum-bypass` SHA parity and clean worktrees.
+- [x] Verify `aluminum-bypass` and `hermes-gateway` are active and `/readyz` reports database and MES sync healthy.
+- [x] Read-only replay production evidence `712` and `725` through `extract_daily_fact_update_candidates()`.
+- [x] Confirm both yield 9 fields, both database rows remain `machine_only`, and the replay does not change the maximum outbox ID.
 
 ## Pre-Deploy Evidence
 
@@ -104,6 +104,17 @@ python -m pytest -q
 - SPEC review: approved after extracting `_semantic_text_key()` as designed.
 - Code-quality review: approved; Unicode full-width characters, NBSP, first `raw_text`, `trace_id`, and different-value ambiguity are covered.
 - `git diff --check`: passed.
+
+## Production Evidence
+
+- CI run `32432941712`: frontend build and backend tests succeeded for merged SHA `a19975a5ee5119f47873f413c5b08d60fd0ddf54`.
+- Production deploy run `32433860082`: succeeded for the same exact Data Hub SHA; Hermes stayed on `4d4452067cb43ebcd437eba78b0c67d9f1c64652`.
+- Production services: `aluminum-bypass=active`, `hermes-gateway=active`.
+- `/readyz`: `ready`; database, pipeline, and MES sync are `ok`; MES latest run is `success`.
+- Evidence `712`: 9 candidate fields, `confirmation_status=machine_only`.
+- Evidence `725`: 9 candidate fields, `confirmation_status=machine_only`.
+- Read-only replay outbox maximum ID: `838 -> 838`; no reminder or external message was created.
+- Recent production service error scan after deploy: no matching traceback, exception, error, or failure lines.
 
 ## GSTACK REVIEW REPORT
 
