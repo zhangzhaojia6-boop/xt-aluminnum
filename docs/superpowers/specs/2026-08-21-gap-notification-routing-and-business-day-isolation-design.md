@@ -61,11 +61,11 @@
 
 ## 业务日隔离
 
-`DailyFactBundle` 使用 `query_dingtalk_evidence` 的默认业务日过滤。显式日期不匹配、由创建时间推断到其他业务日、或无法安全归属的消息均不进入该日期事实包。原始证据和 trace 不删除；需要全量审计时仍可显式使用 `include_outside_business_context=True`。
+`DailyFactBundle` 使用 `query_dingtalk_evidence` 的默认业务日过滤。显式日期不匹配、由事件/创建时间推断到其他业务日、或无法安全归属的消息均不进入该日期事实包。没有正文日期但钉钉事件时间能唯一落入一个生产业务窗口的消息仍可属于该窗口，避免把识别规则做死；它不得再次进入相邻业务日。原始证据和 trace 不删除；需要全量审计时仍可显式使用 `include_outside_business_context=True`。
 
 ## 验收标准
 
-- 两个相邻业务日构建事实包时，同一条无安全日期证据至多属于一个业务日，不在另一日产生 candidate conflict。
+- 两个相邻业务日构建事实包时，同一条无正文日期证据可按可靠事件时间属于其中一个业务日，但不得在另一日再次产生 candidate conflict；完全无法安全归属时两日均不采用。
 - 全量审计查询仍能按 evidence id 找到被隔离消息。
 - 一个专项负责人通道只收到其 owner role 的字段。
 - 一个车间主任通道只收到显式配置给该通道的日报字段。

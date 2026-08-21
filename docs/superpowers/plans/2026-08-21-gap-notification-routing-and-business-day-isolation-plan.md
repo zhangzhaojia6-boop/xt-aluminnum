@@ -18,7 +18,7 @@
 
 - [ ] **Step 1: 写失败测试**
 
-把显式日期不匹配、其他业务日的“今日”消息、无安全日期消息的预期改为：目标日事实包不包含它们的 candidate conflict；同时调用 `query_dingtalk_evidence(..., include_outside_business_context=True)` 断言原始证据仍可审计。
+把显式日期不匹配、其他业务日的“今日”消息、无可靠时间可归属消息的预期改为：目标日事实包不包含它们的 candidate conflict；同时调用 `query_dingtalk_evidence(..., include_outside_business_context=True)` 断言原始证据仍可审计。另加一条无正文日期但 `created_at` 落入目标业务窗口的消息，断言它只在该业务日可见、在相邻业务日不可见，防串日但不把识别规则做死。
 
 - [ ] **Step 2: 验证 RED**
 
