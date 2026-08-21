@@ -180,22 +180,26 @@ def test_plan_contract_message_produces_component_sum_and_remaining_contract_can
     assert all(item["source_ref"]["parser"] == "plan_contract_message_v1" for item in candidates)
 
 
-def test_plan_contract_message_deduplicates_whitespace_only_text_copies() -> None:
+def test_plan_contract_message_deduplicates_semantically_identical_text_copies() -> None:
+    recognized_text = (
+        "投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨 "
+        "当天合同443吨 热轧436吨 总余合同量2765吨"
+    )
+    trace_id = "plan-contract-semantic-duplicate-trace"
+
     candidates = extract_daily_fact_update_candidates(
         {
-            "recognized_text": (
-                "投料量：2050投料463吨 1850投料0吨 外加工62吨 中厚板0吨 "
-                "当天合同443吨 热轧436吨 总余合同量2765吨"
-            ),
+            "trace_id": trace_id,
+            "recognized_text": recognized_text,
             "payload": {
                 "message_text": (
-                    "投料量： 2050投料 463吨\n"
-                    "1850投料 0吨\n"
-                    "外加工 62吨\n"
-                    "中厚板 0吨\n"
-                    "当天合同 443吨\n"
-                    "热轧 436吨\n"
-                    "总余合同量 2765吨"
+                    "投料量： ２０５０投料\u00a0４６３吨\n"
+                    "１８５０投料 ０吨\n"
+                    "外加工 ６２吨\n"
+                    "中厚板 ０吨\n"
+                    "当天合同 ４４３吨\n"
+                    "热轧 ４３６吨\n"
+                    "总余合同量 ２７６５吨"
                 )
             },
         }
@@ -212,6 +216,8 @@ def test_plan_contract_message_deduplicates_whitespace_only_text_copies() -> Non
         "daily_contract_weight",
         "daily_hot_roll_contract_weight",
     ]
+    assert all(item["raw_text"] == recognized_text for item in candidates)
+    assert all(item["trace_id"] == trace_id for item in candidates)
 
 
 def test_plan_contract_message_keeps_genuinely_different_texts_ambiguous() -> None:
