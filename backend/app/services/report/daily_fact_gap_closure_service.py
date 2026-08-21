@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
@@ -12,12 +13,12 @@ from app.config import settings
 from app.core.business_time import local_now
 from app.domain.daily_report_field_contract import daily_report_field_contract_for
 from app.models.agent_communication import (
-    AgentChannelBinding,
     AgentEvent,
-    AgentProfile,
-    CommunicationChannel,
 )
 from app.services import agent_communication_service
+from app.services.report.daily_fact_notification_routing import (
+    resolve_daily_fact_notification_routes,
+)
 from app.services.report.daily_report_gap_analysis import (
     build_daily_report_gap_action_route,
     classify_daily_report_field_gap,
@@ -202,44 +203,53 @@ def sync_daily_fact_gap_events(
         for event in open_events
         if _human_action_required(event.payload or {})
     ]
-    unnotified_actionable_events = [
-        event
-        for event in actionable_events
-        if not (event.payload or {}).get("action_notified_at")
-    ]
     full_closure = not gap_items and bool(resolved_events)
     closure_already_notified = any(
         (event.payload or {}).get("closure_notified_at")
         for event in existing_events
     )
-    should_notify = bool(unnotified_actionable_events) or (
+    should_notify = bool(actionable_events) or (
         full_closure and not closure_already_notified
     )
 
     if should_notify:
-        channel = _preferred_bound_channel(db)
-        if channel is None:
-            delivery_status = "channel_unavailable"
-        else:
-            notification_state = "resolved" if full_closure else "blocked"
-            action_items = _human_action_items(gap_items)
-            assignments = []
-            for event in actionable_events:
-                payload = event.payload or {}
-                assignments.append(
-                    {
-                        "field": payload["field"],
-                        "owner_role": payload["owner_role"],
-                        "deadline": payload["deadline"],
-                        "contract_version": payload["contract_version"],
-                        "entry_route": payload["entry_route"],
-                        "entry_fields": list(payload.get("entry_fields") or []),
-                        "fill_strategy": payload["fill_strategy"],
-                        "business_date": business_date.isoformat(),
-                        "trace_id": payload["trace_id"],
-                        "action_route": payload["action_route"],
-                    }
-                )
+        previous_notification_outbox_ids = {
+            message_id
+            for event in [*open_events, *resolved_events]
+            for message_id in _event_notification_outbox_ids(event)
+        }
+        notification_state = "resolved" if full_closure else "blocked"
+        assignments = []
+        for event in actionable_events:
+            payload = event.payload or {}
+            assignments.append(
+                {
+                    "field": payload["field"],
+                    "owner_role": payload["owner_role"],
+                    "deadline": payload["deadline"],
+                    "contract_version": payload["contract_version"],
+                    "entry_route": payload["entry_route"],
+                    "entry_fields": list(payload.get("entry_fields") or []),
+                    "fill_strategy": payload["fill_strategy"],
+                    "business_date": business_date.isoformat(),
+                    "trace_id": payload["trace_id"],
+                    "action_route": payload["action_route"],
+                }
+            )
+        routing_assignments = assignments or ([{"field": "__full_closure__"}] if full_closure else [])
+        routing = resolve_daily_fact_notification_routes(db, assignments=routing_assignments)
+        outbox_messages = []
+        routed_messages = []
+        for route in routing["routes"]:
+            channel = route["channel"]
+            route_assignments = [
+                assignment
+                for assignment in route["assignments"]
+                if assignment.get("field") != "__full_closure__"
+            ]
+            route_fields = {assignment["field"] for assignment in route_assignments}
+            route_gap_items = [item for item in gap_items if item["field"] in route_fields]
+            metadata = channel.metadata_payload if isinstance(channel.metadata_payload, Mapping) else {}
             message = agent_communication_service.queue_bound_message(
                 db,
                 agent_code=AGENT_CODE,
@@ -249,6 +259,7 @@ def sync_daily_fact_gap_events(
                 content=_outbox_content(
                     business_date=business_date,
                     gap_items=gap_items,
+                    assignment_fields=route_fields,
                     resolved_count=len(resolved_events),
                     trace_id=trace_id,
                 ),
@@ -262,8 +273,11 @@ def sync_daily_fact_gap_events(
                     "open_event_ids": [event.id for event in open_events],
                     "resolved_event_ids": [event.id for event in resolved_events],
                     "entry_route": "/entry/fill",
-                    "gap_signature": _gap_signature(gap_items),
-                    "assignments": assignments,
+                    "gap_signature": _gap_signature(route_gap_items),
+                    "recipient_name": metadata.get("recipient_name"),
+                    "organization_path": metadata.get("organization_path"),
+                    "routing_status": route["routing_status"],
+                    "assignments": route_assignments,
                     "auto_recheck_event_ids": [
                         event.id
                         for event in open_events
@@ -279,20 +293,57 @@ def sync_daily_fact_gap_events(
                 dedupe_key=_outbox_dedupe_key(
                     business_date,
                     notification_state,
-                    action_items,
+                    route_assignments,
                 ),
                 dedupe_window_minutes=OUTBOX_DEDUPE_MINUTES,
                 now=checked_at,
                 commit=False,
             )
-            outbox_message_id = message.id
-            delivery_status = message.status
+            outbox_messages.append(message)
+            routed_messages.append((route, route_assignments, message))
+
+        if not outbox_messages:
+            delivery_status = "channel_unavailable"
+        else:
+            outbox_message_id = outbox_messages[0].id
+            current_outbox_ids = {message.id for message in outbox_messages}
+            delivery_status = (
+                "unchanged"
+                if current_outbox_ids.issubset(previous_notification_outbox_ids)
+                else outbox_messages[0].status
+            )
+
+        outbox_message_ids = [message.id for message in outbox_messages]
+        notification_target_keys = [
+            route["channel"].channel_key
+            for route in routing["routes"]
+        ]
+        target_keys_by_field: dict[str, list[str]] = {}
+        outbox_ids_by_field: dict[str, list[int]] = {}
+        routing_status_by_field: dict[str, str] = {}
+        for route, route_assignments, message in routed_messages:
+            for assignment in route_assignments:
+                field = assignment["field"]
+                target_keys_by_field.setdefault(field, []).append(route["channel"].channel_key)
+                outbox_ids_by_field.setdefault(field, []).append(message.id)
+                routing_status_by_field[field] = route["routing_status"]
+        for assignment in routing["unresolved"]:
+            routing_status_by_field.setdefault(assignment["field"], "unresolved")
 
         for event in [*open_events, *resolved_events]:
+            event_field = str((event.payload or {}).get("field") or "")
+            event_target_keys = notification_target_keys if full_closure else target_keys_by_field.get(event_field, [])
+            event_outbox_ids = outbox_message_ids if full_closure else outbox_ids_by_field.get(event_field, [])
+            event_routing_status = routing_status_by_field.get(event_field)
+            if event_routing_status is None:
+                event_routing_status = routing["routes"][0]["routing_status"] if full_closure and routing["routes"] else "unresolved"
             event.payload = {
                 **(event.payload or {}),
                 "delivery_status": delivery_status,
-                "outbox_message_id": outbox_message_id,
+                "outbox_message_id": event_outbox_ids[0] if event_outbox_ids else None,
+                "notification_target_keys": event_target_keys,
+                "action_notification_outbox_ids": event_outbox_ids,
+                "routing_status": event_routing_status,
             }
         if outbox_message_id is not None and full_closure:
             for event in resolved_events:
@@ -303,10 +354,13 @@ def sync_daily_fact_gap_events(
                 }
         elif outbox_message_id is not None:
             for event in actionable_events:
+                event_outbox_ids = list((event.payload or {}).get("action_notification_outbox_ids") or [])
+                if not event_outbox_ids:
+                    continue
                 event.payload = {
                     **(event.payload or {}),
                     "action_notified_at": checked_at.isoformat(),
-                    "action_notification_outbox_id": outbox_message_id,
+                    "action_notification_outbox_id": event_outbox_ids[0],
                 }
         db.flush()
     elif gap_items and not actionable_events:
@@ -322,6 +376,11 @@ def sync_daily_fact_gap_events(
         "open": len(open_events),
         "delivery_status": delivery_status,
         "outbox_message_id": outbox_message_id,
+        "outbox_message_ids": (
+            outbox_message_ids
+            if should_notify
+            else ([outbox_message_id] if outbox_message_id is not None else [])
+        ),
     }
 
 
@@ -416,44 +475,6 @@ def _gap_contract_version(field: str, payload: Mapping[str, Any] | None = None) 
         return None
 
 
-def _preferred_bound_channel(db: Session) -> CommunicationChannel | None:
-    agent = (
-        db.query(AgentProfile)
-        .filter(AgentProfile.code == AGENT_CODE, AgentProfile.is_active.is_(True))
-        .first()
-    )
-    if agent is None:
-        return None
-    channels = (
-        db.query(CommunicationChannel)
-        .join(AgentChannelBinding, AgentChannelBinding.channel_id == CommunicationChannel.id)
-        .filter(
-            AgentChannelBinding.agent_profile_id == agent.id,
-            AgentChannelBinding.is_active.is_(True),
-            CommunicationChannel.is_active.is_(True),
-            CommunicationChannel.channel_type.in_((
-                "dingtalk_custom_robot",
-                "dingtalk_group",
-                "dingtalk_work_notice",
-            )),
-        )
-        .all()
-    )
-    if not channels:
-        return None
-    target_priority = {"management": 0, "factory": 1, "group": 1, "user": 2}
-    channel_priority = {"dingtalk_custom_robot": 0, "dingtalk_group": 1, "dingtalk_work_notice": 2}
-    return min(
-        channels,
-        key=lambda channel: (
-            bool(channel.dry_run),
-            target_priority.get(str(channel.target_type), 9),
-            channel_priority.get(str(channel.channel_type), 9),
-            int(channel.id or 0),
-        ),
-    )
-
-
 def _event_source_ref(business_date: date, field: str) -> str:
     raw = f"{EVENT_TYPE}:{business_date.isoformat()}:{field}"
     if len(raw) <= 128:
@@ -465,14 +486,29 @@ def _event_source_ref(business_date: date, field: str) -> str:
 def _outbox_dedupe_key(
     business_date: date,
     notification_state: str,
-    action_items: list[dict[str, Any]],
+    assignments: list[dict[str, Any]],
 ) -> str:
-    if notification_state == "resolved":
-        return f"{EVENT_TYPE}:{business_date.isoformat()}:resolved"
     return (
-        f"{EVENT_TYPE}:{business_date.isoformat()}:blocked:"
-        f"{_gap_signature(action_items)}"
+        f"{EVENT_TYPE}:{business_date.isoformat()}:{notification_state}:"
+        f"{_assignment_signature(assignments)}"
     )
+
+
+def _assignment_signature(assignments: list[dict[str, Any]]) -> str:
+    stable_assignments = [
+        {
+            "field": assignment.get("field"),
+            "owner_role": assignment.get("owner_role"),
+            "deadline": assignment.get("deadline"),
+            "contract_version": assignment.get("contract_version"),
+            "entry_route": assignment.get("entry_route"),
+            "entry_fields": list(assignment.get("entry_fields") or []),
+            "fill_strategy": assignment.get("fill_strategy"),
+        }
+        for assignment in assignments
+    ]
+    raw = json.dumps(stable_assignments, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
 
 
 def _gap_signature(gap_items: list[dict[str, Any]]) -> str:
@@ -486,6 +522,7 @@ def _outbox_content(
     *,
     business_date: date,
     gap_items: list[dict[str, Any]],
+    assignment_fields: set[str],
     resolved_count: int,
     trace_id: str,
 ) -> str:
@@ -497,7 +534,11 @@ def _outbox_content(
             f"- 本轮关单：{resolved_count} 项\n"
             f"- 追踪号：{trace_id}"
         )
-    action_items = _human_action_items(gap_items)
+    action_items = [
+        item
+        for item in _human_action_items(gap_items)
+        if item["field"] in assignment_fields
+    ]
     source_recheck_count = sum(
         item.get("automation_status") == "rechecking_sources"
         for item in gap_items
@@ -568,6 +609,13 @@ def _latest_action_outbox_id(events: list[AgentEvent]) -> int | None:
         for event in events
     ]
     return max(message_ids, default=0) or None
+
+
+def _event_notification_outbox_ids(event: AgentEvent) -> set[int]:
+    payload = event.payload or {}
+    values = list(payload.get("action_notification_outbox_ids") or [])
+    values.extend((payload.get("action_notification_outbox_id"), payload.get("outbox_message_id")))
+    return {_safe_count(value) for value in values if _safe_count(value)}
 
 
 def _outbox_action_route(action_route: str) -> str:
