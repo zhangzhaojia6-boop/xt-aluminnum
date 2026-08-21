@@ -320,12 +320,25 @@ def sync_daily_fact_gap_events(
         ]
         target_keys_by_field: dict[str, list[str]] = {}
         outbox_ids_by_field: dict[str, list[int]] = {}
+        targets_by_field: dict[str, list[dict[str, Any]]] = {}
+        notification_targets: list[dict[str, Any]] = []
         routing_status_by_field: dict[str, str] = {}
         for route, route_assignments, message in routed_messages:
+            channel = route["channel"]
+            metadata = channel.metadata_payload if isinstance(channel.metadata_payload, Mapping) else {}
+            target_snapshot = {
+                "target_key": channel.target_key,
+                "channel_id": channel.id,
+                "recipient_name": metadata.get("recipient_name"),
+                "organization_path": metadata.get("organization_path"),
+                "routing_status": route["routing_status"],
+            }
+            notification_targets.append(target_snapshot)
             for assignment in route_assignments:
                 field = assignment["field"]
-                target_keys_by_field.setdefault(field, []).append(route["channel"].channel_key)
+                target_keys_by_field.setdefault(field, []).append(channel.channel_key)
                 outbox_ids_by_field.setdefault(field, []).append(message.id)
+                targets_by_field.setdefault(field, []).append(target_snapshot)
                 routing_status_by_field[field] = route["routing_status"]
         for assignment in routing["unresolved"]:
             routing_status_by_field.setdefault(assignment["field"], "unresolved")
@@ -334,6 +347,7 @@ def sync_daily_fact_gap_events(
             event_field = str((event.payload or {}).get("field") or "")
             event_target_keys = notification_target_keys if full_closure else target_keys_by_field.get(event_field, [])
             event_outbox_ids = outbox_message_ids if full_closure else outbox_ids_by_field.get(event_field, [])
+            event_targets = notification_targets if full_closure else targets_by_field.get(event_field, [])
             event_routing_status = routing_status_by_field.get(event_field)
             if event_routing_status is None:
                 event_routing_status = routing["routes"][0]["routing_status"] if full_closure and routing["routes"] else "unresolved"
@@ -342,6 +356,7 @@ def sync_daily_fact_gap_events(
                 "delivery_status": delivery_status,
                 "outbox_message_id": event_outbox_ids[0] if event_outbox_ids else None,
                 "notification_target_keys": event_target_keys,
+                "notification_targets": event_targets,
                 "action_notification_outbox_ids": event_outbox_ids,
                 "routing_status": event_routing_status,
             }

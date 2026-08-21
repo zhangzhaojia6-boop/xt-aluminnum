@@ -169,6 +169,20 @@ def test_sync_routes_two_owner_roles_to_separate_work_notice_channels() -> None:
         ]
         assert events["daily_yield_rate"].payload["action_notification_outbox_ids"] == [messages[0].id]
         assert events["total_electricity_kwh"].payload["action_notification_outbox_ids"] == [messages[1].id]
+        assert events["daily_yield_rate"].payload["notification_targets"] == [{
+            "target_key": "quality-owner-work-notice",
+            "channel_id": messages[0].channel_id,
+            "recipient_name": "质检内勤",
+            "organization_path": "生产运行部/专项岗位",
+            "routing_status": "owner_role_match",
+        }]
+        assert events["total_electricity_kwh"].payload["notification_targets"] == [{
+            "target_key": "energy-chief-work-notice",
+            "channel_id": messages[1].channel_id,
+            "recipient_name": "总电工",
+            "organization_path": "生产运行部/专项岗位",
+            "routing_status": "owner_role_match",
+        }]
     finally:
         db.close()
 
@@ -225,6 +239,21 @@ def test_sync_prefers_exact_field_route_and_sends_only_unresolved_to_explicit_fa
             "foundry_daily"
         ]
         assert result["outbox_message_ids"] == [message.id for message in messages]
+        events = {event.payload["field"]: event for event in db.query(AgentEvent).all()}
+        assert events["hot_roll_daily"].payload["notification_targets"] == [{
+            "target_key": "hot-roll-director",
+            "channel_id": by_status["field_match"].channel_id,
+            "recipient_name": "热轧车间主任",
+            "organization_path": "生产运行部/热轧车间",
+            "routing_status": "field_match",
+        }]
+        assert events["foundry_daily"].payload["notification_targets"] == [{
+            "target_key": "management",
+            "channel_id": by_status["unresolved"].channel_id,
+            "recipient_name": "日报管理员",
+            "organization_path": "生产运行部/管理调度",
+            "routing_status": "unresolved",
+        }]
     finally:
         db.close()
 
@@ -276,6 +305,7 @@ def test_sync_never_sends_unresolved_fields_to_specialist_without_explicit_fallb
         assert events["foundry_daily"].payload["routing_status"] == "unresolved"
         assert events["foundry_daily"].payload["notification_target_keys"] == []
         assert events["foundry_daily"].payload["action_notification_outbox_ids"] == []
+        assert events["foundry_daily"].payload["notification_targets"] == []
         assert "action_notification_outbox_id" not in events["foundry_daily"].payload
     finally:
         db.close()
