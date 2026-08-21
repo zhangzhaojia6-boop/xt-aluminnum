@@ -333,11 +333,15 @@ def _collect_text_parts(value: Any, *, parts: list[str], seen: set[str], depth: 
             _collect_text_parts(item, parts=parts, seen=seen, depth=depth + 1)
 
 
+def _semantic_text_key(value: str) -> str:
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", value))
+
+
 def _append_text_part(value: Any, *, parts: list[str], seen: set[str]) -> None:
     if not isinstance(value, str):
         return
     text = value.strip()
-    semantic_key = re.sub(r"\s+", "", unicodedata.normalize("NFKC", text))
+    semantic_key = _semantic_text_key(text)
     if text and semantic_key not in seen:
         parts.append(text)
         seen.add(semantic_key)
