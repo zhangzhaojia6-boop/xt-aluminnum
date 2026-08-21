@@ -1173,7 +1173,7 @@ function focusRequestedEntryField() {
   if (!firstRequestedField || typeof document === 'undefined') return
   const target = document.querySelector(`[data-testid="field-${firstRequestedField}"]`)
   if (!target) return
-  target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  target.scrollIntoView({ block: 'center', behavior: 'auto' })
   target.querySelector('input, textarea, select, button')?.focus({ preventScroll: true })
 }
 

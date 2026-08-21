@@ -154,6 +154,15 @@ test('unified entry consumes all requested concrete form fields', () => {
   assert.match(source, /ue-field--requested/)
 })
 
+test('requested entry field positioning avoids smooth-scroll flicker', () => {
+  const source = readSource('src/views/mobile/UnifiedEntryForm.vue')
+
+  assert.match(source, /scrollIntoView\(/)
+  assert.doesNotMatch(source, /behavior:\s*['"]smooth['"]/)
+  assert.match(source, /behavior:\s*['"]auto['"]/)
+  assert.match(source, /\.focus\(\{\s*preventScroll:\s*true\s*\}\)/)
+})
+
 test('mobile entry landing separates owner daily hint from production shift hint', () => {
   const source = readSource('src/views/mobile/MobileEntry.vue')
 
