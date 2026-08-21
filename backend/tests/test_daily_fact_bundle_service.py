@@ -2804,7 +2804,7 @@ def test_specialist_sampled_dingtalk_daily_report_text_is_applied(
     assert bundle["dingtalk_refs"] == [{"id": 1, "field_names": ["total_output_daily", "wip_total", "total_electricity_kwh"]}]
 
 
-def test_dingtalk_structured_date_mismatch_records_candidate_trace(
+def test_dingtalk_structured_date_mismatch_is_excluded_but_remains_auditable(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -2851,16 +2851,14 @@ def test_dingtalk_structured_date_mismatch_records_candidate_trace(
     assert bundle["facts"]["total_output_daily"]["value"] == 355
     assert bundle["facts"]["total_output_daily"]["source"] == "mes_packaging_output"
     assert bundle["dingtalk_refs"] == []
-    assert bundle["conflicts"] == [
-        {
-            "field": "total_output_daily",
-            "type": "dingtalk_candidate_not_applied",
-            "candidate_value": 371,
-            "reason": "payload_business_date_missing_or_mismatch",
-            "trace_id": "trace-structured-date-mismatch",
-            "evidence_id": 1,
-        }
-    ]
+    assert bundle["conflicts"] == []
+
+    audit_items = daily_fact_bundle.query_dingtalk_evidence(
+        db_session,
+        business_date=date(2026, 6, 19),
+        include_outside_business_context=True,
+    )
+    assert [item.trace_id for item in audit_items] == ["trace-structured-date-mismatch"]
 
 
 def test_unstructured_dingtalk_evidence_with_matching_business_date_applies_to_fact_closure(
@@ -3202,7 +3200,7 @@ def test_same_priority_dingtalk_candidate_does_not_override_existing_dingtalk_fa
     )
 
 
-def test_unstructured_dingtalk_today_from_other_business_day_records_candidate_trace(
+def test_unstructured_dingtalk_today_from_other_business_day_is_excluded_but_remains_auditable(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -3244,19 +3242,17 @@ def test_unstructured_dingtalk_today_from_other_business_day_records_candidate_t
     assert bundle["facts"]["total_output_daily"]["value"] == 355
     assert bundle["facts"]["total_output_daily"]["source"] == "mes_packaging_output"
     assert bundle["dingtalk_refs"] == []
-    assert bundle["conflicts"] == [
-        {
-            "field": "total_output_daily",
-            "type": "dingtalk_candidate_not_applied",
-            "candidate_value": 371,
-            "reason": "payload_business_date_missing_or_mismatch",
-            "trace_id": "trace-old-today-output",
-            "evidence_id": 1,
-        }
-    ]
+    assert bundle["conflicts"] == []
+
+    audit_items = daily_fact_bundle.query_dingtalk_evidence(
+        db_session,
+        business_date=date(2026, 6, 19),
+        include_outside_business_context=True,
+    )
+    assert [item.trace_id for item in audit_items] == ["trace-old-today-output"]
 
 
-def test_unstructured_dingtalk_evidence_without_safe_business_date_records_candidate_trace(
+def test_unstructured_dingtalk_evidence_without_safe_business_date_is_excluded_but_remains_auditable(
     monkeypatch,
     db_session: Session,
 ) -> None:
@@ -3296,16 +3292,14 @@ def test_unstructured_dingtalk_evidence_without_safe_business_date_records_candi
     assert bundle["facts"]["total_output_daily"]["value"] == 355
     assert bundle["facts"]["total_output_daily"]["source"] == "mes_packaging_output"
     assert bundle["dingtalk_refs"] == []
-    assert bundle["conflicts"] == [
-        {
-            "field": "finished_inbound_daily",
-            "type": "dingtalk_candidate_not_applied",
-            "candidate_value": 365.2,
-            "reason": "payload_business_date_missing_or_mismatch",
-            "trace_id": "trace-unapplied-output",
-            "evidence_id": 1,
-        }
-    ]
+    assert bundle["conflicts"] == []
+
+    audit_items = daily_fact_bundle.query_dingtalk_evidence(
+        db_session,
+        business_date=date(2026, 6, 19),
+        include_outside_business_context=True,
+    )
+    assert [item.trace_id for item in audit_items] == ["trace-unapplied-output"]
 
 
 def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(

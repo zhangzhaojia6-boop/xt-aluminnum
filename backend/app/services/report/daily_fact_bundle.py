@@ -902,7 +902,6 @@ def _apply_dingtalk_supplements(
     items = query_dingtalk_evidence(
         db,
         business_date=business_date,
-        include_outside_business_context=True,
     )
     if not items:
         return bundle
