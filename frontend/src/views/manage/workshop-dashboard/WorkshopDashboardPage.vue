@@ -178,6 +178,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
@@ -201,7 +202,19 @@ import { buildMissingReportRows } from '../../../utils/missingReportRows.js'
 
 const WORKSHOP_DETAIL_PAGE_LIMIT = 800
 const auth = useAuthStore()
-const targetDate = ref(inferBusinessDate())
+const route = useRoute()
+const router = useRouter()
+
+function normalizeBusinessDateQuery(value) {
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (typeof candidate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return ''
+  return dayjs(candidate).isValid() && dayjs(candidate).format('YYYY-MM-DD') === candidate
+    ? candidate
+    : ''
+}
+
+const routeBusinessDate = normalizeBusinessDateQuery(route.query.business_date)
+const targetDate = ref(routeBusinessDate || inferBusinessDate())
 const loading = ref(false)
 const freshness = ref('yellow')
 const dashboard = ref({})
@@ -478,7 +491,19 @@ onUnmounted(() => {
   compactMediaQuery?.removeEventListener?.('change', syncCompactMissingPanel)
 })
 
-watch(targetDate, load)
+watch(targetDate, (next) => {
+  load()
+  if (normalizeBusinessDateQuery(route.query.business_date) === next) return
+  void router.replace({
+    path: route.path,
+    query: { ...route.query, business_date: next },
+    hash: route.hash,
+  })
+})
+watch(() => route.query.business_date, (value) => {
+  const next = normalizeBusinessDateQuery(value)
+  if (next && next !== targetDate.value) targetDate.value = next
+})
 watch(selectedWorkshopId, () => {
   if (suppressWorkshopSelectionWatch.value) {
     suppressWorkshopSelectionWatch.value = false
