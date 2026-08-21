@@ -14,6 +14,7 @@ from app.core.business_time import local_now
 from app.domain.daily_report_field_contract import daily_report_field_contract_for
 from app.models.agent_communication import (
     AgentEvent,
+    AgentOutboxMessage,
 )
 from app.services import agent_communication_service
 from app.services.report.daily_fact_notification_routing import (
@@ -30,6 +31,7 @@ SOURCE_TYPE = "daily_fact_closure"
 AGENT_CODE = "factory_dispatch"
 OPEN_EVENT_STATUSES = {"new", "open", "pending"}
 OUTBOX_DEDUPE_MINUTES = 31 * 24 * 60
+DELIVERY_STATUS_PRIORITY = ("dead_letter", "retrying", "pending", "failed", "sent", "dry_run")
 CORE_FIELD_LABELS = {
     "total_output_daily": "全厂总产量",
     "finished_inbound_daily": "成品入库量",
@@ -213,11 +215,12 @@ def sync_daily_fact_gap_events(
     )
 
     if should_notify:
-        previous_notification_outbox_ids = {
-            message_id
-            for event in [*open_events, *resolved_events]
-            for message_id in _event_notification_outbox_ids(event)
+        notification_events = [*open_events, *resolved_events]
+        previous_outbox_ids_by_event = {
+            event.id: _event_notification_outbox_ids(event)
+            for event in notification_events
         }
+        previous_notification_outbox_ids = set().union(*previous_outbox_ids_by_event.values())
         notification_state = "resolved" if full_closure else "blocked"
         assignments = []
         for event in actionable_events:
@@ -305,12 +308,11 @@ def sync_daily_fact_gap_events(
         if not outbox_messages:
             delivery_status = "channel_unavailable"
         else:
-            outbox_message_id = outbox_messages[0].id
-            current_outbox_ids = {message.id for message in outbox_messages}
-            delivery_status = (
-                "unchanged"
-                if current_outbox_ids.issubset(previous_notification_outbox_ids)
-                else outbox_messages[0].status
+            preferred_message = _preferred_outbox_message(outbox_messages)
+            outbox_message_id = preferred_message.id
+            delivery_status = _aggregate_delivery_status(
+                outbox_messages,
+                previous_outbox_ids=previous_notification_outbox_ids,
             )
 
         outbox_message_ids = [message.id for message in outbox_messages]
@@ -320,6 +322,7 @@ def sync_daily_fact_gap_events(
         ]
         target_keys_by_field: dict[str, list[str]] = {}
         outbox_ids_by_field: dict[str, list[int]] = {}
+        messages_by_field: dict[str, list[AgentOutboxMessage]] = {}
         targets_by_field: dict[str, list[dict[str, Any]]] = {}
         notification_targets: list[dict[str, Any]] = []
         routing_status_by_field: dict[str, str] = {}
@@ -338,6 +341,7 @@ def sync_daily_fact_gap_events(
                 field = assignment["field"]
                 target_keys_by_field.setdefault(field, []).append(channel.channel_key)
                 outbox_ids_by_field.setdefault(field, []).append(message.id)
+                messages_by_field.setdefault(field, []).append(message)
                 targets_by_field.setdefault(field, []).append(target_snapshot)
                 routing_status_by_field[field] = route["routing_status"]
         for assignment in routing["unresolved"]:
@@ -345,21 +349,30 @@ def sync_daily_fact_gap_events(
 
         for event in [*open_events, *resolved_events]:
             event_field = str((event.payload or {}).get("field") or "")
+            event_messages = outbox_messages if full_closure else messages_by_field.get(event_field, [])
             event_target_keys = notification_target_keys if full_closure else target_keys_by_field.get(event_field, [])
             event_outbox_ids = outbox_message_ids if full_closure else outbox_ids_by_field.get(event_field, [])
             event_targets = notification_targets if full_closure else targets_by_field.get(event_field, [])
+            event_preferred_message = _preferred_outbox_message(event_messages)
+            event_delivery_status = _aggregate_delivery_status(
+                event_messages,
+                previous_outbox_ids=previous_outbox_ids_by_event.get(event.id, set()),
+            )
             event_routing_status = routing_status_by_field.get(event_field)
             if event_routing_status is None:
                 event_routing_status = routing["routes"][0]["routing_status"] if full_closure and routing["routes"] else "unresolved"
-            event.payload = {
+            event_payload = {
                 **(event.payload or {}),
-                "delivery_status": delivery_status,
-                "outbox_message_id": event_outbox_ids[0] if event_outbox_ids else None,
+                "delivery_status": event_delivery_status,
+                "outbox_message_id": event_preferred_message.id if event_preferred_message is not None else None,
                 "notification_target_keys": event_target_keys,
                 "notification_targets": event_targets,
                 "action_notification_outbox_ids": event_outbox_ids,
                 "routing_status": event_routing_status,
             }
+            if not event_outbox_ids:
+                event_payload.pop("action_notification_outbox_id", None)
+            event.payload = event_payload
         if outbox_message_id is not None and full_closure:
             for event in resolved_events:
                 event.payload = {
@@ -369,13 +382,13 @@ def sync_daily_fact_gap_events(
                 }
         elif outbox_message_id is not None:
             for event in actionable_events:
-                event_outbox_ids = list((event.payload or {}).get("action_notification_outbox_ids") or [])
-                if not event_outbox_ids:
+                event_outbox_message_id = (event.payload or {}).get("outbox_message_id")
+                if event_outbox_message_id is None:
                     continue
                 event.payload = {
                     **(event.payload or {}),
                     "action_notified_at": checked_at.isoformat(),
-                    "action_notification_outbox_id": event_outbox_ids[0],
+                    "action_notification_outbox_id": event_outbox_message_id,
                 }
         db.flush()
     elif gap_items and not actionable_events:
@@ -624,6 +637,33 @@ def _latest_action_outbox_id(events: list[AgentEvent]) -> int | None:
         for event in events
     ]
     return max(message_ids, default=0) or None
+
+
+def _preferred_outbox_message(
+    messages: list[AgentOutboxMessage],
+) -> AgentOutboxMessage | None:
+    for status in DELIVERY_STATUS_PRIORITY:
+        for message in messages:
+            if message.status == status:
+                return message
+    return messages[0] if messages else None
+
+
+def _aggregate_delivery_status(
+    messages: list[AgentOutboxMessage],
+    *,
+    previous_outbox_ids: set[int],
+) -> str:
+    if not messages:
+        return "channel_unavailable"
+    current_outbox_ids = {message.id for message in messages}
+    if current_outbox_ids.issubset(previous_outbox_ids):
+        return "unchanged"
+    statuses = {message.status for message in messages}
+    for status in DELIVERY_STATUS_PRIORITY:
+        if status in statuses:
+            return status
+    return "mixed"
 
 
 def _event_notification_outbox_ids(event: AgentEvent) -> set[int]:

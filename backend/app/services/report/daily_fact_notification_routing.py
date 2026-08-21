@@ -33,6 +33,7 @@ def resolve_daily_fact_notification_routes(
     ]
     route_assignments: dict[tuple[int, str], list[dict[str, Any]]] = {}
     unresolved = []
+    conflicts = []
     for assignment in assignments:
         field = str(assignment.get("field") or "").strip()
         owner_role = str(assignment.get("owner_role") or "").strip()
@@ -43,11 +44,16 @@ def resolve_daily_fact_notification_routes(
         ]
         routing_status = "field_match"
         if not matched_channels:
-            matched_channels = [
+            owner_role_channels = [
                 channel
                 for channel in specialist_channels
                 if owner_role in _metadata_values(channel, "daily_fact_owner_roles")
             ]
+            if len(owner_role_channels) > 1:
+                unresolved.append(assignment)
+                conflicts.append(assignment)
+                continue
+            matched_channels = owner_role_channels
             routing_status = "owner_role_match"
         if matched_channels:
             for channel in matched_channels:
@@ -55,9 +61,18 @@ def resolve_daily_fact_notification_routes(
             continue
         unresolved.append(assignment)
 
-    if unresolved and len(fallback_channels) == 1:
+    if len(fallback_channels) == 1:
         fallback = fallback_channels[0]
-        route_assignments[(fallback.id, "unresolved")] = list(unresolved)
+        if conflicts:
+            route_assignments[(fallback.id, "conflict")] = list(conflicts)
+        conflict_ids = {id(assignment) for assignment in conflicts}
+        ordinary_unresolved = [
+            assignment
+            for assignment in unresolved
+            if id(assignment) not in conflict_ids
+        ]
+        if ordinary_unresolved:
+            route_assignments[(fallback.id, "unresolved")] = ordinary_unresolved
 
     channels_by_id = {channel.id: channel for channel in channels}
     routes = [

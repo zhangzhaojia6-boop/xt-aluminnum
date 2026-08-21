@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 from app.models import Base
-from app.models.agent_communication import AgentEvent, AgentOutboxMessage
+from app.models.agent_communication import AgentEvent, AgentOutboxMessage, CommunicationChannel
 from app.domain.daily_report_field_contract import DAILY_REPORT_FIELD_CONTRACT_VERSION
 from app.services import agent_communication_service
 from app.services.report import daily_fact_gap_closure_service
@@ -114,6 +114,39 @@ def _bind_owner_channel(
     )
 
 
+def _bind_field_channel(
+    db: Session,
+    *,
+    channel_key: str,
+    target_key: str,
+    recipient_name: str,
+    organization_path: str,
+    fields: list[str],
+) -> CommunicationChannel:
+    channel = agent_communication_service.register_channel(
+        db,
+        channel_type="dingtalk_work_notice",
+        channel_key=channel_key,
+        name=f"{recipient_name}日报缺项通知",
+        target_type="user",
+        target_key=target_key,
+        dry_run=False,
+        metadata_payload={
+            "daily_fact_notification": True,
+            "recipient_name": recipient_name,
+            "organization_path": organization_path,
+            "daily_fact_fields": fields,
+        },
+    )
+    agent_communication_service.bind_agent_to_channel(
+        db,
+        agent_code="factory_dispatch",
+        channel_key=channel.channel_key,
+        channel_type=channel.channel_type,
+    )
+    return channel
+
+
 def test_sync_routes_two_owner_roles_to_separate_work_notice_channels() -> None:
     db = _db_session()
     try:
@@ -183,6 +216,247 @@ def test_sync_routes_two_owner_roles_to_separate_work_notice_channels() -> None:
             "organization_path": "生产运行部/专项岗位",
             "routing_status": "owner_role_match",
         }]
+    finally:
+        db.close()
+
+
+def test_sync_allows_one_field_to_route_to_multiple_explicit_workshop_channels() -> None:
+    db = _db_session()
+    try:
+        agent_communication_service.register_agent(
+            db,
+            code="factory_dispatch",
+            name="鑫泰铝业智能大脑",
+        )
+        first_channel = _bind_field_channel(
+            db,
+            channel_key="annealing-one-director-work-notice",
+            target_key="annealing-one-director",
+            recipient_name="在线退火一车间主任",
+            organization_path="生产运行部/在线退火一车间",
+            fields=["hot_roll_daily"],
+        )
+        second_channel = _bind_field_channel(
+            db,
+            channel_key="annealing-two-director-work-notice",
+            target_key="annealing-two-director",
+            recipient_name="在线退火二车间主任",
+            organization_path="生产运行部/在线退火二车间",
+            fields=["hot_roll_daily"],
+        )
+
+        result = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-explicit-multi-workshop",
+            now=NOW,
+        )
+        db.commit()
+
+        messages = db.query(AgentOutboxMessage).order_by(AgentOutboxMessage.id).all()
+        assert len(messages) == 2
+        assert {message.channel_id for message in messages} == {first_channel.id, second_channel.id}
+        assert all(message.payload["routing_status"] == "field_match" for message in messages)
+        assert all(
+            [assignment["field"] for assignment in message.payload["assignments"]] == ["hot_roll_daily"]
+            for message in messages
+        )
+        event = db.query(AgentEvent).one()
+        assert set(event.payload["action_notification_outbox_ids"]) == set(result["outbox_message_ids"])
+        assert {target["target_key"] for target in event.payload["notification_targets"]} == {
+            "annealing-one-director",
+            "annealing-two-director",
+        }
+    finally:
+        db.close()
+
+
+def test_sync_routes_overlapping_owner_role_to_explicit_admin_fallback_as_conflict() -> None:
+    db = _db_session()
+    try:
+        agent_communication_service.register_agent(
+            db,
+            code="factory_dispatch",
+            name="鑫泰铝业智能大脑",
+        )
+        _bind_owner_channel(
+            db,
+            channel_key="quality-owner-primary-work-notice",
+            recipient_name="质检内勤甲",
+            owner_roles=["quality_owner"],
+        )
+        _bind_owner_channel(
+            db,
+            channel_key="quality-owner-secondary-work-notice",
+            recipient_name="质检内勤乙",
+            owner_roles=["quality_owner"],
+        )
+        _bind_factory_channel(db)
+
+        result = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("daily_yield_rate"),
+            trace_id="trace-owner-role-conflict",
+            now=NOW,
+        )
+        db.commit()
+
+        messages = db.query(AgentOutboxMessage).all()
+        assert len(messages) == 1
+        assert messages[0].payload["routing_status"] == "conflict"
+        assert messages[0].payload["recipient_name"] == "日报管理员"
+        assert [item["field"] for item in messages[0].payload["assignments"]] == ["daily_yield_rate"]
+        event = db.query(AgentEvent).one()
+        assert event.payload["routing_status"] == "conflict"
+        assert event.payload["outbox_message_id"] == result["outbox_message_id"]
+        assert event.payload["notification_targets"][0]["target_key"] == "management"
+    finally:
+        db.close()
+
+
+def test_sync_keeps_overlapping_owner_role_unresolved_without_admin_fallback() -> None:
+    db = _db_session()
+    try:
+        agent_communication_service.register_agent(
+            db,
+            code="factory_dispatch",
+            name="鑫泰铝业智能大脑",
+        )
+        _bind_owner_channel(
+            db,
+            channel_key="quality-owner-a-work-notice",
+            recipient_name="质检内勤甲",
+            owner_roles=["quality_owner"],
+        )
+        _bind_owner_channel(
+            db,
+            channel_key="quality-owner-b-work-notice",
+            recipient_name="质检内勤乙",
+            owner_roles=["quality_owner"],
+        )
+
+        result = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("daily_yield_rate"),
+            trace_id="trace-owner-role-conflict-no-fallback",
+            now=NOW,
+        )
+        db.commit()
+
+        assert db.query(AgentOutboxMessage).count() == 0
+        assert result["outbox_message_id"] is None
+        event = db.query(AgentEvent).one()
+        assert event.payload["routing_status"] == "unresolved"
+        assert event.payload["notification_targets"] == []
+    finally:
+        db.close()
+
+
+def test_sync_clears_stale_single_outbox_reference_when_route_disappears() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+        first = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("foundry_daily"),
+            trace_id="trace-route-disappeared",
+            now=NOW,
+        )
+        db.commit()
+
+        event = db.query(AgentEvent).one()
+        old_message = db.get(AgentOutboxMessage, first["outbox_message_id"])
+        assert old_message is not None
+        assert old_message.event_id == event.id
+        assert event.payload["action_notification_outbox_id"] == old_message.id
+        channel = db.get(CommunicationChannel, old_message.channel_id)
+        assert channel is not None
+        channel.is_active = False
+        db.commit()
+
+        second = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("foundry_daily"),
+            trace_id="trace-route-disappeared",
+            now=NOW + timedelta(minutes=5),
+        )
+        db.commit()
+
+        db.refresh(event)
+        assert second["outbox_message_id"] is None
+        assert event.payload["action_notification_outbox_ids"] == []
+        assert "action_notification_outbox_id" not in event.payload
+        assert db.get(AgentOutboxMessage, old_message.id).event_id == event.id
+    finally:
+        db.close()
+
+
+def test_sync_prefers_new_pending_message_without_copying_its_status_to_other_event() -> None:
+    db = _db_session()
+    try:
+        agent_communication_service.register_agent(
+            db,
+            code="factory_dispatch",
+            name="鑫泰铝业智能大脑",
+        )
+        first_channel = _bind_field_channel(
+            db,
+            channel_key="hot-roll-existing-work-notice",
+            target_key="hot-roll-existing",
+            recipient_name="热轧车间主任甲",
+            organization_path="生产运行部/热轧车间甲",
+            fields=["hot_roll_daily"],
+        )
+        first = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily"),
+            trace_id="trace-mixed-route-status",
+            now=NOW,
+        )
+        db.commit()
+        reused_message = db.get(AgentOutboxMessage, first["outbox_message_id"])
+        assert reused_message is not None
+        assert reused_message.channel_id == first_channel.id
+        reused_message.status = "sent"
+        db.commit()
+
+        new_channel = _bind_field_channel(
+            db,
+            channel_key="foundry-new-work-notice",
+            target_key="foundry-new",
+            recipient_name="铸造车间主任",
+            organization_path="生产运行部/铸造车间",
+            fields=["foundry_daily"],
+        )
+        second = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily", "foundry_daily"),
+            trace_id="trace-mixed-route-status",
+            now=NOW + timedelta(minutes=5),
+        )
+        db.commit()
+
+        messages = db.query(AgentOutboxMessage).order_by(AgentOutboxMessage.id).all()
+        assert len(messages) == 2
+        pending_message = next(message for message in messages if message.channel_id == new_channel.id)
+        assert pending_message.status == "pending"
+        assert second["outbox_message_ids"] == [reused_message.id, pending_message.id]
+        assert second["outbox_message_id"] == pending_message.id
+        assert second["delivery_status"] == "pending"
+        events = {event.payload["field"]: event for event in db.query(AgentEvent).all()}
+        assert events["hot_roll_daily"].payload["outbox_message_id"] == reused_message.id
+        assert events["hot_roll_daily"].payload["delivery_status"] == "unchanged"
+        assert events["hot_roll_daily"].payload["action_notification_outbox_ids"] == [reused_message.id]
+        assert events["foundry_daily"].payload["outbox_message_id"] == pending_message.id
+        assert events["foundry_daily"].payload["delivery_status"] == "pending"
+        assert events["foundry_daily"].payload["action_notification_outbox_ids"] == [pending_message.id]
     finally:
         db.close()
 
