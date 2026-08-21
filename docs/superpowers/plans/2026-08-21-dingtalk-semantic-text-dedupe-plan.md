@@ -18,8 +18,8 @@
 
 ### Task 1: Reproduce The Production Failure
 
-- [ ] Add a test with `recognized_text` and payload `message_text` containing the same plan-contract values but different whitespace.
-- [ ] Assert the result contains exactly these 9 fields:
+- [x] Add a test with `recognized_text` and payload `message_text` containing the same plan-contract values but different whitespace.
+- [x] Assert the result contains exactly these 9 fields:
 
 ```python
 {
@@ -35,7 +35,7 @@
 }
 ```
 
-- [ ] Run:
+- [x] Run:
 
 ```powershell
 python -m pytest tests/test_hermes_daily_fact_update_service.py -q
@@ -45,14 +45,14 @@ Expected: the new test fails because candidate extraction returns `[]`.
 
 ### Task 2: Protect The Ambiguity Guard
 
-- [ ] Add a test containing two plan-contract messages with different numeric values.
-- [ ] Assert extraction returns `[]`.
-- [ ] Run the same test file and confirm the new ambiguity test passes before implementation.
+- [x] Add a test containing two plan-contract messages with different numeric values.
+- [x] Assert extraction returns `[]`.
+- [x] Run the same test file and confirm the new ambiguity test passes before implementation.
 
 ### Task 3: Implement The Minimum Fix
 
-- [ ] Import `unicodedata` in `hermes_daily_fact_update_service.py`.
-- [ ] Add a private helper equivalent to:
+- [x] Import `unicodedata` in `hermes_daily_fact_update_service.py`.
+- [x] Add a private helper equivalent to:
 
 ```python
 def _semantic_text_key(value: str) -> str:
@@ -60,9 +60,9 @@ def _semantic_text_key(value: str) -> str:
     return re.sub(r"\s+", "", normalized)
 ```
 
-- [ ] Change `_append_text_part()` so `seen` stores `_semantic_text_key(text)` while `parts` still stores the original `text`.
-- [ ] Do not change `parse_plan_contract_message()`, confirmation statuses, or fact adoption.
-- [ ] Run:
+- [x] Change `_append_text_part()` so `seen` stores `_semantic_text_key(text)` while `parts` still stores the original `text`.
+- [x] Do not change `parse_plan_contract_message()`, confirmation statuses, or fact adoption.
+- [x] Run:
 
 ```powershell
 python -m pytest tests/test_hermes_daily_fact_update_service.py -q
@@ -72,19 +72,19 @@ Expected: all tests pass.
 
 ### Task 4: Regression Verification
 
-- [ ] Run the focused integration set:
+- [x] Run the focused integration set:
 
 ```powershell
 python -m pytest tests/test_hermes_daily_fact_update_service.py tests/test_daily_fact_bundle_service.py tests/test_dingtalk_stream_gateway_service.py -q
 ```
 
-- [ ] Run backend tests if the focused set is green:
+- [x] Run backend tests if the focused set is green:
 
 ```powershell
 python -m pytest -q
 ```
 
-- [ ] Review the diff and confirm only the service, its focused test, and approved docs changed.
+- [x] Review the diff and confirm only the service, its focused test, and approved docs changed.
 
 ### Task 5: Merge, Deploy, And Prove On Production
 
@@ -94,6 +94,16 @@ python -m pytest -q
 - [ ] Verify `aluminum-bypass` and `hermes-gateway` are active and `/readyz` reports database and MES sync healthy.
 - [ ] Read-only replay production evidence `712` and `725` through `extract_daily_fact_update_candidates()`.
 - [ ] Confirm both yield 9 fields, both database rows remain `machine_only`, and the replay does not change the maximum outbox ID.
+
+## Pre-Deploy Evidence
+
+- RED: the production-shaped duplicate regression failed with `[]` instead of 9 fields.
+- Focused unit test: `23 passed`.
+- Focused integration set: `130 passed`.
+- Full backend suite: `3050 passed, 3 skipped, 27 deselected`.
+- SPEC review: approved after extracting `_semantic_text_key()` as designed.
+- Code-quality review: approved; Unicode full-width characters, NBSP, first `raw_text`, `trace_id`, and different-value ambiguity are covered.
+- `git diff --check`: passed.
 
 ## GSTACK REVIEW REPORT
 
