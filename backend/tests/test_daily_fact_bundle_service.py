@@ -3302,6 +3302,70 @@ def test_unstructured_dingtalk_evidence_without_safe_business_date_is_excluded_b
     assert [item.trace_id for item in audit_items] == ["trace-unapplied-output"]
 
 
+def test_undated_dingtalk_evidence_in_business_window_is_candidate_only_for_that_day(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None: {
+            "values": {"total_output_daily": 355},
+            "sources": {"total_output_daily": "mes_packaging_output"},
+            "missing_fields": [],
+            "conflicts": [],
+        },
+    )
+    db_session.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_text",
+            recognized_text="成品入库 365.2 t",
+            confirmation_status="confirmed",
+            created_at=datetime(2026, 6, 19, 12, 0),
+            payload={
+                "include_in_daily_sample": True,
+                "evidence_kind": "fact",
+                "trace_id": "trace-window-scoped-undated",
+                "parse_status": "text_captured",
+            },
+        )
+    )
+    db_session.commit()
+
+    target_items = daily_fact_bundle.query_dingtalk_evidence(
+        db_session,
+        business_date=date(2026, 6, 19),
+    )
+    adjacent_items = daily_fact_bundle.query_dingtalk_evidence(
+        db_session,
+        business_date=date(2026, 6, 20),
+    )
+    target_bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 19),
+    )
+    adjacent_bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 6, 20),
+    )
+
+    assert [item.trace_id for item in target_items] == ["trace-window-scoped-undated"]
+    assert adjacent_items == []
+    assert target_bundle["conflicts"] == [
+        {
+            "field": "finished_inbound_daily",
+            "type": "dingtalk_candidate_not_applied",
+            "candidate_value": 365.2,
+            "reason": "payload_business_date_missing_or_mismatch",
+            "trace_id": "trace-window-scoped-undated",
+            "evidence_id": 1,
+        }
+    ]
+    assert adjacent_bundle["conflicts"] == []
+
+
 def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
     monkeypatch,
     db_session: Session,
