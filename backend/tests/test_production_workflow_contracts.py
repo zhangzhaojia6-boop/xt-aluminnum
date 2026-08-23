@@ -2066,7 +2066,12 @@ def test_configure_hermes_openrouter_prod_keeps_codex_fallback_and_secret_out_of
     inputs = _workflow_inputs(payload)
     job = payload['jobs']['configure-hermes-openrouter-production']
 
-    assert inputs['mode']['options'] == ['status', 'configure', 'inference']
+    assert inputs['mode']['options'] == [
+        'status',
+        'configure',
+        'inference',
+        'fallback-inference',
+    ]
     assert inputs['model']['default'] == 'stealth/ox-alpha'
     assert inputs['fallback_model']['default'] == 'gpt-5.6-luna'
     assert job['environment'] == 'production'
