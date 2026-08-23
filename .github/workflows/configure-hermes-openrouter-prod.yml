@@ -340,7 +340,8 @@ jobs:
               and not any(term in line for term in ("研发助手", "软件公司", "MES"))
           ]
           if not valid:
-              raise SystemExit(1)
+              compact = " ".join(text.split())[:500]
+              raise SystemExit(f"HERMES_{sys.argv[2]}_INFERENCE_REJECTED={compact}")
           print(f"HERMES_{sys.argv[2]}_INFERENCE_VERIFIED=yes")
           PY
               rm -f "$output"
