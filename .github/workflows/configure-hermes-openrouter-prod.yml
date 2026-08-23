@@ -340,8 +340,16 @@ jobs:
           path = Path(sys.argv[1])
           key = os.environ["OPENROUTER_API_KEY"].strip()
           lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
-          kept = [line for line in lines if not line.startswith("OPENROUTER_API_KEY=")]
-          path.write_text("\n".join([*kept, f"OPENROUTER_API_KEY={key}"]) + "\n", encoding="utf-8")
+          managed = ("OPENROUTER_API_KEY=", "HERMES_OPENROUTER_FORCE_NON_STREAMING=")
+          kept = [line for line in lines if not line.startswith(managed)]
+          path.write_text(
+              "\n".join([
+                  *kept,
+                  f"OPENROUTER_API_KEY={key}",
+                  "HERMES_OPENROUTER_FORCE_NON_STREAMING=1",
+              ]) + "\n",
+              encoding="utf-8",
+          )
           PY
           chown "$service_user:$service_group" "$env_file"
           chmod 600 "$env_file"
