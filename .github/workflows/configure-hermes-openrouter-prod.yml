@@ -325,20 +325,27 @@ jobs:
               no_proxy=*) if [ -z "$current_no_proxy" ]; then current_no_proxy="${item#*=}"; fi ;;
             esac
           done
-          openrouter_no_proxy="$(python3 - "$current_no_proxy" <<'PY'
+          openrouter_no_proxy="$(python3 - "$current_no_proxy" "$local_proxy_available" <<'PY'
           import sys
 
           values = [item.strip() for item in sys.argv[1].split(",") if item.strip()]
-          for item in (
+          proxied_hosts = {"chatgpt.com", ".chatgpt.com", "api.openai.com", ".openai.com"}
+          if sys.argv[2] == "yes":
+              values = [item for item in values if item not in proxied_hosts]
+          direct_hosts = [
               "127.0.0.1",
               "localhost",
               "openrouter.ai",
               ".openrouter.ai",
-              "chatgpt.com",
-              ".chatgpt.com",
-              "api.openai.com",
-              ".openai.com",
-          ):
+          ]
+          if sys.argv[2] == "no":
+              direct_hosts.extend((
+                  "chatgpt.com",
+                  ".chatgpt.com",
+                  "api.openai.com",
+                  ".openai.com",
+              ))
+          for item in direct_hosts:
               if item not in values:
                   values.append(item)
           print(",".join(values))
@@ -368,12 +375,20 @@ jobs:
           for item in "${service_proxy_env[@]}"; do
             case "$item" in
               NO_PROXY=*|no_proxy=*|OPENROUTER_BASE_URL=*) ;;
-              HTTP_PROXY=*|HTTPS_PROXY=*|ALL_PROXY=*|http_proxy=*|https_proxy=*|all_proxy=*)
-                if [ "$local_proxy_available" = "yes" ]; then updated_proxy_env+=("$item"); fi
-                ;;
+              HTTP_PROXY=*|HTTPS_PROXY=*|ALL_PROXY=*|http_proxy=*|https_proxy=*|all_proxy=*) ;;
               *) updated_proxy_env+=("$item") ;;
             esac
           done
+          if [ "$local_proxy_available" = "yes" ]; then
+            updated_proxy_env+=(
+              "HTTP_PROXY=http://127.0.0.1:7897"
+              "HTTPS_PROXY=http://127.0.0.1:7897"
+              "ALL_PROXY=socks5h://127.0.0.1:7897"
+              "http_proxy=http://127.0.0.1:7897"
+              "https_proxy=http://127.0.0.1:7897"
+              "all_proxy=socks5h://127.0.0.1:7897"
+            )
+          fi
           service_proxy_env=("${updated_proxy_env[@]}" "NO_PROXY=$openrouter_no_proxy" "no_proxy=$openrouter_no_proxy" "OPENROUTER_BASE_URL=http://127.0.0.1:7898/v1")
           systemctl daemon-reload
           echo "HERMES_OPENROUTER_DIRECT_ROUTE_CONFIGURED=yes"
