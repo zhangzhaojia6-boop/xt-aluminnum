@@ -1,0 +1,234 @@
+name: Configure Hermes Production Proxy
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Inspect, configure, or remove the production Hermes proxy
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - configure
+          - remove
+
+permissions:
+  contents: read
+
+concurrency:
+  group: configure-hermes-production-proxy
+  cancel-in-progress: false
+
+jobs:
+  configure-hermes-production-proxy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    env:
+      SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+      SSH_USER: ${{ secrets.PROD_SSH_USER }}
+      SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+      SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+      SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+      PROXY_SUBSCRIPTION_URL: ${{ secrets.PROD_PROXY_SUBSCRIPTION_URL }}
+      MODE: ${{ github.event.inputs.mode }}
+    steps:
+      - name: Configure production Hermes proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          case "$MODE" in status|configure|remove) ;; *) exit 2 ;; esac
+          if [ "$MODE" = "configure" ]; then
+            test -n "$PROXY_SUBSCRIPTION_URL"
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          printf -v remote_preamble 'MODE=%q\nPROXY_SUBSCRIPTION_URL=%q\n' "$MODE" "$PROXY_SUBSCRIPTION_URL"
+          {
+            printf '%s' "$remote_preamble"
+            cat <<'REMOTE'
+          set -euo pipefail
+          umask 077
+
+          proxy_unit="hermes-proxy.service"
+          proxy_port="7897"
+          mihomo_version="v1.19.30"
+          mihomo_sha256="2c3d87ea31a8b420285fa4c1dedd9fb2356fe289b609edac1c671c00738a1544"
+          gateway_dropin="/etc/systemd/system/hermes-gateway.service.d/proxy.conf"
+
+          print_status() {
+            echo "HERMES_PROXY_SERVICE=$(systemctl is-active "$proxy_unit" 2>/dev/null || true)"
+            if timeout 3 bash -c "</dev/tcp/127.0.0.1/$proxy_port" 2>/dev/null; then
+              echo "HERMES_PROXY_LISTENING=yes"
+            else
+              echo "HERMES_PROXY_LISTENING=no"
+            fi
+            if [ -f "$gateway_dropin" ]; then
+              echo "HERMES_GATEWAY_PROXY_CONFIGURED=yes"
+            else
+              echo "HERMES_GATEWAY_PROXY_CONFIGURED=no"
+            fi
+            echo "HERMES_PROXY_TIMER=$(systemctl is-enabled hermes-proxy-refresh.timer 2>/dev/null || true)"
+          }
+
+          if [ "$MODE" = "status" ]; then
+            print_status
+            exit 0
+          fi
+
+          if [ "$MODE" = "remove" ]; then
+            systemctl disable --now hermes-proxy-refresh.timer 2>/dev/null || true
+            systemctl disable --now "$proxy_unit" 2>/dev/null || true
+            rm -f /etc/systemd/system/hermes-proxy-refresh.service
+            rm -f /etc/systemd/system/hermes-proxy-refresh.timer
+            rm -f /etc/systemd/system/hermes-proxy.service
+            rm -f "$gateway_dropin"
+            rm -f /usr/local/sbin/update-hermes-proxy-config
+            rm -rf /etc/mihomo
+            systemctl daemon-reload
+            systemctl restart hermes-gateway
+            print_status
+            echo "HERMES_PROXY_REMOVED=yes"
+            exit 0
+          fi
+
+          [ "$(uname -m)" = "x86_64" ] || {
+            echo "Unsupported production architecture: $(uname -m)" >&2
+            exit 1
+          }
+
+          tmp_archive="$(mktemp /tmp/mihomo.XXXXXX.gz)"
+          tmp_binary="$(mktemp /tmp/mihomo.XXXXXX)"
+          trap 'rm -f "$tmp_archive" "$tmp_binary"' EXIT
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/MetaCubeX/mihomo/releases/download/${mihomo_version}/mihomo-linux-amd64-v3-${mihomo_version}.gz" \
+            --output "$tmp_archive"
+          echo "${mihomo_sha256}  ${tmp_archive}" | sha256sum --check --status
+          gzip --decompress --stdout "$tmp_archive" > "$tmp_binary"
+          install -m 755 "$tmp_binary" /usr/local/bin/mihomo
+
+          id hermes-proxy >/dev/null 2>&1 || useradd --system --home /var/lib/hermes-proxy --shell /usr/sbin/nologin hermes-proxy
+          install -d -m 750 -o root -g hermes-proxy /etc/mihomo
+          install -d -m 750 -o hermes-proxy -g hermes-proxy /var/lib/hermes-proxy
+          printf '%s\n' "$PROXY_SUBSCRIPTION_URL" > /etc/mihomo/subscription-url
+          chown root:root /etc/mihomo/subscription-url
+          chmod 600 /etc/mihomo/subscription-url
+
+          cat > /usr/local/sbin/update-hermes-proxy-config <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          umask 077
+          url="$(cat /etc/mihomo/subscription-url)"
+          raw="$(mktemp /etc/mihomo/subscription.XXXXXX)"
+          next="$(mktemp /etc/mihomo/config.XXXXXX)"
+          trap 'rm -f "$raw" "$next"' EXIT
+          curl --fail --silent --show-error --location --retry 3 --max-time 90 \
+            --user-agent 'ClashVerge/2.4' "$url" --output "$raw"
+          test -s "$raw"
+          sed -E \
+            -e 's/^mixed-port:.*/mixed-port: 7897/' \
+            -e 's/^allow-lan:.*/allow-lan: false/' \
+            -e "s/^bind-address:.*/bind-address: '127.0.0.1'/" \
+            -e "s/^external-controller:.*/external-controller: '127.0.0.1:9097'/" \
+            "$raw" > "$next"
+          grep -q '^mixed-port: 7897$' "$next"
+          grep -q '^allow-lan: false$' "$next"
+          /usr/local/bin/mihomo -t -d /var/lib/hermes-proxy -f "$next" >/dev/null
+          chown root:hermes-proxy "$next"
+          chmod 640 "$next"
+          mv -f "$next" /etc/mihomo/config.yaml
+          SCRIPT
+          chmod 700 /usr/local/sbin/update-hermes-proxy-config
+          /usr/local/sbin/update-hermes-proxy-config
+
+          cat > /etc/systemd/system/hermes-proxy.service <<'UNIT'
+          [Unit]
+          Description=Hermes production egress proxy
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=simple
+          User=hermes-proxy
+          Group=hermes-proxy
+          ExecStart=/usr/local/bin/mihomo -d /var/lib/hermes-proxy -f /etc/mihomo/config.yaml
+          Restart=on-failure
+          RestartSec=3
+          NoNewPrivileges=true
+          PrivateTmp=true
+          ProtectHome=true
+          ProtectSystem=strict
+          ReadWritePaths=/var/lib/hermes-proxy
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+
+          cat > /etc/systemd/system/hermes-proxy-refresh.service <<'UNIT'
+          [Unit]
+          Description=Refresh Hermes proxy subscription
+          After=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/update-hermes-proxy-config
+          ExecStartPost=/bin/systemctl try-restart hermes-proxy.service
+          UNIT
+
+          cat > /etc/systemd/system/hermes-proxy-refresh.timer <<'UNIT'
+          [Unit]
+          Description=Refresh Hermes proxy subscription daily
+
+          [Timer]
+          OnCalendar=*-*-* 04:15:00 Asia/Shanghai
+          Persistent=true
+          RandomizedDelaySec=10m
+
+          [Install]
+          WantedBy=timers.target
+          UNIT
+
+          install -d -m 755 /etc/systemd/system/hermes-gateway.service.d
+          cat > "$gateway_dropin" <<'UNIT'
+          [Service]
+          Environment="HTTP_PROXY=http://127.0.0.1:7897"
+          Environment="HTTPS_PROXY=http://127.0.0.1:7897"
+          Environment="ALL_PROXY=socks5h://127.0.0.1:7897"
+          Environment="NO_PROXY=127.0.0.1,localhost,::1,xtmijd.com,.xtmijd.com"
+          Environment="http_proxy=http://127.0.0.1:7897"
+          Environment="https_proxy=http://127.0.0.1:7897"
+          Environment="all_proxy=socks5h://127.0.0.1:7897"
+          Environment="no_proxy=127.0.0.1,localhost,::1,xtmijd.com,.xtmijd.com"
+          UNIT
+
+          systemctl daemon-reload
+          systemctl enable --now "$proxy_unit"
+          systemctl enable --now hermes-proxy-refresh.timer
+          timeout 15 bash -c "until </dev/tcp/127.0.0.1/$proxy_port; do sleep 1; done"
+          systemctl restart hermes-gateway
+          systemctl is-active --quiet hermes-gateway
+
+          openrouter_http="$(curl --proxy http://127.0.0.1:7897 --silent --output /dev/null --write-out '%{http_code}' --max-time 20 https://openrouter.ai/api/v1/models || true)"
+          chatgpt_http="$(curl --proxy http://127.0.0.1:7897 --silent --output /dev/null --write-out '%{http_code}' --max-time 20 https://chatgpt.com/ || true)"
+          echo "HERMES_PROXY_OPENROUTER_HTTP=${openrouter_http:-000}"
+          echo "HERMES_PROXY_CHATGPT_HTTP=${chatgpt_http:-000}"
+          [ "$openrouter_http" = "200" ]
+          [ "$chatgpt_http" != "000" ]
+          print_status
+          echo "HERMES_PROXY_CONFIGURED=yes"
+          REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "${SSH_PORT:-22}" \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "$SSH_USER@$SSH_HOST" "bash -s"
