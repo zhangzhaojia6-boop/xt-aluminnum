@@ -394,7 +394,12 @@ jobs:
           config["agent"] = agent
           providers = config.get("providers") if isinstance(config.get("providers"), dict) else {}
           openrouter = providers.get("openrouter") if isinstance(providers.get("openrouter"), dict) else {}
-          openrouter.update({"request_timeout_seconds": 120, "stale_timeout_seconds": 120})
+          openrouter.update({
+              "base_url": "https://openrouter.ai/api/v1",
+              "request_timeout_seconds": 120,
+              "stale_timeout_seconds": 120,
+              "extra_headers": {"User-Agent": "curl/8.7.1"},
+          })
           providers["openrouter"] = openrouter
           config["providers"] = providers
           toolsets = config.get("platform_toolsets") if isinstance(config.get("platform_toolsets"), dict) else {}
