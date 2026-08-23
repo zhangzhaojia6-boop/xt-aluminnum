@@ -112,6 +112,23 @@ jobs:
             esac
           done < "/proc/$runtime_pid/environ"
           echo "HERMES_SERVICE_PROXY_ENV_COUNT=${#service_proxy_env[@]}"
+          python3 - "$runtime_pid" <<'PY'
+          from pathlib import Path
+          from urllib.parse import urlsplit
+          import sys
+
+          names = {"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"}
+          items = []
+          for raw in Path(f"/proc/{sys.argv[1]}/environ").read_bytes().split(b"\0"):
+              if b"=" not in raw:
+                  continue
+              name, value = raw.decode(errors="replace").split("=", 1)
+              if name not in names:
+                  continue
+              scheme = urlsplit(value).scheme if name.lower() != "no_proxy" else "bypass-list"
+              items.append(f"{name}:{scheme or 'unset'}")
+          print("HERMES_SERVICE_PROXY_TYPES=" + ",".join(sorted(items)))
+          PY
           runtime_python="$(python3 - "$runtime_pid" <<'PY'
           from pathlib import Path
           import os
@@ -322,6 +339,16 @@ jobs:
           report_state
 
           if [ "$MODE" = "inference" ]; then
+            probe_openrouter() {
+              local label="$1"
+              shift
+              local code
+              code="$(run_as_service_with_timeout 30s "$@" curl --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 10 --max-time 25 https://openrouter.ai/api/v1/models 2>/dev/null || true)"
+              echo "HERMES_OPENROUTER_${label}_HTTP=${code:-000}"
+            }
+            probe_openrouter PROXY env
+            probe_openrouter DIRECT env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy
+
             verify_inference() {
               local provider="$1"
               local model="$2"
