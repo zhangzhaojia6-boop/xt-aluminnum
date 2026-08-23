@@ -103,6 +103,15 @@ jobs:
           systemctl is-active --quiet hermes-gateway
           runtime_pid="$(systemctl show -p MainPID --value hermes-gateway)"
           printf '%s' "$runtime_pid" | grep -Eq '^[1-9][0-9]*$'
+          service_proxy_env=()
+          while IFS= read -r -d '' item; do
+            case "$item" in
+              HTTP_PROXY=*|HTTPS_PROXY=*|ALL_PROXY=*|NO_PROXY=*|http_proxy=*|https_proxy=*|all_proxy=*|no_proxy=*)
+                service_proxy_env+=("$item")
+                ;;
+            esac
+          done < "/proc/$runtime_pid/environ"
+          echo "HERMES_SERVICE_PROXY_ENV_COUNT=${#service_proxy_env[@]}"
           runtime_python="$(python3 - "$runtime_pid" <<'PY'
           from pathlib import Path
           import os
@@ -135,13 +144,13 @@ jobs:
           env_file="$hermes_home/.env"
 
           run_as_service() {
-            runuser -u "$service_user" -- env HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
+            runuser -u "$service_user" -- env "${service_proxy_env[@]}" HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
           }
 
           run_as_service_with_timeout() {
             local duration="$1"
             shift
-            timeout --preserve-status "$duration" runuser -u "$service_user" -- env HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
+            timeout --preserve-status "$duration" runuser -u "$service_user" -- env "${service_proxy_env[@]}" HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
           }
 
           restart_gateway() {
