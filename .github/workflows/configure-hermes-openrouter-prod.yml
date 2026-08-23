@@ -19,6 +19,7 @@ on:
           - status
           - configure
           - inference
+          - fallback-inference
       expected_hermes_sha:
         description: Exact Hermes HEAD expected on production
         required: true
@@ -62,7 +63,7 @@ jobs:
           test -n "$SSH_KEY"
           test -n "$SSH_KNOWN_HOSTS"
           test -n "$OPENROUTER_API_KEY"
-          case "$MODE" in status|configure|inference) ;; *) exit 2 ;; esac
+          case "$MODE" in status|configure|inference|fallback-inference) ;; *) exit 2 ;; esac
           printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$MODEL" | grep -Eq '^[A-Za-z0-9._/-]{1,100}$'
           case "$FALLBACK_MODEL" in gpt-5.6-luna|gpt-5.6-sol) ;; *) exit 2 ;; esac
@@ -514,7 +515,7 @@ jobs:
           wait_for_stream
           report_state
 
-          if [ "$MODE" = "inference" ]; then
+          if [ "$MODE" = "inference" ] || [ "$MODE" = "fallback-inference" ]; then
             probe_openrouter() {
               local label="$1"
               shift
@@ -581,10 +582,12 @@ jobs:
               fi
               rm -f "$output"
             }
-            if ! verify_inference openrouter "$MODEL" OPENROUTER; then
-              echo "HERMES_OPENROUTER_INFERENCE_RETRY=yes"
-              sleep 3
-              verify_inference openrouter "$MODEL" OPENROUTER
+            if [ "$MODE" = "inference" ]; then
+              if ! verify_inference openrouter "$MODEL" OPENROUTER; then
+                echo "HERMES_OPENROUTER_INFERENCE_RETRY=yes"
+                sleep 3
+                verify_inference openrouter "$MODEL" OPENROUTER
+              fi
             fi
             verify_inference openai-codex "$FALLBACK_MODEL" CODEX_FALLBACK
           fi
