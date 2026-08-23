@@ -534,8 +534,12 @@ jobs:
               local model="$2"
               local label="$3"
               local output
+              local -a runtime_env=()
+              if [ "$provider" = "openrouter" ]; then
+                runtime_env=(env HERMES_OPENROUTER_FORCE_NON_STREAMING=1 HERMES_OPENROUTER_COMPAT_USER_AGENT=1)
+              fi
               output="$(mktemp /tmp/hermes-model-inference.XXXXXX)"
-              if ! run_as_service_with_timeout 240s "$runtime_python" -P -m hermes_cli.main --provider "$provider" --model "$model" --toolsets hermes-dingtalk -z '只用中文回答，且只输出一行：我是鑫泰铝业智能大脑。' >"$output" 2>&1; then
+              if ! run_as_service_with_timeout 240s "${runtime_env[@]}" "$runtime_python" -P -m hermes_cli.main --provider "$provider" --model "$model" --toolsets hermes-dingtalk -z '只用中文回答，且只输出一行：我是鑫泰铝业智能大脑。' >"$output" 2>&1; then
                 rm -f "$output"
                 return 1
               fi
