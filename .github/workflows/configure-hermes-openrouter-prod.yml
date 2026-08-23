@@ -488,6 +488,41 @@ jobs:
             rm -f "$chat_payload" "$chat_headers" "$chat_response"
             echo "HERMES_OPENROUTER_CHAT_HTTP=${chat_code:-000}"
             echo "HERMES_OPENROUTER_CHAT_DIAGNOSTIC=$chat_diagnostic"
+            run_as_service_with_timeout 40s env OPENROUTER_API_KEY="$OPENROUTER_API_KEY" "$runtime_python" -P - "$MODEL" <<'PY'
+          import httpx
+          from openai import OpenAI
+          import os
+          import sys
+
+          http = httpx.Client(
+              headers={"User-Agent": "curl/8.7.1"},
+              timeout=30.0,
+              trust_env=False,
+          )
+          client = OpenAI(
+              api_key=os.environ["OPENROUTER_API_KEY"],
+              base_url="https://openrouter.ai/api/v1",
+              http_client=http,
+              max_retries=0,
+          )
+          try:
+              result = client.chat.completions.create(
+                  model=sys.argv[1],
+                  messages=[{"role": "user", "content": "只回答：连接正常。"}],
+                  max_tokens=512,
+              )
+              content = result.choices[0].message.content
+              print("HERMES_OPENROUTER_SDK_CHAT_OK=" + ("yes" if content else "no"))
+          except Exception as exc:
+              chain = []
+              current = exc
+              while current is not None and len(chain) < 4:
+                  chain.append(f"{type(current).__name__}:{str(current)[:160]}")
+                  current = current.__cause__
+              print("HERMES_OPENROUTER_SDK_CHAT_ERROR=" + " <- ".join(chain))
+          finally:
+              client.close()
+          PY
 
             verify_inference() {
               local provider="$1"
