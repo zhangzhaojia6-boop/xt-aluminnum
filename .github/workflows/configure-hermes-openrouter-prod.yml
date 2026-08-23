@@ -1,0 +1,345 @@
+name: Configure Hermes OpenRouter Production
+
+concurrency:
+  group: xintai-production-ops
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type 'prod-hermes-openrouter' to confirm production model operations
+        required: true
+      mode:
+        description: Inspect state, configure OpenRouter as primary, or prove both primary and fallback inference
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - configure
+          - inference
+      expected_hermes_sha:
+        description: Exact Hermes HEAD expected on production
+        required: true
+      model:
+        description: OpenRouter model to activate in production
+        required: true
+        default: stealth/ox-alpha
+      fallback_model:
+        description: Codex OAuth model kept as the first fallback
+        required: true
+        default: gpt-5.6-luna
+        type: choice
+        options:
+          - gpt-5.6-luna
+          - gpt-5.6-sol
+
+jobs:
+  configure-hermes-openrouter-production:
+    if: github.event.inputs.confirm == 'prod-hermes-openrouter'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Configure production Hermes OpenRouter model
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+          OPENROUTER_API_KEY: ${{ secrets.PROD_OPENROUTER_API_KEY }}
+          MODE: ${{ github.event.inputs.mode }}
+          EXPECTED_HERMES_SHA: ${{ github.event.inputs.expected_hermes_sha }}
+          MODEL: ${{ github.event.inputs.model }}
+          FALLBACK_MODEL: ${{ github.event.inputs.fallback_model }}
+        run: |
+          set -euo pipefail
+
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          test -n "$OPENROUTER_API_KEY"
+          case "$MODE" in status|configure|inference) ;; *) exit 2 ;; esac
+          printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$MODEL" | grep -Eq '^[A-Za-z0-9._/-]{1,100}$'
+          case "$FALLBACK_MODEL" in gpt-5.6-luna|gpt-5.6-sol) ;; *) exit 2 ;; esac
+
+          append_remote_assignment() {
+            local name="$1"
+            local value="$2"
+            printf -v REMOTE_PREAMBLE '%s%s=%q\n' "$REMOTE_PREAMBLE" "$name" "$value"
+          }
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          REMOTE_PREAMBLE=""
+          append_remote_assignment MODE "$MODE"
+          append_remote_assignment EXPECTED_HERMES_SHA "$EXPECTED_HERMES_SHA"
+          append_remote_assignment MODEL "$MODEL"
+          append_remote_assignment FALLBACK_MODEL "$FALLBACK_MODEL"
+          append_remote_assignment OPENROUTER_API_KEY "$OPENROUTER_API_KEY"
+
+          {
+            printf '%s' "$REMOTE_PREAMBLE"
+            cat <<'REMOTE'
+          set -euo pipefail
+          umask 077
+
+          HERMES_REPO="/srv/hermes-cloud/runtime/.hermes/hermes-agent"
+          test -d "$HERMES_REPO/.git"
+          actual_hermes_sha="$(git -C "$HERMES_REPO" rev-parse HEAD)"
+          [ "$actual_hermes_sha" = "$EXPECTED_HERMES_SHA" ]
+          git -C "$HERMES_REPO" diff --quiet
+          git -C "$HERMES_REPO" diff --cached --quiet
+          echo "HERMES_HEAD=$actual_hermes_sha"
+
+          systemctl is-active --quiet hermes-gateway
+          runtime_pid="$(systemctl show -p MainPID --value hermes-gateway)"
+          printf '%s' "$runtime_pid" | grep -Eq '^[1-9][0-9]*$'
+          runtime_python="$(python3 - "$runtime_pid" <<'PY'
+          from pathlib import Path
+          import os
+          import sys
+
+          args = [item.decode() for item in Path(f"/proc/{sys.argv[1]}/cmdline").read_bytes().split(b"\0") if item]
+          candidate = Path(args[0])
+          if not candidate.is_absolute() or not candidate.is_file() or not os.access(candidate, os.X_OK):
+              raise SystemExit(1)
+          print(candidate)
+          PY
+          )"
+          hermes_home="$(python3 - "$runtime_pid" <<'PY'
+          from pathlib import Path
+          import sys
+
+          for item in Path(f"/proc/{sys.argv[1]}/environ").read_bytes().split(b"\0"):
+              if item.startswith(b"HERMES_HOME="):
+                  print(item.split(b"=", 1)[1].decode())
+                  raise SystemExit(0)
+          raise SystemExit(1)
+          PY
+          )"
+          case "$runtime_python" in "$hermes_home"/runtime-envs/*/bin/python) ;; *) exit 3 ;; esac
+
+          service_user="$(systemctl show -p User --value hermes-gateway)"
+          service_group="$(id -gn "$service_user")"
+          service_home="$(getent passwd "$service_user" | cut -d: -f6)"
+          config_file="$hermes_home/config.yaml"
+          env_file="$hermes_home/.env"
+
+          run_as_service() {
+            runuser -u "$service_user" -- env HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
+          }
+
+          run_as_service_with_timeout() {
+            local duration="$1"
+            shift
+            timeout --preserve-status "$duration" runuser -u "$service_user" -- env HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
+          }
+
+          restart_gateway() {
+            HERMES_HOME="$hermes_home" "$runtime_python" -P -m hermes_cli.main gateway restart --system
+            systemctl is-active --quiet hermes-gateway
+          }
+
+          wait_for_stream() {
+            for _attempt in $(seq 1 40); do
+              if python3 - "$hermes_home/gateway_state.json" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          path = Path(sys.argv[1])
+          payload = json.loads(path.read_text()) if path.is_file() else {}
+          platforms = payload.get("platforms") if isinstance(payload, dict) else {}
+          dingtalk = platforms.get("dingtalk") if isinstance(platforms, dict) else {}
+          ready = payload.get("gateway_state") == "running" and isinstance(dingtalk, dict) and dingtalk.get("state") == "connected"
+          raise SystemExit(0 if ready else 1)
+          PY
+              then
+                echo "DINGTALK_STREAM_CONNECTION=connected"
+                return 0
+              fi
+              sleep 3
+            done
+            return 1
+          }
+
+          report_state() {
+            run_as_service "$runtime_python" -P - "$MODEL" "$FALLBACK_MODEL" "$env_file" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          from hermes_cli.auth import get_codex_auth_status
+          from hermes_cli.config import read_raw_config
+
+          expected_model, fallback_model, env_path = sys.argv[1:]
+          config = read_raw_config()
+          model = config.get("model") if isinstance(config, dict) else {}
+          model = model if isinstance(model, dict) else {"default": model}
+          fallbacks = config.get("fallback_providers") if isinstance(config, dict) else []
+          first_fallback = fallbacks[0] if isinstance(fallbacks, list) and fallbacks else {}
+          agent = config.get("agent") if isinstance(config, dict) else {}
+          agent = agent if isinstance(agent, dict) else {}
+          adaptive = agent.get("adaptive_reasoning") if isinstance(agent, dict) else {}
+          adaptive = adaptive if isinstance(adaptive, dict) else {}
+          toolsets = config.get("platform_toolsets") if isinstance(config, dict) else {}
+          toolsets = toolsets if isinstance(toolsets, dict) else {}
+          approvals = config.get("approvals") if isinstance(config, dict) else {}
+          approvals = approvals if isinstance(approvals, dict) else {}
+          codex = get_codex_auth_status()
+          env_text = Path(env_path).read_text(encoding="utf-8") if Path(env_path).is_file() else ""
+          key_ready = bool(re.search(r"(?m)^OPENROUTER_API_KEY=.+$", env_text))
+          ready = (
+              model.get("provider") == "openrouter"
+              and model.get("default") == expected_model
+              and model.get("base_url") == "https://openrouter.ai/api/v1"
+              and isinstance(first_fallback, dict)
+              and first_fallback.get("provider") == "openai-codex"
+              and first_fallback.get("model") == fallback_model
+              and bool(codex.get("logged_in"))
+              and not bool(codex.get("rate_limited"))
+              and key_ready
+              and adaptive.get("enabled") is True
+              and agent.get("disabled_toolsets") == []
+              and toolsets.get("dingtalk") == ["hermes-dingtalk"]
+              and approvals.get("mode") == "off"
+          )
+          print("HERMES_MODEL_PROVIDER=" + str(model.get("provider") or "unset"))
+          print("HERMES_MODEL_DEFAULT=" + str(model.get("default") or "unset"))
+          print("HERMES_OPENROUTER_KEY_READY=" + ("yes" if key_ready else "no"))
+          print("HERMES_CODEX_FALLBACK_MODEL=" + str(first_fallback.get("model") or "unset"))
+          print("HERMES_CODEX_FALLBACK_READY=" + ("yes" if codex.get("logged_in") and not codex.get("rate_limited") else "no"))
+          print("HERMES_OPENROUTER_READY=" + ("yes" if ready else "no"))
+          raise SystemExit(0 if ready else 1)
+          PY
+          }
+
+          if [ "$MODE" = "status" ]; then
+            report_state
+            wait_for_stream
+            exit 0
+          fi
+
+          backup_dir="$hermes_home/backups/openrouter/$(date -u +%Y%m%dT%H%M%SZ)-${actual_hermes_sha:0:12}"
+          install -d -m 700 -o "$service_user" -g "$service_group" "$backup_dir"
+          for target in "$config_file" "$env_file"; do
+            name="$(basename "$target")"
+            if [ -f "$target" ]; then cp -p "$target" "$backup_dir/$name"; else : > "$backup_dir/$name.absent"; fi
+          done
+          chown -R "$service_user:$service_group" "$backup_dir"
+
+          rollback() {
+            trap - EXIT ERR
+            for target in "$config_file" "$env_file"; do
+              name="$(basename "$target")"
+              if [ -f "$backup_dir/$name" ]; then cp -p "$backup_dir/$name" "$target"; elif [ -f "$backup_dir/$name.absent" ]; then rm -f "$target"; fi
+            done
+            chown "$service_user:$service_group" "$config_file" "$env_file" 2>/dev/null || true
+            restart_gateway || true
+          }
+          trap rollback EXIT ERR
+
+          OPENROUTER_API_KEY="$OPENROUTER_API_KEY" python3 - "$env_file" <<'PY'
+          from pathlib import Path
+          import os
+          import sys
+
+          path = Path(sys.argv[1])
+          key = os.environ["OPENROUTER_API_KEY"].strip()
+          lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+          kept = [line for line in lines if not line.startswith("OPENROUTER_API_KEY=")]
+          path.write_text("\n".join([*kept, f"OPENROUTER_API_KEY={key}"]) + "\n", encoding="utf-8")
+          PY
+          chown "$service_user:$service_group" "$env_file"
+          chmod 600 "$env_file"
+
+          run_as_service "$runtime_python" -P - "$MODEL" "$FALLBACK_MODEL" <<'PY'
+          import sys
+
+          from hermes_cli.auth import _auth_store_lock, _load_auth_store, _save_auth_store
+          from hermes_cli.config import clear_model_endpoint_credentials, get_config_path, read_raw_config, require_readable_config_before_write
+          from utils import atomic_yaml_write
+
+          model, fallback_model = sys.argv[1:]
+          config_path = get_config_path()
+          require_readable_config_before_write(config_path)
+          config = read_raw_config()
+          model_config = config.get("model") if isinstance(config, dict) else {}
+          model_config = dict(model_config) if isinstance(model_config, dict) else {}
+          model_config.update({"provider": "openrouter", "default": model, "base_url": "https://openrouter.ai/api/v1"})
+          clear_model_endpoint_credentials(model_config)
+          config["model"] = model_config
+          retained = [
+              dict(item) for item in (config.get("fallback_providers") or [])
+              if isinstance(item, dict) and item.get("provider") not in {"openrouter", "openai-codex"}
+          ]
+          config["fallback_providers"] = [
+              {"provider": "openai-codex", "model": fallback_model},
+              *retained,
+          ]
+          agent = config.get("agent") if isinstance(config.get("agent"), dict) else {}
+          agent.update({
+              "reasoning_effort": "max",
+              "adaptive_reasoning": {"enabled": True, "fast_effort": "high"},
+              "disabled_toolsets": [],
+          })
+          config["agent"] = agent
+          toolsets = config.get("platform_toolsets") if isinstance(config.get("platform_toolsets"), dict) else {}
+          toolsets["dingtalk"] = ["hermes-dingtalk"]
+          config["platform_toolsets"] = toolsets
+          approvals = config.get("approvals") if isinstance(config.get("approvals"), dict) else {}
+          approvals["mode"] = "off"
+          config["approvals"] = approvals
+          atomic_yaml_write(config_path, config, sort_keys=False)
+          with _auth_store_lock():
+              store = _load_auth_store()
+              store["active_provider"] = "openrouter"
+              _save_auth_store(store)
+          print("HERMES_OPENROUTER_CONFIG_UPDATED=yes")
+          PY
+          chown "$service_user:$service_group" "$config_file"
+          chmod 600 "$config_file"
+          restart_gateway
+          wait_for_stream
+          report_state
+
+          if [ "$MODE" = "inference" ]; then
+            verify_inference() {
+              local provider="$1"
+              local model="$2"
+              local label="$3"
+              local output
+              output="$(mktemp /tmp/hermes-model-inference.XXXXXX)"
+              if ! run_as_service_with_timeout 240s "$runtime_python" -P -m hermes_cli.main --provider "$provider" --model "$model" -z '只用中文回答，且只输出一行：我是鑫泰铝业智能大脑。' >"$output" 2>&1; then
+                rm -f "$output"
+                return 1
+              fi
+              python3 - "$output" "$label" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", Path(sys.argv[1]).read_text(errors="replace")).strip()
+          if not all(term in text for term in ("鑫泰铝业", "智能", "大脑")) or "\n" in text:
+              raise SystemExit(1)
+          print(f"HERMES_{sys.argv[2]}_INFERENCE_VERIFIED=yes")
+          PY
+              rm -f "$output"
+            }
+            verify_inference openrouter "$MODEL" OPENROUTER
+            verify_inference openai-codex "$FALLBACK_MODEL" CODEX_FALLBACK
+          fi
+
+          trap - EXIT ERR
+          echo "HERMES_OPENROUTER_OPERATION_VERIFIED=yes"
+          REMOTE
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts "$SSH_USER@$SSH_HOST" "bash -s"

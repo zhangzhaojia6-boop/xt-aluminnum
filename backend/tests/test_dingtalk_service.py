@@ -248,6 +248,53 @@ def test_send_work_notification_accepts_template_message(monkeypatch) -> None:
     assert calls[1][2]['msg'] == message
 
 
+def test_send_robot_direct_message_uses_openapi_oto_endpoint(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+    calls = []
+    monkeypatch.setattr(dingtalk_service.settings, 'DINGTALK_ROBOT_CODE', 'robot-code-1', raising=False)
+    monkeypatch.setattr(service, 'fetch_access_token', lambda: 'access-token-1')
+
+    def fake_request(*, method, url, payload=None, headers=None, timeout=30):
+        calls.append((method, url, payload, headers))
+        return {'processQueryKey': 'query-1'}
+
+    monkeypatch.setattr(service, '_request_json_with_headers', fake_request)
+    message = {'msgtype': 'markdown', 'markdown': {'title': '日报', 'text': '日报内容'}}
+
+    ok, detail = service.send_robot_direct_message('dt_100', message)
+
+    assert ok is True
+    assert detail['detail'] == 'dingtalk_robot_direct_sent'
+    assert calls == [
+        (
+            'POST',
+            'https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend',
+            {
+                'robotCode': 'robot-code-1',
+                'userIds': ['dt_100'],
+                'msgKey': 'sampleMarkdown',
+                'msgParam': '{"title": "日报", "text": "日报内容"}',
+            },
+            {'x-acs-dingtalk-access-token': 'access-token-1'},
+        )
+    ]
+
+
+def test_send_user_message_falls_back_to_work_notice(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+    monkeypatch.setattr(service, 'send_robot_direct_message', lambda *_args: (False, 'direct-denied'))
+    monkeypatch.setattr(service, 'send_work_notification', lambda *_args: (True, 'work-sent'))
+
+    ok, detail = service.send_user_message('dt_100', {'msgtype': 'text', 'text': {'content': '补录'}})
+
+    assert ok is True
+    assert detail['detail'] == 'dingtalk_work_notice_fallback_sent'
+    assert detail['response_payload'] == {
+        'direct_delivery': 'direct-denied',
+        'fallback_delivery': 'work-sent',
+    }
+
+
 def test_send_work_notification_preserves_dingtalk_failure_payload(monkeypatch) -> None:
     service = _configured_service(monkeypatch)
 

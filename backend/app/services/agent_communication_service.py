@@ -494,6 +494,9 @@ def _default_sender(channel: CommunicationChannel):
     if channel.channel_type == 'dingtalk_group':
         return dingtalk_service.send_group_message
     if channel.channel_type == 'dingtalk_work_notice':
+        metadata = channel.metadata_payload if isinstance(channel.metadata_payload, dict) else {}
+        if metadata.get('delivery_mode') == 'robot_direct_with_work_notice_fallback':
+            return dingtalk_service.send_user_message
         return dingtalk_service.send_work_notification
     if channel.channel_type == 'dingtalk_custom_robot':
         return lambda _channel_key, message: dingtalk_service.send_custom_robot_message(

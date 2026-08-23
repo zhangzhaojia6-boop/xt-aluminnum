@@ -253,6 +253,12 @@ def sync_daily_fact_gap_events(
             route_fields = {assignment["field"] for assignment in route_assignments}
             route_gap_items = [item for item in gap_items if item["field"] in route_fields]
             metadata = channel.metadata_payload if isinstance(channel.metadata_payload, Mapping) else {}
+            if channel.channel_type == "dingtalk_work_notice" and channel.target_type == "user":
+                metadata = {
+                    **dict(metadata),
+                    "delivery_mode": "robot_direct_with_work_notice_fallback",
+                }
+                channel.metadata_payload = metadata
             recipient_mode = _recipient_mode(metadata)
             route_entry_route = _route_entry_route(
                 recipient_mode=recipient_mode,
@@ -288,7 +294,6 @@ def sync_daily_fact_gap_events(
                     "event_ids": [event.id for event in open_events],
                     "open_event_ids": [event.id for event in open_events],
                     "resolved_event_ids": [event.id for event in resolved_events],
-                    "entry_route": "/entry/fill",
                     "gap_signature": _gap_signature(route_gap_items),
                     "recipient_name": metadata.get("recipient_name"),
                     "organization_path": metadata.get("organization_path"),

@@ -1955,6 +1955,7 @@ def test_production_workflows_pin_ssh_host_keys() -> None:
         '.github/workflows/production-sync-status.yml',
         '.github/workflows/configure-dingtalk-stream-prod.yml',
         '.github/workflows/configure-hermes-codex-prod.yml',
+        '.github/workflows/configure-hermes-openrouter-prod.yml',
         '.github/workflows/read-hermes-codex-handoff-prod.yml',
         '.github/workflows/import-dingtalk-history-prod.yml',
         '.github/workflows/hermes-acceptance-prod.yml',
@@ -2056,6 +2057,31 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'DINGTALK_STREAM_CONNECTION=connected' in source
     assert 'set -x' not in source
     assert 'printenv' not in source
+
+
+def test_configure_hermes_openrouter_prod_keeps_codex_fallback_and_secret_out_of_git() -> None:
+    path = '.github/workflows/configure-hermes-openrouter-prod.yml'
+    payload = _load(path)
+    source = _read(path)
+    inputs = _workflow_inputs(payload)
+    job = payload['jobs']['configure-hermes-openrouter-production']
+
+    assert inputs['mode']['options'] == ['status', 'configure', 'inference']
+    assert inputs['model']['default'] == 'stealth/ox-alpha'
+    assert inputs['fallback_model']['default'] == 'gpt-5.6-luna'
+    assert job['environment'] == 'production'
+    assert 'OPENROUTER_API_KEY: ${{ secrets.PROD_OPENROUTER_API_KEY }}' in source
+    assert 'model_config.update({"provider": "openrouter"' in source
+    assert '{"provider": "openai-codex", "model": fallback_model}' in source
+    assert 'store["active_provider"] = "openrouter"' in source
+    assert 'robot/oToMessages' not in source
+    assert 'HERMES_OPENROUTER_INFERENCE_VERIFIED=yes' not in source
+    assert 'verify_inference openrouter "$MODEL" OPENROUTER' in source
+    assert 'verify_inference openai-codex "$FALLBACK_MODEL" CODEX_FALLBACK' in source
+    assert 'HERMES_OPENROUTER_OPERATION_VERIFIED=yes' in source
+    assert 'cp -p "$target" "$backup_dir/$name"' in source
+    assert 'rollback()' in source
+    assert 'set -x' not in source
 
 
 def test_read_hermes_codex_handoff_prod_is_concurrent_exact_and_ciphertext_only() -> None:

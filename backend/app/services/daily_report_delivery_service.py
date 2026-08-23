@@ -15,6 +15,7 @@ from app.models.agent_communication import (
     CommunicationChannel,
 )
 from app.models.reports import DailyReport
+from app.models.system import User
 from app.services import agent_communication_service
 from app.services.report.template_daily_report import REQUIRED_FIELDS
 
@@ -40,19 +41,14 @@ def deliver_completed_daily_report(db: Session, *, target_date: date) -> dict[st
     if readiness is not None:
         return _record_delivery_result(db, report, readiness)
 
-    recipient_name = str(settings.DAILY_REPORT_DINGTALK_RECIPIENT_NAME or "").strip()
-    recipient_user_id = str(settings.DAILY_REPORT_DINGTALK_RECIPIENT_USER_ID or "").strip()
-    if not recipient_name:
+    recipients = _delivery_recipients(db)
+    if not recipients:
+        recipient_name = str(settings.DAILY_REPORT_DINGTALK_RECIPIENT_NAME or "").strip()
+        reason = "recipient_name_missing" if not recipient_name else "recipient_user_id_missing"
         return _record_delivery_result(
             db,
             report,
-            {"status": "blocked_recipient", "reason": "recipient_name_missing"},
-        )
-    if not recipient_user_id:
-        return _record_delivery_result(
-            db,
-            report,
-            {"status": "blocked_recipient", "reason": "recipient_user_id_missing"},
+            {"status": "blocked_recipient", "reason": reason},
         )
     if not settings.AUTO_PUSH_ENABLED:
         return _record_delivery_result(
@@ -67,11 +63,75 @@ def deliver_completed_daily_report(db: Session, *, target_date: date) -> dict[st
             {"status": "disabled", "reason": "dingtalk_disabled"},
         )
 
+    deliveries = [
+        _deliver_to_recipient(
+            db,
+            report=report,
+            template_payload=template_payload,
+            recipient_name=recipient_name,
+            recipient_user_id=recipient_user_id,
+        )
+        for recipient_name, recipient_user_id in recipients
+    ]
+    db.commit()
+    if len(deliveries) == 1:
+        return _record_delivery_result(db, report, deliveries[0])
+    statuses = {str(item.get("status") or "") for item in deliveries}
+    result = {
+        "status": statuses.pop() if len(statuses) == 1 else "partial",
+        "duplicate": all(bool(item.get("duplicate")) for item in deliveries),
+        "deliveries": deliveries,
+    }
+    _store_delivery_state(report, result)
+    db.commit()
+    return result
+
+
+def _delivery_recipients(db: Session) -> list[tuple[str, str]]:
+    recipients: list[tuple[str, str]] = []
+    configured_name = str(settings.DAILY_REPORT_DINGTALK_RECIPIENT_NAME or "").strip()
+    configured_user_id = str(settings.DAILY_REPORT_DINGTALK_RECIPIENT_USER_ID or "").strip()
+    if configured_name and configured_user_id:
+        recipients.append((configured_name, configured_user_id))
+
+    owner_ids = sorted(settings.hermes_owner_dingtalk_user_ids)
+    if owner_ids:
+        owner_rows = (
+            db.query(User)
+            .filter(User.dingtalk_user_id.in_(owner_ids), User.is_active.is_(True))
+            .all()
+        )
+        owner_names = {
+            str(row.dingtalk_user_id): str(row.name or "张兆嘉").strip() or "张兆嘉"
+            for row in owner_rows
+            if row.dingtalk_user_id
+        }
+        recipients.extend((owner_names.get(user_id, "张兆嘉"), user_id) for user_id in owner_ids)
+
+    deduped: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for recipient_name, recipient_user_id in recipients:
+        if recipient_user_id in seen:
+            continue
+        seen.add(recipient_user_id)
+        deduped.append((recipient_name, recipient_user_id))
+    return deduped
+
+
+def _deliver_to_recipient(
+    db: Session,
+    *,
+    report: DailyReport,
+    template_payload: dict[str, Any],
+    recipient_name: str,
+    recipient_user_id: str,
+) -> dict[str, Any]:
     agent, channel = _ensure_delivery_infrastructure(
         db,
         recipient_name=recipient_name,
         recipient_user_id=recipient_user_id,
     )
+    target_date = report.report_date
     dedupe_key = f"daily-report:{target_date.isoformat()}:{recipient_user_id}"
     existing = (
         db.query(AgentOutboxMessage)
@@ -89,9 +149,9 @@ def deliver_completed_daily_report(db: Session, *, target_date: date) -> dict[st
             "outbox_message_id": existing.id,
             "duplicate": True,
         }
-        return _record_delivery_result(db, report, result)
+        return result
 
-    trace_id = f"daily-report:{target_date.isoformat()}:{report.id}"
+    trace_id = f"daily-report:{target_date.isoformat()}:{report.id}:{channel.id}"
     event = AgentEvent(
         event_type="daily_report_ready",
         severity="info",
@@ -154,7 +214,7 @@ def deliver_completed_daily_report(db: Session, *, target_date: date) -> dict[st
         "outbox_message_id": message.id,
         "duplicate": False,
     }
-    return _record_delivery_result(db, report, result)
+    return result
 
 
 def _latest_report(db: Session, *, target_date: date) -> DailyReport | None:
@@ -272,6 +332,7 @@ def _ensure_delivery_infrastructure(
     channel.metadata_payload = {
         "recipient_name": recipient_name,
         "managed_by": "daily_report_delivery_service",
+        "delivery_mode": "robot_direct_with_work_notice_fallback",
     }
     db.flush()
 

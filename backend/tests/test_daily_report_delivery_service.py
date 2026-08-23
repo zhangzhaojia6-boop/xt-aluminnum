@@ -12,6 +12,7 @@ from app.models.agent_communication import (
     ExternalMessageLog,
 )
 from app.models.reports import DailyReport
+from app.models.system import User
 from app.services import daily_report_delivery_service as service
 from app.services.report.template_daily_report import REQUIRED_FIELDS
 
@@ -63,6 +64,7 @@ def _configure_recipient(monkeypatch) -> None:
         "dt-user-meng",
         raising=False,
     )
+    monkeypatch.setattr(service.settings, "HERMES_OWNER_DINGTALK_USER_IDS", "", raising=False)
 
 
 def test_complete_report_is_sent_once_through_outbox(monkeypatch) -> None:
@@ -72,7 +74,7 @@ def test_complete_report_is_sent_once_through_outbox(monkeypatch) -> None:
         _configure_recipient(monkeypatch)
         monkeypatch.setattr(
             service.agent_communication_service.dingtalk_service,
-            "send_work_notification",
+            "send_user_message",
             lambda user_id, payload: calls.append((user_id, payload)) or (True, "dingtalk_sent"),
         )
         report = _ready_report()
@@ -100,6 +102,46 @@ def test_complete_report_is_sent_once_through_outbox(monkeypatch) -> None:
         assert db.query(AgentEvent).count() == 1
         assert db.query(AgentOutboxMessage).count() == 1
         assert db.query(ExternalMessageLog).filter(ExternalMessageLog.status == "sent").count() == 1
+    finally:
+        db.close()
+
+
+def test_complete_report_is_sent_to_configured_recipient_and_root_owner(monkeypatch) -> None:
+    db = _db_session()
+    calls = []
+    try:
+        _configure_recipient(monkeypatch)
+        monkeypatch.setattr(
+            service.settings,
+            "HERMES_OWNER_DINGTALK_USER_IDS",
+            "dt-user-owner",
+            raising=False,
+        )
+        monkeypatch.setattr(
+            service.agent_communication_service.dingtalk_service,
+            "send_user_message",
+            lambda user_id, payload: calls.append((user_id, payload)) or (True, "dingtalk_sent"),
+        )
+        db.add(
+            User(
+                username="owner",
+                password_hash="unused",
+                name="张兆嘉",
+                role="admin",
+                dingtalk_user_id="dt-user-owner",
+                is_active=True,
+            )
+        )
+        db.add(_ready_report())
+        db.commit()
+
+        result = service.deliver_completed_daily_report(db, target_date=REPORT_DATE)
+
+        assert result["status"] == "sent"
+        assert len(result["deliveries"]) == 2
+        assert [item[0] for item in calls] == ["dt-user-meng", "dt-user-owner"]
+        assert db.query(AgentEvent).count() == 2
+        assert db.query(AgentOutboxMessage).count() == 2
     finally:
         db.close()
 

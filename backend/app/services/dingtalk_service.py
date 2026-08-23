@@ -681,6 +681,89 @@ class DingTalkService:
                 }
             return False, str(exc) or 'dingtalk_send_failed'
 
+    def send_robot_direct_message(self, userid: str, message: dict) -> tuple[bool, str | dict]:
+        user_id = str(userid or '').strip()
+        if not user_id:
+            return False, 'dingtalk_user_missing'
+        if getattr(settings, 'DINGTALK_NOTIFY_DRY_RUN', False):
+            logger.info('[notify] dingtalk robot direct dry-run %s | %s', user_id, message)
+            return True, 'dingtalk_dry_run'
+        if not self.enabled:
+            return False, 'dingtalk_not_configured'
+
+        robot_code = str(settings.dingtalk_robot_code or '').strip()
+        if not robot_code:
+            return False, 'dingtalk_robot_code_missing'
+
+        markdown = message.get('markdown') if isinstance(message, dict) else None
+        if isinstance(markdown, dict):
+            msg_key = 'sampleMarkdown'
+            msg_param = {
+                'title': str(markdown.get('title') or '鑫泰铝业智能大脑'),
+                'text': str(markdown.get('text') or ''),
+            }
+        else:
+            msg_key = 'sampleText'
+            text_payload = message.get('text') if isinstance(message, dict) else None
+            if isinstance(text_payload, dict):
+                content = text_payload.get('content')
+            else:
+                content = message
+            msg_param = {'content': str(content or '')}
+
+        response = None
+        try:
+            access_token = self.fetch_access_token()
+            self._throttle_message_send()
+            response = self._request_json_with_headers(
+                method='POST',
+                url='https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend',
+                headers={'x-acs-dingtalk-access-token': access_token},
+                payload={
+                    'robotCode': robot_code,
+                    'userIds': [user_id],
+                    'msgKey': msg_key,
+                    'msgParam': json.dumps(msg_param, ensure_ascii=False),
+                },
+            )
+            self._ensure_success(response)
+            return True, {
+                'detail': 'dingtalk_robot_direct_sent',
+                'provider_message_id': self._extract_provider_message_id(response),
+                'response_payload': response,
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.warning('DingTalk robot direct message failed: %s', exc)
+            if isinstance(response, dict):
+                return False, {
+                    'detail': str(exc) or 'dingtalk_robot_direct_send_failed',
+                    'provider_message_id': self._extract_provider_message_id(response),
+                    'response_payload': response,
+                }
+            return False, str(exc) or 'dingtalk_robot_direct_send_failed'
+
+    def send_user_message(self, userid: str, message: dict) -> tuple[bool, str | dict]:
+        direct_ok, direct_detail = self.send_robot_direct_message(userid, message)
+        if direct_ok:
+            return True, direct_detail
+
+        fallback_ok, fallback_detail = self.send_work_notification(userid, message)
+        if fallback_ok:
+            return True, {
+                'detail': 'dingtalk_work_notice_fallback_sent',
+                'response_payload': {
+                    'direct_delivery': direct_detail,
+                    'fallback_delivery': fallback_detail,
+                },
+            }
+        return False, {
+            'detail': 'dingtalk_user_message_failed',
+            'response_payload': {
+                'direct_delivery': direct_detail,
+                'fallback_delivery': fallback_detail,
+            },
+        }
+
     def send_group_message(self, chat_id: str, message: dict) -> tuple[bool, str | dict]:
         chat = str(chat_id or '').strip()
         if not chat:
@@ -790,6 +873,14 @@ service = DingTalkService()
 
 def send_work_notification(userid: str, content: str | dict) -> tuple[bool, str | dict]:
     return service.send_work_notification(userid, content)
+
+
+def send_robot_direct_message(userid: str, message: dict) -> tuple[bool, str | dict]:
+    return service.send_robot_direct_message(userid, message)
+
+
+def send_user_message(userid: str, message: dict) -> tuple[bool, str | dict]:
+    return service.send_user_message(userid, message)
 
 
 def send_group_message(chat_id: str, message: dict) -> tuple[bool, str | dict]:

@@ -193,7 +193,8 @@ def _ensure_outbound_infrastructure(
     channel.is_active = True
     channel.metadata_payload = {
         'managed_by': 'hermes_outbound_service',
-        'delivery': 'proactive_work_notice',
+        'delivery': 'proactive_user_message',
+        'delivery_mode': 'robot_direct_with_work_notice_fallback',
         'target_hash': target_hash,
     }
     db.flush()
