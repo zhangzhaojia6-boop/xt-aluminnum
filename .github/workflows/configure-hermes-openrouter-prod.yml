@@ -432,16 +432,13 @@ jobs:
               "OPENROUTER_BASE_URL=",
               "HERMES_OPENROUTER_FORCE_NON_STREAMING=",
               "HERMES_OPENROUTER_COMPAT_USER_AGENT=",
+              "HTTP_PROXY=",
+              "HTTPS_PROXY=",
+              "ALL_PROXY=",
+              "http_proxy=",
+              "https_proxy=",
+              "all_proxy=",
           )
-          if sys.argv[2] == "no":
-              managed += (
-                  "HTTP_PROXY=",
-                  "HTTPS_PROXY=",
-                  "ALL_PROXY=",
-                  "http_proxy=",
-                  "https_proxy=",
-                  "all_proxy=",
-              )
           kept = [line for line in lines if not line.startswith(managed)]
           path.write_text(
               "\n".join([
