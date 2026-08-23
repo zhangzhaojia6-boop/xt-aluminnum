@@ -347,13 +347,18 @@ jobs:
           path = Path(sys.argv[1])
           key = os.environ["OPENROUTER_API_KEY"].strip()
           lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
-          managed = ("OPENROUTER_API_KEY=", "HERMES_OPENROUTER_FORCE_NON_STREAMING=")
+          managed = (
+              "OPENROUTER_API_KEY=",
+              "HERMES_OPENROUTER_FORCE_NON_STREAMING=",
+              "HERMES_OPENROUTER_COMPAT_USER_AGENT=",
+          )
           kept = [line for line in lines if not line.startswith(managed)]
           path.write_text(
               "\n".join([
                   *kept,
                   f"OPENROUTER_API_KEY={key}",
                   "HERMES_OPENROUTER_FORCE_NON_STREAMING=1",
+                  "HERMES_OPENROUTER_COMPAT_USER_AGENT=1",
               ]) + "\n",
               encoding="utf-8",
           )
