@@ -402,7 +402,7 @@ jobs:
             }
             probe_openrouter PROXY env
             probe_openrouter DIRECT env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy
-            run_as_service_with_timeout 60s env OPENROUTER_API_KEY="$OPENROUTER_API_KEY" "$runtime_python" -P - "$MODEL" <<'PY'
+            run_as_service_with_timeout 45s env OPENROUTER_API_KEY="$OPENROUTER_API_KEY" "$runtime_python" -P - "$MODEL" <<'PY'
           from agent.process_bootstrap import _get_proxy_for_base_url, build_keepalive_http_client
           from openai import OpenAI
           import os
@@ -421,7 +421,13 @@ jobs:
               if client is not None:
                   client.close()
           chat_http = build_keepalive_http_client(base_url)
-          chat = OpenAI(api_key=os.environ["OPENROUTER_API_KEY"], base_url=base_url, http_client=chat_http)
+          chat = OpenAI(
+              api_key=os.environ["OPENROUTER_API_KEY"],
+              base_url=base_url,
+              http_client=chat_http,
+              max_retries=0,
+              timeout=30.0,
+          )
           try:
               completion = chat.chat.completions.create(
                   model=sys.argv[1],
@@ -431,7 +437,12 @@ jobs:
               answer = str(completion.choices[0].message.content or "").strip()
               print("HERMES_OPENROUTER_CHAT_OK=" + ("yes" if "连接正常" in answer else "no"))
           except Exception as exc:
-              print(f"HERMES_OPENROUTER_CHAT_ERROR={type(exc).__name__}:{str(exc)[:300]}")
+              chain = []
+              current = exc
+              while current is not None and len(chain) < 4:
+                  chain.append(f"{type(current).__name__}:{str(current)[:160]}")
+                  current = current.__cause__
+              print("HERMES_OPENROUTER_CHAT_ERROR=" + " <- ".join(chain))
           finally:
               chat.close()
           PY
