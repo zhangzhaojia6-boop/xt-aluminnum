@@ -392,6 +392,11 @@ jobs:
               "disabled_toolsets": [],
           })
           config["agent"] = agent
+          providers = config.get("providers") if isinstance(config.get("providers"), dict) else {}
+          openrouter = providers.get("openrouter") if isinstance(providers.get("openrouter"), dict) else {}
+          openrouter.update({"request_timeout_seconds": 120, "stale_timeout_seconds": 120})
+          providers["openrouter"] = openrouter
+          config["providers"] = providers
           toolsets = config.get("platform_toolsets") if isinstance(config.get("platform_toolsets"), dict) else {}
           toolsets["dingtalk"] = ["hermes-dingtalk"]
           config["platform_toolsets"] = toolsets
@@ -443,9 +448,26 @@ jobs:
             printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$OPENROUTER_API_KEY" > "$chat_headers"
             chown "$service_user:$service_group" "$chat_payload" "$chat_headers"
             chmod 600 "$chat_payload" "$chat_headers"
-            chat_code="$(run_as_service_with_timeout 40s curl --silent --show-error --noproxy openrouter.ai --output /dev/null --write-out '%{http_code}' --connect-timeout 10 --max-time 35 -H "@$chat_headers" --data-binary "@$chat_payload" https://openrouter.ai/api/v1/chat/completions 2>/dev/null || true)"
-            rm -f "$chat_payload" "$chat_headers"
+            chat_response="$(mktemp /tmp/openrouter-chat-response.XXXXXX)"
+            chown "$service_user:$service_group" "$chat_response"
+            chmod 600 "$chat_response"
+            chat_code="$(run_as_service_with_timeout 100s curl --silent --show-error --noproxy openrouter.ai --output "$chat_response" --write-out '%{http_code}' --connect-timeout 10 --max-time 90 -H "@$chat_headers" --data-binary "@$chat_payload" https://openrouter.ai/api/v1/chat/completions 2>/dev/null || true)"
+            chat_complete="$(python3 - "$chat_response" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          try:
+              payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+              content = payload["choices"][0]["message"]["content"]
+              print("yes" if isinstance(content, str) and content.strip() else "no")
+          except Exception:
+              print("no")
+          PY
+            )"
+            rm -f "$chat_payload" "$chat_headers" "$chat_response"
             echo "HERMES_OPENROUTER_CHAT_HTTP=${chat_code:-000}"
+            echo "HERMES_OPENROUTER_CHAT_COMPLETE=$chat_complete"
 
             verify_inference() {
               local provider="$1"
