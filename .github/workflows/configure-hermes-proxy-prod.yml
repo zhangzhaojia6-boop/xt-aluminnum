@@ -108,15 +108,21 @@ jobs:
             exit 1
           }
 
-          tmp_archive="$(mktemp /tmp/mihomo.XXXXXX.gz)"
-          tmp_binary="$(mktemp /tmp/mihomo.XXXXXX)"
-          trap 'rm -f "$tmp_archive" "$tmp_binary"' EXIT
-          curl --fail --silent --show-error --location --retry 3 \
-            "https://github.com/MetaCubeX/mihomo/releases/download/${mihomo_version}/mihomo-linux-amd64-v3-${mihomo_version}.gz" \
-            --output "$tmp_archive"
-          echo "${mihomo_sha256}  ${tmp_archive}" | sha256sum --check --status
-          gzip --decompress --stdout "$tmp_archive" > "$tmp_binary"
-          install -m 755 "$tmp_binary" /usr/local/bin/mihomo
+          if ! /usr/local/bin/mihomo -v 2>/dev/null | grep -q '1.19.30'; then
+            echo "HERMES_PROXY_BINARY_DOWNLOAD=started"
+            tmp_archive="$(mktemp /tmp/mihomo.XXXXXX.gz)"
+            tmp_binary="$(mktemp /tmp/mihomo.XXXXXX)"
+            trap 'rm -f "$tmp_archive" "$tmp_binary"' EXIT
+            curl --fail --silent --show-error --location --retry 3 --max-time 300 \
+              "https://github.com/MetaCubeX/mihomo/releases/download/${mihomo_version}/mihomo-linux-amd64-v3-${mihomo_version}.gz" \
+              --output "$tmp_archive"
+            echo "${mihomo_sha256}  ${tmp_archive}" | sha256sum --check --status
+            gzip --decompress --stdout "$tmp_archive" > "$tmp_binary"
+            install -m 755 "$tmp_binary" /usr/local/bin/mihomo
+            echo "HERMES_PROXY_BINARY_DOWNLOAD=complete"
+          else
+            echo "HERMES_PROXY_BINARY_DOWNLOAD=reused"
+          fi
 
           id hermes-proxy >/dev/null 2>&1 || useradd --system --home /var/lib/hermes-proxy --shell /usr/sbin/nologin hermes-proxy
           install -d -m 750 -o root -g hermes-proxy /etc/mihomo
@@ -231,4 +237,6 @@ jobs:
           } | ssh -i ~/.ssh/deploy_key -p "${SSH_PORT:-22}" \
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=20 \
             "$SSH_USER@$SSH_HOST" "bash -s"
