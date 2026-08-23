@@ -329,7 +329,10 @@ jobs:
           import sys
 
           text = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", Path(sys.argv[1]).read_text(errors="replace"))
-          candidates = [line.strip() for line in text.splitlines() if line.strip().startswith("我是")]
+          candidates = [
+              line.strip() for line in text.splitlines()
+              if line.strip() and "只用中文回答" not in line
+          ]
           valid = [
               line for line in candidates
               if len(line) <= 200
