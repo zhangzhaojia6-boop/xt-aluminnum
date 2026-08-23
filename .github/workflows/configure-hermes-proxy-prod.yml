@@ -159,6 +159,7 @@ jobs:
             -e 's/^allow-lan:.*/allow-lan: false/' \
             -e "s/^bind-address:.*/bind-address: '127.0.0.1'/" \
             -e "s/^external-controller:.*/external-controller: '127.0.0.1:9097'/" \
+            -e '/^[[:space:]]*- .*GEOIP,/d' \
             "$raw" > "$next"
           grep -q '^mixed-port: 7897$' "$next"
           grep -q '^allow-lan: false$' "$next"
