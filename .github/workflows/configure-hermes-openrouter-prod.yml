@@ -133,11 +133,13 @@ jobs:
               items.append(f"{name}:{scheme or 'unset'}{suffix}")
           print("HERMES_SERVICE_PROXY_TYPES=" + ",".join(sorted(items)))
           PY
+          service_env_unset=()
           if timeout 3 bash -c '</dev/tcp/127.0.0.1/7897' 2>/dev/null; then
             local_proxy_available=yes
             echo "HERMES_LOCAL_PROXY_7897_LISTENING=yes"
           else
             local_proxy_available=no
+            service_env_unset=(-u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy)
             echo "HERMES_LOCAL_PROXY_7897_LISTENING=no"
           fi
           proxy_process="$(ss -ltnp 'sport = :7897' 2>/dev/null | tail -n +2 | sed -E 's/pid=[0-9]+/pid=redacted/g' | head -n 1)"
@@ -177,13 +179,13 @@ jobs:
           nginx_bridge_file="/etc/nginx/conf.d/hermes-openrouter-bridge.conf"
 
           run_as_service() {
-            runuser -u "$service_user" -- env "${service_proxy_env[@]}" HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
+            runuser -u "$service_user" -- env "${service_env_unset[@]}" "${service_proxy_env[@]}" HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
           }
 
           run_as_service_with_timeout() {
             local duration="$1"
             shift
-            timeout --preserve-status "$duration" runuser -u "$service_user" -- env "${service_proxy_env[@]}" HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
+            timeout --preserve-status "$duration" runuser -u "$service_user" -- env "${service_env_unset[@]}" "${service_proxy_env[@]}" HOME="$service_home" HERMES_HOME="$hermes_home" PYTHONUNBUFFERED=1 "$@"
           }
 
           restart_gateway() {
@@ -543,7 +545,7 @@ jobs:
                 rm -f "$output"
                 return 1
               fi
-              python3 - "$output" "$label" <<'PY'
+              if ! python3 - "$output" "$label" <<'PY'
           from pathlib import Path
           import re
           import sys
@@ -564,6 +566,10 @@ jobs:
               raise SystemExit(f"HERMES_{sys.argv[2]}_INFERENCE_REJECTED={compact}")
           print(f"HERMES_{sys.argv[2]}_INFERENCE_VERIFIED=yes")
           PY
+              then
+                rm -f "$output"
+                return 1
+              fi
               rm -f "$output"
             }
             if ! verify_inference openrouter "$MODEL" OPENROUTER; then
