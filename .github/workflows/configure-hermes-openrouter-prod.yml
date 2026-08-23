@@ -535,7 +535,7 @@ jobs:
               local label="$3"
               local output
               output="$(mktemp /tmp/hermes-model-inference.XXXXXX)"
-              if ! run_as_service_with_timeout 240s "$runtime_python" -P -m hermes_cli.main --provider "$provider" --model "$model" -z '只用中文回答，且只输出一行：我是鑫泰铝业智能大脑。' >"$output" 2>&1; then
+              if ! run_as_service_with_timeout 240s "$runtime_python" -P -m hermes_cli.main --provider "$provider" --model "$model" --toolsets hermes-dingtalk -z '只用中文回答，且只输出一行：我是鑫泰铝业智能大脑。' >"$output" 2>&1; then
                 rm -f "$output"
                 return 1
               fi
