@@ -125,8 +125,12 @@ jobs:
               name, value = raw.decode(errors="replace").split("=", 1)
               if name not in names:
                   continue
-              scheme = urlsplit(value).scheme if name.lower() != "no_proxy" else "bypass-list"
-              items.append(f"{name}:{scheme or 'unset'}")
+              parsed = urlsplit(value) if name.lower() != "no_proxy" else None
+              scheme = parsed.scheme if parsed else "bypass-list"
+              scope = "loopback" if parsed and parsed.hostname in {"127.0.0.1", "localhost", "::1"} else "remote"
+              port = parsed.port if parsed else 0
+              suffix = f":{scope}:{port}" if parsed else ""
+              items.append(f"{name}:{scheme or 'unset'}{suffix}")
           print("HERMES_SERVICE_PROXY_TYPES=" + ",".join(sorted(items)))
           PY
           runtime_python="$(python3 - "$runtime_pid" <<'PY'
@@ -402,11 +406,8 @@ jobs:
             }
             probe_openrouter PROXY env
             probe_openrouter DIRECT env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy
-            run_as_service_with_timeout 45s env OPENROUTER_API_KEY="$OPENROUTER_API_KEY" "$runtime_python" -P - "$MODEL" <<'PY'
+            run_as_service_with_timeout 30s "$runtime_python" -P - <<'PY'
           from agent.process_bootstrap import _get_proxy_for_base_url, build_keepalive_http_client
-          from openai import OpenAI
-          import os
-          import sys
 
           base_url = "https://openrouter.ai/api/v1"
           selected = _get_proxy_for_base_url(base_url)
@@ -420,32 +421,16 @@ jobs:
           finally:
               if client is not None:
                   client.close()
-          chat_http = build_keepalive_http_client(base_url)
-          chat = OpenAI(
-              api_key=os.environ["OPENROUTER_API_KEY"],
-              base_url=base_url,
-              http_client=chat_http,
-              max_retries=0,
-              timeout=30.0,
-          )
-          try:
-              completion = chat.chat.completions.create(
-                  model=sys.argv[1],
-                  messages=[{"role": "user", "content": "只用中文回答：连接正常。"}],
-                  max_tokens=32,
-              )
-              answer = str(completion.choices[0].message.content or "").strip()
-              print("HERMES_OPENROUTER_CHAT_OK=" + ("yes" if "连接正常" in answer else "no"))
-          except Exception as exc:
-              chain = []
-              current = exc
-              while current is not None and len(chain) < 4:
-                  chain.append(f"{type(current).__name__}:{str(current)[:160]}")
-                  current = current.__cause__
-              print("HERMES_OPENROUTER_CHAT_ERROR=" + " <- ".join(chain))
-          finally:
-              chat.close()
           PY
+            chat_payload="$(mktemp /tmp/openrouter-chat-probe.XXXXXX)"
+            chat_headers="$(mktemp /tmp/openrouter-chat-headers.XXXXXX)"
+            printf '{"model":"%s","messages":[{"role":"user","content":"只回答：连接正常。"}],"max_tokens":32}' "$MODEL" > "$chat_payload"
+            printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$OPENROUTER_API_KEY" > "$chat_headers"
+            chown "$service_user:$service_group" "$chat_payload" "$chat_headers"
+            chmod 600 "$chat_payload" "$chat_headers"
+            chat_code="$(run_as_service_with_timeout 40s curl --silent --show-error --noproxy openrouter.ai --output /dev/null --write-out '%{http_code}' --connect-timeout 10 --max-time 35 -H "@$chat_headers" --data-binary "@$chat_payload" https://openrouter.ai/api/v1/chat/completions 2>/dev/null || true)"
+            rm -f "$chat_payload" "$chat_headers"
+            echo "HERMES_OPENROUTER_CHAT_HTTP=${chat_code:-000}"
 
             verify_inference() {
               local provider="$1"
