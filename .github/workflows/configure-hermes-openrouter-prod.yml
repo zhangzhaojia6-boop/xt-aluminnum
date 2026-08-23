@@ -416,7 +416,7 @@ jobs:
             *) journalctl -u nginx --no-pager -n 20 2>/dev/null || true; exit 1 ;;
           esac
 
-          OPENROUTER_API_KEY="$OPENROUTER_API_KEY" python3 - "$env_file" <<'PY'
+          OPENROUTER_API_KEY="$OPENROUTER_API_KEY" python3 - "$env_file" "$local_proxy_available" <<'PY'
           from pathlib import Path
           import os
           import sys
@@ -430,6 +430,15 @@ jobs:
               "HERMES_OPENROUTER_FORCE_NON_STREAMING=",
               "HERMES_OPENROUTER_COMPAT_USER_AGENT=",
           )
+          if sys.argv[2] == "no":
+              managed += (
+                  "HTTP_PROXY=",
+                  "HTTPS_PROXY=",
+                  "ALL_PROXY=",
+                  "http_proxy=",
+                  "https_proxy=",
+                  "all_proxy=",
+              )
           kept = [line for line in lines if not line.startswith(managed)]
           path.write_text(
               "\n".join([
