@@ -402,6 +402,22 @@ jobs:
             }
             probe_openrouter PROXY env
             probe_openrouter DIRECT env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy
+            run_as_service_with_timeout 30s "$runtime_python" -P - <<'PY'
+          from agent.process_bootstrap import _get_proxy_for_base_url, build_keepalive_http_client
+
+          base_url = "https://openrouter.ai/api/v1"
+          selected = _get_proxy_for_base_url(base_url)
+          print("HERMES_OPENROUTER_CLIENT_ROUTE=" + ("proxy" if selected else "direct"))
+          client = build_keepalive_http_client(base_url)
+          try:
+              response = client.get(base_url + "/models", timeout=20.0)
+              print(f"HERMES_OPENROUTER_CLIENT_HTTP={response.status_code}")
+          except Exception as exc:
+              print(f"HERMES_OPENROUTER_CLIENT_ERROR={type(exc).__name__}:{str(exc)[:200]}")
+          finally:
+              if client is not None:
+                  client.close()
+          PY
 
             verify_inference() {
               local provider="$1"
