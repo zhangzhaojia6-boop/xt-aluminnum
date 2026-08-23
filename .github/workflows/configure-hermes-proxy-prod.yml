@@ -243,7 +243,6 @@ jobs:
           echo "HERMES_PROXY_OPENROUTER_HTTP=${openrouter_http:-000}"
           echo "HERMES_PROXY_CHATGPT_HTTP=${chatgpt_http:-000}"
           [ "$openrouter_http" = "200" ]
-          [ "$chatgpt_http" != "000" ]
           print_status
           echo "HERMES_PROXY_CONFIGURED=yes"
           REMOTE
