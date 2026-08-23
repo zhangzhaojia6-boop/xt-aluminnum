@@ -444,7 +444,7 @@ jobs:
           PY
             chat_payload="$(mktemp /tmp/openrouter-chat-probe.XXXXXX)"
             chat_headers="$(mktemp /tmp/openrouter-chat-headers.XXXXXX)"
-            printf '{"model":"%s","messages":[{"role":"user","content":"只回答：连接正常。"}],"max_tokens":32}' "$MODEL" > "$chat_payload"
+            printf '{"model":"%s","messages":[{"role":"user","content":"只回答：连接正常。"}],"max_tokens":512}' "$MODEL" > "$chat_payload"
             printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$OPENROUTER_API_KEY" > "$chat_headers"
             chown "$service_user:$service_group" "$chat_payload" "$chat_headers"
             chmod 600 "$chat_payload" "$chat_headers"
@@ -452,22 +452,37 @@ jobs:
             chown "$service_user:$service_group" "$chat_response"
             chmod 600 "$chat_response"
             chat_code="$(run_as_service_with_timeout 100s curl --silent --show-error --noproxy openrouter.ai --output "$chat_response" --write-out '%{http_code}' --connect-timeout 10 --max-time 90 -H "@$chat_headers" --data-binary "@$chat_payload" https://openrouter.ai/api/v1/chat/completions 2>/dev/null || true)"
-            chat_complete="$(python3 - "$chat_response" <<'PY'
+            chat_diagnostic="$(python3 - "$chat_response" <<'PY'
           import json
           from pathlib import Path
           import sys
 
           try:
               payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-              content = payload["choices"][0]["message"]["content"]
-              print("yes" if isinstance(content, str) and content.strip() else "no")
-          except Exception:
-              print("no")
+              choices = payload.get("choices") if isinstance(payload, dict) else None
+              choice = choices[0] if isinstance(choices, list) and choices else {}
+              message = choice.get("message") if isinstance(choice, dict) else {}
+              message = message if isinstance(message, dict) else {}
+              content = message.get("content")
+              reasoning = message.get("reasoning")
+              error = payload.get("error") if isinstance(payload, dict) else None
+              print(";".join([
+                  "json=yes",
+                  "keys=" + ",".join(sorted(payload.keys())) if isinstance(payload, dict) else "keys=none",
+                  f"choices={len(choices) if isinstance(choices, list) else 0}",
+                  f"content_len={len(content) if isinstance(content, str) else 0}",
+                  f"reasoning_len={len(reasoning) if isinstance(reasoning, str) else 0}",
+                  f"finish_reason={choice.get('finish_reason') if isinstance(choice, dict) else None}",
+                  f"error={'yes' if error else 'no'}",
+              ]))
+          except Exception as exc:
+              raw = Path(sys.argv[1]).read_bytes()
+              print(f"json=no;bytes={len(raw)};error={type(exc).__name__}")
           PY
             )"
             rm -f "$chat_payload" "$chat_headers" "$chat_response"
             echo "HERMES_OPENROUTER_CHAT_HTTP=${chat_code:-000}"
-            echo "HERMES_OPENROUTER_CHAT_COMPLETE=$chat_complete"
+            echo "HERMES_OPENROUTER_CHAT_DIAGNOSTIC=$chat_diagnostic"
 
             verify_inference() {
               local provider="$1"
