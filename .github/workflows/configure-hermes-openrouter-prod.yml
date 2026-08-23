@@ -133,6 +133,13 @@ jobs:
               items.append(f"{name}:{scheme or 'unset'}{suffix}")
           print("HERMES_SERVICE_PROXY_TYPES=" + ",".join(sorted(items)))
           PY
+          if timeout 3 bash -c '</dev/tcp/127.0.0.1/7897' 2>/dev/null; then
+            echo "HERMES_LOCAL_PROXY_7897_LISTENING=yes"
+          else
+            echo "HERMES_LOCAL_PROXY_7897_LISTENING=no"
+          fi
+          proxy_process="$(ss -ltnp 'sport = :7897' 2>/dev/null | tail -n +2 | sed -E 's/pid=[0-9]+/pid=redacted/g' | head -n 1)"
+          echo "HERMES_LOCAL_PROXY_7897_PROCESS=${proxy_process:-none}"
           runtime_python="$(python3 - "$runtime_pid" <<'PY'
           from pathlib import Path
           import os
