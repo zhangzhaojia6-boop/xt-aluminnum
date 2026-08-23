@@ -378,9 +378,19 @@ jobs:
           chmod 644 "$nginx_bridge_file"
           nginx -t
           systemctl reload nginx
-          bridge_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --connect-timeout 5 --max-time 20 http://127.0.0.1:7898/v1/models || true)"
-          [ "$bridge_status" = "200" ]
+          bridge_status="000"
+          for attempt in 1 2 3 4 5; do
+            bridge_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --connect-timeout 5 --max-time 20 http://127.0.0.1:7898/v1/models || true)"
+            case "$bridge_status" in
+              2??|401) break ;;
+            esac
+            sleep 1
+          done
           echo "HERMES_OPENROUTER_LOCAL_BRIDGE_HTTP=$bridge_status"
+          case "$bridge_status" in
+            2??|401) ;;
+            *) journalctl -u nginx --no-pager -n 20 2>/dev/null || true; exit 1 ;;
+          esac
 
           OPENROUTER_API_KEY="$OPENROUTER_API_KEY" python3 - "$env_file" <<'PY'
           from pathlib import Path
