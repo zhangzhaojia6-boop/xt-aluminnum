@@ -32,6 +32,7 @@ jobs:
       SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
       SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
       PROXY_SUBSCRIPTION_URL: ${{ secrets.PROD_PROXY_SUBSCRIPTION_URL }}
+      PROXY_CONFIG_GZIP_B64: ${{ secrets.PROD_PROXY_CONFIG_GZIP_B64 }}
       MODE: ${{ github.event.inputs.mode }}
     steps:
       - name: Configure production Hermes proxy
@@ -46,6 +47,7 @@ jobs:
           case "$MODE" in status|configure|remove) ;; *) exit 2 ;; esac
           if [ "$MODE" = "configure" ]; then
             test -n "$PROXY_SUBSCRIPTION_URL"
+            test -n "$PROXY_CONFIG_GZIP_B64"
           fi
 
           install -m 700 -d ~/.ssh
@@ -54,7 +56,8 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-          printf -v remote_preamble 'MODE=%q\nPROXY_SUBSCRIPTION_URL=%q\n' "$MODE" "$PROXY_SUBSCRIPTION_URL"
+          printf -v remote_preamble 'MODE=%q\nPROXY_SUBSCRIPTION_URL=%q\nPROXY_CONFIG_GZIP_B64=%q\n' \
+            "$MODE" "$PROXY_SUBSCRIPTION_URL" "$PROXY_CONFIG_GZIP_B64"
           {
             printf '%s' "$remote_preamble"
             cat <<'REMOTE'
@@ -130,6 +133,10 @@ jobs:
           printf '%s\n' "$PROXY_SUBSCRIPTION_URL" > /etc/mihomo/subscription-url
           chown root:root /etc/mihomo/subscription-url
           chmod 600 /etc/mihomo/subscription-url
+          printf '%s' "$PROXY_CONFIG_GZIP_B64" | base64 --decode | gzip --decompress > /etc/mihomo/seed-config.yaml
+          test -s /etc/mihomo/seed-config.yaml
+          chown root:root /etc/mihomo/seed-config.yaml
+          chmod 600 /etc/mihomo/seed-config.yaml
 
           cat > /usr/local/sbin/update-hermes-proxy-config <<'SCRIPT'
           #!/usr/bin/env bash
@@ -139,8 +146,13 @@ jobs:
           raw="$(mktemp /etc/mihomo/subscription.XXXXXX)"
           next="$(mktemp /etc/mihomo/config.XXXXXX)"
           trap 'rm -f "$raw" "$next"' EXIT
-          curl --fail --silent --show-error --location --retry 3 --max-time 90 \
-            --user-agent 'ClashVerge/2.4' "$url" --output "$raw"
+          if curl --fail --silent --show-error --location --retry 3 --max-time 90 \
+            --user-agent 'ClashVerge/2.4' "$url" --output "$raw"; then
+            echo "HERMES_PROXY_CONFIG_SOURCE=subscription"
+          else
+            cp /etc/mihomo/seed-config.yaml "$raw"
+            echo "HERMES_PROXY_CONFIG_SOURCE=local_seed"
+          fi
           test -s "$raw"
           sed -E \
             -e 's/^mixed-port:.*/mixed-port: 7897/' \
