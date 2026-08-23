@@ -338,16 +338,17 @@ jobs:
           path.write_text(
               '[Service]\n'
               f'Environment="NO_PROXY={value}"\n'
-              f'Environment="no_proxy={value}"\n',
+              f'Environment="no_proxy={value}"\n'
+              'Environment="OPENROUTER_BASE_URL=http://127.0.0.1:7898/v1"\n',
               encoding="utf-8",
           )
           PY
           chmod 644 "$proxy_dropin_file"
           updated_proxy_env=()
           for item in "${service_proxy_env[@]}"; do
-            case "$item" in NO_PROXY=*|no_proxy=*) ;; *) updated_proxy_env+=("$item") ;; esac
+            case "$item" in NO_PROXY=*|no_proxy=*|OPENROUTER_BASE_URL=*) ;; *) updated_proxy_env+=("$item") ;; esac
           done
-          service_proxy_env=("${updated_proxy_env[@]}" "NO_PROXY=$openrouter_no_proxy" "no_proxy=$openrouter_no_proxy")
+          service_proxy_env=("${updated_proxy_env[@]}" "NO_PROXY=$openrouter_no_proxy" "no_proxy=$openrouter_no_proxy" "OPENROUTER_BASE_URL=http://127.0.0.1:7898/v1")
           systemctl daemon-reload
           echo "HERMES_OPENROUTER_DIRECT_ROUTE_CONFIGURED=yes"
 
@@ -591,7 +592,7 @@ jobs:
               local output
               local -a runtime_env=()
               if [ "$provider" = "openrouter" ]; then
-                runtime_env=(env HERMES_OPENROUTER_FORCE_NON_STREAMING=1 HERMES_OPENROUTER_COMPAT_USER_AGENT=1)
+                runtime_env=(env OPENROUTER_BASE_URL=http://127.0.0.1:7898/v1 HERMES_OPENROUTER_FORCE_NON_STREAMING=1 HERMES_OPENROUTER_COMPAT_USER_AGENT=1)
               fi
               output="$(mktemp /tmp/hermes-model-inference.XXXXXX)"
               if ! run_as_service_with_timeout 240s "${runtime_env[@]}" "$runtime_python" -P -m hermes_cli.main --provider "$provider" --model "$model" --toolsets hermes-dingtalk -z '只用中文回答，且只输出一行：我是鑫泰铝业智能大脑。' >"$output" 2>&1; then
