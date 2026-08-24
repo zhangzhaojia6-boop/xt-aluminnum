@@ -2059,7 +2059,7 @@ def test_configure_hermes_codex_prod_is_redacted_exact_sha_and_reversible() -> N
     assert 'printenv' not in source
 
 
-def test_configure_hermes_openrouter_prod_keeps_codex_fallback_and_secret_out_of_git() -> None:
+def test_configure_hermes_openrouter_prod_keeps_primary_stable_and_secret_out_of_git() -> None:
     path = '.github/workflows/configure-hermes-openrouter-prod.yml'
     payload = _load(path)
     source = _read(path)
@@ -2073,11 +2073,14 @@ def test_configure_hermes_openrouter_prod_keeps_codex_fallback_and_secret_out_of
         'fallback-inference',
     ]
     assert inputs['model']['default'] == 'stealth/ox-alpha'
-    assert inputs['fallback_model']['default'] == 'gpt-5.6-luna'
+    assert inputs['fallback_model']['default'] == 'none'
+    assert inputs['fallback_model']['options'] == ['none', 'gpt-5.6-luna', 'gpt-5.6-sol']
     assert job['environment'] == 'production'
     assert 'OPENROUTER_API_KEY: ${{ secrets.PROD_OPENROUTER_API_KEY }}' in source
     assert 'model_config.update({"provider": "openrouter"' in source
-    assert '{"provider": "openai-codex", "model": fallback_model}' in source
+    assert 'fallback_model != "none"' in source
+    assert 'CODEX_FALLBACK_DISABLED_FOR_FALLBACK_INFERENCE' in source
+    assert 'HERMES_CODEX_FALLBACK_INFERENCE=skipped_disabled' in source
     assert 'store["active_provider"] = "openrouter"' in source
     assert 'robot/oToMessages' not in source
     assert 'HERMES_OPENROUTER_INFERENCE_VERIFIED=yes' not in source

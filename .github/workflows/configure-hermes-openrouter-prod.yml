@@ -28,11 +28,12 @@ on:
         required: true
         default: stealth/ox-alpha
       fallback_model:
-        description: Codex OAuth model kept as the first fallback
+        description: Optional Codex OAuth fallback; use none when the Codex account is unavailable
         required: true
-        default: gpt-5.6-luna
+        default: none
         type: choice
         options:
+          - none
           - gpt-5.6-luna
           - gpt-5.6-sol
 
@@ -66,7 +67,11 @@ jobs:
           case "$MODE" in status|configure|inference|fallback-inference) ;; *) exit 2 ;; esac
           printf '%s' "$EXPECTED_HERMES_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$MODEL" | grep -Eq '^[A-Za-z0-9._/-]{1,100}$'
-          case "$FALLBACK_MODEL" in gpt-5.6-luna|gpt-5.6-sol) ;; *) exit 2 ;; esac
+          case "$FALLBACK_MODEL" in none|gpt-5.6-luna|gpt-5.6-sol) ;; *) exit 2 ;; esac
+          if [ "$MODE" = "fallback-inference" ] && [ "$FALLBACK_MODEL" = "none" ]; then
+            echo "CODEX_FALLBACK_DISABLED_FOR_FALLBACK_INFERENCE"
+            exit 2
+          fi
 
           append_remote_assignment() {
             local name="$1"
@@ -229,6 +234,7 @@ jobs:
           from hermes_cli.config import read_raw_config
 
           expected_model, fallback_model, env_path = sys.argv[1:]
+          fallback_required = fallback_model != "none"
           config = read_raw_config()
           model = config.get("model") if isinstance(config, dict) else {}
           model = model if isinstance(model, dict) else {"default": model}
@@ -245,15 +251,21 @@ jobs:
           codex = get_codex_auth_status()
           env_text = Path(env_path).read_text(encoding="utf-8") if Path(env_path).is_file() else ""
           key_ready = bool(re.search(r"(?m)^OPENROUTER_API_KEY=.+$", env_text))
+          fallback_ready = (
+              not fallback_required
+              or (
+                  isinstance(first_fallback, dict)
+                  and first_fallback.get("provider") == "openai-codex"
+                  and first_fallback.get("model") == fallback_model
+                  and bool(codex.get("logged_in"))
+                  and not bool(codex.get("rate_limited"))
+              )
+          )
           ready = (
               model.get("provider") == "openrouter"
               and model.get("default") == expected_model
               and model.get("base_url") == "http://127.0.0.1:7898/v1"
-              and isinstance(first_fallback, dict)
-              and first_fallback.get("provider") == "openai-codex"
-              and first_fallback.get("model") == fallback_model
-              and bool(codex.get("logged_in"))
-              and not bool(codex.get("rate_limited"))
+              and fallback_ready
               and key_ready
               and adaptive.get("enabled") is True
               and agent.get("disabled_toolsets") == []
@@ -263,8 +275,8 @@ jobs:
           print("HERMES_MODEL_PROVIDER=" + str(model.get("provider") or "unset"))
           print("HERMES_MODEL_DEFAULT=" + str(model.get("default") or "unset"))
           print("HERMES_OPENROUTER_KEY_READY=" + ("yes" if key_ready else "no"))
-          print("HERMES_CODEX_FALLBACK_MODEL=" + str(first_fallback.get("model") or "unset"))
-          print("HERMES_CODEX_FALLBACK_READY=" + ("yes" if codex.get("logged_in") and not codex.get("rate_limited") else "no"))
+          print("HERMES_CODEX_FALLBACK_MODEL=" + ("disabled" if not fallback_required else str(first_fallback.get("model") or "unset")))
+          print("HERMES_CODEX_FALLBACK_READY=" + ("yes" if fallback_ready else "no"))
           print("HERMES_OPENROUTER_READY=" + ("yes" if ready else "no"))
           raise SystemExit(0 if ready else 1)
           PY
@@ -489,10 +501,14 @@ jobs:
               dict(item) for item in (config.get("fallback_providers") or [])
               if isinstance(item, dict) and item.get("provider") not in {"openrouter", "openai-codex"}
           ]
-          config["fallback_providers"] = [
-              {"provider": "openai-codex", "model": fallback_model},
-              *retained,
-          ]
+          config["fallback_providers"] = (
+              [
+                  {"provider": "openai-codex", "model": fallback_model},
+                  *retained,
+              ]
+              if fallback_model != "none"
+              else retained
+          )
           agent = config.get("agent") if isinstance(config.get("agent"), dict) else {}
           agent.update({
               "reasoning_effort": "max",
@@ -603,7 +619,11 @@ jobs:
                 verify_inference openrouter "$MODEL" OPENROUTER
               fi
             fi
-            verify_inference openai-codex "$FALLBACK_MODEL" CODEX_FALLBACK
+            if [ "$FALLBACK_MODEL" != "none" ]; then
+              verify_inference openai-codex "$FALLBACK_MODEL" CODEX_FALLBACK
+            else
+              echo "HERMES_CODEX_FALLBACK_INFERENCE=skipped_disabled"
+            fi
           fi
 
           trap - EXIT ERR
