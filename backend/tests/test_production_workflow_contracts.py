@@ -430,6 +430,19 @@ def test_production_sync_status_workflow_requires_exact_sha_deploy_and_rollback_
     assert '/srv/hermes-cloud/runtime/.hermes/hermes-agent' in source
 
 
+def test_production_status_rejects_invalid_or_expiring_tls_certificate() -> None:
+    source = _read('.github/workflows/production-sync-status.yml')
+    tls_body = _extract_shell_function(source, 'report_tls_certificate')
+    status_body = _extract_shell_function(source, 'report_status')
+
+    assert 'PRODUCTION_DOMAIN="${PRODUCTION_DOMAIN:-xtmijd.com}"' in source
+    assert 'openssl s_client -connect "${domain}:443" -servername "$domain"' in tls_body
+    assert 'curl -fsS --max-time 15 "https://${domain}/healthz"' in tls_body
+    assert 'openssl x509 -in "$cert_file" -checkend 1209600' in tls_body
+    assert 'TLS_CERTIFICATE_STATUS=ok' in tls_body
+    assert 'report_tls_certificate' in status_body
+
+
 def test_production_sync_status_workflow_proves_stream_and_smoke_evidence_contract() -> None:
     source = _read('.github/workflows/production-sync-status.yml')
 

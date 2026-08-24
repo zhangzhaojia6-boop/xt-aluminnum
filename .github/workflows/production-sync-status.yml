@@ -130,6 +130,7 @@ jobs:
           HERMES_TRUSTED_REF="refs/remotes/xintai_cloud/main"
           DATAHUB_ENV_FILE="$DATAHUB_REPO/backend/.env"
           BACKUP_DIR="$DATAHUB_REPO/backups"
+          PRODUCTION_DOMAIN="${PRODUCTION_DOMAIN:-xtmijd.com}"
           MODE="${MODE:-status}"
           DATAHUB_SHA="${DATAHUB_SHA:-}"
           HERMES_SHA="${HERMES_SHA:-}"
@@ -1431,6 +1432,38 @@ jobs:
             echo "HERMES_RESTART_JOURNAL=clean"
           }
 
+          report_tls_certificate() {
+            local domain="$PRODUCTION_DOMAIN"
+            local cert_file
+            local expires_at
+            cert_file="$(mktemp /tmp/xintai-tls-certificate.XXXXXX.pem)"
+
+            if ! timeout 15 openssl s_client -connect "${domain}:443" -servername "$domain" </dev/null 2>/dev/null \
+              | openssl x509 -outform PEM >"$cert_file"; then
+              rm -f "$cert_file"
+              echo "TLS_CERTIFICATE_STATUS=unreadable"
+              return 1
+            fi
+
+            expires_at="$(openssl x509 -in "$cert_file" -noout -enddate | cut -d= -f2-)"
+            echo "TLS_CERTIFICATE_DOMAIN=$domain"
+            echo "TLS_CERTIFICATE_EXPIRES_AT=$expires_at"
+
+            if ! curl -fsS --max-time 15 "https://${domain}/healthz" >/dev/null; then
+              rm -f "$cert_file"
+              echo "TLS_CERTIFICATE_STATUS=invalid"
+              return 1
+            fi
+            if ! openssl x509 -in "$cert_file" -checkend 1209600 -noout >/dev/null; then
+              rm -f "$cert_file"
+              echo "TLS_CERTIFICATE_STATUS=expires_within_14_days"
+              return 1
+            fi
+
+            rm -f "$cert_file"
+            echo "TLS_CERTIFICATE_STATUS=ok"
+          }
+
           report_status() {
             local version_required="$1"
             local contract_gate_script="$DATAHUB_REPO/backend/scripts/check_daily_report_field_contract.py"
@@ -1441,6 +1474,8 @@ jobs:
             echo "SERVICE_STATUS_START"
             systemctl is-active aluminum-bypass hermes-gateway nginx
             echo "SERVICE_STATUS_END"
+
+            report_tls_certificate
 
             if [ "$version_required" = "yes" ]; then
               report_http_json "READYZ" "http://127.0.0.1:8000/readyz" /tmp/readyz.json
