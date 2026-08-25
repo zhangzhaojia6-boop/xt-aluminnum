@@ -2099,6 +2099,10 @@ def test_configure_hermes_openrouter_prod_keeps_primary_stable_and_secret_out_of
     assert 'HERMES_OPENROUTER_INFERENCE_VERIFIED=yes' not in source
     assert 'verify_inference openrouter "$MODEL" OPENROUTER' in source
     assert 'verify_inference openai-codex "$FALLBACK_MODEL" CODEX_FALLBACK' in source
+    assert 'zz-openrouter-direct.conf' in source
+    assert 'resolver 127.0.0.53 ipv6=off valid=30s;' in source
+    assert 'rewrite ^/v1/(.*)$ /api/v1/$1 break;' in source
+    assert 'proxy_buffer_size 64k;' in source
     assert 'HERMES_OPENROUTER_OPERATION_VERIFIED=yes' in source
     assert 'cp -p "$target" "$backup_dir/$name"' in source
     assert 'rollback()' in source

@@ -183,7 +183,7 @@ jobs:
           config_file="$hermes_home/config.yaml"
           env_file="$hermes_home/.env"
           proxy_dropin_dir="/etc/systemd/system/hermes-gateway.service.d"
-          proxy_dropin_file="$proxy_dropin_dir/openrouter-direct.conf"
+          proxy_dropin_file="$proxy_dropin_dir/zz-openrouter-direct.conf"
           nginx_bridge_file="/etc/nginx/conf.d/hermes-openrouter-bridge.conf"
 
           run_as_service() {
@@ -413,7 +413,10 @@ jobs:
               client_max_body_size 16m;
 
               location /v1/ {
-                  proxy_pass https://openrouter.ai/api/v1/;
+                  resolver 127.0.0.53 ipv6=off valid=30s;
+                  set $openrouter_origin https://openrouter.ai;
+                  rewrite ^/v1/(.*)$ /api/v1/$1 break;
+                  proxy_pass $openrouter_origin;
                   proxy_ssl_server_name on;
                   proxy_ssl_name openrouter.ai;
                   proxy_http_version 1.1;
@@ -425,6 +428,7 @@ jobs:
                   proxy_connect_timeout 15s;
                   proxy_send_timeout 120s;
                   proxy_read_timeout 120s;
+                  proxy_buffer_size 64k;
                   proxy_buffering off;
               }
           }
