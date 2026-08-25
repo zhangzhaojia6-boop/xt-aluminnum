@@ -429,6 +429,8 @@ jobs:
                   proxy_send_timeout 120s;
                   proxy_read_timeout 120s;
                   proxy_buffer_size 64k;
+                  proxy_buffers 4 64k;
+                  proxy_busy_buffers_size 64k;
                   proxy_buffering off;
               }
           }

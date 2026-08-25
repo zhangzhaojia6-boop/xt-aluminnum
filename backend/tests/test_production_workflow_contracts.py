@@ -2103,6 +2103,8 @@ def test_configure_hermes_openrouter_prod_keeps_primary_stable_and_secret_out_of
     assert 'resolver 127.0.0.53 ipv6=off valid=30s;' in source
     assert 'rewrite ^/v1/(.*)$ /api/v1/$1 break;' in source
     assert 'proxy_buffer_size 64k;' in source
+    assert 'proxy_buffers 4 64k;' in source
+    assert 'proxy_busy_buffers_size 64k;' in source
     assert 'HERMES_OPENROUTER_OPERATION_VERIFIED=yes' in source
     assert 'cp -p "$target" "$backup_dir/$name"' in source
     assert 'rollback()' in source
