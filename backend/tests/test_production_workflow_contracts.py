@@ -2088,6 +2088,7 @@ def test_configure_hermes_openrouter_prod_keeps_primary_stable_and_secret_out_of
     assert inputs['model']['default'] == 'thinkingmachines/inkling:free'
     assert inputs['fallback_model']['default'] == 'none'
     assert inputs['fallback_model']['options'] == ['none', 'gpt-5.6-luna', 'gpt-5.6-sol']
+    assert "grep -Eq '^[A-Za-z0-9._/:-]{1,100}$'" in source
     assert job['environment'] == 'production'
     assert 'OPENROUTER_API_KEY: ${{ secrets.PROD_OPENROUTER_API_KEY }}' in source
     assert 'model_config.update({"provider": "openrouter"' in source
