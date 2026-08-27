@@ -2085,7 +2085,7 @@ def test_configure_hermes_openrouter_prod_keeps_primary_stable_and_secret_out_of
         'inference',
         'fallback-inference',
     ]
-    assert inputs['model']['default'] == 'stealth/ox-alpha'
+    assert inputs['model']['default'] == 'thinkingmachines/inkling:free'
     assert inputs['fallback_model']['default'] == 'none'
     assert inputs['fallback_model']['options'] == ['none', 'gpt-5.6-luna', 'gpt-5.6-sol']
     assert job['environment'] == 'production'
@@ -2095,6 +2095,7 @@ def test_configure_hermes_openrouter_prod_keeps_primary_stable_and_secret_out_of
     assert 'CODEX_FALLBACK_DISABLED_FOR_FALLBACK_INFERENCE' in source
     assert 'HERMES_CODEX_FALLBACK_INFERENCE=skipped_disabled' in source
     assert 'store["active_provider"] = "openrouter"' in source
+    assert 'dingtalk_display.update({"show_reasoning": True, "reasoning_style": "blockquote"})' in source
     assert 'robot/oToMessages' not in source
     assert 'HERMES_OPENROUTER_INFERENCE_VERIFIED=yes' not in source
     assert 'verify_inference openrouter "$MODEL" OPENROUTER' in source

@@ -26,7 +26,7 @@ on:
       model:
         description: OpenRouter model to activate in production
         required: true
-        default: stealth/ox-alpha
+        default: thinkingmachines/inkling:free
       fallback_model:
         description: Optional Codex OAuth fallback; use none when the Codex account is unavailable
         required: true
@@ -522,6 +522,17 @@ jobs:
               "disabled_toolsets": [],
           })
           config["agent"] = agent
+          display = config.get("display") if isinstance(config.get("display"), dict) else {}
+          display_platforms = display.get("platforms") if isinstance(display.get("platforms"), dict) else {}
+          dingtalk_display = (
+              display_platforms.get("dingtalk")
+              if isinstance(display_platforms.get("dingtalk"), dict)
+              else {}
+          )
+          dingtalk_display.update({"show_reasoning": True, "reasoning_style": "blockquote"})
+          display_platforms["dingtalk"] = dingtalk_display
+          display["platforms"] = display_platforms
+          config["display"] = display
           providers = config.get("providers") if isinstance(config.get("providers"), dict) else {}
           openrouter = providers.get("openrouter") if isinstance(providers.get("openrouter"), dict) else {}
           openrouter.update({
