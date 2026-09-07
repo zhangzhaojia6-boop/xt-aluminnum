@@ -2,6 +2,31 @@ import { test, expect } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 import fs from 'node:fs'
 
+test('a contextual question is sent once when the assistant first loads', async ({ page }) => {
+  await setupReviewSessionAndMocks(page)
+  const sent = []
+  await page.route('**/api/v1/ai/assistant/conversations', async (route) => {
+    await route.fulfill({ json: route.request().method() === 'POST' ? { id: 'workspace-chat' } : [] })
+  })
+  await page.route('**/api/v1/ai/assistant/conversations/*/messages', async (route) => {
+    if (route.request().method() === 'POST') sent.push(route.request().postDataJSON())
+    await route.fulfill({ json: { answer: { answer: '已收到核查请求' } } })
+  })
+  await page.goto('/manage/today')
+  await expect(page.getByTestId('manage-today')).toBeVisible()
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('xt:open-ai-assistant', {
+    detail: { question: '核查昨日缺报', scope: { type: 'route', key: '/manage/today' } },
+  })))
+  await expect(page.getByTestId('ai-assistant-drawer')).toBeVisible()
+  await expect.poll(() => sent.length).toBe(1)
+  expect(sent[0].content).toBe('核查昨日缺报')
+  await expect(page.getByTestId('ai-assistant-drawer')).toContainText('已收到核查请求')
+  await page.getByRole('button', { name: '关闭 AI 助手' }).click()
+  await page.locator('.xt-manage__assistant-trigger').click()
+  await expect(page.getByTestId('ai-assistant-drawer')).toBeVisible()
+  expect(sent).toHaveLength(1)
+})
+
 test('management workspace remains usable across desktop and narrow screens', async ({ page }, testInfo) => {
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))

@@ -160,7 +160,8 @@ watch(
     draft.value = text
     emit('prompt-consumed')
     await send()
-  }
+  },
+  { immediate: true }
 )
 
 async function send() {
