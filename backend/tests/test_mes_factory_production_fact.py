@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.mes import MesCoilSnapshot, MesStockRecord, MesWorkshopProcessRecord
-from app.services.report import mes_factory_production_fact
+from app.services.report import mes_factory_packaging_fact, mes_factory_production_fact
 
 
 BUSINESS_DATE = date(2026, 6, 18)
@@ -22,6 +22,42 @@ def _session_factory(tmp_path):
         ],
     )
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
+
+
+def test_packaging_fact_does_not_load_unrelated_process_rows(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        for index, process in enumerate(('包装', ' 成品包装入库 ', '冷轧', '', None)):
+            db.add(MesWorkshopProcessRecord(
+                source_id=f'process-{index}',
+                source_path='sqlserver:workshop_process_records',
+                workshop_name='精整',
+                process_name=process,
+                output_weight_tons=10,
+                business_date=BUSINESS_DATE,
+                end_time=datetime(2026, 6, 18, 12),
+            ))
+        db.commit()
+
+    loaded_processes = []
+
+    def record_loaded_process(_session, instance):
+        if isinstance(instance, MesWorkshopProcessRecord):
+            loaded_processes.append(instance.process_name)
+
+    with session_factory() as db:
+        event.listen(db, 'loaded_as_persistent', record_loaded_process)
+        fact = mes_factory_packaging_fact.build_factory_packaging_fact(db, target_date=BUSINESS_DATE)
+        totals = mes_factory_packaging_fact.query_factory_packaging_output_by_date(db, BUSINESS_DATE, BUSINESS_DATE)
+        counts = mes_factory_packaging_fact.query_factory_packaging_row_counts_by_date(db, BUSINESS_DATE, BUSINESS_DATE)
+
+    assert totals == {BUSINESS_DATE: 20.0}
+    assert counts == {BUSINESS_DATE: 2}
+    assert fact['business_day']['daily_output'] == 20.0
+    assert fact['natural_day']['daily_output'] == 20.0
+    assert fact['business_day']['trace_id'] == 'projection-read:mes_workshop_process_records:2:2'
+    assert loaded_processes
+    assert set(loaded_processes) == {'包装', ' 成品包装入库 '}
 
 
 def _coil(

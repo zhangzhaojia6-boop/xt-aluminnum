@@ -206,6 +206,7 @@ def _rows_by_business_date(db: Session, start: date, end: date) -> list[MesWorks
         .filter(
             MesWorkshopProcessRecord.business_date >= start,
             MesWorkshopProcessRecord.business_date <= end,
+            MesWorkshopProcessRecord.process_name.contains(PACKAGING_PROCESS_KEYWORD),
         )
         .all()
     )
@@ -229,6 +230,7 @@ def _rows_by_natural_time(db: Session, start_at: datetime, end_at: datetime) -> 
         .filter(
             MesWorkshopProcessRecord.end_time >= start_at,
             MesWorkshopProcessRecord.end_time < end_at,
+            MesWorkshopProcessRecord.process_name.contains(PACKAGING_PROCESS_KEYWORD),
         )
         .all()
     )
