@@ -1,6 +1,6 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
@@ -11,10 +11,42 @@ from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services.report import daily_overview_builder, mes_home_packaging_fact
+from app.services.report.mes_factory_packaging_fact import build_factory_packaging_fact
 
 
 BUSINESS_DATE = date(2026, 6, 9)
 PACKAGING_INBOUND_OUTPUT_FIELD = 'packaging_inbound_output_tons'
+
+
+def test_packaging_fact_reuses_month_reads_for_daily_figures(tmp_path):
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all([
+            MesWorkshopProcessRecord(
+                source_id=f'budget-{day}', source_path='sqlserver', workshop_name='精整',
+                process_name='包装', output_weight_tons=weight,
+                business_date=date(2026, 6, day), end_time=datetime(2026, 6, day, 12),
+            ) for day, weight in [(8, 10), (9, 20), (10, 99)]
+        ])
+        db.commit()
+    statements = []
+    with session_factory() as db:
+        engine = db.get_bind()
+        def capture(conn, cursor, statement, parameters, context, executemany):
+            if statement.lstrip().upper().startswith('SELECT'):
+                statements.append(statement)
+        event.listen(engine, 'before_cursor_execute', capture)
+        try:
+            fact = build_factory_packaging_fact(db, target_date=BUSINESS_DATE)
+        finally:
+            event.remove(engine, 'before_cursor_execute', capture)
+    assert fact['business_day']['daily_output'] == 20
+    assert fact['business_day']['month_to_date_output'] == 30
+    assert fact['natural_day']['daily_output'] == 20
+    assert fact['natural_day']['month_to_date_output'] == 30
+    assert fact['daily_row_count'] == 1
+    assert fact['month_row_count'] == 2
+    assert len(statements) <= 3
 
 
 def _session_factory(tmp_path):

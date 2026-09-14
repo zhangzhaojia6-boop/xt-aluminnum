@@ -74,6 +74,8 @@ Hermes 和智能体要在 NousResearch Hermes 基础上增强，负责理解、�
 
 已授权的首批修复见 [管理总览事实显示 P0 实施记录](./superpowers/reports/2026-09-14-management-facts-p0.md)，包含 TDD 失败/通过证据与全量测试的既有失败边界。
 
+日报响应专项见 [日报优先响应与自动更新](./superpowers/reports/2026-09-14-daily-response-refresh.md)，记录自动读取、查询预算及真实数据一致性验证。
+
 当前业务术语见 [术语表](../CONTEXT.md)；它只统一词义，与下方已归档的旧 `CONTEXT.md` 不同。
 
 项目已经有：

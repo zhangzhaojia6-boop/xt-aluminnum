@@ -379,6 +379,8 @@ let chartObserver
 let trendRequest = 0
 let liveRequest = 0
 let usersLoaded = false
+let dailyRefreshTimer
+let liveDate = ''
 
 function syncCompactClient() {
   compactClient.value = isCompactClient()
@@ -426,17 +428,24 @@ async function loadLiveAggregation(targetDate) {
   }
 }
 
-loadLiveAggregation(snapshot.targetDate.value)
+watch([snapshot.targetDate, () => snapshot.pending.value.daily], ([next, pending]) => {
+  if (pending || liveDate === next) return
+  liveDate = next
+  void loadLiveAggregation(next)
+}, { immediate: true })
 watch(rosterOpen, (open) => { if (open) void loadUsers() })
 watch(snapshot.targetDate, (next) => {
   if (chartsVisible.value) void loadTrend(next)
-  void loadLiveAggregation(next)
+  liveRequest++
+  liveAggregation.value = {}
+  liveLoadError.value = ''
+  liveDate = ''
 }, { flush: 'sync' })
 
 function refreshAll() {
   currentBusinessDate.value = inferBusinessDate()
+  liveDate = ''
   void snapshot.load()
-  void loadLiveAggregation(snapshot.targetDate.value)
   if (chartsVisible.value) void loadTrend(snapshot.targetDate.value)
 }
 watch(snapshot.targetDate, (next) => {
@@ -799,6 +808,9 @@ const quickLinks = computed(() => {
 
 onMounted(() => {
   syncCompactClient()
+  dailyRefreshTimer = window.setInterval(() => {
+    if (document.visibilityState === 'visible') void snapshot.refreshDaily()
+  }, 30000)
   const showCharts = () => {
     chartsVisible.value = true
     void loadTrend(snapshot.targetDate.value)
@@ -814,6 +826,7 @@ onMounted(() => {
   window.addEventListener('resize', syncCompactClient, { passive: true })
 })
 onBeforeUnmount(() => {
+  window.clearInterval(dailyRefreshTimer)
   chartObserver?.disconnect()
   trendRequest++
   liveRequest++
