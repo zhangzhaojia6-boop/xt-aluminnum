@@ -7,18 +7,20 @@ function source(rel) {
   return readFileSync(new URL(rel, import.meta.url), 'utf8')
 }
 
-test('mapWorkshopRows sorts by today desc, keeps name/today/monthAvg', () => {
+test('workshop ranking preserves missing output separately from confirmed zero', () => {
   const rows = [
     { workshop_name: 'A', total_output: 5, target_value: 8 },
     { workshop_name: 'B', total_output: 12, target_value: 10 },
-    { workshop_name: 'C', total_output: null, target_value: null }
+    { workshop_name: 'C', total_output: null, target_value: null },
+    { workshop_name: 'D', total_output: 0, target_value: 0 }
   ]
   const out = mapWorkshopRows(rows)
-  assert.deepEqual(out.map((r) => r.name), ['B', 'A', 'C'])
+  assert.deepEqual(out.map((r) => r.name), ['B', 'A', 'D', 'C'])
   assert.equal(out[0].today, 12)
   assert.equal(out[0].monthAvg, 10)
   assert.equal(out[2].today, 0)
-  assert.equal(out[2].monthAvg, null)
+  assert.equal(out[3].today, null)
+  assert.equal(out[3].monthAvg, null)
 })
 
 test('mapWorkshopRows handles empty / null input', () => {
@@ -45,9 +47,9 @@ test('WorkshopBarChart uses --xt-* tokens for container, not echarts colors', ()
   assert.match(src, /var\(--xt-border\)/)
 })
 
-test('WorkshopBarChart legend names: 今日 + 月日均', () => {
+test('WorkshopBarChart labels the selected day and monthly daily average', () => {
   const src = source('../src/components/manage/WorkshopBarChart.vue')
-  assert.match(src, /'今日'/)
+  assert.match(src, /'所选日'/)
   assert.match(src, /'月日均'/)
   assert.doesNotMatch(src, /月累/)
 })

@@ -7,6 +7,25 @@ function deferred() {
   return { promise, resolve, reject }
 }
 
+test('failed production sources never substitute inbound or work in progress quantities', async () => {
+  const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = createDashboardSnapshot({
+    fetchImpl: async () => { throw new Error('summary unavailable') },
+    fetchDailyImpl: async () => { throw new Error('daily unavailable') },
+    fetchFactoryCommandImpl: async () => ({
+      today_output_tons: 73.6,
+      storage_finished_weight: 73.6,
+      wip_tons: 90,
+      workshop_summary: [{ workshop_name: '冷轧', active_tons: 90, total_output_tons: 90 }],
+    }),
+  })
+  await snap.load()
+  assert.equal(snap.leaderMetrics.value.total_output_weight, null)
+  assert.equal(snap.managementEstimate.value.output_tons, null)
+  assert.deepEqual(snap.productionLane.value, [])
+  assert.equal(snap.factoryCommandOverview.value.wip_tons, 90)
+})
+
 test('daily figures publish while summary is pending and survive its failure', async () => {
   const summary = deferred()
   const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
@@ -137,7 +156,7 @@ test('useDashboardSnapshot keeps MES packaging output separate from finished inb
   assert.equal(snap.managementEstimate.value.cost_basis_label, '包装产量')
 })
 
-test('useDashboardSnapshot falls back to factory command MES extended overview for management pages', async () => {
+test('factory command overview remains available without substituting its production definition', async () => {
   const fakeFetch = async () => ({ leader_metrics: {} })
   const fakeDailyFetch = async () => ({})
   const fakeFactoryCommandFetch = async (params) => {
@@ -169,12 +188,11 @@ test('useDashboardSnapshot falls back to factory command MES extended overview f
 
   assert.equal(snap.factoryCommandOverview.value.source, 'mes_extended')
   assert.equal(fakeFactoryCommandFetch.lastParams.target_date, '2026-05-22')
-  assert.equal(snap.leaderMetrics.value.total_output_weight, 6.2)
-  assert.equal(snap.leaderMetrics.value.today_total_output, 6.2)
+  assert.equal(snap.leaderMetrics.value.total_output_weight, null)
+  assert.equal(snap.leaderMetrics.value.today_total_output, null)
   assert.equal(snap.leaderMetrics.value.yield_rate, 92.5)
-  assert.equal(snap.productionLane.value.length, 2)
-  assert.equal(snap.productionLane.value[0].workshop_name, '在线退火分厂')
-  assert.equal(snap.productionLane.value[0].total_output, 11.4)
+  assert.deepEqual(snap.productionLane.value, [])
+  assert.equal(snap.factoryCommandOverview.value.workshop_summary[0].total_output_tons, 11.4)
 })
 
 test('useDashboardSnapshot sets lastError on fetch failure without throwing', async () => {

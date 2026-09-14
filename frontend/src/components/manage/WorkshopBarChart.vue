@@ -11,10 +11,14 @@ import { formatNumber } from '../../utils/display.js'
 
 use([CanvasRenderer, BarChart, GridComponent, TooltipComponent, LegendComponent])
 
-const props = defineProps({ rows: { type: Array, default: () => [] } })
+const props = defineProps({
+  rows: { type: Array, default: () => [] },
+  targetDate: { type: String, default: '' }
+})
+const dayLabel = computed(() => props.targetDate || '所选日')
 const chartTheme = useHudChartTheme()
 const mapped = computed(() => mapWorkshopRows(props.rows))
-const hasData = computed(() => mapped.value.length > 0)
+const hasData = computed(() => mapped.value.some(r => Number.isFinite(r.today) || Number.isFinite(r.monthAvg)))
 
 function readToken(name, fallback) {
   if (typeof window === 'undefined' || !window.getComputedStyle) return fallback
@@ -30,8 +34,8 @@ const option = computed(() => {
   const m = mapped.value
   const todayColor = readToken('--xt-primary', 'rgb(94, 184, 255)')
   const peakColor = readToken('--xt-success', 'rgb(78, 203, 138)')
-  const avgColor = readToken('--xt-text-inverse', 'rgba(224, 236, 255, 0.58)')
-  const labelColor = readToken('--xt-text-inverse', 'rgba(224, 236, 255, 0.9)')
+  const avgColor = readToken('--xt-text-secondary', 'rgb(75, 85, 99)')
+  const labelColor = readToken('--xt-text', 'rgb(31, 41, 55)')
 
   const reversed = [...m].reverse()
   const peak = peakValue.value
@@ -53,12 +57,12 @@ const option = computed(() => {
 
   return {
     legend: {
-      data: ['今日', '月日均'],
+      data: [dayLabel.value, '月日均'],
       top: 0,
       icon: 'roundRect',
       itemWidth: 12,
       itemHeight: 8,
-      textStyle: { fontSize: 11 }
+      textStyle: { fontSize: 11, color: labelColor }
     },
     tooltip: {
       trigger: 'axis',
@@ -66,7 +70,7 @@ const option = computed(() => {
       formatter: (params) => {
         if (!params?.length) return ''
         const name = params[0].name
-        const today = params.find((p) => p.seriesName === '今日')?.value ?? null
+        const today = params.find((p) => p.seriesName === dayLabel.value)?.value ?? null
         const avg = params.find((p) => p.seriesName === '月日均')?.value ?? null
         const delta = (Number.isFinite(today) && Number.isFinite(avg) && avg > 0)
           ? (((today - avg) / avg) * 100).toFixed(1)
@@ -74,7 +78,7 @@ const option = computed(() => {
         const deltaTxt = delta == null ? '' :
           `<br/><span style="color:${delta >= 0 ? peakColor : avgColor}">${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta)}%</span> vs 月均`
         return `<b>${name}</b><br/>` +
-          `今日 ${formatNumber(today || 0, 2)} 吨<br/>` +
+          `${dayLabel.value} ${today == null ? '—' : formatNumber(today, 2)} 吨<br/>` +
           (avg != null ? `月均 ${formatNumber(avg, 2)} 吨${deltaTxt}` : '月均 —')
       }
     },
@@ -97,7 +101,7 @@ const option = computed(() => {
     },
     series: [
       {
-        name: '今日',
+        name: dayLabel.value,
         type: 'bar',
         data: todayData,
         barGap: 0,
@@ -108,7 +112,7 @@ const option = computed(() => {
           fontSize: 11,
           fontWeight: 700,
           color: labelColor,
-          formatter: (p) => formatNumber(p.value || 0, 1)
+          formatter: (p) => p.value == null ? '—' : formatNumber(p.value, 1)
         }
       },
       {
@@ -128,7 +132,7 @@ const option = computed(() => {
     <header class="xt-workshop-bar__head">
       <span class="xt-workshop-bar__title">车间产量排名</span>
       <span v-if="hasData" class="xt-workshop-bar__meta">
-        共 <b>{{ mapped.length }}</b> 个 · 峰值 <b>{{ formatNumber(peakValue, 1) }}</b> 吨
+        {{ dayLabel }} · 共 <b>{{ mapped.length }}</b> 个 · 峰值 <b>{{ mapped.some(r => Number.isFinite(r.today)) ? formatNumber(peakValue, 1) : '—' }}</b> 吨
       </span>
     </header>
     <VChart
@@ -137,6 +141,7 @@ const option = computed(() => {
       :theme="chartTheme"
       autoresize
       class="xt-workshop-bar__canvas"
+      :style="{ height: `${Math.max(280, mapped.length * 38 + 56)}px` }"
     />
     <div v-else class="xt-workshop-bar__empty">暂无车间产量数据</div>
   </section>
@@ -151,12 +156,8 @@ const option = computed(() => {
   padding: var(--xt-space-3);
   border: 1px solid color-mix(in srgb, var(--xt-primary) 24%, var(--xt-border));
   border-radius: var(--xt-radius-xl);
-  background:
-    radial-gradient(circle at 96% 0%, color-mix(in srgb, var(--xt-success) 14%, transparent), transparent 34%),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 88%, var(--xt-bg-panel));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 38%, transparent);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
   overflow: hidden;
 }
 
@@ -172,25 +173,26 @@ const option = computed(() => {
 .xt-workshop-bar__head {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--xt-space-2);
 }
 
 .xt-workshop-bar__title {
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-size: var(--xt-text-base);
   font-weight: 900;
 }
 
 .xt-workshop-bar__meta {
-  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-variant-numeric: tabular-nums;
 }
 
 .xt-workshop-bar__meta b {
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-family: var(--xt-font-number);
   font-weight: 900;
 }
@@ -203,7 +205,7 @@ const option = computed(() => {
 
 .xt-workshop-bar__empty {
   padding: var(--xt-space-4);
-  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  color: var(--xt-text-secondary);
   text-align: center;
 }
 

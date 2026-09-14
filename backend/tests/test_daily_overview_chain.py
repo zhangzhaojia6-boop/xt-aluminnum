@@ -1174,7 +1174,10 @@ def test_build_timeseries_uses_mes_packaging_plant_output(monkeypatch) -> None:
     monkeypatch.setattr(
         dashboard_builder.energy_service,
         'summarize_energy_for_date',
-        lambda *_args, **kwargs: {'electricity_value': 3200.0 if kwargs['business_date'].day == 29 else 18000.0},
+        lambda *_args, **kwargs: {
+            'electricity_value': 3200.0 if kwargs['business_date'].day == 29 else 18000.0,
+            'available_energy_types': ['electricity'],
+        },
     )
 
     payload = report_service.build_timeseries(None, start_date=date(2026, 5, 28), end_date=date(2026, 5, 29))

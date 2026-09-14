@@ -70,6 +70,12 @@ Hermes 和智能体要在 NousResearch Hermes 基础上增强，负责理解、�
 
 ## 当前状态
 
+本轮专项分析（不替代封档执行顺序）：[2026-09-14 管理看板响应、图表与智能体协作复盘](./superpowers/reports/2026-09-14-period-dashboard-agent-design-review.md)。附全库覆盖清单、生产图表证据、分阶段方案和待确认事项。
+
+已授权的首批修复见 [管理总览事实显示 P0 实施记录](./superpowers/reports/2026-09-14-management-facts-p0.md)，包含 TDD 失败/通过证据与全量测试的既有失败边界。
+
+当前业务术语见 [术语表](../CONTEXT.md)；它只统一词义，与下方已归档的旧 `CONTEXT.md` 不同。
+
 项目已经有：
 
 - `/entry` 一线填报入口。

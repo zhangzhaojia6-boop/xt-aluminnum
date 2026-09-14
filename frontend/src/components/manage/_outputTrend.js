@@ -2,12 +2,13 @@ export function shapeTrendSeries(rawList = [], days = 14) {
   if (!Array.isArray(rawList)) return []
   const tail = rawList.slice(-days)
   return tail.map((row) => {
-    const raw = Number(row.output_weight ?? row.output ?? 0)
-    const tons = Number.isFinite(raw) ? raw / 1000 : 0
+    const value = row.output_weight ?? row.output
+    const raw = value == null ? null : Number(value)
+    const tons = Number.isFinite(raw) ? raw / 1000 : null
     return {
       date: row.date,
       label: row.date ? row.date.slice(5) : '',
-      output: Math.round(tons * 100) / 100
+      output: tons == null ? null : Math.round(tons * 100) / 100
     }
   })
 }
