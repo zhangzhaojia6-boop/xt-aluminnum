@@ -1,6 +1,23 @@
 import { test, expect } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
+test('yield comparison shows a percentage rather than inbound tonnage', async ({ page }) => {
+  await setupReviewSessionAndMocks(page)
+  let yieldRate = 95.3
+  await page.route('**/api/v1/dashboard/daily-production**', route => route.fulfill({ json: {
+    plant_output: { finished_inbound_output: 238.26, factory_feeding_daily_input: 250, yield_rate: yieldRate },
+  } }))
+  await page.goto('/manage/today?target_date=2026-09-13')
+  const card = page.locator('.xt-today__compare-card').filter({ hasText: '全厂成品率' }).first()
+  await expect(card.locator('strong')).toHaveText('95.3 %')
+  yieldRate = null
+  await page.reload()
+  await expect(card.locator('strong')).toHaveText('暂无可信数据')
+  yieldRate = 0
+  await page.reload()
+  await expect(card.locator('strong')).toHaveText('0 %')
+})
+
 test('daily report refreshes automatically without reloading heavy summaries', async ({ page }) => {
   await page.clock.install()
   await setupReviewSessionAndMocks(page)

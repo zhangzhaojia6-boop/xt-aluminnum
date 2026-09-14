@@ -445,6 +445,13 @@ def create_assistant_message(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     _ensure_factory_ai_access(current_user)
+    uses_database = _uses_ai_database(db)
+    conversation = (
+        _find_db_conversation(db, conversation_id=conversation_id, current_user=current_user)
+        if uses_database else conversations_db.get(conversation_id)
+    )
+    if conversation is None:
+        raise HTTPException(status_code=404, detail='Conversation not found')
 
     timestamp = _now()
     user_message = {'role': 'user', 'content': body.content, 'timestamp': timestamp, 'payload': {'scope': body.scope or {}}}
@@ -461,10 +468,7 @@ def create_assistant_message(
         'timestamp': _now(),
         'payload': {'answer': answer},
     }
-    if _uses_ai_database(db):
-        conversation = _find_db_conversation(db, conversation_id=conversation_id, current_user=current_user)
-        if conversation is None:
-            raise HTTPException(status_code=404, detail='Conversation not found')
+    if uses_database:
         db.add(
             AiMessage(
                 conversation_id=conversation.id,
@@ -491,9 +495,6 @@ def create_assistant_message(
             'answer': answer,
         }
 
-    conversation = conversations_db.get(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail='Conversation not found')
     conversation.setdefault('messages', []).extend([user_message, assistant_message])
     conversation['updated_at'] = assistant_message['timestamp']
     return {
