@@ -2,6 +2,57 @@ import { test, expect } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 import fs from 'node:fs'
 
+test('assistant failure is visible and never replaced by a legacy echo', async ({ page }) => {
+  await setupReviewSessionAndMocks(page)
+  let legacyCalls = 0
+  await page.route('**/api/v1/ai/assistant/conversations', route => route.fulfill({
+    json: route.request().method() === 'POST' ? { id: 'failed-chat' } : [],
+  }))
+  await page.route('**/api/v1/ai/assistant/conversations/*/messages', route => route.fulfill({
+    status: 503, json: { detail: '证据读取暂时不可用' },
+  }))
+  await page.route('**/api/v1/ai/chat', route => {
+    legacyCalls++
+    return route.fulfill({ contentType: 'text/event-stream', body: 'data: {"type":"text","content":"收到：核查日报"}\n\n' })
+  })
+  await page.goto('/manage/today')
+  await expect(page.getByTestId('manage-today')).toBeVisible()
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('xt:open-ai-assistant', {
+    detail: { question: '核查日报', scope: { type: 'route', key: '/manage/today' } },
+  })))
+  const drawer = page.getByTestId('ai-assistant-drawer')
+  await expect(drawer).toContainText('生成失败，请稍后重试')
+  await expect(drawer).not.toContainText('收到：核查日报')
+  expect(legacyCalls).toBe(0)
+  await expect(drawer.locator('textarea')).toBeEnabled()
+})
+
+test('stopping an assistant answer cancels its pending request', async ({ page }) => {
+  await setupReviewSessionAndMocks(page)
+  await page.route('**/api/v1/ai/runtime', route => route.fulfill({ json: { llm_configured: false } }))
+  const pending = []
+  let aborted = 0
+  page.on('requestfailed', request => {
+    if (request.url().includes('/ai/assistant/conversations/') && request.url().endsWith('/messages')) aborted++
+  })
+  await page.route('**/api/v1/ai/assistant/conversations', route => route.fulfill({
+    json: route.request().method() === 'POST' ? { id: 'stopped-chat' } : [],
+  }))
+  await page.route('**/api/v1/ai/assistant/conversations/*/messages', route => {
+    if (route.request().method() === 'POST') pending.push(route)
+    else return route.fulfill({ json: [] })
+  })
+  await page.goto('/manage/ai-assistant')
+  const workstation = page.getByTestId('ai-workstation-page')
+  await expect(workstation).toBeVisible()
+  await workstation.locator('textarea').fill('核查生产异常')
+  await workstation.getByRole('button', { name: '发送', exact: true }).click()
+  await expect.poll(() => pending.length).toBe(1)
+  await workstation.getByRole('button', { name: '停止', exact: true }).click()
+  await expect.poll(() => aborted).toBe(1)
+  await expect(workstation).toContainText('已停止')
+})
+
 test('a contextual question is sent once when the assistant first loads', async ({ page }) => {
   await setupReviewSessionAndMocks(page)
   const sent = []

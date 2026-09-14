@@ -130,6 +130,33 @@ def test_assistant_routes_persist_conversations_and_messages(tmp_path, monkeypat
         db.close()
 
 
+def test_unknown_or_other_users_conversation_is_rejected_before_fact_reads(tmp_path):
+    # Only conversation tables are available: denied requests must not need factory data.
+    db = _build_ai_session(tmp_path)
+    app.dependency_overrides[get_current_user] = _manager_user
+    app.dependency_overrides[get_db] = _override_db(db)
+    client = TestClient(app, raise_server_exceptions=False)
+    try:
+        created = client.post('/api/v1/ai/assistant/conversations', json={'title': 'Owner conversation'})
+        assert created.status_code == 200
+        conversation_id = created.json()['id']
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+            id=8, role='manager', is_admin=False, is_manager=True, data_scope_type='all',
+        )
+        for target in (conversation_id, 'does-not-exist'):
+            response = client.post(
+                f'/api/v1/ai/assistant/conversations/{target}/messages',
+                json={'content': 'Check factory facts'},
+            )
+            assert response.status_code == 404
+            assert response.json()['detail'] == 'Conversation not found'
+        app.dependency_overrides[get_current_user] = _manager_user
+        messages = client.get(f'/api/v1/ai/assistant/conversations/{conversation_id}/messages')
+        assert messages.json() == []
+    finally:
+        db.close()
+
+
 def test_assistant_factory_context_rejects_non_manager(monkeypatch):
     app.dependency_overrides[get_db] = _fake_db
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(

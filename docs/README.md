@@ -76,6 +76,8 @@ Hermes 和智能体要在 NousResearch Hermes 基础上增强，负责理解、�
 
 日报响应专项见 [日报优先响应与自动更新](./superpowers/reports/2026-09-14-daily-response-refresh.md)，记录自动读取、查询预算及真实数据一致性验证。
 
+经营、设计、产品与工程联合审查见 [多视角代码审查](./superpowers/reports/2026-09-14-multidisciplinary-review.md)，按风险逐项记录修复和待办。
+
 当前业务术语见 [术语表](../CONTEXT.md)；它只统一词义，与下方已归档的旧 `CONTEXT.md` 不同。
 
 项目已经有：

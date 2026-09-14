@@ -206,7 +206,7 @@
             :class="`tone-${item.tone}`"
           >
             <span>{{ item.title }}</span>
-            <strong>{{ item.primaryValue }}</strong>
+            <strong>{{ item.value ?? item.primaryValue }}</strong>
             <small>{{ item.compareLabel }}：{{ item.compareValue }}</small>
           </article>
           <article

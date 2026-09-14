@@ -15,8 +15,8 @@ export async function fetchAssistantMessages(conversationId) {
   return data
 }
 
-export async function sendAssistantMessage(conversationId, payload = {}) {
-  const { data } = await api.post(`/ai/assistant/conversations/${encodeURIComponent(conversationId)}/messages`, payload)
+export async function sendAssistantMessage(conversationId, payload = {}, config = {}) {
+  const { data } = await api.post(`/ai/assistant/conversations/${encodeURIComponent(conversationId)}/messages`, payload, config)
   return data
 }
 
