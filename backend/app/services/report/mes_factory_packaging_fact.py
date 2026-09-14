@@ -317,22 +317,21 @@ def build_factory_packaging_fact(db: Session, *, target_date: date) -> dict[str,
     try:
         business_start_at, business_end_at = production_business_window(target_date)
         natural_start_at, natural_end_at = _natural_window(target_date)
-        business_daily = _sum_rows(_rows_by_business_date(db, target_date, target_date))
-        business_month = _sum_rows(_rows_by_business_date(db, month_start, target_date))
+        business_rows = _rows_by_business_date(db, month_start, target_date)
+        business_daily = _sum_rows([row for row in business_rows if row.business_date == target_date])
+        business_month = _sum_rows(business_rows)
         try:
-            transfer_daily = _sum_transfer_rows(_transfer_rows_by_business_date(db, target_date, target_date))
-            transfer_month = _sum_transfer_rows(_transfer_rows_by_business_date(db, month_start, target_date))
+            transfer_rows = _transfer_rows_by_business_date(db, month_start, target_date)
+            transfer_daily = _sum_transfer_rows([row for row in transfer_rows if row.business_date == target_date])
+            transfer_month = _sum_transfer_rows(transfer_rows)
         except SQLAlchemyError:
             transfer_daily = _empty_sum()
             transfer_month = _empty_sum()
-        natural_daily = _sum_rows(_rows_by_natural_time(db, natural_start_at, natural_end_at))
-        natural_month = _sum_rows(
-            _rows_by_natural_time(
-                db,
-                datetime.combine(month_start, time.min),
-                natural_end_at,
-            )
+        natural_rows = _rows_by_natural_time(
+            db, datetime.combine(month_start, time.min), natural_end_at,
         )
+        natural_daily = _sum_rows([row for row in natural_rows if row.end_time.date() == target_date])
+        natural_month = _sum_rows(natural_rows)
     except (AttributeError, SQLAlchemyError):
         return _build_empty_fact(target_date)
 

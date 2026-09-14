@@ -22,7 +22,8 @@ export function createDashboardSnapshot({
   const targetDate = ref(inferLastCompletedBusinessDate(now))
   const data = ref({})
   const loading = ref(false)
-  const lastError = ref('')
+  const sourceErrors = ref({})
+  const dailyRefreshError = ref('')
   const lastRefreshAt = ref('')
   const pending = ref({ factory: false, daily: false, command: false })
   let token = 0
@@ -35,7 +36,8 @@ export function createDashboardSnapshot({
     const results = { factory: {}, daily: {}, command: {} }
     const errors = {}
     data.value = {}
-    lastError.value = ''
+    sourceErrors.value = {}
+    dailyRefreshError.value = ''
     lastRefreshAt.value = ''
     pending.value = { factory: true, daily: true, command: true }
     // Publish each source independently; a stale request must never change this date's view.
@@ -55,16 +57,18 @@ export function createDashboardSnapshot({
             factory_command_overview: results.command,
           }
           pending.value = { ...pending.value, [key]: false }
-          lastError.value = Object.values(errors).join('；')
+          sourceErrors.value = { ...errors }
           lastRefreshAt.value = new Date().toISOString()
         }
       }
     }
-    inflight = Promise.all([
-      receive('factory', fetchImpl, '经营摘要'),
-      receive('daily', fetchDailyImpl, '日报'),
-      receive('command', fetchFactoryCommandImpl, '生产概览'),
-    ]).finally(() => {
+    inflight = receive('daily', fetchDailyImpl, '日报').then(() => {
+      if (my !== token) return
+      return Promise.all([
+        receive('factory', fetchImpl, '经营摘要'),
+        receive('command', fetchFactoryCommandImpl, '生产概览'),
+      ])
+    }).finally(() => {
       if (my === token) loading.value = false
     })
     return inflight
@@ -72,13 +76,32 @@ export function createDashboardSnapshot({
 
   watch(targetDate, () => load(), { flush: 'sync' })
 
+  async function refreshDaily() {
+    if (loading.value || pending.value.daily) return
+    const my = token
+    pending.value = { ...pending.value, daily: true }
+    try {
+      const daily = await fetchDailyImpl({ target_date: targetDate.value })
+      if (my !== token) return
+      data.value = { ...data.value, daily_overview: daily || {} }
+      delete sourceErrors.value.daily
+      dailyRefreshError.value = ''
+      lastRefreshAt.value = new Date().toISOString()
+    } catch (err) {
+      if (my === token) dailyRefreshError.value = `日报更新失败：${requestErrorMessage(err, '请重试')}`
+    } finally {
+      if (my === token) pending.value = { ...pending.value, daily: false }
+    }
+  }
+
   function stepDate(deltaDays) {
     targetDate.value = dayjs(targetDate.value).add(deltaDays, 'day').format('YYYY-MM-DD')
     return inflight
   }
 
   return {
-    targetDate, data, loading, pending, lastError, lastRefreshAt,
+    targetDate, data, loading, pending, lastRefreshAt,
+    lastError: computed(() => [...Object.values(sourceErrors.value), dailyRefreshError.value].filter(Boolean).join('；')),
     factoryCommandOverview: computed(() => data.value.factory_command_overview || {}),
     leaderMetrics: computed(() => {
       const dailyOverview = data.value.daily_overview || {}
@@ -174,7 +197,7 @@ export function createDashboardSnapshot({
     exceptionLane: computed(() => data.value.exception_lane || {}),
     leaderSummary: computed(() => data.value.leader_summary || {}),
     freshnessStatus: computed(() => normalizeFreshness(data.value.analysis_handoff?.freshness?.freshness_status)),
-    load, stepDate
+    load, stepDate, refreshDaily
   }
 }
 

@@ -7,6 +7,101 @@ function deferred() {
   return { promise, resolve, reject }
 }
 
+test('daily figures load before expensive secondary summaries start', async () => {
+  const daily = deferred()
+  const calls = []
+  const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = createDashboardSnapshot({
+    fetchDailyImpl: () => { calls.push('daily'); return daily.promise },
+    fetchImpl: async () => { calls.push('factory'); return {} },
+    fetchFactoryCommandImpl: async () => { calls.push('command'); return {} },
+  })
+  const loaded = snap.load()
+  assert.deepEqual(calls, ['daily'])
+  daily.resolve({ plant_output: { daily_output: 42 } })
+  await loaded
+  assert.deepEqual(calls, ['daily', 'factory', 'command'])
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 42)
+})
+
+test('daily refresh keeps visible figures, skips duplicate requests and reads new facts', async () => {
+  const update = deferred()
+  let calls = 0
+  let summaries = 0
+  const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = createDashboardSnapshot({
+    fetchDailyImpl: () => ++calls === 1
+      ? Promise.resolve({ plant_output: { daily_output: 42 } }) : update.promise,
+    fetchImpl: async () => { summaries++; return {} },
+    fetchFactoryCommandImpl: async () => ({}),
+  })
+  await snap.load()
+  const refreshed = snap.refreshDaily()
+  await snap.refreshDaily()
+  assert.equal(calls, 2)
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 42)
+  update.resolve({ plant_output: { daily_output: 53 } })
+  await refreshed
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 53)
+  assert.equal(summaries, 1)
+})
+
+test('a failed daily refresh preserves figures and reports failure until recovery', async () => {
+  let fail = false
+  const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = createDashboardSnapshot({
+    fetchDailyImpl: async () => {
+      if (fail) throw new Error('offline')
+      return { plant_output: { daily_output: 42 } }
+    },
+    fetchImpl: async () => ({}), fetchFactoryCommandImpl: async () => ({}),
+  })
+  await snap.load()
+  const previousRefresh = snap.lastRefreshAt.value
+  fail = true
+  await snap.refreshDaily()
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 42)
+  assert.equal(snap.lastRefreshAt.value, previousRefresh)
+  assert.match(snap.lastError.value, /日报更新失败/)
+  fail = false
+  await snap.refreshDaily()
+  assert.equal(snap.lastError.value, '')
+})
+
+test('a successful daily refresh clears the initial daily failure', async () => {
+  let fail = true
+  const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = createDashboardSnapshot({
+    fetchDailyImpl: async () => {
+      if (fail) throw new Error('offline')
+      return { plant_output: { daily_output: 42 } }
+    },
+    fetchImpl: async () => ({}), fetchFactoryCommandImpl: async () => ({}),
+  })
+  await snap.load()
+  assert.match(snap.lastError.value, /日报/)
+  fail = false
+  await snap.refreshDaily()
+  assert.equal(snap.lastError.value, '')
+})
+
+test('a background daily refresh cannot overwrite a newly selected date', async () => {
+  const oldUpdate = deferred()
+  let calls = 0
+  const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = createDashboardSnapshot({
+    fetchDailyImpl: async () => ++calls === 2 ? oldUpdate.promise : { plant_output: { daily_output: calls } },
+    fetchImpl: async () => ({}), fetchFactoryCommandImpl: async () => ({}),
+  })
+  await snap.load()
+  const oldRefresh = snap.refreshDaily()
+  await snap.stepDate(-1)
+  oldUpdate.resolve({ plant_output: { daily_output: 99 } })
+  await oldRefresh
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 3)
+  assert.equal(snap.pending.value.daily, false)
+})
+
 test('failed production sources never substitute inbound or work in progress quantities', async () => {
   const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
   const snap = createDashboardSnapshot({

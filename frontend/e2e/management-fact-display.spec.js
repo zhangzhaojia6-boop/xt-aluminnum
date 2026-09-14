@@ -1,6 +1,27 @@
 import { test, expect } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
+test('daily report refreshes automatically without reloading heavy summaries', async ({ page }) => {
+  await page.clock.install()
+  await setupReviewSessionAndMocks(page)
+  let dailyCalls = 0
+  let summaryCalls = 0
+  page.on('request', request => {
+    if (request.url().includes('/dashboard/factory-director')) summaryCalls++
+  })
+  await page.route('**/api/v1/dashboard/daily-production**', route => route.fulfill({ json: {
+    plant_output: { daily_output: ++dailyCalls === 1 ? 42 : 53 },
+    workshop_output: [{ workshop_id: 1, workshop: '精整', daily_output: dailyCalls === 1 ? 42 : 53 }],
+  } }))
+  await page.goto('/manage/today?target_date=2026-09-13')
+  const kpis = page.getByTestId('today-command-wall').locator('table').first()
+  await expect(kpis).toContainText('42')
+  await page.clock.runFor(31000)
+  await expect(kpis).toContainText('53')
+  expect(dailyCalls).toBe(2)
+  expect(summaryCalls).toBe(1)
+})
+
 test('missing energy remains unavailable instead of displaying zero consumption', async ({ page }) => {
   await setupReviewSessionAndMocks(page)
   await page.route('**/api/v1/dashboard/timeseries**', route => route.fulfill({ json: [
