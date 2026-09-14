@@ -295,12 +295,12 @@
           :estimate="snapshot.managementEstimate.value"
           :series="trendSeries"
           :days="14"
-          cost-label="昨日估算成本"
+          :cost-label="`${snapshot.targetDate.value} 估算成本`"
           class="xt-today__row-cost"
         />
       </div>
 
-      <WorkshopBarChart :rows="snapshot.productionLane.value" />
+      <WorkshopBarChart :rows="snapshot.productionLane.value" :target-date="snapshot.targetDate.value" />
       </template>
     </section>
 
@@ -329,6 +329,8 @@ const FilerRoster = defineAsyncComponent(() => import('../../../components/manag
 import IndustrialProcessIcon from '../../../components/manage/IndustrialProcessIcon.vue'
 import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
 import { rosterStats, buildFilerRoster } from '../../../components/manage/_filerRoster.js'
+import { shapeTrendSeries } from '../../../components/manage/_outputTrend.js'
+import { shapeEnergyTrend } from '../../../components/manage/_costPanel.js'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
 import { fetchTimeseries } from '../../../api/dashboard.js'
@@ -474,16 +476,12 @@ const fmt = (v, digits = 2) =>
     })
 
 const outputTonsSpark = computed(() => {
-  const tail = trendSeries.value.slice(-7)
-  return tail.map((r) => Number(r.output_weight ?? r.output ?? 0) / 1000)
+  const points = shapeTrendSeries(trendSeries.value, 7).map(row => row.output)
+  return points.every(Number.isFinite) ? points : []
 })
 const energyPerTonSpark = computed(() => {
-  const tail = trendSeries.value.slice(-7)
-  return tail.map((r) => {
-    const tons = Number(r.output_weight ?? r.output ?? 0) / 1000
-    const kwh = r.energy == null ? null : Number(r.energy)
-    return tons > 0 && kwh != null ? kwh / tons : null
-  })
+  const points = shapeEnergyTrend(trendSeries.value, 7).map(row => row.energyPerTon)
+  return points.every(Number.isFinite) ? points : []
 })
 
 const stitchSurface = computed(() => buildTodayStitchSurface({

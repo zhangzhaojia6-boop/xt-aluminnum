@@ -37,8 +37,8 @@ test('CostLine does NOT split into electricity / gas (no such fields)', () => {
 
 test('CostLine tooltip uses Chinese ton unit', () => {
   const src = source('../src/components/manage/CostLine.vue')
-  assert.match(src, /产量 \$\{row\.tons \|\| 0\} 吨/)
-  assert.doesNotMatch(src, /产量 \$\{row\.tons \|\| 0\} t/)
+  assert.match(src, /产量 \$\{row\.tons \?\? '—'\} 吨/)
+  assert.doesNotMatch(src, /产量 \$\{row\.tons \?\? '—'\} t/)
 })
 
 test('CostLine uses --xt-* tokens, no hex colors', () => {

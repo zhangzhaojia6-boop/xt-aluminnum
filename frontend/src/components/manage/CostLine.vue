@@ -58,7 +58,7 @@ function readToken(name, fallback) {
 
 const option = computed(() => {
   const lineColor = readToken('--xt-warning', 'rgb(240, 184, 74)')
-  const muteColor = readToken('--xt-text-inverse', 'rgba(224, 236, 255, 0.58)')
+  const muteColor = readToken('--xt-text-secondary', 'rgb(75, 85, 99)')
   const data = shaped.value.map((p) => p.energyPerTon)
   const lastIdx = data.length - 1
   return {
@@ -71,7 +71,7 @@ const option = computed(() => {
         const row = shaped.value[p.dataIndex] || {}
         return `${row.date || ''}<br/>` +
           `<b>${row.energyPerTon ?? '—'}</b> kWh/吨<br/>` +
-          `产量 ${row.tons || 0} 吨 · 用电 ${row.energy || 0} kWh`
+          `产量 ${row.tons ?? '—'} 吨 · 用电 ${row.energy ?? '—'} kWh`
       }
     },
     xAxis: {
@@ -95,7 +95,7 @@ const option = computed(() => {
       lineStyle: { width: 2, color: lineColor },
       itemStyle: { color: lineColor },
       areaStyle: { color: lineColor, opacity: 0.06 },
-      markPoint: lastIdx >= 0 ? {
+      markPoint: lastIdx >= 0 && Number.isFinite(data[lastIdx]) ? {
         symbol: 'circle',
         symbolSize: 10,
         itemStyle: { color: lineColor, borderColor: 'rgba(255, 255, 255, 0.9)', borderWidth: 2 },
@@ -136,7 +136,7 @@ const option = computed(() => {
       <div class="xt-cost-panel__trend-head">
         <span class="xt-cost-panel__trend-title">近 {{ days }} 日吨能耗</span>
         <span class="xt-cost-panel__trend-meta" v-if="hasTrend">
-          当日 <b>{{ stats.last }}</b> · 均 {{ stats.avg.toFixed(0) }} kWh/吨
+          所选日 <b>{{ stats.last ?? '—' }}</b> · {{ shaped.some(p => p.energyPerTon == null) ? '已知日均' : '日均' }} {{ stats.avg.toFixed(0) }} kWh/吨
         </span>
       </div>
       <VChart
@@ -161,12 +161,8 @@ const option = computed(() => {
   padding: var(--xt-space-3);
   border: 1px solid color-mix(in srgb, var(--xt-warning) 26%, var(--xt-border));
   border-radius: var(--xt-radius-xl);
-  background:
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--xt-warning) 16%, transparent), transparent 38%),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 36%, transparent);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
   overflow: hidden;
 }
 
@@ -191,7 +187,7 @@ const option = computed(() => {
 }
 
 .xt-cost-panel__cost-label {
-  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-weight: 850;
 }
@@ -204,7 +200,7 @@ const option = computed(() => {
 }
 
 .xt-cost-panel__cost-value {
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-family: var(--xt-font-number);
   font-size: var(--xt-text-2xl);
   font-weight: 900;
@@ -213,7 +209,7 @@ const option = computed(() => {
 }
 
 .xt-cost-panel__cost-unit {
-  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
   font-weight: 800;
 }
@@ -224,7 +220,7 @@ const option = computed(() => {
   border: 1px solid color-mix(in srgb, var(--xt-warning) 42%, var(--xt-border));
   border-radius: var(--xt-radius-pill);
   background: color-mix(in srgb, var(--xt-warning-light) 10%, transparent);
-  color: color-mix(in srgb, var(--xt-warning) 72%, var(--xt-text-inverse));
+  color: color-mix(in srgb, var(--xt-warning) 72%, var(--xt-text));
   font-size: var(--xt-text-xs);
   font-weight: 850;
   font-variant-numeric: tabular-nums;
@@ -233,7 +229,7 @@ const option = computed(() => {
 .xt-cost-panel__cost-pill.is-muted {
   border-color: color-mix(in srgb, var(--xt-primary) 16%, var(--xt-border));
   background: color-mix(in srgb, var(--xt-bg-panel-soft) 8%, transparent);
-  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  color: var(--xt-text-secondary);
 }
 
 .xt-cost-panel__trend {
@@ -251,19 +247,19 @@ const option = computed(() => {
 }
 
 .xt-cost-panel__trend-title {
-  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-weight: 850;
 }
 
 .xt-cost-panel__trend-meta {
-  color: color-mix(in srgb, var(--xt-text-inverse) 62%, transparent);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-variant-numeric: tabular-nums;
 }
 
 .xt-cost-panel__trend-meta b {
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-family: var(--xt-font-number);
   font-weight: 900;
 }
@@ -277,7 +273,7 @@ const option = computed(() => {
   display: grid;
   place-items: center;
   height: 138px;
-  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
 }
 </style>

@@ -1,0 +1,110 @@
+{
+  "charts": {
+    "text": "近14日产量\n日均 343 吨 · 峰值 485 吨\n昨日估算成本\n—\n口径：估算\n近 14 日吨能耗\n当日 0 · 均 2 kWh/吨\n车间产量排名\n共 9 个 · 峰值 340.7 吨",
+    "bounds": {
+      "x": 244,
+      "y": 724.640625,
+      "width": 1168,
+      "height": 786.640625,
+      "top": 724.640625,
+      "right": 1412,
+      "bottom": 1511.28125,
+      "left": 244
+    },
+    "canvases": [
+      {
+        "width": 546,
+        "height": 220,
+        "box": {
+          "x": 257,
+          "y": 778.171875,
+          "width": 546,
+          "height": 220,
+          "top": 778.171875,
+          "right": 803,
+          "bottom": 998.171875,
+          "left": 257
+        }
+      },
+      {
+        "width": 546,
+        "height": 138,
+        "box": {
+          "x": 853,
+          "y": 846.03125,
+          "width": 546,
+          "height": 138,
+          "top": 846.03125,
+          "right": 1399,
+          "bottom": 984.03125,
+          "left": 853
+        }
+      },
+      {
+        "width": 1142,
+        "height": 420,
+        "box": {
+          "x": 257,
+          "y": 1078.28125,
+          "width": 1142,
+          "height": 420,
+          "top": 1078.28125,
+          "right": 1399,
+          "bottom": 1498.28125,
+          "left": 257
+        }
+      }
+    ],
+    "chartStyle": [
+      {
+        "class": "xt-output-trend xt-today__row-trend",
+        "background": "color(srgb 0.22559 0.273943 0.323929)",
+        "color": "rgb(37, 42, 48)"
+      },
+      {
+        "class": "xt-cost-panel xt-today__row-cost",
+        "background": "color(srgb 0.22559 0.273943 0.323929)",
+        "color": "rgb(37, 42, 48)"
+      },
+      {
+        "class": "xt-workshop-bar",
+        "background": "color(srgb 0.20758 0.257058 0.308207)",
+        "color": "rgb(37, 42, 48)"
+      }
+    ],
+    "inverse": "#fff"
+  },
+  "errors": [],
+  "records": [
+    {
+      "path": "/api/v1/user/preferences",
+      "ms": 1021,
+      "status": null
+    },
+    {
+      "path": "/api/v1/dashboard/daily-production",
+      "ms": 8195,
+      "status": null
+    },
+    {
+      "path": "/api/v1/aggregation/live",
+      "ms": 11045,
+      "status": null
+    },
+    {
+      "path": "/api/v1/dashboard/timeseries",
+      "ms": 12245,
+      "status": null
+    },
+    {
+      "path": "/api/v1/factory-command/overview",
+      "ms": 14302,
+      "status": null
+    },
+    {
+      "path": "/api/v1/dashboard/factory-director",
+      "ms": 17280,
+      "status": null
+    }
+  ]
+}

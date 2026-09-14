@@ -31,7 +31,7 @@ const chartTheme = useHudChartTheme()
 
 const shaped = computed(() => shapeTrendSeries(props.series, props.days))
 const stats = computed(() => trendStats(shaped.value))
-const hasData = computed(() => shaped.value.some((p) => p.output > 0))
+const hasData = computed(() => shaped.value.some((p) => Number.isFinite(p.output)))
 
 function readToken(name, fallback) {
   if (typeof window === 'undefined' || !window.getComputedStyle) return fallback
@@ -41,13 +41,13 @@ function readToken(name, fallback) {
 
 const option = computed(() => {
   const lineColor = readToken('--xt-primary', 'rgb(94, 184, 255)')
-  const avgColor = readToken('--xt-text-inverse', 'rgba(224, 236, 255, 0.58)')
+  const avgColor = readToken('--xt-text-secondary', 'rgb(75, 85, 99)')
   return {
     grid: { left: 48, right: 16, top: 24, bottom: 28 },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'line' },
-      valueFormatter: (v) => `${Number(v).toFixed(1)} 吨`
+      valueFormatter: (v) => v == null ? '—' : `${Number(v).toFixed(1)} 吨`
     },
     xAxis: {
       type: 'category',
@@ -92,7 +92,7 @@ const option = computed(() => {
     <div class="xt-output-trend__head">
       <span class="xt-output-trend__title">近{{ days }}日产量</span>
       <span class="xt-output-trend__meta" v-if="hasData">
-        日均 {{ stats.avg.toFixed(0) }} 吨 · 峰值 {{ stats.max.toFixed(0) }} 吨
+        {{ shaped.some(p => p.output == null) ? '已知日均' : '日均' }} {{ stats.avg.toFixed(0) }} 吨 · 峰值 {{ stats.max.toFixed(0) }} 吨
       </span>
     </div>
     <VChart
@@ -115,12 +115,8 @@ const option = computed(() => {
   padding: var(--xt-space-3);
   border: 1px solid color-mix(in srgb, var(--xt-primary) 24%, var(--xt-border));
   border-radius: var(--xt-radius-xl);
-  background:
-    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent 36%),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 38%, transparent);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
   overflow: hidden;
 }
 
@@ -142,13 +138,13 @@ const option = computed(() => {
 }
 
 .xt-output-trend__title {
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
   font-weight: 900;
 }
 
 .xt-output-trend__meta {
-  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -163,7 +159,7 @@ const option = computed(() => {
   display: grid;
   place-items: center;
   height: 220px;
-  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
 }
 

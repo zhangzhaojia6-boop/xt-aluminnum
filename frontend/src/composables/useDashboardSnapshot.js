@@ -87,8 +87,7 @@ export function createDashboardSnapshot({
       const factoryCommand = data.value.factory_command_overview || {}
       const lm = data.value.leader_metrics || {}
       const sm = data.value.leader_summary?.metrics || {}
-      const factoryCommandOutput = factoryCommand.today_output_tons ?? factoryCommand.storage_finished_weight ?? null
-      const totalOutput = plantOutput.daily_output ?? lm.total_output_weight ?? lm.today_total_output ?? sm.total_output_weight ?? factoryCommandOutput ?? null
+      const totalOutput = plantOutput.daily_output ?? lm.total_output_weight ?? lm.today_total_output ?? sm.total_output_weight ?? null
       const finishedInboundOutput = plantOutput.finished_inbound_output ?? lm.storage_finished_weight ?? sm.storage_finished_weight ?? null
       const energyPerTon = dailyEnergy.data_available === false
         ? null
@@ -129,14 +128,12 @@ export function createDashboardSnapshot({
       const dailyOverview = data.value.daily_overview || {}
       const plantOutput = dailyOverview.plant_output || {}
       const plantCost = dailyOverview.plant_cost || {}
-      const factoryCommand = data.value.factory_command_overview || {}
-      const factoryCommandOutput = factoryCommand.today_output_tons ?? null
       return {
         ...estimate,
         estimate_ready: plantCost.cost_per_ton != null ? true : estimate.estimate_ready,
         estimated_cost: plantCost.total != null ? Number(plantCost.total) * 10000 : estimate.estimated_cost,
-        total_output_weight: plantOutput.daily_output ?? estimate.total_output_weight ?? factoryCommandOutput ?? null,
-        output_tons: plantOutput.daily_output ?? estimate.output_tons ?? factoryCommandOutput ?? null,
+        total_output_weight: plantOutput.daily_output ?? estimate.total_output_weight ?? null,
+        output_tons: plantOutput.daily_output ?? estimate.output_tons ?? null,
         cost_basis_label: plantOutput.basis_label || estimate.cost_basis_label || null
       }
     }),
@@ -150,17 +147,6 @@ export function createDashboardSnapshot({
           total_output: row.daily_output,
           delta_vs_yesterday: row.delta,
           target_value: row.monthly_output != null ? Number(row.monthly_output) / dayOfMonth : null
-        }))
-      }
-      const factoryWorkshops = data.value.factory_command_overview?.workshop_summary || []
-      if (factoryWorkshops.length) {
-        return factoryWorkshops.map((row, index) => ({
-          workshop_id: row.workshop_id ?? row.workshop_name ?? index,
-          workshop_name: row.workshop_name || row.workshop || '--',
-          total_output: row.total_output_tons ?? row.total_output ?? row.active_tons ?? 0,
-          delta_vs_yesterday: row.delta ?? null,
-          target_value: null,
-          source: data.value.factory_command_overview?.source || 'factory_command'
         }))
       }
       return data.value.production_lane || []

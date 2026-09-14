@@ -1082,18 +1082,17 @@ def build_timeseries(db: Session, *, start_date: date, end_date: date) -> list[d
     current = start_date
     while current <= end_date:
         energy_summary = energy_service.summarize_energy_for_date(db, business_date=current)
-        output_tons = float(output_by_date.get(current) or 0.0)
+        output_tons = output_by_date.get(current)
         has_energy_data = energy_summary.get('primary_source') != 'none' and (
             'rows' not in energy_summary or bool(energy_summary.get('rows'))
-        )
+        ) and 'electricity' in energy_summary.get('available_energy_types', [])
         energy_value = float(energy_summary.get('electricity_value') or 0.0) if has_energy_data else None
-        if output_tons > 0 or (energy_value is not None and energy_value > 0):
-            payload.append(
-                {
-                    'date': current.isoformat(),
-                    'output': round(output_tons * 1000, 3),
-                    'energy': energy_value,
-                }
-            )
+        payload.append(
+            {
+                'date': current.isoformat(),
+                'output': round(float(output_tons) * 1000, 3) if output_tons is not None else None,
+                'energy': energy_value,
+            }
+        )
         current += timedelta(days=1)
     return payload

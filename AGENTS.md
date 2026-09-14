@@ -141,6 +141,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **When the owner points out an error, turn it into a rule before continuing.**
 
+- 前端发布不能仅凭 Git SHA 一致或后端健康就宣告完成；必须核对云端构建文件、正式域名实际返回的资源，以及启用正常浏览器缓存和 Service Worker 时的页面。未验证用户所指页面或改动时，明确说明证据边界。
+
 - Acknowledge the concrete error in plain language.
 - Extract the reusable lesson, not just the one-off fix.
 - If the lesson affects future tasks, write it into the appropriate long-term memory or project rule file before resuming execution.
