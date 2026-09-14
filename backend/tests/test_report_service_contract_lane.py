@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time
 from types import SimpleNamespace
 
-from sqlalchemy import create_engine
+import pytest
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
@@ -469,6 +470,60 @@ def test_build_history_digest_tracks_daily_trend_and_period_archives(tmp_path, m
         assert payload['year_archive']['average_monthly_output'] == round(sum(seeded_output), 2)
     finally:
         db.close()
+
+
+@pytest.mark.parametrize(
+    ('target_date', 'daily_outputs', 'month_output', 'month_days', 'year_output', 'year_days', 'active_months'),
+    [
+        (date(2026, 1, 3), [0, 0, 0, 40, 0, 20, 0], 20, 2, 20, 2, 1),
+        (date(2026, 2, 3), [0, 0, 0, 30, 10, 0, 15], 25, 2, 75, 5, 2),
+        (date(2025, 6, 3), [0] * 7, 0, 0, 0, 0, 0),
+    ],
+)
+def test_global_history_reads_output_once_across_period_boundaries(
+    tmp_path, monkeypatch, target_date, daily_outputs, month_output, month_days, year_output, year_days, active_months,
+) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'history-output.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesWorkshopProcessRecord.__table__])
+    session_factory = sessionmaker(bind=engine, future=True)
+    with session_factory() as db:
+        for business_date, output in [
+            (date(2025, 12, 31), 40),
+            (date(2026, 1, 1), 0.001),
+            (date(2026, 1, 2), 20),
+            (date(2026, 1, 31), 30),
+            (date(2026, 2, 1), 10),
+            (date(2026, 2, 3), 15),
+            (date(2026, 2, 4), 999),
+        ]:
+            db.add(MesWorkshopProcessRecord(
+                source_id=f'packaging-{business_date}', source_path='sqlserver:workshop_process_records',
+                process_name='包装', business_date=business_date, output_weight_tons=output,
+            ))
+        db.commit()
+
+    monkeypatch.setattr(report_service.mobile_report_service, 'summarize_mobile_inventory', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(report_service, 'build_contract_projection', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(report_service, '_safe_energy_summary_for_date', lambda *_args, **_kwargs: {})
+    statements = []
+
+    def record_output_read(_conn, _cursor, statement, _parameters, _context, _executemany):
+        if 'FROM mes_workshop_process_records' in statement:
+            statements.append(statement)
+
+    event.listen(engine, 'before_cursor_execute', record_output_read)
+    with session_factory() as db:
+        payload = report_service._build_history_digest(db, target_date=target_date)
+
+    assert [item['output_weight'] for item in payload['daily_snapshots']] == daily_outputs
+    assert payload['month_archive']['total_output'] == month_output
+    assert payload['month_archive']['reported_days'] == month_days
+    assert payload['month_archive']['average_daily_output'] == (month_output / month_days if month_days else 0)
+    assert payload['year_archive']['total_output'] == year_output
+    assert payload['year_archive']['reported_days'] == year_days
+    assert payload['year_archive']['active_months'] == active_months
+    assert payload['year_archive']['average_monthly_output'] == (year_output / active_months if active_months else 0)
+    assert len(statements) == 1
 
 
 def test_build_history_digest_converts_mobile_coil_aggregate_kg_to_tons(tmp_path, monkeypatch) -> None:
