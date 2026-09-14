@@ -24,35 +24,49 @@ export function createDashboardSnapshot({
   const loading = ref(false)
   const lastError = ref('')
   const lastRefreshAt = ref('')
+  const pending = ref({ factory: false, daily: false, command: false })
   let token = 0
   let inflight = Promise.resolve()
 
   function load() {
     loading.value = true
     const my = ++token
-    inflight = (async () => {
+    const params = { target_date: targetDate.value }
+    const results = { factory: {}, daily: {}, command: {} }
+    const errors = {}
+    data.value = {}
+    lastError.value = ''
+    lastRefreshAt.value = ''
+    pending.value = { factory: true, daily: true, command: true }
+    // Publish each source independently; a stale request must never change this date's view.
+    async function receive(key, fetcher, label) {
       try {
-        const [factoryResult, dailyResult, factoryCommandResult] = await Promise.allSettled([
-          fetchImpl({ target_date: targetDate.value }),
-          fetchDailyImpl({ target_date: targetDate.value }),
-          fetchFactoryCommandImpl({ target_date: targetDate.value })
-        ])
+        const value = await fetcher(params)
         if (my !== token) return
-        const next = factoryResult.status === 'fulfilled' ? { ...factoryResult.value } : {}
-        next.daily_overview = dailyResult.status === 'fulfilled' ? dailyResult.value : {}
-        next.factory_command_overview = factoryCommandResult.status === 'fulfilled' ? factoryCommandResult.value : {}
-        data.value = next
-        lastRefreshAt.value = new Date().toISOString()
-        lastError.value = dailyResult.status === 'rejected'
-          ? requestErrorMessage(dailyResult.reason, '昨日总览数据加载失败，请稍后重试')
-          : ''
+        results[key] = value || {}
       } catch (err) {
         if (my !== token) return
-        lastError.value = requestErrorMessage(err, '数据加载失败，请稍后重试')
+        errors[key] = `${label}：${requestErrorMessage(err, '加载失败，请重试')}`
       } finally {
-        if (my === token) loading.value = false
+        if (my === token) {
+          data.value = {
+            ...results.factory,
+            daily_overview: results.daily,
+            factory_command_overview: results.command,
+          }
+          pending.value = { ...pending.value, [key]: false }
+          lastError.value = Object.values(errors).join('；')
+          lastRefreshAt.value = new Date().toISOString()
+        }
       }
-    })()
+    }
+    inflight = Promise.all([
+      receive('factory', fetchImpl, '经营摘要'),
+      receive('daily', fetchDailyImpl, '日报'),
+      receive('command', fetchFactoryCommandImpl, '生产概览'),
+    ]).finally(() => {
+      if (my === token) loading.value = false
+    })
     return inflight
   }
 
@@ -64,7 +78,7 @@ export function createDashboardSnapshot({
   }
 
   return {
-    targetDate, data, loading, lastError, lastRefreshAt,
+    targetDate, data, loading, pending, lastError, lastRefreshAt,
     factoryCommandOverview: computed(() => data.value.factory_command_overview || {}),
     leaderMetrics: computed(() => {
       const dailyOverview = data.value.daily_overview || {}

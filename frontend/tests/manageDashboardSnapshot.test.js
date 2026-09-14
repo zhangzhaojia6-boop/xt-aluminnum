@@ -1,6 +1,56 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
+function deferred() {
+  let resolve, reject
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
+test('daily figures publish while summary is pending and survive its failure', async () => {
+  const summary = deferred()
+  const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = createDashboardSnapshot({
+    fetchImpl: () => summary.promise,
+    fetchDailyImpl: async () => ({ plant_output: { daily_output: 81.25 } }),
+    fetchFactoryCommandImpl: async () => ({ today_output_tons: 5 }),
+  })
+  const complete = snap.load()
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 81.25)
+  assert.equal(snap.pending.value.daily, false)
+  assert.equal(snap.loading.value, true)
+  summary.reject(new Error('summary unavailable'))
+  await complete
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 81.25)
+  assert.match(snap.lastError.value, /经营摘要/)
+  assert.equal(snap.loading.value, false)
+})
+
+test('changing dates clears old figures and late responses cannot overwrite the selected day', async () => {
+  const oldDaily = deferred()
+  const newDaily = deferred()
+  let calls = 0
+  const { createDashboardSnapshot } = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = createDashboardSnapshot({
+    fetchImpl: async () => ({}),
+    fetchDailyImpl: () => (++calls === 1 ? oldDaily.promise : newDaily.promise),
+    fetchFactoryCommandImpl: async () => ({}),
+  })
+  const oldLoad = snap.load()
+  const newLoad = snap.stepDate(-1)
+  assert.deepEqual(snap.data.value, {})
+  newDaily.resolve({ plant_output: { daily_output: 42 } })
+  await newLoad
+  oldDaily.resolve({ plant_output: { daily_output: 99 } })
+  await oldLoad
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 42)
+  assert.equal(snap.loading.value, false)
+  const refresh = snap.load()
+  assert.deepEqual(snap.data.value, {})
+  await refresh
+})
+
 test('useDashboardSnapshot defaults target_date to last completed production business date', async () => {
   const fakeFetch = async (params) => {
     fakeFetch.lastParams = params

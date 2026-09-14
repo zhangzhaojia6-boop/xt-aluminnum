@@ -37,12 +37,6 @@ setupApiInterceptors(router, pinia)
 app.use(router)
 void authStore.syncThemePreference()
 
-import('echarts/core').then(({ registerTheme }) => {
-  import('./design/echarts-hud.js').then(({ registerHudEchartsTheme }) => {
-    registerHudEchartsTheme({ registerTheme })
-  })
-})
-
 app.mount('#app')
 
 installSW()
