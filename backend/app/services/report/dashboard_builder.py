@@ -250,7 +250,10 @@ def _build_history_digest(
     window_days: int = 7,
 ) -> dict[str, Any]:
     window_start = target_date - timedelta(days=max(window_days - 1, 0))
-    output_by_date = _output_totals_by_date(db, start_date=window_start, end_date=target_date, workshop_id=workshop_id)
+    month_start = target_date.replace(day=1)
+    year_start = target_date.replace(month=1, day=1)
+    output_start = min(window_start, year_start) if workshop_id is None else window_start
+    output_by_date = _output_totals_by_date(db, start_date=output_start, end_date=target_date, workshop_id=workshop_id)
     daily_snapshots: list[dict[str, Any]] = []
 
     for day_offset in range(window_days):
@@ -280,12 +283,18 @@ def _build_history_digest(
             }
         )
 
-    month_start = target_date.replace(day=1)
-    month_output = _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id)
-    month_active_dates = _active_output_dates(db, start_date=month_start, end_date=target_date, workshop_id=workshop_id)
-    year_start = target_date.replace(month=1, day=1)
-    year_output = round(sum(_output_totals_by_date(db, start_date=year_start, end_date=target_date, workshop_id=workshop_id).values()), 2)
-    year_active_dates = _active_output_dates(db, start_date=year_start, end_date=target_date, workshop_id=workshop_id)
+    if workshop_id is None:
+        month_totals = {day: output for day, output in output_by_date.items() if day >= month_start}
+        year_totals = {day: output for day, output in output_by_date.items() if day >= year_start}
+        month_output = round(sum(month_totals.values()), 2)
+        month_active_dates = sorted(month_totals)
+        year_output = round(sum(year_totals.values()), 2)
+        year_active_dates = sorted(year_totals)
+    else:
+        month_output = _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id)
+        month_active_dates = _active_output_dates(db, start_date=month_start, end_date=target_date, workshop_id=workshop_id)
+        year_output = round(sum(_output_totals_by_date(db, start_date=year_start, end_date=target_date, workshop_id=workshop_id).values()), 2)
+        year_active_dates = _active_output_dates(db, start_date=year_start, end_date=target_date, workshop_id=workshop_id)
     active_months = len({(item.year, item.month) for item in year_active_dates})
 
     return {
