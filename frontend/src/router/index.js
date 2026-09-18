@@ -266,6 +266,7 @@ export function installRouterGuards(routerInstance, authStore) {
   routerInstance.beforeEach(async (to) => {
     const auth = authStore || useAuthStore()
     const access = resolveRouteAccess(to)
+    const pageAppTitle = to.name === 'login' ? '数据中枢' : appTitle
     const compactClient = isCompactClient()
     const hasRuntimeAuthCode = to.name === 'mobile-entry' && (
       Boolean(resolveRuntimeAuthCode(to.query)) || isDingTalkRuntimeClient()
@@ -280,7 +281,7 @@ export function installRouterGuards(routerInstance, authStore) {
       profileReady: Boolean(auth.user),
     })
     if (earlyDecision === true) {
-      document.title = to.meta.title ? `${to.meta.title} - ${appTitle}` : appTitle
+      document.title = to.meta.title ? `${to.meta.title} - ${pageAppTitle}` : pageAppTitle
       return true
     }
     if (earlyDecision) return earlyDecision
@@ -296,7 +297,7 @@ export function installRouterGuards(routerInstance, authStore) {
     const decision = resolveGuardDecision({ to, auth, access, hasRuntimeAuthCode, compactClient })
     if (decision !== true) return decision
 
-    document.title = to.meta.title ? `${to.meta.title} - ${appTitle}` : appTitle
+    document.title = to.meta.title ? `${to.meta.title} - ${pageAppTitle}` : pageAppTitle
     return true
   })
 }
