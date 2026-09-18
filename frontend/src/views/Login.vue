@@ -7,14 +7,14 @@
     <section class="login-stage" data-testid="login-page">
       <div class="login-stage__hero">
         <div class="login-brand" data-testid="login-brand">
-          <XtLogo variant="full" />
+          <XtLogo variant="icon" aria-hidden="true" />
           <span class="login-brand__tag">数据中枢</span>
         </div>
 
         <div class="login-stage__headline">
           <span v-if="false">02 登录与角色入口</span>
           <span class="login-stage__eyebrow">全厂作战地图</span>
-          <h2>鑫泰铝业 数据中枢</h2>
+          <h2>数据中枢</h2>
         </div>
 
         <XtFactoryMap
