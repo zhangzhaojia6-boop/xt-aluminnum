@@ -30,6 +30,7 @@ from app.services.dingtalk_verified_fact_extractor import (  # noqa: E402
     extract_verified_file_fact_updates,
     extract_verified_text_fact_updates,
 )
+from app.services.hermes_dingtalk_sampling_service import adopt_registered_file_evidence  # noqa: E402
 
 
 SOURCE_TRANSPORT = 'dws_history_backfill'
@@ -113,6 +114,8 @@ def run_backfill(
         'file_text': 0,
         'message_text': 0,
     }
+    if confirmation_mode == MACHINE_ONLY_MODE:
+        summary['registered_file_adopted'] = 0
     if confirmation_mode == OWNER_VERIFIED_MODE:
         summary.update(
             {
@@ -176,9 +179,23 @@ def run_backfill(
                 summary['file_text'] += 1
             if result.get('message_text'):
                 summary['message_text'] += 1
+            if _adopt_registered_file(db, row=row, result=result, files_root=root):
+                summary['registered_file_adopted'] += 1
     finally:
         db.close()
     return summary
+
+
+def _adopt_registered_file(db, *, row: Mapping[str, Any], result: Mapping[str, Any], files_root: Path) -> bool:
+    file_name = _first_text(row.get('fileName'), row.get('file_name'), row.get('name'))
+    local_file_path = _first_text(row.get('localFilePath'), row.get('local_file_path'))
+    if not (result.get('accepted') and result.get('evidence_id') and file_name and local_file_path):
+        return False
+    content = _resolve_local_file(files_root, local_file_path).read_bytes()
+    if adopt_registered_file_evidence(db, evidence_id=result['evidence_id'], file_name=file_name, content=content) is None:
+        return False
+    db.commit()
+    return True
 
 
 def _run_owner_verified_backfill(
