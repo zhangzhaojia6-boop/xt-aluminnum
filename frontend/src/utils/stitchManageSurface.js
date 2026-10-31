@@ -123,11 +123,13 @@ function buildTodayBottomStatus({
     liveLoading = false,
     liveError = '',
   } = runtimeState
-  const dailyReady = hasDailyOverview(overview)
+  const dailyBlocked = overview.status === 'blocked' || overview.fact_closure?.status === 'blocked'
+  const dailyReady = hasDailyOverview(overview) && !dailyBlocked
   const liveReady = hasLiveAggregation(liveAggregation)
   const anyLoading = snapshotLoading || liveLoading
   const anyError = Boolean(snapshotError || liveError)
   const allReady = dailyReady && liveReady
+  const dailyValue = dailyBlocked ? '日报事实未闭环' : (dailyReady ? '生产日报已同步' : '暂无可信数据')
 
   return [
     {
@@ -139,7 +141,7 @@ function buildTodayBottomStatus({
     {
       key: 'data',
       label: '数据源状态',
-      value: snapshotLoading ? '日报同步中' : (snapshotError ? '日报未同步' : (dailyReady ? '生产日报已同步' : '暂无可信数据')),
+      value: snapshotLoading ? '日报同步中' : (snapshotError ? '日报未同步' : dailyValue),
       tone: snapshotLoading ? 'warning' : (snapshotError ? 'danger' : (dailyReady ? 'success' : 'warning')),
     },
     {

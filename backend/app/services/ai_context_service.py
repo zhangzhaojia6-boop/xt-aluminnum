@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Mapping
@@ -14,6 +15,7 @@ from app.core.scope import build_scope_summary
 from app.models.assistant import AiContextPack
 from app.models.assistant_usage import AssistantUsage
 from app.services import factory_command_service
+from app.services.report import daily_report_fact_closure
 
 
 _SENSITIVE_KEY_PARTS = ('password', 'secret', 'token', 'credential', 'api_key', 'apikey')
@@ -196,9 +198,33 @@ def _filter_for_assistant_scope(
     return machine_lines, coils
 
 
+def _selected_business_date(scope_payload: Mapping[str, Any]) -> date | None:
+    try:
+        return date.fromisoformat(str(scope_payload.get('business_date') or '').strip())
+    except ValueError:
+        return None
+
+
+def _daily_facts_for(db: Session, business_date: date) -> dict[str, Any]:
+    snapshot = daily_report_fact_closure._latest_daily_fact_snapshot(db, target_date=business_date)
+    if snapshot is None:
+        return {'business_date': business_date.isoformat(), 'status': 'missing'}
+    adopted_values = dict(snapshot.adopted_values or {})
+    return {
+        'business_date': business_date.isoformat(),
+        'status': 'available',
+        'fact_version': snapshot.payload_hash,
+        'trace_id': snapshot.trace_id,
+        'adopted_values': adopted_values,
+        'missing_fields': [key for key, value in adopted_values.items() if value is None],
+        'conflict_count': len(snapshot.conflicts or []),
+    }
+
+
 def _compact_for_llm(pack: Mapping[str, Any]) -> dict[str, Any]:
     return {
         'scope': pack.get('scope') or {},
+        'daily_facts': pack.get('daily_facts') or {},
         'freshness': pack.get('freshness') or {},
         'top_abnormal_coils': list(pack.get('top_abnormal_coils') or [])[:5],
         'machine_line_metrics': list(pack.get('machine_line_metrics') or [])[:8],
@@ -222,8 +248,23 @@ def _build_deterministic_answer(pack: Mapping[str, Any]) -> dict[str, Any]:
     if not evidence_refs and pack.get('machine_line_metrics'):
         first_line = pack['machine_line_metrics'][0]
         evidence_refs.append({'kind': 'machine', 'key': str(first_line.get('line_code') or '')})
+    daily_facts = pack.get('daily_facts') or {}
+    if daily_facts.get('status') == 'available':
+        evidence_refs.insert(
+            0,
+            {
+                'kind': 'daily_fact_bundle',
+                'key': daily_facts['fact_version'],
+                'business_date': daily_facts['business_date'],
+                'trace_id': daily_facts.get('trace_id'),
+            },
+        )
+        missing_data.extend(field for field in daily_facts['missing_fields'] if field not in missing_data)
 
-    if pack.get('top_abnormal_coils'):
+    if daily_facts.get('status') == 'missing':
+        confidence = 'low'
+        answer = f"{daily_facts['business_date']} 暂无日报事实快照，无法按该日日报口径回答。"
+    elif pack.get('top_abnormal_coils'):
         answer = f"已找到 {len(pack['top_abnormal_coils'])} 条需关注卷，建议先看停滞和缺下工序记录。"
     else:
         answer = '当前上下文未发现明确异常，建议继续查看同步新鲜度和机列负荷。'
@@ -254,6 +295,45 @@ def _parse_llm_answer(content: str) -> dict[str, Any] | None:
         except json.JSONDecodeError:
             return {'answer': text}
     return payload if isinstance(payload, dict) else None
+
+
+_NUMBER_PATTERN = re.compile(r'\d+(?:\.\d+)?')
+_VERIFICATION_CLAIMS = ('已核验', '核验完成', '已验证', '验证完成', '已确认', '确认无误')
+
+
+def _numbers_in(text: str) -> list[str]:
+    return _NUMBER_PATTERN.findall(re.sub(r'(?<=\d),(?=\d{3})', '', text))
+
+
+def _is_grounded_number(token: str, allowed: list[float]) -> bool:
+    value = float(token)
+    if '.' not in token and value < 10:
+        return True
+    decimals = len(token.split('.', 1)[1]) if '.' in token else 0
+    return any(round(candidate, decimals) == value for candidate in allowed)
+
+
+def _llm_answer_rejection(
+    answer_text: str,
+    *,
+    question: str,
+    safe_context: Mapping[str, Any],
+    deterministic: Mapping[str, Any],
+) -> str | None:
+    facts_text = json.dumps(
+        {'question': question, 'context': safe_context, 'deterministic': deterministic},
+        ensure_ascii=False,
+        default=str,
+    )
+    allowed = [float(token) for token in _numbers_in(facts_text)]
+    if any(not _is_grounded_number(token, allowed) for token in _numbers_in(answer_text)):
+        return 'ungrounded_number'
+    has_evidence = bool(deterministic.get('evidence_refs'))
+    if any(claim in answer_text for claim in _VERIFICATION_CLAIMS) and (
+        deterministic.get('confidence') != 'high' or not has_evidence
+    ):
+        return 'unsupported_verification_claim'
+    return None
 
 
 def _ground_answer_with_llm(
@@ -300,6 +380,14 @@ def _ground_answer_with_llm(
 
     answer_text = str((parsed or {}).get('answer') or '').strip()
     if not answer_text:
+        return deterministic
+    if _llm_answer_rejection(
+        answer_text,
+        question=question,
+        safe_context=safe_context,
+        deterministic=deterministic,
+    ):
+        _record_llm_usage(db, user, runtime=runtime, response=response)
         return deterministic
 
     next_actions = (parsed or {}).get('recommended_next_actions')
@@ -368,6 +456,10 @@ def build_context_pack(
     missing_data_key = _SYNC_MISSING_DATA_KEYS.get(str(freshness.get('status') or ''))
     if missing_data_key:
         known_missing_data.append(missing_data_key)
+    business_date = _selected_business_date(scope_payload)
+    daily_facts = _daily_facts_for(db, business_date) if business_date else {}
+    if daily_facts.get('status') == 'missing':
+        known_missing_data.append('daily_fact_bundle')
 
     pack = {
         'intent': intent,
@@ -378,6 +470,7 @@ def build_context_pack(
         'route_refs': route_refs,
         'rules_fired': _rules_for(coils, freshness),
         'known_missing_data': known_missing_data,
+        'daily_facts': daily_facts,
         'created_at': current.isoformat(),
     }
     safe_pack = _sanitize(pack)
