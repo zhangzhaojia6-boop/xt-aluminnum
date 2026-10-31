@@ -191,6 +191,7 @@ def test_jsonl_text_row_writes_message_text(monkeypatch, tmp_path) -> None:
         'file_text': 0,
         'message_text': 1,
         'registered_file_adopted': 0,
+        'registered_message_adopted': 0,
     }
     db = Session()
     try:
@@ -1124,5 +1125,69 @@ def test_machine_only_sync_rerun_upgrades_file_registered_after_first_ingest(mon
     db = Session()
     try:
         assert db.query(MultimodalEvidence).one().confirmation_status == 'specialist_sampled'
+    finally:
+        db.close()
+
+
+def test_machine_only_sync_auto_adopts_registered_contract_message(monkeypatch, tmp_path) -> None:
+    from app.models.hermes_factory_brain import HermesDingTalkSamplingRule
+    from app.services.report import daily_fact_bundle
+
+    module, Session = _prepare(monkeypatch)
+    monkeypatch.setattr(module, 'last_completed_production_business_date', lambda: date(2026, 7, 12))
+    db = Session()
+    try:
+        db.add(
+            HermesDingTalkSamplingRule(
+                rule_key='registered-message:plan-contract',
+                channel_key='group-001',
+                specialist_user_id='sender-plan-owner',
+                content_types=['text'],
+                time_window_payload={'mode': 'registered_message', 'days': 'daily', 'message_pattern': '当天合同'},
+                priority='high',
+                status='active',
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    input_jsonl = tmp_path / 'messages.jsonl'
+    _write_jsonl(
+        input_jsonl,
+        [
+            {
+                'conversationId': 'group-001',
+                'message_id': 'msg-plan-contract-001',
+                'senderStaffId': 'sender-plan-owner',
+                'createTime': '2026-07-12T16:17:48+08:00',
+                'message_text': '投料量：2050投料373吨 1850投料0吨 外加工0吨  中厚板25吨  当天合同875吨    热轧760吨   总余合同量5107吨',
+            }
+        ],
+    )
+
+    summary = module.run_backfill(input_jsonl=input_jsonl, files_root=files_root, days=3)
+
+    assert summary['registered_message_adopted'] == 1
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.confirmation_status == 'specialist_sampled'
+        assert evidence.payload['business_date'] == '2026-07-12'
+        monkeypatch.setattr(
+            daily_fact_bundle.template_daily_report,
+            'build_template_daily_report_facts',
+            lambda db, *, target_date, wip_date=None: {
+                'values': {},
+                'sources': {},
+                'missing_fields': ['daily_contract_weight', 'remaining_contract_weight'],
+                'conflicts': [],
+            },
+        )
+        bundle = build_daily_fact_bundle(db, business_date=date(2026, 7, 12))
+        assert bundle['facts']['daily_contract_weight']['value'] == 875
+        assert bundle['facts']['remaining_contract_weight']['value'] == 5107
+        assert bundle['facts']['remaining_contract_weight']['source_type'] == 'dingtalk_supplement'
     finally:
         db.close()
