@@ -30,7 +30,10 @@ from app.services.dingtalk_verified_fact_extractor import (  # noqa: E402
     extract_verified_file_fact_updates,
     extract_verified_text_fact_updates,
 )
-from app.services.hermes_dingtalk_sampling_service import adopt_registered_file_evidence  # noqa: E402
+from app.services.hermes_dingtalk_sampling_service import (  # noqa: E402
+    adopt_registered_file_evidence,
+    adopt_registered_message_evidence,
+)
 
 
 SOURCE_TRANSPORT = 'dws_history_backfill'
@@ -116,6 +119,7 @@ def run_backfill(
     }
     if confirmation_mode == MACHINE_ONLY_MODE:
         summary['registered_file_adopted'] = 0
+        summary['registered_message_adopted'] = 0
     if confirmation_mode == OWNER_VERIFIED_MODE:
         summary.update(
             {
@@ -181,9 +185,21 @@ def run_backfill(
                 summary['message_text'] += 1
             if _adopt_registered_file(db, row=row, result=result, files_root=root):
                 summary['registered_file_adopted'] += 1
+            elif _adopt_registered_message(db, row=row, result=result):
+                summary['registered_message_adopted'] += 1
     finally:
         db.close()
     return summary
+
+
+def _adopt_registered_message(db, *, row: Mapping[str, Any], result: Mapping[str, Any]) -> bool:
+    if _first_text(row.get('localFilePath'), row.get('local_file_path')):
+        return False
+    if not (result.get('accepted') and result.get('evidence_id')):
+        return False
+    adopted = adopt_registered_message_evidence(db, evidence_id=result['evidence_id']) is not None
+    db.commit()
+    return adopted
 
 
 def _adopt_registered_file(db, *, row: Mapping[str, Any], result: Mapping[str, Any], files_root: Path) -> bool:
