@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from hashlib import sha256
+from io import BytesIO
 
+from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from app.core.active_workshops import is_active_production_workshop_name, normalize_workshop_name
@@ -11,6 +13,9 @@ from app.core.business_time import resolve_production_business_date
 from app.core.redaction import redact_secret_text
 from app.models.agent_communication import MultimodalEvidence
 from app.models.hermes_factory_brain import HermesDingTalkSamplingRule
+from app.services.dingtalk_verified_fact_extractor import extract_verified_file_fact_updates
+
+REGISTERED_FILE_MODE = 'registered_file'
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +93,90 @@ def sample_dingtalk_message(
     db.add(evidence)
     db.flush()
     return DingTalkSamplingResult(matched=True, priority=rule.priority, evidence_id=evidence.id, rule_key=rule.rule_key)
+
+
+def adopt_registered_file_evidence(
+    db: Session,
+    *,
+    evidence_id: int,
+    file_name: str,
+    content: bytes,
+) -> str | None:
+    evidence = db.get(MultimodalEvidence, int(evidence_id))
+    if evidence is None or evidence.confirmation_status != 'machine_only':
+        return None
+    payload = dict(evidence.payload or {})
+    if payload.get('parse_status') != 'text_captured':
+        return None
+    rule = _registered_file_rule(
+        db,
+        channel_key=str(payload.get('group_id') or ''),
+        sender_user_id=str(payload.get('dingtalk_sender_id') or payload.get('senderStaffId') or ''),
+        file_name=file_name,
+    )
+    if rule is None:
+        return None
+    business_date = _workbook_modified_date(content)
+    if business_date is None:
+        return None
+    fact_updates = extract_verified_file_fact_updates(
+        file_name=file_name,
+        content=content,
+        business_date=business_date,
+        file_sha256=sha256(content).hexdigest(),
+    )
+    if not fact_updates:
+        return None
+    payload.update(
+        {
+            'business_date': business_date.isoformat(),
+            'fact_updates': fact_updates,
+            'sampling_rule_key': rule.rule_key,
+            'sampling_priority': rule.priority,
+        }
+    )
+    evidence.payload = payload
+    evidence.confirmation_status = 'specialist_sampled'
+    db.flush()
+    return rule.rule_key
+
+
+def _registered_file_rule(
+    db: Session,
+    *,
+    channel_key: str,
+    sender_user_id: str,
+    file_name: str,
+) -> HermesDingTalkSamplingRule | None:
+    rules = (
+        db.query(HermesDingTalkSamplingRule)
+        .filter(
+            HermesDingTalkSamplingRule.status == 'active',
+            HermesDingTalkSamplingRule.channel_key == channel_key.strip(),
+            HermesDingTalkSamplingRule.specialist_user_id == sender_user_id.strip(),
+        )
+        .order_by(HermesDingTalkSamplingRule.id.asc())
+        .all()
+    )
+    for rule in rules:
+        window = rule.time_window_payload or {}
+        pattern = str(window.get('file_name_pattern') or '').strip()
+        if (
+            window.get('mode') == REGISTERED_FILE_MODE
+            and 'file' in list(rule.content_types or [])
+            and pattern
+            and pattern in file_name
+        ):
+            return rule
+    return None
+
+
+def _workbook_modified_date(content: bytes) -> date | None:
+    try:
+        modified = load_workbook(BytesIO(content), read_only=True).properties.modified
+    except Exception:  # noqa: BLE001
+        return None
+    return modified.date() if isinstance(modified, datetime) else None
 
 
 def _has_time_window(rule: HermesDingTalkSamplingRule) -> bool:

@@ -9,7 +9,7 @@ from app.models.base import Base
 from app.models.hermes_factory_brain import HermesDingTalkSamplingRule
 from app.models.master import Team, Workshop
 from app.models.system import User
-from app.services.hermes_dingtalk_sampling_service import sample_dingtalk_message
+from app.services.hermes_dingtalk_sampling_service import adopt_registered_file_evidence, sample_dingtalk_message
 from app.services.hermes_dingtalk_evidence_service import query_dingtalk_evidence
 
 
@@ -108,3 +108,104 @@ def test_missing_specialist_does_not_promote_to_high_priority() -> None:
     assert result.matched is False
     assert result.priority == 'low'
     assert db.query(MultimodalEvidence).count() == 0
+
+
+def _registered_yield_rule() -> HermesDingTalkSamplingRule:
+    return HermesDingTalkSamplingRule(
+        rule_key='registered-file:yield-workbook',
+        channel_key='cid-yield',
+        specialist_user_id='dt-yield-owner',
+        content_types=['file'],
+        time_window_payload={'mode': 'registered_file', 'days': 'daily', 'file_name_pattern': '各车间成品率'},
+        priority='high',
+        status='active',
+    )
+
+
+def _machine_only_file_evidence(*, sender: str = 'dt-yield-owner', file_name: str = '7月份各车间成品率(12).xlsx'):
+    return MultimodalEvidence(
+        evidence_type='attachment',
+        recognized_text='[Sheet3] 7月份各车间成品率车间指标',
+        confirmation_status='machine_only',
+        payload={
+            'source': 'dingtalk',
+            'trace_id': 'msg-yield-001',
+            'group_id': 'cid-yield',
+            'dingtalk_sender_id': sender,
+            'parse_status': 'text_captured',
+            'file_name': file_name,
+            'file_text': '[Sheet3] 7月份各车间成品率车间指标',
+        },
+    )
+
+
+def test_registered_yield_file_is_auto_adopted_for_its_workbook_business_date() -> None:
+    from tests.test_dingtalk_verified_fact_extractor import _workbook_bytes
+
+    db = _db()
+    db.add(_registered_yield_rule())
+    evidence = _machine_only_file_evidence()
+    db.add(evidence)
+    db.flush()
+
+    rule_key = adopt_registered_file_evidence(
+        db,
+        evidence_id=evidence.id,
+        file_name='7月份各车间成品率(12).xlsx',
+        content=_workbook_bytes(),
+    )
+
+    assert rule_key == 'registered-file:yield-workbook'
+    assert evidence.confirmation_status == 'specialist_sampled'
+    assert evidence.payload['business_date'] == '2026-07-12'
+    assert evidence.payload['sampling_rule_key'] == 'registered-file:yield-workbook'
+    assert evidence.payload['fact_updates']['daily_yield_rate']['value'] == 83.81
+    items = query_dingtalk_evidence(db, business_date=date(2026, 7, 12))
+    assert [item.adoptable_as_fact for item in items] == [True]
+
+
+def test_file_from_unregistered_sender_stays_machine_only() -> None:
+    from tests.test_dingtalk_verified_fact_extractor import _workbook_bytes
+
+    db = _db()
+    db.add(_registered_yield_rule())
+    evidence = _machine_only_file_evidence(sender='dt-someone-else')
+    db.add(evidence)
+    db.flush()
+
+    assert adopt_registered_file_evidence(
+        db, evidence_id=evidence.id, file_name='7月份各车间成品率(12).xlsx', content=_workbook_bytes()
+    ) is None
+    assert evidence.confirmation_status == 'machine_only'
+    assert 'fact_updates' not in evidence.payload
+
+
+def test_registered_sender_file_outside_registered_name_stays_machine_only() -> None:
+    from tests.test_dingtalk_verified_fact_extractor import _workbook_bytes
+
+    db = _db()
+    db.add(_registered_yield_rule())
+    evidence = _machine_only_file_evidence(file_name='河南鑫泰合同报表.xlsx')
+    db.add(evidence)
+    db.flush()
+
+    assert adopt_registered_file_evidence(
+        db, evidence_id=evidence.id, file_name='河南鑫泰合同报表.xlsx', content=_workbook_bytes()
+    ) is None
+    assert evidence.confirmation_status == 'machine_only'
+
+
+def test_registered_file_without_deterministic_facts_stays_machine_only() -> None:
+    from tests.test_dingtalk_verified_fact_extractor import _workbook_bytes
+
+    db = _db()
+    db.add(_registered_yield_rule())
+    evidence = _machine_only_file_evidence()
+    db.add(evidence)
+    db.flush()
+
+    assert adopt_registered_file_evidence(
+        db, evidence_id=evidence.id, file_name='7月份各车间成品率(12).xlsx', content=_workbook_bytes(month=6)
+    ) is None
+    assert evidence.confirmation_status == 'machine_only'
+    assert 'fact_updates' not in evidence.payload

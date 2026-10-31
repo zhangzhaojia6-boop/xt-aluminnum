@@ -190,6 +190,7 @@ def test_jsonl_text_row_writes_message_text(monkeypatch, tmp_path) -> None:
         'rejected': 0,
         'file_text': 0,
         'message_text': 1,
+        'registered_file_adopted': 0,
     }
     db = Session()
     try:
@@ -1026,5 +1027,102 @@ def test_owner_verified_wip_screenshot_rejects_invalid_visual_contract(monkeypat
     db = Session()
     try:
         assert db.query(MultimodalEvidence).count() == 0
+    finally:
+        db.close()
+
+
+def _registered_yield_row(files_root) -> dict:
+    from tests.test_dingtalk_verified_fact_extractor import _workbook_bytes
+
+    (files_root / 'yield.xlsx').write_bytes(_workbook_bytes())
+    return {
+        'conversationId': 'group-001',
+        'conversationType': 'private',
+        'message_id': 'msg-registered-yield-001',
+        'senderStaffId': 'sender-yield-owner',
+        'createTime': '2026-07-13T07:41:00+08:00',
+        'fileName': '7月份各车间成品率(12).xlsx',
+        'fileId': 'dws-file-yield-001',
+        'localFilePath': 'yield.xlsx',
+    }
+
+
+def _add_registered_yield_rule(Session) -> None:
+    from app.models.hermes_factory_brain import HermesDingTalkSamplingRule
+
+    db = Session()
+    try:
+        db.add(
+            HermesDingTalkSamplingRule(
+                rule_key='registered-file:yield-workbook',
+                channel_key='group-001',
+                specialist_user_id='sender-yield-owner',
+                content_types=['file'],
+                time_window_payload={'mode': 'registered_file', 'days': 'daily', 'file_name_pattern': '各车间成品率'},
+                priority='high',
+                status='active',
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_machine_only_sync_auto_adopts_registered_yield_file(monkeypatch, tmp_path) -> None:
+    from app.services.report import daily_fact_bundle
+
+    module, Session = _prepare(monkeypatch)
+    monkeypatch.setattr(module, 'last_completed_production_business_date', lambda: date(2026, 7, 12))
+    _add_registered_yield_rule(Session)
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    input_jsonl = tmp_path / 'messages.jsonl'
+    _write_jsonl(input_jsonl, [_registered_yield_row(files_root)])
+
+    summary = module.run_backfill(input_jsonl=input_jsonl, files_root=files_root, days=3)
+
+    assert summary['accepted'] == 1
+    assert summary['registered_file_adopted'] == 1
+    db = Session()
+    try:
+        evidence = db.query(MultimodalEvidence).one()
+        assert evidence.confirmation_status == 'specialist_sampled'
+        assert evidence.payload['business_date'] == '2026-07-12'
+        monkeypatch.setattr(
+            daily_fact_bundle.template_daily_report,
+            'build_template_daily_report_facts',
+            lambda db, *, target_date, wip_date=None: {
+                'values': {},
+                'sources': {},
+                'missing_fields': ['daily_yield_rate'],
+                'conflicts': [],
+            },
+        )
+        bundle = build_daily_fact_bundle(db, business_date=date(2026, 7, 12))
+        assert bundle['facts']['daily_yield_rate']['value'] == 83.81
+        assert bundle['facts']['daily_yield_rate']['source_type'] == 'dingtalk_supplement'
+        assert bundle['facts']['daily_yield_rate']['source_ref']['evidence_id'] == evidence.id
+    finally:
+        db.close()
+
+
+def test_machine_only_sync_rerun_upgrades_file_registered_after_first_ingest(monkeypatch, tmp_path) -> None:
+    module, Session = _prepare(monkeypatch)
+    monkeypatch.setattr(module, 'last_completed_production_business_date', lambda: date(2026, 7, 12))
+    files_root = tmp_path / 'files'
+    files_root.mkdir()
+    input_jsonl = tmp_path / 'messages.jsonl'
+    _write_jsonl(input_jsonl, [_registered_yield_row(files_root)])
+
+    first = module.run_backfill(input_jsonl=input_jsonl, files_root=files_root, days=3)
+    _add_registered_yield_rule(Session)
+    second = module.run_backfill(input_jsonl=input_jsonl, files_root=files_root, days=3)
+
+    assert first['registered_file_adopted'] == 0
+    assert second['duplicates'] == 1
+    assert second['registered_file_adopted'] == 1
+    db = Session()
+    try:
+        assert db.query(MultimodalEvidence).one().confirmation_status == 'specialist_sampled'
     finally:
         db.close()
