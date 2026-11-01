@@ -1209,7 +1209,8 @@ def test_hermes_runtime_dropin_switch_and_restore_preserve_previous_service_comm
         result = subprocess.run(
             [bash, script_path.name],
             capture_output=True,
-            text=True,
+            encoding='utf-8',
+            errors='replace',
             check=False,
             cwd=tmp_root,
             timeout=15,
@@ -1734,8 +1735,16 @@ def test_configure_dingtalk_preflight_uses_pgpassfile_without_leaking_database_u
             encoding='utf-8',
             newline='\n',
         )
-        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_root, timeout=15)
-        marker_text = marker_path.read_text(encoding='utf-8') if marker_path.exists() else ''
+        result = subprocess.run(
+            [bash, script_path.name],
+            capture_output=True,
+            encoding='utf-8',
+            errors='replace',
+            check=False,
+            cwd=tmp_root,
+            timeout=15,
+        )
+        marker_text = marker_path.read_text(encoding='utf-8', errors='replace') if marker_path.exists() else ''
     finally:
         if marker_path.exists():
             os.unlink(marker_path)
