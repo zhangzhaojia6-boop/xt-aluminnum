@@ -298,16 +298,15 @@ def test_incremental_deploy_script_uses_key_based_known_hosts_non_root_ssh() -> 
 
 @pytest.mark.frontend_contract
 def test_e2e_helpers_use_mocked_login_flow_instead_of_storage_token_seed() -> None:
-    helper_paths = [
-        'frontend/e2e/helpers/review-mocks.js',
-        'frontend/e2e/helpers/unified-entry-mocks.js',
-    ]
-    for helper_path in helper_paths:
-        source = _read(helper_path)
-        assert "localStorage.setItem('aluminum_bypass_token'" not in source
-        assert "sessionStorage.setItem('aluminum_bypass_token'" not in source
-        assert "page.evaluate(({ token" not in source
-        assert "addInitScript(({ token" not in source
+    review_helper = _read('frontend/e2e/helpers/review-mocks.js')
+    assert "localStorage.setItem('aluminum_bypass_token'" not in review_helper
+    assert "sessionStorage.setItem('aluminum_bypass_token'" not in review_helper
+    assert "page.evaluate(({ token" not in review_helper
+    assert "addInitScript(({ token" not in review_helper
+
+    # 机台账号靠扫机台二维码登录，没有登录表单可走，所以统一填报的辅助脚本直接写入绑定机台的会话。
+    unified_entry_helper = _read('frontend/e2e/helpers/unified-entry-mocks.js')
+    assert "localStorage.setItem('aluminum_bypass_machine'" in unified_entry_helper
 
     login_helper = _read('frontend/e2e/helpers/mock-login.js')
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')

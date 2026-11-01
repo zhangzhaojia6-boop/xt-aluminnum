@@ -136,9 +136,9 @@ def test_today_page_connects_algorithm_daily_report_and_wip_snapshot() -> None:
     surface = _read_repo_file("frontend/src/utils/manageDailyReportSurface.js")
     snapshot = _read_repo_file("frontend/src/composables/useDashboardSnapshot.js")
 
-    assert "昨日总览" in today
+    assert "经营总览" in today
     assert "算法与填报对照" in today
-    assert "外部 MES 当日快照参考" in today
+    assert "在制料分布" in today
     assert "feedingText" in today
     assert "buildDailyWipRows" in surface
     assert "inferLastCompletedBusinessDate" in snapshot

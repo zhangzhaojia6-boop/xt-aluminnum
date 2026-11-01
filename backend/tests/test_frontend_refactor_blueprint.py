@@ -123,8 +123,8 @@ def test_today_page_owns_yesterday_report_and_daily_wip_reference() -> None:
     snapshot = _read("frontend/src/composables/useDashboardSnapshot.js")
     surface = _read("frontend/src/utils/manageDailyReportSurface.js")
 
-    assert "<h1>昨日总览</h1>" in today
-    assert "外部 MES 当日快照参考" in today
+    assert "<h1>经营总览</h1>" in today
+    assert "在制料分布" in today
     assert "inferLastCompletedBusinessDate" in snapshot
     assert "feedingText" in surface
     assert "外部 MES 当前在制" not in today

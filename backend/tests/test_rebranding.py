@@ -42,7 +42,8 @@ def test_user_facing_brand_strings_are_updated() -> None:
     index_text = (repo_root / 'frontend' / 'index.html').read_text(encoding='utf-8')
     config_text = (repo_root / 'backend' / 'app' / 'config.py').read_text(encoding='utf-8')
 
-    assert '鑫泰铝业' in login_text
+    # 公开的登录页不显示公司名（#82），登录后的页面照旧显示。
+    assert '鑫泰铝业' not in login_text
     assert '数据中枢' in login_text
     assert '钉钉' in login_text
     assert '数据中枢' in manage_shell_text
@@ -52,5 +53,6 @@ def test_user_facing_brand_strings_are_updated() -> None:
     assert '鑫泰铝业 数据中枢 · 运行中心' in reference_frame_text
     assert '鑫泰数据中枢 · 运行中心' not in reference_frame_text
     assert "const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'" in router_text
-    assert '<title>鑫泰铝业</title>' in index_text
+    assert "const pageAppTitle = to.name === 'login' ? '数据中枢' : appTitle" in router_text
+    assert '<title>数据中枢</title>' in index_text
     assert "APP_NAME: str = '鑫泰铝业'" in config_text
