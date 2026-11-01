@@ -69,6 +69,7 @@ SOURCE_PRIORITY = {
         "energy_cost",
         "contract_projection",
         "yield_projection",
+        "workshop_output_projection",
         "mes_packaging_output",
         "mes_delivery_records",
         "mes_wip_distribution",
@@ -117,6 +118,10 @@ MES_REPORT_PROCESS_BUCKETS = {
     "shearing_daily": ("园区剪切",),
     "coating_daily": ("彩涂",),
 }
+MES_PROJECTED_OUTPUT_WORKSHOPS = {
+    "online_anneal_daily": ("新厂在线", "园区在线"),
+}
+MES_PACKAGING_PROCESS_NAME = "包装"
 BILLET_MATERIAL_FIELDS = set(MES_MATERIAL_OUTPUT_WORKSHOPS)
 BILLET_BUSINESS_DAY_START = time(10, 0)
 BILLET_MATERIAL_INCLUDED_STATUS_NAMES = ("已使用", "未使用")
@@ -2291,6 +2296,45 @@ def collect_mes_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
         _set_value(facts, key.replace("_daily", "_pass_month"), monthly_pass, "computed")
 
 
+def collect_mes_projected_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
+    month_start = facts.target_date.replace(day=1)
+    month_rows = [
+        row
+        for row in _mes_rows(db, start=month_start, end=facts.target_date)
+        if row.process_name != MES_PACKAGING_PROCESS_NAME
+    ]
+    daily_rows = [row for row in month_rows if row.business_date == facts.target_date]
+    daily_start, daily_end = production_business_window(facts.target_date)
+    month_start_at, _unused = production_business_window(month_start)
+    for key, buckets in MES_PROJECTED_OUTPUT_WORKSHOPS.items():
+        daily, _daily_pass, daily_count, daily_latest_row_id = _bucketed_mes_output(daily_rows, buckets)
+        monthly, _monthly_pass, monthly_count, monthly_latest_row_id = _bucketed_mes_output(month_rows, buckets)
+        _set_value(
+            facts,
+            key,
+            daily,
+            "workshop_output_projection",
+            **_mes_workshop_source_detail(
+                row_count=daily_count,
+                latest_row_id=daily_latest_row_id,
+                window_start=daily_start,
+                window_end=daily_end,
+            ),
+        )
+        _set_value(
+            facts,
+            MONTHLY_FIELD_BY_DAILY_FIELD[key],
+            monthly,
+            "workshop_output_projection",
+            **_mes_workshop_source_detail(
+                row_count=monthly_count,
+                latest_row_id=monthly_latest_row_id,
+                window_start=month_start_at,
+                window_end=daily_end,
+            ),
+        )
+
+
 def collect_workshop_rollup_facts(facts: TemplateDailyFacts) -> None:
     cast_2 = facts.values.get("cast_2_daily")
     cast_3 = facts.values.get("cast_3_daily")
@@ -2547,6 +2591,7 @@ def collect_template_daily_facts(
         collect_imported_energy_workbook_facts,
         source_name="daily_energy_workbook",
     )
+    collect_mes_projected_workshop_facts(db, facts)
     collect_workshop_rollup_facts(facts)
     collect_recovery_and_overhaul_facts(db, facts)
     collect_quality_yield_facts(db, facts)

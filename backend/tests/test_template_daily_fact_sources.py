@@ -184,6 +184,7 @@ def test_source_priority_covers_current_template_fact_sources() -> None:
         "mes_wip_total_snapshot",
         "contract_projection",
         "yield_projection",
+        "workshop_output_projection",
         "owner_or_energy_summary",
         "energy_cost",
         "manual_mobile_coil",
@@ -879,6 +880,7 @@ def test_template_daily_facts_default_to_next_day_wip_snapshot(monkeypatch) -> N
     monkeypatch.setattr(template_daily_fact_sources, "collect_imported_daily_production_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_imported_energy_workbook_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_mes_workshop_facts", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_mes_projected_workshop_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_recovery_and_overhaul_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_quality_yield_facts", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(template_daily_fact_sources, "collect_yesterday_comparison_facts", lambda *_args, **_kwargs: None)
@@ -1343,6 +1345,76 @@ def test_mes_row_cannot_count_into_multiple_report_fields(tmp_path) -> None:
 
     assert facts.values.get("cold_2050_daily") is None
     assert facts.values.get("finishing_daily") is None
+
+
+def _seed_mes_line(db, *, source_id: str, workshop: str, process: str, output_tons: float, business_date: date = REPORT_DATE):
+    db.add(
+        MesWorkshopProcessRecord(
+            source_id=source_id,
+            source_path="sqlserver",
+            workshop_name=workshop,
+            process_name=process,
+            output_weight_tons=output_tons,
+            business_date=business_date,
+        )
+    )
+
+
+def test_mes_online_anneal_projection_sums_both_lines_without_packaging(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        _seed_mes_line(db, source_id="north-1", workshop="新厂在线车间", process="北线退火", output_tons=169.4)
+        _seed_mes_line(db, source_id="park-1", workshop="园区在线车间", process="在线退火", output_tons=83.9)
+        _seed_mes_line(db, source_id="north-pack", workshop="新厂在线车间", process="包装", output_tons=50)
+        _seed_mes_line(
+            db, source_id="north-early", workshop="新厂在线车间", process="北线退火", output_tons=100, business_date=date(2026, 6, 2)
+        )
+        _seed_mes_line(
+            db, source_id="park-may", workshop="园区在线车间", process="在线退火", output_tons=30, business_date=date(2026, 5, 31)
+        )
+        _seed_mes_line(db, source_id="straighten-1", workshop="拉矫车间", process="拉矫", output_tons=141.7)
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["online_anneal_daily"] == 253.3
+    assert facts.values["online_anneal_month"] == 353.3
+    assert facts.sources["online_anneal_daily"]["source_type"] == "workshop_output_projection"
+    assert facts.sources["online_anneal_daily"]["row_count"] == 2
+    assert facts.sources["online_anneal_month"]["row_count"] == 3
+    assert facts.sources["online_anneal_daily"]["trace_id"].startswith("projection-read:mes_workshop_process_records:")
+    assert "straightening_daily" not in facts.values
+
+
+def test_mes_online_anneal_projection_stays_missing_with_only_packaging_rows(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        _seed_mes_line(db, source_id="north-pack", workshop="新厂在线车间", process="包装", output_tons=50)
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert "online_anneal_daily" not in facts.values
+    assert "online_anneal_month" not in facts.values
+
+
+def test_owner_online_anneal_output_wins_over_mes_projection(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        _seed_owner_daily_payload(db, {"online_anneal_daily": 253})
+        _seed_mes_line(db, source_id="north-1", workshop="新厂在线车间", process="北线退火", output_tons=169.4)
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["online_anneal_daily"] == 253
+    assert facts.sources["online_anneal_daily"]["source_type"] == "owner_daily"
 
 
 def test_mobile_park_finishing_alias_fills_shearing_without_double_counting_finishing(tmp_path) -> None:
