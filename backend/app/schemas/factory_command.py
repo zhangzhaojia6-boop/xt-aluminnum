@@ -170,7 +170,7 @@ class FactoryCostBenefitOut(BaseModel):
 class FactoryDestinationOut(BaseModel):
     kind: str
     label: str
-    coil_count: int = 0
+    coil_count: int | None = 0
     tons: float = 0.0
     freshness: FactoryCommandFreshnessOut | None = None
 

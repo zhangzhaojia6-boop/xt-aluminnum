@@ -4,7 +4,7 @@
       <article v-for="item in store.destinations" :key="item.kind">
         <span>{{ item.label || destinationGroupLabel(item.kind) }}</span>
         <strong>{{ item.tons }}</strong>
-        <em>{{ item.coil_count }} 卷 · 成品库存 / 分配 / 交付</em>
+        <em>{{ item.coil_count ?? '—' }} 卷 · 成品库存 / 分配 / 交付</em>
       </article>
     </section>
   </FactoryCommandShell>
