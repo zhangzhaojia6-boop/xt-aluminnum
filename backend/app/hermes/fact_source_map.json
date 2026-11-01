@@ -80,8 +80,8 @@
       "content_type": ["text", "file", "image"],
       "time_range": "business_day_window"
     },
-    "source_tables": ["machine_energy_records", "mobile_shift_reports", "daily_fact_bundle_snapshots"],
-    "source_services": ["DailyFactBundle", "energy_service", "template_daily_report"],
+    "source_tables": ["multimodal_evidence", "import_batches", "import_rows", "energy_import_records", "machine_energy_records", "mobile_shift_reports", "daily_fact_bundle_snapshots"],
+    "source_services": ["dingtalk_energy_ingest_service", "hermes_dingtalk_sampling_service", "template_daily_fact_sources", "DailyFactBundle", "energy_service", "template_daily_report"],
     "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/energy/summary"],
     "frontend_pages": ["/manage/today", "/manage/energy"],
     "hermes_tools": ["hub_query", "dingtalk_evidence", "source_map"],
@@ -99,8 +99,8 @@
       "content_type": ["text", "file", "image"],
       "time_range": "business_day_window"
     },
-    "source_tables": ["machine_energy_records", "mobile_shift_reports", "daily_fact_bundle_snapshots"],
-    "source_services": ["DailyFactBundle", "energy_service", "template_daily_report"],
+    "source_tables": ["multimodal_evidence", "import_batches", "import_rows", "energy_import_records", "machine_energy_records", "mobile_shift_reports", "daily_fact_bundle_snapshots"],
+    "source_services": ["dingtalk_energy_ingest_service", "hermes_dingtalk_sampling_service", "template_daily_fact_sources", "DailyFactBundle", "energy_service", "template_daily_report"],
     "api_routes": ["/api/v1/dashboard/daily-production", "/api/v1/energy/summary"],
     "frontend_pages": ["/manage/today", "/manage/energy"],
     "hermes_tools": ["hub_query", "dingtalk_evidence", "source_map"],
