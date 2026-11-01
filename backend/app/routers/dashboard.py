@@ -41,6 +41,16 @@ def _factory_dashboard_with_daily_facts(db: Session, target_date: date | None) -
     )
 
 
+def _workshop_dashboard_with_daily_facts(db: Session, target_date: date | None, workshop_id: int | None) -> dict:
+    from app.services.report import daily_fact_overlay
+
+    effective_date = _target_or_last_completed(target_date)
+    return daily_fact_overlay.overlay_workshop_dashboard(
+        report_service.build_workshop_dashboard(db, target_date=effective_date, workshop_id=workshop_id),
+        daily_fact_overlay.latest_daily_fact_values(db, target_date=effective_date),
+    )
+
+
 def _is_sensitive_key(key: object) -> bool:
     key_text = str(key).lower()
     return any(part in key_text for part in _SENSITIVE_KEY_PARTS)
@@ -110,11 +120,7 @@ def workshop_director_dashboard(
         if summary.workshop_id is not None and selected_workshop_id != summary.workshop_id:
             raise HTTPException(status_code=403, detail='Dashboard scope denied')
         selected_workshop_id = summary.workshop_id if summary.workshop_id is not None else selected_workshop_id
-    return report_service.build_workshop_dashboard(
-        db,
-        target_date=_target_or_last_completed(target_date),
-        workshop_id=selected_workshop_id,
-    )
+    return _workshop_dashboard_with_daily_facts(db, target_date, selected_workshop_id)
 
 
 @router.get('/statistics')
@@ -257,11 +263,7 @@ def workshop_dashboard_alias(
         if summary.workshop_id is not None and selected_workshop_id != summary.workshop_id:
             raise HTTPException(status_code=403, detail='Dashboard scope denied')
         selected_workshop_id = summary.workshop_id if summary.workshop_id is not None else selected_workshop_id
-    return report_service.build_workshop_dashboard(
-        db,
-        target_date=_target_or_last_completed(target_date),
-        workshop_id=selected_workshop_id,
-    )
+    return _workshop_dashboard_with_daily_facts(db, target_date, selected_workshop_id)
 
 
 @router.get('/cumulative')

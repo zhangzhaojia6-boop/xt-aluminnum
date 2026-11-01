@@ -1363,6 +1363,38 @@ def test_workshop_reporting_meta_returns_backend_display_fields() -> None:
     }
 
 
+
+def test_workshop_director_route_shows_report_input_and_yield(monkeypatch) -> None:
+    def fake_get_db():
+        yield DummyDB()
+
+    def fake_get_user():
+        return SimpleNamespace(id=7, role='manager', is_admin=True, is_manager=True, is_reviewer=False, workshop_id=None, data_scope_type='all')
+
+    def fake_dashboard(_db, *, target_date, workshop_id):
+        return {
+            'business_date': target_date.isoformat(),
+            'workshop_id': workshop_id,
+            'factory_production_fact': {'factory_feeding_daily_input': 56.5, 'daily_yield_rate': None},
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+    monkeypatch.setattr('app.routers.dashboard.report_service.build_workshop_dashboard', fake_dashboard)
+    monkeypatch.setattr(
+        'app.services.report.daily_fact_overlay.latest_daily_fact_values',
+        lambda _db, *, target_date: {
+            'daily_input_weight': {'value': 665, 'source_type': 'dingtalk_supplement'},
+            'daily_yield_rate': {'value': 82.73, 'source_type': 'dingtalk_supplement'},
+        },
+    )
+
+    response = TestClient(app).get('/api/v1/dashboard/workshop-director', params={'target_date': '2026-10-31', 'workshop_id': 8})
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()['factory_production_fact'] == {'factory_feeding_daily_input': 665, 'daily_yield_rate': 82.73}
+
 def test_daily_production_route_shows_persisted_daily_facts(monkeypatch) -> None:
     def fake_get_db():
         yield DummyDB()
