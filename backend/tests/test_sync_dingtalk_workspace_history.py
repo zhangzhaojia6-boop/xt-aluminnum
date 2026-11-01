@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from scripts.sync_dingtalk_workspace_history import (
     DingTalkWorkspaceClient,
@@ -168,3 +169,48 @@ def test_prepare_rows_is_broad_but_silent_and_skips_hermes_output(tmp_path) -> N
     assert rows[2]["fileName"] == "image.png"
     assert len(client.file_downloads) == 1
     assert len(client.image_downloads) == 1
+
+
+class _WindowClient(DingTalkWorkspaceClient):
+    def __init__(self) -> None:
+        super().__init__("unused")
+        self.windows: list[tuple[datetime, datetime]] = []
+
+    def list_messages(self, *, start, end, limit=50, max_pages=20):
+        self.windows.append((start, end))
+        return []
+
+
+SHANGHAI = ZoneInfo("Asia/Shanghai")
+SYNC_END = datetime(2026, 10, 31, 21, 45, tzinfo=SHANGHAI)
+
+
+def _window_start(monkeypatch, last_synced: datetime | None) -> datetime:
+    import scripts.sync_dingtalk_workspace_history as sync_module
+
+    monkeypatch.setattr(sync_module, "load_existing_message_ids", lambda **_kwargs: set())
+    monkeypatch.setattr(sync_module, "latest_synced_message_time", lambda **_kwargs: last_synced)
+    client = _WindowClient()
+    summary = sync_module.sync_workspace_history(client=client, end=SYNC_END, lookback_minutes=120, max_pages=20)
+    assert client.windows[0][1] == SYNC_END
+    assert summary["window_start"] == client.windows[0][0].isoformat()
+    return client.windows[0][0]
+
+
+def test_sync_window_reaches_back_to_last_synced_message_after_an_outage(monkeypatch) -> None:
+    last_synced = datetime(2026, 10, 25, 5, 30, tzinfo=SHANGHAI)
+
+    assert _window_start(monkeypatch, last_synced) == last_synced
+
+
+def test_sync_window_keeps_lookback_when_recently_synced(monkeypatch) -> None:
+    recent = SYNC_END - timedelta(minutes=10)
+
+    assert _window_start(monkeypatch, recent) == SYNC_END - timedelta(minutes=120)
+    assert _window_start(monkeypatch, None) == SYNC_END - timedelta(minutes=120)
+
+
+def test_sync_catch_up_is_capped_at_seven_days(monkeypatch) -> None:
+    long_ago = SYNC_END - timedelta(days=10)
+
+    assert _window_start(monkeypatch, long_ago) == SYNC_END - timedelta(days=7)
