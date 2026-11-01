@@ -86,6 +86,24 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     assert scheduler.jobs['data_archive']['trigger'] == 'cron'
 
 
+def test_setup_scheduler_tracks_mes_jobs_for_the_stuck_job_watchdog(monkeypatch) -> None:
+    from app.core import job_watchdog
+    from app.tasks import mes_sync
+
+    seen = {}
+    monkeypatch.setattr(scheduler_module.settings, 'MES_ADAPTER', 'mvc')
+    monkeypatch.setattr(mes_sync, 'sync_mes_coil_snapshots', lambda: seen.update(running=set(job_watchdog._running)))
+    scheduler = FakeScheduler()
+
+    setup_scheduler(scheduler)
+    scheduler.jobs['mes_sync_core']['func']()
+
+    assert seen['running'] == {'mes_sync_core'}
+    mes_job_ids = {job_id for job_id in scheduler.jobs if job_id.startswith('mes_')}
+    assert mes_job_ids == set(scheduler_module.MES_JOB_STUCK_LIMIT_SECONDS)
+    assert scheduler_module.MES_JOB_STUCK_LIMIT_SECONDS['mes_sync_core'] == 1200
+
+
 def test_setup_scheduler_registers_iot_energy_sync_only_when_enabled(monkeypatch) -> None:
     monkeypatch.setattr(scheduler_module.settings, 'MES_ADAPTER', 'null')
     monkeypatch.setattr(scheduler_module.settings, 'IOT_ENERGY_ADAPTER', 'sqlserver')

@@ -18,7 +18,14 @@ from app.core import event_bus as event_bus_service
 from app.core import health as health_service
 from app.core.exceptions import BusinessException, business_exception_handler, http_exception_handler
 from app.core.logging import configure_json_logging
-from app.core.scheduler import scheduler, setup_scheduler, try_acquire_scheduler_leader, release_scheduler_leader
+from app.core.job_watchdog import start_job_watchdog
+from app.core.scheduler import (
+    MES_JOB_STUCK_LIMIT_SECONDS,
+    release_scheduler_leader,
+    scheduler,
+    setup_scheduler,
+    try_acquire_scheduler_leader,
+)
 from app.routers.config import router as config_router
 from app.routers import ai, agent, agent_management, assistant, assistant_actions, attendance, auth, command, consumables, contracts, dashboard, dingtalk, energy, executive, export, factory_command, hermes, hermes_data_audit, imports, inventory, mapping_reconciliation, master, mes, mobile, notifications, ocr, production, quality, rag, realtime, reconciliation, reports, rule_configs, search, telemetry, templates, user_preferences, users, version, work_orders
 from app.services import dingtalk_service
@@ -37,6 +44,7 @@ async def lifespan(_: FastAPI):
     uploads_dir.mkdir(parents=True, exist_ok=True)
     if scheduler and not scheduler.running and try_acquire_scheduler_leader():
         setup_scheduler(scheduler)
+        start_job_watchdog(MES_JOB_STUCK_LIMIT_SECONDS)
         dingtalk_service.register_jobs(scheduler)
         event_bus_service.register_jobs(scheduler)
         # 注册确定性编排任务
