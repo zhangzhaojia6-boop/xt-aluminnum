@@ -1,6 +1,8 @@
 ﻿import { test, expect } from '@playwright/test'
 
 test('manage shell opts into HUD when preference is set', async ({ page, context }) => {
+  // 登录用户的主题以后端偏好为准，进页面时会用它覆盖本地缓存
+  await page.route('**/api/v1/user/preferences', (route) => route.fulfill({ json: { theme: 'hud' } }))
   await context.addInitScript(() => localStorage.setItem('xt-theme-preference', 'hud'))
   await page.goto('/manage/today')
   await expect(page.locator('html')).toHaveAttribute('data-xt-theme', 'hud')
