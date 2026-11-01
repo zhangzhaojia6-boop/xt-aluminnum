@@ -786,7 +786,7 @@ def test_workshop_output_uses_mes_material_for_hot_roll_casting_and_process_for_
     assert by_name['铸轧二车间']['daily_output'] == 44.0
     assert by_name['铸轧二车间']['source_basis'] == 'mes_material_records'
     assert by_name['铸轧二车间']['process_stage_outputs'] == {'3#': 44.0}
-    assert by_name['1650车间']['daily_output'] == 0.0
+    assert by_name['1650车间']['daily_output'] is None
     assert by_name['1650车间']['process_output'] == 33.0
     assert by_name['1650车间']['source_basis'] == 'mes_workshop_process_records'
     assert by_name['1650车间']['pass_count_total'] == 11
@@ -839,12 +839,46 @@ def test_workshop_output_uses_device_name_for_cold_roll_mes_rows(tmp_path) -> No
     )
     by_name = {row['workshop']: row for row in rows}
 
-    assert by_name['1650车间']['daily_output'] == 0.0
+    assert by_name['1650车间']['daily_output'] is None
     assert by_name['1650车间']['process_output'] == 141.74
     assert by_name['1650车间']['source_basis'] == 'mes_workshop_process_records'
-    assert by_name['2050车间']['daily_output'] == 0.0
+    assert by_name['2050车间']['daily_output'] is None
     assert by_name['2050车间']['process_output'] == 167.9
     assert by_name['2050车间']['source_basis'] == 'mes_workshop_process_records'
+
+
+
+def test_cold_roll_output_without_stage_marks_is_missing_not_zero(monkeypatch) -> None:
+    def fake_scope(_db, start: date, _end: date):
+        return {
+            5: {
+                'output': 0.0,
+                'process_output': 234.32,
+                'pass_count_total': 24,
+                # MES 过站记录不带开坯、中退、成品标记，算不出冷轧产量
+                'process_stage_outputs': {'unmarked': 234.32},
+                'source_basis': 'mes_workshop_process_records',
+                'source_label': '外部 MES 过站产量',
+            },
+            8: {
+                'output': 366.26 if start.day == 31 else 290.68,
+                'process_output': 366.26,
+                'pass_count_total': 88,
+                'process_stage_outputs': {},
+                'source_basis': 'mes_workshop_process_records',
+                'source_label': '外部 MES 过站产量',
+            },
+        }
+
+    monkeypatch.setattr(daily_overview_builder, '_mixed_workshop_output_scope_by_workshop', fake_scope)
+
+    rows = daily_overview_builder._build_workshop_output(None, date(2026, 10, 31), {5: '冷轧2050', 8: '精整'})
+
+    by_name = {row['workshop']: row for row in rows}
+    assert (by_name['冷轧2050']['daily_output'], by_name['冷轧2050']['monthly_output'], by_name['冷轧2050']['delta']) == (None, None, None)
+    assert by_name['冷轧2050']['process_output'] == 234.32
+    assert by_name['精整']['daily_output'] == 366.26
+    assert [row['workshop'] for row in rows] == ['精整', '冷轧2050']
 
 
 def test_workshop_output_maps_park_finishing_to_park_shearing_not_finishing(tmp_path) -> None:
