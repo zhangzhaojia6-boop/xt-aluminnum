@@ -1,15 +1,13 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 import { setupStoredFillOnlySession } from './helpers/fill-only-session'
+import { inferBusinessDate } from '../src/utils/shiftClock.js'
 
 const baseTimestamp = '2026-04-23T08:00:00Z'
 
+// 页面按生产业务日（07:50 换日）取默认日期，凌晨时还是前一天，不能用日历日期
 function currentBusinessDate() {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return inferBusinessDate()
 }
 
 function createReport(overrides = {}) {
