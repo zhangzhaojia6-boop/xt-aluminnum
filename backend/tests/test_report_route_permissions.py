@@ -194,10 +194,30 @@ def test_template_daily_preview_allows_manager_role(monkeypatch) -> None:
     payload = response.json()
     assert seen['target_date'] == date(2026, 6, 16)
     assert seen['wip_date'] == date(2026, 6, 17)
+    assert seen['use_fact_bundle'] is False
     assert payload['status'] == 'blocked'
     assert payload['wip_date'] == '2026-06-17'
     assert payload['missing_fields'] == ['total_electricity_kwh']
     assert payload['missing_field_groups'] == {'energy': ['total_electricity_kwh']}
+
+
+def test_template_daily_preview_uses_daily_fact_bundle_for_default_wip_date(monkeypatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_template_payload(*_args, **kwargs):
+        seen.update(kwargs)
+        return {'status': 'blocked', 'text': None, 'missing_fields': [], 'conflicts': [], 'sources': {}}
+
+    monkeypatch.setattr(
+        'app.routers.reports.template_daily_report.build_template_daily_report_payload',
+        fake_template_payload,
+    )
+    _override_user(_user('manager', is_reviewer=False, is_manager=True))
+
+    response = TestClient(app).post('/api/v1/reports/template-daily/preview', json={'target_date': '2026-06-16'})
+
+    assert response.status_code == 200
+    assert seen['use_fact_bundle'] is True
 
 
 def test_report_generate_maps_value_error_to_400(monkeypatch) -> None:

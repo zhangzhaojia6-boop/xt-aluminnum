@@ -319,7 +319,7 @@ def test_generate_daily_reports_embeds_template_daily_report_when_ready(monkeypa
     monkeypatch.setattr(
         report_generation.template_daily_report,
         "build_template_daily_report_payload",
-        lambda db, *, target_date: {
+        lambda db, *, target_date, **_kwargs: {
             "status": "ready",
             "text": template_text,
             "missing_fields": [],
@@ -367,6 +367,33 @@ def test_generate_daily_reports_embeds_template_daily_report_when_ready(monkeypa
     assert "mes_fact_bundle" not in stored_bundle
 
 
+def test_generate_daily_reports_builds_template_from_daily_fact_bundle(monkeypatch) -> None:
+    seen: dict = {}
+
+    def fake_template_payload(db, *, target_date, **kwargs):
+        seen.update(kwargs)
+        return {"status": "blocked", "text": None, "missing_fields": ["total_output_daily"], "conflicts": [], "sources": {}}
+
+    monkeypatch.setattr(
+        report_generation,
+        "_generate_report_payload",
+        lambda *args, **kwargs: ({"total_output_weight": 100.5}, "旧摘要"),
+    )
+    monkeypatch.setattr(report_generation.template_daily_report, "build_template_daily_report_payload", fake_template_payload)
+    monkeypatch.setattr(report_generation, "record_audit", lambda *args, **kwargs: None)
+
+    report_generation.generate_daily_reports(
+        GenerateReportDB(),
+        report_date=date(2026, 6, 16),
+        report_type="production",
+        scope="auto_confirmed",
+        output_mode="both",
+        operator=_operator(user_id=1, role="admin", is_manager=True),
+    )
+
+    assert seen == {"use_fact_bundle": True}
+
+
 def test_generate_daily_reports_blocks_template_daily_report_without_final_text(monkeypatch) -> None:
     db = GenerateReportDB()
 
@@ -378,7 +405,7 @@ def test_generate_daily_reports_blocks_template_daily_report_without_final_text(
     monkeypatch.setattr(
         report_generation.template_daily_report,
         "build_template_daily_report_payload",
-        lambda db, *, target_date: {
+        lambda db, *, target_date, **_kwargs: {
             "status": "blocked",
             "text": None,
             "missing_fields": ["total_output_daily"],
@@ -434,7 +461,7 @@ def test_generate_daily_reports_resets_existing_final_state_when_template_blocks
     monkeypatch.setattr(
         report_generation.template_daily_report,
         "build_template_daily_report_payload",
-        lambda db, *, target_date: {
+        lambda db, *, target_date, **_kwargs: {
             "status": "blocked",
             "text": None,
             "missing_fields": ["total_output_daily"],

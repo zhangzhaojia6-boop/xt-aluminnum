@@ -148,7 +148,7 @@ def test_daily_fact_bundle_snapshot_key_migration_adds_unique_nullable_key(monke
 def test_build_daily_fact_bundle_uses_template_facts(monkeypatch, db_session: Session) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         assert target_date == date(2026, 6, 19)
         return {
             "values": {
@@ -201,7 +201,7 @@ def test_daily_fact_bundle_empty_mes_projection_needs_evidence_without_forged_me
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 0},
             "sources": {
@@ -244,7 +244,7 @@ def test_daily_fact_bundle_direct_source_requires_row_or_sync_evidence(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 366},
             "sources": {
                 "total_output_daily": {
@@ -350,7 +350,7 @@ def test_daily_fact_bundle_confirms_locked_promoted_output_workbook(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 286},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -524,7 +524,7 @@ def test_daily_fact_bundle_confirms_locked_energy_workbook_rows(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_electricity_kwh": 173500},
             "sources": {"total_electricity_kwh": source},
             "missing_fields": [],
@@ -581,7 +581,7 @@ def test_daily_fact_bundle_rejects_named_mes_trace_even_with_positive_row_count(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 70},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -643,7 +643,7 @@ def test_daily_fact_bundle_rejects_unverifiable_projection_trace(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 70},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -671,7 +671,7 @@ def test_daily_fact_bundle_rejects_unknown_mes_sync_run_as_read_evidence(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 366},
             "sources": {
                 "total_output_daily": {
@@ -746,7 +746,7 @@ def test_daily_fact_bundle_only_accepts_matching_completed_mes_sync_run(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 366},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -800,7 +800,7 @@ def test_daily_fact_bundle_rejects_valid_sync_run_without_matching_field_value(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 999999},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -872,7 +872,7 @@ def test_daily_fact_bundle_validates_attached_sync_metadata_after_projection(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 100},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -917,7 +917,7 @@ def test_daily_fact_bundle_rejects_sync_run_without_real_cursor(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 366},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -968,7 +968,7 @@ def test_daily_fact_bundle_rejects_sync_run_that_does_not_cover_business_window(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 366},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -1003,7 +1003,7 @@ def test_daily_fact_bundle_does_not_confirm_unclosed_1000_business_window(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 70},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -1054,7 +1054,7 @@ def test_daily_fact_bundle_keeps_raw_mes_material_as_evidence_only_after_window_
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"hot_roll_daily": 70},
             "sources": {"hot_roll_daily": source},
             "missing_fields": [],
@@ -1097,7 +1097,7 @@ def test_daily_fact_bundle_keeps_generated_raw_material_trace_as_evidence_only(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"hot_roll_daily": facts.values["hot_roll_daily"]},
             "sources": {"hot_roll_daily": generated_source},
             "missing_fields": [],
@@ -1156,7 +1156,7 @@ def test_daily_fact_bundle_confirms_packaging_projection_only_for_exact_field_qu
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 366},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -1212,7 +1212,7 @@ def test_daily_fact_bundle_uses_projection_precision_not_alignment_tolerance(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": claimed_value},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -1268,7 +1268,7 @@ def test_daily_fact_bundle_rejects_projection_with_wrong_unit_or_contract_versio
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 100},
             "sources": {"total_output_daily": source},
             "missing_fields": [],
@@ -1313,7 +1313,7 @@ def test_daily_fact_bundle_confirms_wms_detail_projection_for_exact_inbound_quer
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"finished_inbound_daily": 126.4},
             "sources": {"finished_inbound_daily": source},
             "missing_fields": [],
@@ -1358,7 +1358,7 @@ def test_daily_fact_bundle_accepts_display_rounding_for_verified_wms_inbound(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"finished_inbound_daily": 320.77},
             "sources": {"finished_inbound_daily": source},
             "missing_fields": [],
@@ -1405,7 +1405,7 @@ def test_daily_fact_bundle_rejects_invented_local_wms_detail_path(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"finished_inbound_daily": 126.4},
             "sources": {"finished_inbound_daily": source},
             "missing_fields": [],
@@ -1465,7 +1465,7 @@ def test_daily_fact_bundle_validates_foundry_daily_and_month_projection_contract
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"foundry_daily": 88, "foundry_month": 88},
             "sources": {
                 "foundry_daily": daily_source,
@@ -1601,7 +1601,7 @@ def test_daily_fact_bundle_confirms_coil_wip_for_next_business_date(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"wip_total": 568},
             "sources": {"wip_total": source},
             "missing_fields": [],
@@ -1687,7 +1687,7 @@ def test_daily_fact_bundle_rejects_projection_evidence_outside_field_contract(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"hot_roll_daily": claimed_value},
             "sources": {"hot_roll_daily": source},
             "missing_fields": [],
@@ -1747,7 +1747,7 @@ def test_daily_fact_bundle_rejects_sync_run_outside_field_source_contract(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {field_name: 366},
             "sources": {field_name: source},
             "missing_fields": [],
@@ -1803,7 +1803,7 @@ def test_daily_fact_bundle_caches_shared_projection_contract_queries(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": values,
             "sources": sources,
             "missing_fields": [],
@@ -1874,7 +1874,7 @@ def test_daily_fact_bundle_rejects_projection_anchor_missing_from_database(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"hot_roll_daily": 70},
             "sources": {"hot_roll_daily": source},
             "missing_fields": [],
@@ -1900,7 +1900,7 @@ def test_daily_fact_bundle_does_not_forge_mes_trace_for_non_mes_source(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_electricity_kwh": 146500},
             "sources": {
                 "total_electricity_kwh": {
@@ -1930,7 +1930,7 @@ def test_daily_fact_bundle_does_not_confirm_sources_without_real_field_traces(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {
                 "total_output_daily": 384,
@@ -1979,7 +1979,7 @@ def test_daily_fact_bundle_fact_closure_blocks_missing_critical_field(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {
                 "total_output_daily": 384,
@@ -2012,7 +2012,7 @@ def test_daily_fact_bundle_fact_closure_blocks_missing_critical_field(
 def test_root_owner_correction_overrides_template_fact(monkeypatch, db_session: Session) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         assert target_date == date(2026, 6, 19)
         return {
             "values": {"total_output_daily": 355},
@@ -2104,7 +2104,7 @@ def test_verified_owner_daily_correction_closes_its_assigned_fact(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         assert target_date == date(2026, 6, 19)
         return {
             "values": {"daily_yield_rate": 84.00},
@@ -2189,7 +2189,7 @@ def test_dingtalk_supplement_needs_its_own_trace_for_fact_closure(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_electricity_kwh": 133000},
             "sources": {"total_electricity_kwh": "owner_or_energy_summary"},
@@ -2262,7 +2262,7 @@ def test_dingtalk_structured_none_value_does_not_clear_missing_field(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {},
             "sources": {},
@@ -2313,7 +2313,7 @@ def test_dingtalk_structured_list_field_key_target_date_applies_with_trace(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {},
             "sources": {},
@@ -2372,7 +2372,7 @@ def test_dingtalk_daily_input_updates_canonical_and_template_alias(
 
     rendered_values: dict[str, Any] = {}
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"cold_roll_input_daily": 463},
             "sources": {"cold_roll_input_daily": "contract_projection"},
@@ -2467,7 +2467,7 @@ def _patch_contract_template(monkeypatch, *, values: dict[str, Any], sources: di
 
     rendered_values: dict[str, Any] = {}
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": dict(values),
             "sources": dict(sources),
@@ -2578,13 +2578,61 @@ def test_dingtalk_remaining_contract_delta_stays_missing_without_previous_day_me
     assert "remaining_contract_delta" in bundle["missing"]
 
 
+def test_daily_report_facts_come_from_bundle_with_dingtalk_supplements(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    template_kwargs: dict[str, Any] = {}
+
+    def fake_template_facts(db, *, target_date, wip_date=None, **kwargs):
+        template_kwargs.update(kwargs)
+        return {
+            "values": {"report_date": target_date, "remaining_contract_weight": 0},
+            "sources": {
+                "report_date": {"source_type": "runtime_target_date"},
+                "remaining_contract_weight": {"source_type": "contract_projection"},
+            },
+            "missing_fields": ["remaining_contract_delta"],
+            "conflicts": [{"field": "wip_total", "type": "source_error"}],
+        }
+
+    monkeypatch.setattr(daily_fact_bundle.template_daily_report, "build_template_daily_report_facts", fake_template_facts)
+    db_session.add_all(
+        [
+            _plan_contract_remaining_evidence("2026-10-30", 4792),
+            _plan_contract_remaining_evidence("2026-10-31", 5160),
+        ]
+    )
+    db_session.commit()
+
+    facts = daily_fact_bundle.build_daily_report_facts(
+        db_session,
+        business_date=date(2026, 10, 31),
+        allow_datahub_final_reference=False,
+        now=datetime(2026, 11, 1, 10, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert template_kwargs == {"allow_datahub_final_reference": False}
+    assert facts["target_date"] == "2026-10-31"
+    assert facts["wip_date"] == "2026-11-01"
+    assert facts["values"]["report_date"] == "2026-10-31"
+    assert facts["values"]["remaining_contract_weight"] == 5160
+    assert facts["values"]["remaining_contract_delta"] == 368
+    assert facts["sources"]["remaining_contract_weight"]["source_type"] == "dingtalk_supplement"
+    assert facts["sources"]["report_date"]["source_type"] == "runtime_target_date"
+    assert facts["missing_fields"] == []
+    assert facts["conflicts"] == [{"field": "wip_total", "type": "source_error"}]
+
+
 def test_human_confirmed_dingtalk_confirm_result_stays_candidate_only(
     monkeypatch,
     db_session: Session,
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {},
             "sources": {},
@@ -2648,7 +2696,7 @@ def test_human_confirmed_dingtalk_daily_report_text_stays_candidate_only(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {},
             "sources": {},
@@ -2716,7 +2764,7 @@ def test_attachment_text_payload_applies_parsed_fields(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {},
             "sources": {},
@@ -2771,7 +2819,7 @@ def test_dingtalk_daily_report_text_without_trace_stays_candidate_only(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 355},
             "sources": {"total_output_daily": "mes_packaging_output"},
@@ -2817,7 +2865,7 @@ def test_dingtalk_text_without_text_captured_status_stays_candidate_only(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 355},
             "sources": {"total_output_daily": "mes_packaging_output"},
@@ -2864,7 +2912,7 @@ def test_machine_only_dingtalk_daily_report_text_is_not_applied(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {},
             "sources": {},
@@ -2901,7 +2949,7 @@ def test_specialist_sampled_dingtalk_daily_report_text_is_applied(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {},
             "sources": {},
@@ -2947,7 +2995,7 @@ def test_dingtalk_structured_date_mismatch_is_excluded_but_remains_auditable(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 355},
             "sources": {"total_output_daily": "mes_packaging_output"},
@@ -3004,7 +3052,7 @@ def test_unstructured_dingtalk_evidence_with_matching_business_date_applies_to_f
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {
                 "finished_inbound_daily": 365.2,
@@ -3070,7 +3118,7 @@ def test_unstructured_dingtalk_today_without_payload_date_applies_to_current_bun
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {
                 "finished_inbound_daily": 365.2,
@@ -3139,7 +3187,7 @@ def test_dingtalk_fact_with_wrong_unit_remains_needs_evidence(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {},
             "sources": {},
             "missing_fields": ["total_output_daily"],
@@ -3184,7 +3232,7 @@ def test_dingtalk_fact_before_business_window_closes_remains_needs_evidence(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {},
             "sources": {},
             "missing_fields": ["total_output_daily"],
@@ -3224,7 +3272,7 @@ def test_unstructured_dingtalk_month_day_without_payload_date_applies_to_matchin
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {
                 "total_output_daily": 371,
@@ -3281,7 +3329,7 @@ def test_same_priority_dingtalk_candidate_does_not_override_existing_dingtalk_fa
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {},
             "sources": {},
@@ -3343,7 +3391,7 @@ def test_unstructured_dingtalk_today_from_other_business_day_is_excluded_but_rem
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 355},
             "sources": {"total_output_daily": "mes_packaging_output"},
@@ -3395,7 +3443,7 @@ def test_unstructured_dingtalk_evidence_without_safe_business_date_is_excluded_b
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 355},
             "sources": {"total_output_daily": "mes_packaging_output"},
@@ -3448,7 +3496,7 @@ def test_undated_dingtalk_evidence_in_business_window_is_candidate_only_for_that
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"total_output_daily": 355},
             "sources": {"total_output_daily": "mes_packaging_output"},
             "missing_fields": [],
@@ -3509,7 +3557,7 @@ def test_dingtalk_supplement_overrides_mes_and_keeps_conflict(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         assert target_date == date(2026, 6, 19)
         return {
             "values": {"total_gas_m3": 50000},
@@ -3619,7 +3667,7 @@ def test_dingtalk_supplement_remains_primary_over_root_owner_correction(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         assert target_date == date(2026, 6, 19)
         return {
             "values": {"total_gas_m3": 50000},
@@ -3719,7 +3767,7 @@ def test_build_daily_fact_bundle_reuses_existing_run_for_same_run_key(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 366},
             "sources": {"total_output_daily": "mes_packaging_output"},
@@ -3781,7 +3829,7 @@ def test_daily_fact_bundle_persists_light_run_and_formal_snapshot(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         assert target_date == date(2026, 6, 19)
         return {
             "values": {"total_output_daily": 366},
@@ -3830,7 +3878,7 @@ def test_same_formal_snapshot_reason_creates_immutable_snapshots(
 
     values = iter((366, 367))
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": next(values)},
             "sources": {"total_output_daily": "mes_packaging_output"},
@@ -3884,7 +3932,7 @@ def test_build_daily_fact_bundle_recovers_when_run_insert_hits_unique_race(
     run_key = daily_fact_bundle._run_key(business_date=business_date, trace_id=None)
     race_triggered = False
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 366},
             "sources": {"total_output_daily": "mes_packaging_output"},
@@ -3932,7 +3980,7 @@ def test_build_daily_fact_bundle_preserves_source_mapping_in_bundle_and_snapshot
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 366},
             "sources": {
@@ -3989,7 +4037,7 @@ def test_build_daily_fact_bundle_uses_template_projection_priority(
 ) -> None:
     from app.services.report import daily_fact_bundle
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"daily_contract_weight": 120},
             "sources": {"daily_contract_weight": "contract_projection"},
@@ -4056,7 +4104,7 @@ def test_daily_fact_bundle_includes_output_skill_alignment(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: template_facts,
+        lambda db, *, target_date, wip_date=None, **_kwargs: template_facts,
     )
     monkeypatch.setenv("OUTPUT_SKILL_ROOT", str(tmp_path))
 
@@ -4077,7 +4125,7 @@ def test_daily_fact_bundle_real_source_gate_requires_closed_reference_contract(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {"report_date": target_date},
             "sources": {"report_date": "computed"},
             "missing_fields": [],
@@ -4121,7 +4169,7 @@ def test_daily_fact_bundle_output_skill_adoption_stays_blocked_as_reference_only
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: {
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
             "values": {},
             "sources": {},
             "missing_fields": list(REQUIRED_FIELDS),
@@ -4206,7 +4254,7 @@ def test_daily_fact_bundle_includes_gap_plan_for_output_skill_differences(
     monkeypatch.setattr(
         daily_fact_bundle.template_daily_report,
         "build_template_daily_report_facts",
-        lambda db, *, target_date, wip_date=None: template_facts,
+        lambda db, *, target_date, wip_date=None, **_kwargs: template_facts,
     )
     monkeypatch.setenv("OUTPUT_SKILL_ROOT", str(tmp_path))
 

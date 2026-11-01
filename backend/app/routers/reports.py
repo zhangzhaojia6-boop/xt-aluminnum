@@ -100,6 +100,7 @@ def preview_template_daily_report(
         db,
         target_date=body.target_date,
         wip_date=body.wip_date,
+        use_fact_bundle=body.wip_date is None,
     )
     missing_fields = list(payload.get('missing_fields') or [])
     return TemplateDailyReportPreviewResponse(

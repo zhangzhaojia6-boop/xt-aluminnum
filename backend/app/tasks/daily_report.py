@@ -28,6 +28,7 @@ def build_daily_report_product(
         report=report,
         target_date=target_date,
         allow_datahub_final_reference=False,
+        use_fact_bundle=True,
     )
     payload_status = str(payload.get('status') or 'blocked')
     text = str(payload.get('text') or '').strip() if payload_status == 'ready' else ''

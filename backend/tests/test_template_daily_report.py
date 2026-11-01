@@ -319,6 +319,35 @@ def test_build_facts_uses_manual_final_output_and_ignores_raw_mes_process_values
     assert "coating_daily" in facts["missing_fields"]
 
 
+def test_build_payload_takes_facts_from_daily_fact_bundle_when_asked(monkeypatch) -> None:
+    from app.services.report import daily_fact_bundle
+
+    seen: dict = {}
+
+    def fake_bundle_facts(db, *, business_date, allow_datahub_final_reference=True):
+        seen.update(business_date=business_date, allow_datahub_final_reference=allow_datahub_final_reference)
+        return _facts()
+
+    monkeypatch.setattr(daily_fact_bundle, "build_daily_report_facts", fake_bundle_facts)
+    monkeypatch.setattr(
+        template_daily_report,
+        "build_template_daily_report_facts",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("template collector should not run")),
+    )
+    monkeypatch.setattr(template_daily_report, "build_mes_fact_bundle", lambda *_args, **_kwargs: {})
+
+    payload = template_daily_report.build_template_daily_report_payload(
+        SimpleNamespace(),
+        target_date=REPORT_DATE,
+        allow_datahub_final_reference=False,
+        use_fact_bundle=True,
+    )
+
+    assert seen == {"business_date": REPORT_DATE, "allow_datahub_final_reference": False}
+    assert payload["status"] == "ready"
+    assert payload["text"] == _template_text()
+
+
 def test_apply_template_daily_report_stores_slim_hermes_bundle(monkeypatch) -> None:
     monkeypatch.setattr(
         template_daily_report,

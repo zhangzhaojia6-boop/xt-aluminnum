@@ -130,7 +130,11 @@ def build_production_tool_adapters(
 def _hub_query_tool(*, db: Session, **kwargs: object) -> ToolResult:
     try:
         business_date = _parse_business_date(kwargs.get('business_date'))
-        payload = template_daily_report.build_template_daily_report_payload(db, target_date=business_date)
+        payload = template_daily_report.build_template_daily_report_payload(
+            db,
+            target_date=business_date,
+            use_fact_bundle=True,
+        )
         return _tool_result(
             status=payload.get('status', 'ok'),
             source='data_hub',

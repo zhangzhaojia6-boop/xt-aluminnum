@@ -70,7 +70,7 @@ def _stub_template_facts(monkeypatch: pytest.MonkeyPatch, value: dict[str, int])
     monkeypatch.delenv("OUTPUT_SKILL_ROOT", raising=False)
     monkeypatch.delenv("OUTPUT_SKILL_REFERENCE_ROOT", raising=False)
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": value["total_output_daily"]},
             "sources": {
@@ -157,6 +157,24 @@ def test_daily_fact_closure_passes_scheduler_time_to_fact_evidence_check(
     )
 
     assert captured["now"] == scheduled_at
+
+
+def test_daily_fact_closure_does_not_read_back_generated_reports(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_build(db: Session, **kwargs):
+        captured.update(kwargs)
+        return {"fact_closure": {"status": "blocked"}}
+
+    monkeypatch.setattr(task_module, "build_daily_fact_bundle", fake_build)
+
+    task_module.run_daily_fact_closure(db_session, target_date=date(2026, 7, 7))
+
+    assert captured["allow_output_skill_reference_adoption"] is False
+    assert captured["allow_datahub_final_reference"] is False
 
 
 def test_daily_fact_closure_syncs_gap_events_before_commit(
@@ -546,7 +564,7 @@ def _stub_wip_template(monkeypatch: pytest.MonkeyPatch, live_wip: dict[str, floa
     monkeypatch.delenv("OUTPUT_SKILL_ROOT", raising=False)
     monkeypatch.delenv("OUTPUT_SKILL_REFERENCE_ROOT", raising=False)
 
-    def fake_template_facts(db, *, target_date, wip_date=None):
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
         return {
             "values": {"total_output_daily": 511.35, **live_wip},
             "sources": {
@@ -608,3 +626,43 @@ def test_refresh_uses_live_wip_when_it_is_still_available(
 
     assert refreshed["facts"]["wip_total"]["value"] == 2300.0
     assert "carried_over_from_snapshot_id" not in refreshed["facts"]["wip_total"]
+
+
+def _closure_release_ready(monkeypatch: pytest.MonkeyPatch, db_session: Session, conflicts: list[dict]) -> bool:
+    bundle = {"fact_closure": {"status": "pass"}, "conflicts": conflicts}
+    monkeypatch.setattr(task_module, "build_daily_fact_bundle", lambda *_args, **_kwargs: bundle)
+    monkeypatch.setattr(task_module, "sync_daily_fact_gap_events", lambda *_args, **_kwargs: {"open": 0})
+    result = task_module.run_daily_fact_closure(
+        db_session,
+        target_date=date(2026, 10, 31),
+        now=datetime(2026, 11, 1, 8, 5, tzinfo=SHANGHAI),
+    )
+    return result["release_ready"]
+
+
+def test_release_ready_ignores_dingtalk_override_records(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    conflicts = [
+        {
+            "field": "daily_yield_rate",
+            "type": "dingtalk_supplement",
+            "previous_source": None,
+            "previous_value": None,
+            "adopted_source": "dingtalk_supplement",
+            "adopted_value": 82.73,
+        },
+        {"field": "total_cost_10k", "reason": "mixed_energy_source_batch"},
+    ]
+
+    assert _closure_release_ready(monkeypatch, db_session, conflicts) is True
+
+
+def test_release_ready_still_blocks_on_source_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    conflicts = [{"field": "total_output_daily", "type": "source_error"}]
+
+    assert _closure_release_ready(monkeypatch, db_session, conflicts) is False

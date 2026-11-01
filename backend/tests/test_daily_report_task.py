@@ -158,6 +158,7 @@ def test_build_daily_report_product_disables_final_report_reference_adoption(mon
     daily_report.build_daily_report_product(db, target_date=date(2026, 6, 1))
 
     assert captured['allow_datahub_final_reference'] is False
+    assert captured['use_fact_bundle'] is True
 
 
 def test_build_daily_report_product_clears_previous_template_text_summary_when_blocked(monkeypatch) -> None:

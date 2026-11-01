@@ -797,13 +797,23 @@ def build_template_daily_report_payload(
     target_date: date,
     wip_date: date | None = None,
     allow_datahub_final_reference: bool = True,
+    use_fact_bundle: bool = False,
 ) -> dict[str, Any]:
-    facts = build_template_daily_report_facts(
-        db,
-        target_date=target_date,
-        wip_date=wip_date,
-        allow_datahub_final_reference=allow_datahub_final_reference,
-    )
+    if use_fact_bundle:
+        from app.services.report import daily_fact_bundle
+
+        facts = daily_fact_bundle.build_daily_report_facts(
+            db,
+            business_date=target_date,
+            allow_datahub_final_reference=allow_datahub_final_reference,
+        )
+    else:
+        facts = build_template_daily_report_facts(
+            db,
+            target_date=target_date,
+            wip_date=wip_date,
+            allow_datahub_final_reference=allow_datahub_final_reference,
+        )
     validation = validate_template_daily_report_facts(facts)
     mes_fact_bundle = build_mes_fact_bundle(db, target_date=target_date, include_debug=False)
     hermes_fact_bundle = build_template_daily_report_hermes_bundle(
@@ -833,12 +843,14 @@ def apply_template_daily_report_to_report(
     target_date: date,
     wip_date: date | None = None,
     allow_datahub_final_reference: bool = True,
+    use_fact_bundle: bool = False,
 ) -> dict[str, Any]:
     payload = build_template_daily_report_payload(
         db,
         target_date=target_date,
         wip_date=wip_date,
         allow_datahub_final_reference=allow_datahub_final_reference,
+        use_fact_bundle=use_fact_bundle,
     )
     report_data = dict(report.report_data or {})
     report_data[TEMPLATE_REPORT_KEY] = {

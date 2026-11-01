@@ -206,10 +206,15 @@ def build_daily_fact_bundle(
     persist_run: bool = False,
     snapshot_reason: str | None = None,
     allow_output_skill_reference_adoption: bool = True,
+    allow_datahub_final_reference: bool = True,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     effective_now = local_now(now)
-    template_facts = template_daily_report.build_template_daily_report_facts(db, target_date=business_date)
+    template_facts = template_daily_report.build_template_daily_report_facts(
+        db,
+        target_date=business_date,
+        allow_datahub_final_reference=allow_datahub_final_reference,
+    )
     facts_payload = _facts_from_template(
         db,
         template_facts,
@@ -272,6 +277,42 @@ def build_daily_fact_bundle(
             snapshot_reason=snapshot_reason,
         )
     return bundle
+
+
+def build_daily_report_facts(
+    db: Session,
+    *,
+    business_date: date,
+    allow_datahub_final_reference: bool = True,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    bundle = build_daily_fact_bundle(
+        db,
+        business_date=business_date,
+        allow_output_skill_reference_adoption=False,
+        allow_datahub_final_reference=allow_datahub_final_reference,
+        now=now,
+    )
+    facts = {
+        str(field_name): fact
+        for field_name, fact in (bundle.get("facts") or {}).items()
+        if isinstance(fact, Mapping)
+    }
+    sources = bundle.get("sources") or {}
+    return {
+        "target_date": business_date.isoformat(),
+        "wip_date": (business_date + timedelta(days=1)).isoformat(),
+        "values": {field_name: fact.get("value") for field_name, fact in facts.items()},
+        "sources": {
+            field_name: {
+                **dict(sources.get(field_name) or {}),
+                "source_type": fact.get("source_type") or fact.get("source"),
+            }
+            for field_name, fact in facts.items()
+        },
+        "missing_fields": list(bundle.get("missing_fields") or []),
+        "conflicts": [item for item in bundle.get("conflicts") or [] if _conflict_blocks_ready(item)],
+    }
 
 
 def persist_daily_fact_bundle_snapshot(

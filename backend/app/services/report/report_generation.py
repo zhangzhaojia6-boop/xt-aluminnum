@@ -791,6 +791,7 @@ def generate_daily_reports(
                 template_payload = template_daily_report.build_template_daily_report_payload(
                     db,
                     target_date=report_date,
+                    use_fact_bundle=True,
                 )
             except Exception as exc:
                 template_payload = {
