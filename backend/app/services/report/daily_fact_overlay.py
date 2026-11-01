@@ -27,13 +27,13 @@ OVERVIEW_KPI_FACTS = {
     'daily_contracts': 'daily_contract_weight',
     'remaining_contracts': 'remaining_contract_weight',
 }
-LEADER_METRIC_FACTS = {
-    'yield_rate': 'daily_yield_rate',
-    'contract_weight': 'daily_contract_weight',
-}
 WORKSHOP_FACTORY_FACTS = {
     'factory_feeding_daily_input': 'daily_input_weight',
     'daily_yield_rate': 'daily_yield_rate',
+}
+LEADER_METRIC_FACTS = {
+    'yield_rate': 'daily_yield_rate',
+    'contract_weight': 'daily_contract_weight',
 }
 PROJECTION_PRIORITY = source_lane_priority(SOURCE_LANE_DATA_HUB_PROJECTION)
 
