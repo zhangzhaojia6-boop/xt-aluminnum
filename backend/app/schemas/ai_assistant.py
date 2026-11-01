@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AiConversationCreateIn(BaseModel):
@@ -52,6 +52,8 @@ class AiAnswerOut(BaseModel):
 
 
 class AiRuntimeOut(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     engine: str
     llm_configured: bool
     model_ref_set: bool
