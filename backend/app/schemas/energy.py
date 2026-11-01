@@ -41,10 +41,10 @@ class EnergySummaryOut(BaseModel):
     workshop_code: str | None = None
     shift_config_id: int | None = None
     shift_code: str | None = None
-    electricity_value: float = 0.0
-    gas_value: float = 0.0
-    water_value: float = 0.0
-    total_energy: float = 0.0
+    electricity_value: float | None = 0.0
+    gas_value: float | None = 0.0
+    water_value: float | None = 0.0
+    total_energy: float | None = 0.0
     output_weight: float = 0.0
     energy_per_ton: float | None = None
     source: str | None = None
