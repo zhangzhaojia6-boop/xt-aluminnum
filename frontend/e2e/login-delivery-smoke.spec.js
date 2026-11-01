@@ -2,6 +2,7 @@
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
 import { clearAuthStorage } from './helpers/mock-login'
+import { setupStoredFillOnlySession } from './helpers/fill-only-session'
 
 const username = firstEnv('PLAYWRIGHT_USERNAME', 'INIT_ADMIN_USERNAME')
 const password = firstEnv('PLAYWRIGHT_PASSWORD', 'INIT_ADMIN_PASSWORD')
@@ -50,21 +51,20 @@ test('compact clients land on mobile entry instead of review home by default', a
   await expect(page.getByTestId('manage-shell')).toBeVisible()
 })
 
-test('compact manage routes default to entry unless desktop query is set', async ({ page }) => {
+test('compact review users stay on compact manage pages unless desktop query is set', async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 932 })
   await setupReviewSessionAndMocks(page)
 
-  await page.goto('/manage/today')
+  await page.goto('/manage/alerts')
 
-  await expect(page).toHaveURL(/\/entry$/)
-  await expect(page.getByTestId('entry-shell')).toBeVisible()
-  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
-
-  await page.goto('/manage/today?desktop=1')
-
-  await expect(page).toHaveURL(/\/manage\/overview\?desktop=1$/)
+  await expect(page).toHaveURL(/\/manage\/today$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await expect(page.getByTestId('entry-shell')).toHaveCount(0)
+
+  await page.goto('/manage/alerts?desktop=1')
+
+  await expect(page).toHaveURL(/\/manage\/alerts\?desktop=1$/)
+  await expect(page.getByTestId('manage-shell')).toBeVisible()
 })
 
 test('stored admin session is routed to the permission default without role choice', async ({ page }) => {
@@ -77,20 +77,7 @@ test('stored admin session is routed to the permission default without role choi
 })
 
 test('stored fill-only session is routed to entry without role choice', async ({ page }) => {
-  await setupReviewSessionAndMocks(page, {
-    token: 'playwright-fill-token',
-    user: {
-      id: 2,
-      username: 'operator',
-      name: 'Playwright Operator',
-      role: 'operator',
-      is_mobile_user: true,
-      is_reviewer: false,
-      is_manager: false,
-      data_scope_type: 'self_team',
-      assigned_shift_ids: []
-    }
-  })
+  await setupStoredFillOnlySession(page)
 
   await page.goto('/login')
 

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
+import { setupStoredFillOnlySession } from './helpers/fill-only-session'
 
 const baseTimestamp = '2026-04-23T08:00:00Z'
 
@@ -127,22 +128,23 @@ async function selectFilter(page, center, label, option) {
   await page.locator('.el-select-dropdown__item').filter({ hasText: option }).last().click()
 }
 
-test('reports center sends filters and opens report detail', async ({ page }) => {
+test('reports center sends filters and retired detail links land on the overview', async ({ page }) => {
   await setupReviewSessionAndMocks(page)
   const { requests } = await setupReportsMocks(page)
 
   await page.goto('/manage/reports')
 
-  const center = page.locator('.reference-page').filter({ has: page.getByRole('heading', { name: '日报与交付中心' }) })
+  const center = page.getByTestId('report-delivery-page')
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await expect(center.getByRole('heading', { name: '日报与交付中心' })).toBeVisible()
   await expect(center.getByRole('columnheader', { name: '报告日期' })).toBeVisible()
   await expect(center.getByRole('columnheader', { name: '报告类型' })).toBeVisible()
   await expect(center.getByRole('columnheader', { name: '当前状态' })).toBeVisible()
-  await expect(center.getByText('生产日报')).toBeVisible()
-  await expect(center.getByText('已发布')).toBeVisible()
-  await expect(center.getByText('产量 128.5')).toBeVisible()
-  await expect(center.getByText('旁路资料 2 份')).toBeVisible()
+  const table = center.getByTestId('report-delivery-table')
+  await expect(table.getByText('生产日报')).toBeVisible()
+  await expect(table.getByText('已发布')).toBeVisible()
+  await expect(table.getByText('产量 128.5')).toBeVisible()
+  await expect(table.getByText('旁路资料 2 份')).toBeVisible()
 
   await selectFilter(page, center, '报告类型', '生产日报')
   await selectFilter(page, center, '当前状态', '已发布')
@@ -155,37 +157,14 @@ test('reports center sends filters and opens report detail', async ({ page }) =>
   expect(latestQuery.report_type).toBe('production')
   expect(latestQuery.status).toBe('published')
 
-  await center.locator('.el-table__row', { hasText: '生产日报' }).getByRole('button', { name: '查看详情' }).click()
-
-  await expect(page).toHaveURL(/\/manage\/reports\/detail\/31$/)
-  await expect(page.getByRole('heading', { name: '日报详情' })).toBeVisible()
-  await expect(page.getByText('生产日报', { exact: true })).toBeVisible()
-  await expect(page.getByText('已发布')).toBeVisible()
-  await expect(page.getByText('最终版生产日报已归档')).toBeVisible()
-  await expect(page.getByText('总产量')).toBeVisible()
-  await expect(page.getByText('128.5')).toBeVisible()
-  await expect(page.getByText('熔铸车间').first()).toBeVisible()
-  await expect(page.getByText('成品率矩阵正式口径')).toBeVisible()
-  await expect(page.getByText('94.6').first()).toBeVisible()
-  await expect(page.getByText('上报闭环')).toBeVisible()
-  await expect(page.getByText('7', { exact: true }).first()).toBeVisible()
+  // 日报详情页已在 4c3bf33f 下线，旧详情链接落到经营总览
+  await page.goto('/manage/reports/detail/31')
+  await expect(page).toHaveURL(/\/manage\/today$/)
+  await expect(page.getByRole('heading', { name: '经营总览' })).toBeVisible()
 })
 
 test('fill-only operator cannot access reports center', async ({ page }) => {
-  await setupReviewSessionAndMocks(page, {
-    token: 'playwright-fill-token',
-    user: {
-      id: 2,
-      username: 'operator',
-      name: 'Playwright Operator',
-      role: 'operator',
-      is_mobile_user: true,
-      is_reviewer: false,
-      is_manager: false,
-      data_scope_type: 'self_team',
-      assigned_shift_ids: []
-    }
-  })
+  await setupStoredFillOnlySession(page)
   await setupReportsMocks(page)
 
   await page.goto('/manage/reports')

@@ -11,7 +11,7 @@ test.describe('manage today/production content', () => {
     await expect(page.getByTestId('manage-today')).toBeVisible()
 
     const kpi = page.getByTestId('manage-kpi-bar')
-    for (const label of ['全厂入库产量', '过站下机参考', '合同吨数', '吨电耗', '日成品率']) {
+    for (const label of ['全厂入库产量', '过站下机参考', '合同吨数', '吨电耗', '全厂成品率']) {
       await expect(kpi.getByText(label, { exact: true }).first()).toBeVisible()
     }
 

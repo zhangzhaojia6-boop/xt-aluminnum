@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
+import { setupStoredFillOnlySession } from './helpers/fill-only-session'
 
 const baseTimestamp = '2026-04-23T08:00:00Z'
 
@@ -102,36 +103,13 @@ async function setupReconciliationMocks(page, initialItems = [createReconciliati
   return { requests }
 }
 
-async function submitDispositionNote(page, { rowText, actionLabel, note }) {
-  const row = page.locator('.el-table__row', { hasText: rowText })
-  await expect(row).toBeVisible()
-  await row.getByRole('button', { name: actionLabel }).click()
-
-  const messageBox = page.locator('.el-message-box').last()
-  await expect(messageBox).toBeVisible()
-  await messageBox.locator('.el-message-box__input input').fill(note)
-  await messageBox.getByRole('button', { name: '提交' }).click()
-  await expect(page.locator('.el-message-box')).toHaveCount(0)
-}
-
-test('reconciliation center lists details and generates differences', async ({ page }) => {
+// 差异核对中心列表、生成差异、确认、忽略和更正已随改版并入异常页（旧地址见 review-runtime.spec.js），这里只保留仍在的详情页
+test('reconciliation detail page shows the difference', async ({ page }) => {
   await setupReviewSessionAndMocks(page)
-  const { requests } = await setupReconciliationMocks(page)
+  await setupReconciliationMocks(page)
 
-  await page.goto('/manage/reconciliation')
+  await page.goto('/manage/reconciliation/detail/11')
 
-  const center = page.locator('.reference-page').filter({ has: page.getByRole('heading', { name: '差异核对中心' }) })
-  await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(center.getByRole('heading', { name: '差异核对中心' })).toBeVisible()
-  await expect(center.getByRole('columnheader', { name: '业务日期' })).toBeVisible()
-  await expect(center.getByRole('columnheader', { name: '处理状态' })).toBeVisible()
-  await expect(center.getByText('XT-ZD-1')).toBeVisible()
-  await expect(center.getByText('产出重量')).toBeVisible()
-  await expect(center.getByText('待处理')).toBeVisible()
-
-  await center.locator('.el-table__row', { hasText: 'XT-ZD-1' }).getByRole('button', { name: '详情' }).click()
-
-  await expect(page).toHaveURL(/\/manage\/reconciliation\/detail\/11$/)
   await expect(page.getByRole('heading', { name: '差异详情' })).toBeVisible()
   await expect(page.getByText('生产与 MES 核对')).toBeVisible()
   await expect(page.getByText('填报端产量')).toBeVisible()
@@ -140,78 +118,10 @@ test('reconciliation center lists details and generates differences', async ({ p
   await expect(page.getByText('1175 吨')).toBeVisible()
   await expect(page.getByText('1160 吨')).toBeVisible()
   await expect(page.getByText('+15 吨')).toBeVisible()
-
-  await page.goto('/manage/reconciliation')
-  const businessDate = await page.locator('.reference-page .el-date-editor input').first().inputValue()
-  await page.getByRole('button', { name: '生成差异' }).first().click()
-
-  await expect.poll(() => requests.generate).toHaveLength(1)
-  expect(requests.generate[0].business_date).toBe(businessDate)
-  await expect(center.getByText('XT-ZD-2')).toBeVisible()
-  await expect(center.getByText('投入重量')).toBeVisible()
 })
 
-for (const scenario of [
-  {
-    actionKey: 'confirm',
-    actionLabel: '确认',
-    rowText: '确认差异',
-    statusLabel: '已确认',
-    rawNote: '  班组确认 MES 口径正确  ',
-    expectedNote: '班组确认 MES 口径正确'
-  },
-  {
-    actionKey: 'ignore',
-    actionLabel: '忽略',
-    rowText: '忽略差异',
-    statusLabel: '已忽略',
-    rawNote: '能耗补录批次重复，忽略本条',
-    expectedNote: '能耗补录批次重复，忽略本条'
-  },
-  {
-    actionKey: 'correct',
-    actionLabel: '修正',
-    rowText: '修正差异',
-    statusLabel: '已修正',
-    rawNote: '按车间复核产量修正',
-    expectedNote: '按车间复核产量修正'
-  }
-]) {
-  test(`reconciliation ${scenario.actionKey} sends operator note and updates status`, async ({ page }) => {
-    await setupReviewSessionAndMocks(page)
-    const { requests } = await setupReconciliationMocks(page, [
-      createReconciliationItem({ id: 21, dimension_key: 'XT-ZD-1', field_name: scenario.rowText })
-    ])
-
-    await page.goto('/manage/reconciliation')
-
-    await submitDispositionNote(page, {
-      rowText: scenario.rowText,
-      actionLabel: scenario.actionLabel,
-      note: scenario.rawNote
-    })
-
-    await expect.poll(() => requests[scenario.actionKey]).toHaveLength(1)
-    expect(requests[scenario.actionKey][0].note).toBe(scenario.expectedNote)
-    await expect(page.locator('.el-table__row', { hasText: scenario.rowText }).getByText(scenario.statusLabel)).toBeVisible()
-  })
-}
-
 test('fill-only operator cannot access reconciliation center', async ({ page }) => {
-  await setupReviewSessionAndMocks(page, {
-    token: 'playwright-fill-token',
-    user: {
-      id: 2,
-      username: 'operator',
-      name: 'Playwright Operator',
-      role: 'operator',
-      is_mobile_user: true,
-      is_reviewer: false,
-      is_manager: false,
-      data_scope_type: 'self_team',
-      assigned_shift_ids: []
-    }
-  })
+  await setupStoredFillOnlySession(page)
   await setupReconciliationMocks(page)
 
   await page.goto('/manage/reconciliation')
