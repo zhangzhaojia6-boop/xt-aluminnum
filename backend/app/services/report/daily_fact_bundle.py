@@ -674,7 +674,11 @@ def _carry_over_point_in_time_facts(
         new_fact = facts.get(field_name)
         if not isinstance(old_fact, Mapping) or not _has_fact_value(old_fact.get("value")):
             continue
-        if isinstance(new_fact, Mapping) and _has_fact_value(new_fact.get("value")):
+        if (
+            isinstance(new_fact, Mapping)
+            and _has_fact_value(new_fact.get("value"))
+            and not _captured_earlier(old_fact, new_fact)
+        ):
             continue
         facts[field_name] = {**dict(old_fact), "carried_over_from_snapshot_id": previous.id}
         carried.add(field_name)
@@ -683,6 +687,29 @@ def _carry_over_point_in_time_facts(
     bundle["facts"] = facts
     _remove_applied_missing_fields(bundle, carried)
     return _refresh_bundle_metadata(bundle)
+
+
+def _captured_earlier(old_fact: Mapping[str, Any], new_fact: Mapping[str, Any]) -> bool:
+    # 在制量是截止时点的存量：同一来源、同一在制日期里，业务日结束后先抓到的那次最接近截止时点，后面的刷新不覆盖它。
+    old_detail = old_fact.get("source_detail") if isinstance(old_fact.get("source_detail"), Mapping) else {}
+    new_detail = new_fact.get("source_detail") if isinstance(new_fact.get("source_detail"), Mapping) else {}
+    if old_fact.get("source_type") != new_fact.get("source_type"):
+        return False
+    if old_detail.get("business_date") != new_detail.get("business_date"):
+        return False
+    old_at = _business_window_start(old_detail.get("business_window"))
+    new_at = _business_window_start(new_detail.get("business_window"))
+    try:
+        return old_at is not None and new_at is not None and old_at < new_at
+    except TypeError:
+        return False
+
+
+def _business_window_start(window: Any) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(window).split("/", 1)[0])
+    except ValueError:
+        return None
 
 
 def _apply_root_owner_corrections(

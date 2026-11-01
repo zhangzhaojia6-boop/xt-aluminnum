@@ -595,6 +595,49 @@ def test_refresh_keeps_wip_captured_before_live_wip_rolled_over(
     assert snapshot.facts["wip_total"]["value"] == 2245.0
 
 
+def _stub_captured_wip_template(monkeypatch: pytest.MonkeyPatch, live: dict[str, object]) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setenv("OUTPUT_SKILL_REFERENCE_MODE", "compare")
+    monkeypatch.delenv("OUTPUT_SKILL_ROOT", raising=False)
+    monkeypatch.delenv("OUTPUT_SKILL_REFERENCE_ROOT", raising=False)
+
+    def fake_template_facts(db, *, target_date, wip_date=None, **_kwargs):
+        at = live["captured_at"]
+        return {
+            "values": {"total_output_daily": 511.35, "wip_total": live["wip_total"]},
+            "sources": {
+                "total_output_daily": {"source_type": "mes_packaging_output"},
+                "wip_total": {
+                    "source_type": "mes_wip_total_snapshot",
+                    "business_date": "2026-11-01",
+                    "business_window": f"{at}/{at}",
+                },
+            },
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(daily_fact_bundle.template_daily_report, "build_template_daily_report_facts", fake_template_facts)
+
+
+def test_refresh_keeps_first_wip_captured_after_the_business_day_cutoff(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    live = {"wip_total": 2245.0, "captured_at": "2026-11-01T07:59:00+08:00"}
+    _stub_captured_wip_template(monkeypatch, live)
+    _scheduled_bundle(db_session, date(2026, 10, 31))
+    first_snapshot_id = db_session.query(DailyFactBundleSnapshot).one().id
+
+    live.update(wip_total=2217.5, captured_at="2026-11-01T17:51:47+08:00")
+    refreshed = _scheduled_bundle(db_session, date(2026, 10, 31))
+
+    assert refreshed["facts"]["wip_total"]["value"] == 2245.0
+    assert refreshed["facts"]["wip_total"]["carried_over_from_snapshot_id"] == first_snapshot_id
+    assert refreshed["facts"]["wip_total"]["source_detail"]["business_window"].startswith("2026-11-01T07:59:00")
+
+
 def test_refresh_uses_live_wip_when_it_is_still_available(
     monkeypatch: pytest.MonkeyPatch,
     db_session: Session,
