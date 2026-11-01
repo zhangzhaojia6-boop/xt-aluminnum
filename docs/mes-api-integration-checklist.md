@@ -216,6 +216,7 @@ cd frontend && npm run build
 - `LiveDashboard` 是否从 `work_order_runtime` 切到 `mes_projection`
 - 手机扫码后，MES 头字段是否自动带出并锁定
 - 页面是否只要求主操填写“本工序补充字段”
+- 日志里有没有 `scheduled jobs stuck`：MES 同步任务单次运行超过上限（核心和实时同步 20 分钟、业务同步 30 分钟、月度补抓和参考数据 2 小时）就算卡死，后端会释放调度锁并让这个工作进程退出，由 uvicorn 拉起新进程接管调度。上限见 `backend/app/core/scheduler.py` 的 `MES_JOB_STUCK_LIMIT_SECONDS`
 
 ## 5. 和 MES 方沟通时建议直接发的问题
 

@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.core.business_time import local_now
+from app.core.job_watchdog import track_running
 
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,16 @@ scheduler = BackgroundScheduler(timezone=settings.DEFAULT_TIMEZONE) if Backgroun
 
 SCHEDULER_LEADER_LOCK_KEY = 0x5CEDDE5CADE00001  # 使用任意稳定整数即可，确保多 worker 共用同一 key
 _leader_connection = None
+
+# MES 查询在网络中途断开时会卡在驱动里出不来（2026-10-25 卡了 6 天），运行超过这些秒数就当作卡死。
+MES_JOB_STUCK_LIMIT_SECONDS = {
+    'mes_sync_core': 1200,
+    'mes_sync_realtime': 1200,
+    'mes_sync_business': 1800,
+    'mes_month_to_date_backfill_0725': 7200,
+    'mes_month_to_date_backfill_0850': 7200,
+    'mes_sync_reference': 7200,
+}
 
 
 def try_acquire_scheduler_leader() -> bool:
@@ -70,6 +81,8 @@ def release_scheduler_leader() -> None:
 def _add_job_once(target_scheduler, func, trigger: str, *, job_id: str, **kwargs) -> None:
     if target_scheduler is None or target_scheduler.get_job(job_id) is not None:
         return
+    if job_id in MES_JOB_STUCK_LIMIT_SECONDS:
+        func = track_running(job_id, func)
     target_scheduler.add_job(
         func,
         trigger,
