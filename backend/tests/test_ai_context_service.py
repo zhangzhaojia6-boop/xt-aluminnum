@@ -82,6 +82,25 @@ def test_context_pack_includes_factory_scope_and_excludes_sensitive_fields(monke
     assert db.added
 
 
+
+def test_context_pack_reads_machine_lines_as_the_page_does(monkeypatch):
+    db = _FakeDB()
+    seen = {}
+
+    def fake_machine_lines(_db, scope=None, current_user=None):
+        seen['current_user'] = current_user
+        return []
+
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'build_freshness', lambda _db: {'status': 'fresh', 'lag_seconds': 60})
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_machine_lines', fake_machine_lines)
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_coils', lambda _db: [])
+    user = SimpleNamespace(id=7, data_scope_type='all')
+
+    ai_context_service.build_context_pack(db, user=user, intent='factory_status', now=datetime(2026, 5, 2, 8, 0, tzinfo=UTC))
+
+    # 页面上的机列接口带着登录用户走实时汇总；不带用户会退回卷快照，旧卷会把在制撑大
+    assert seen['current_user'] is user
+
 def test_context_pack_persists_decimal_values_as_json_numbers(tmp_path, monkeypatch):
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
