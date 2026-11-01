@@ -177,3 +177,20 @@ def test_projection_values_in_old_snapshots_are_not_overlaid() -> None:
     assert overview == _overview()
     assert dashboard['leader_summary']['metrics']['yield_rate'] is None
     assert dashboard['leader_metrics']['contract_weight'] == 0.0
+
+
+def test_workshop_dashboard_factory_figures_follow_the_report() -> None:
+    dashboard = {'factory_production_fact': {'factory_feeding_daily_input': 56.5, 'daily_yield_rate': None, 'factory_finished_inbound_daily_output': 539.52}}
+    facts = {'daily_input_weight': _fact(665), 'daily_yield_rate': _fact(82.73)}
+
+    overlaid = daily_fact_overlay.overlay_workshop_dashboard(dashboard, facts)
+
+    # 各车间看板上的全厂投料、成品率和日报一致；其余全厂数字不动
+    assert overlaid['factory_production_fact'] == {'factory_feeding_daily_input': 665, 'daily_yield_rate': 82.73, 'factory_finished_inbound_daily_output': 539.52}
+
+
+def test_workshop_dashboard_keeps_its_figures_without_adopted_facts() -> None:
+    dashboard = {'factory_production_fact': {'factory_feeding_daily_input': 56.5, 'daily_yield_rate': None}}
+    stale_projection = {'daily_input_weight': _fact(0.0, 'contract_projection')}
+
+    assert daily_fact_overlay.overlay_workshop_dashboard(dashboard, stale_projection) == {'factory_production_fact': {'factory_feeding_daily_input': 56.5, 'daily_yield_rate': None}}

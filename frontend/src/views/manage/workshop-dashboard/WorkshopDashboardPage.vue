@@ -277,7 +277,11 @@ const wipRows = computed(() => mesMaterialRows.value.slice(0, 6).map((row, index
   ...row,
   key: row.source_id || `wip-${index}`,
   title: row.process_name || row.workshop_name || '-',
-  subtitle: `${row.workshop_name || '-'} · ${formatNumber(row.doing_count, 0)} 卷 · ${row.source_page || row.sourcePage || 'MES 在制料统计'}`,
+  subtitle: [
+    row.workshop_name || '-',
+    row.doing_count == null ? '' : `${formatNumber(row.doing_count, 0)} 卷`,
+    row.source_page || row.sourcePage || 'MES 在制料统计',
+  ].filter(Boolean).join(' · '),
   weight: row.doing_weight_tons ?? 0,
 })))
 const hasWorkshop = computed(() => Boolean(workshopId.value))
@@ -321,7 +325,7 @@ const kpis = computed(() => [
   { key: 'factory-mes-month', label: '包装月累计', value: formatNumber(factoryMesHomeFact.value.factory_packaging_month_to_date_output ?? factoryMesHomeFact.value.mes_home_month_to_date_output, 2), unit: '吨', tone: 'primary' },
   { key: 'pass', label: '道次总数', value: formatNumber(dashboard.value.pass_count_total, 0), unit: '道', tone: 'primary' },
   { key: 'exception', label: '异常数量', value: formatNumber(exceptionRows.value.reduce((sum, row) => sum + Number(row.value || 0), 0), 0), unit: '项', tone: 'danger' },
-])
+].map((item) => (item.value === '-' ? { ...item, unit: '' } : item)))
 
 function scopedParams(extra = {}) {
   return workshopId.value ? { ...extra, workshop_id: workshopId.value } : extra
@@ -347,6 +351,7 @@ async function loadWorkshops() {
 }
 
 function formatNumber(value, digits = 2) {
+  if (value === null || value === undefined || value === '') return '-'
   const num = Number(value)
   if (!Number.isFinite(num)) return '-'
   return num.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: digits })

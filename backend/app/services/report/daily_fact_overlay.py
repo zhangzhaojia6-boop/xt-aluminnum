@@ -29,6 +29,10 @@ OVERVIEW_KPI_FACTS = {
     'daily_contracts': 'daily_contract_weight',
     'remaining_contracts': 'remaining_contract_weight',
 }
+WORKSHOP_FACTORY_FACTS = {
+    'factory_feeding_daily_input': 'daily_input_weight',
+    'daily_yield_rate': 'daily_yield_rate',
+}
 LEADER_METRIC_FACTS = {
     'yield_rate': 'daily_yield_rate',
     'contract_weight': 'daily_contract_weight',
@@ -139,6 +143,17 @@ def overlay_factory_dashboard(dashboard: dict[str, Any], facts: Mapping[str, Map
             metrics['yield_rate'] = None
     if leader_summary.get('summary_source') == 'deterministic' and isinstance(leader_summary.get('metrics'), dict):
         leader_summary['summary_text'] = build_deterministic_leader_summary(metrics=leader_summary['metrics'])
+    return dashboard
+
+
+def overlay_workshop_dashboard(dashboard: dict[str, Any], facts: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    factory_fact = dashboard.get('factory_production_fact')
+    if not isinstance(factory_fact, dict):
+        return dashboard
+    for key, field in WORKSHOP_FACTORY_FACTS.items():
+        fact = _adopted_fact(facts, field)
+        if fact is not None:
+            factory_fact[key] = fact['value']
     return dashboard
 
 
