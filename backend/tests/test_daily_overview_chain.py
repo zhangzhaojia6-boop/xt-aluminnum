@@ -559,6 +559,62 @@ def test_contracts_derive_remaining_delta_from_yesterday_when_owner_entry_delta_
     assert payload['remaining_delta'] == -130.0
 
 
+def test_contracts_stay_missing_when_no_contract_source(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-contract-missing.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[Workshop.__table__, WorkOrder.__table__, WorkOrderEntry.__table__, ImportBatch.__table__, ImportRow.__table__],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+
+    payload = daily_overview_builder._build_contracts(db, date(2026, 10, 31))
+
+    assert payload['quality_status'] == 'missing'
+    assert payload['daily_new'] is None
+    assert payload['monthly_total'] is None
+    assert payload['daily_input'] is None
+    assert payload['monthly_input'] is None
+    assert payload['remaining'] is None
+    assert payload['remaining_delta'] is None
+
+
+def test_contracts_keep_only_reported_owner_entry_fields(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-contract-partial.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[Workshop.__table__, WorkOrder.__table__, WorkOrderEntry.__table__, ImportBatch.__table__, ImportRow.__table__],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all(
+        [
+            Workshop(id=1, code='CPK', name='成品库', workshop_type='inventory', is_active=True),
+            WorkOrder(id=1, tracking_card_no='OWNER-2026-10-31', process_route_code='owner_daily'),
+            WorkOrderEntry(
+                work_order_id=1,
+                workshop_id=1,
+                business_date=date(2026, 10, 31),
+                entry_type='owner_daily',
+                entry_status='submitted',
+                extra_payload={
+                    'daily_contract_weight': 0,
+                    'daily_input_weight': 500,
+                    'remaining_contract_weight': 4792,
+                },
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = daily_overview_builder._build_contracts(db, date(2026, 10, 31))
+
+    assert payload['daily_new'] == 0.0
+    assert payload['daily_input'] == 500.0
+    assert payload['remaining'] == 4792.0
+    assert payload['monthly_total'] is None
+    assert payload['monthly_input'] is None
+    assert payload['remaining_delta'] is None
+
+
 def test_workshop_output_uses_mes_material_for_hot_roll_casting_and_process_for_downstream(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-workshop-output-mixed.db'}", future=True)
     Base.metadata.create_all(
