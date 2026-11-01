@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Mapping
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from pathlib import Path
 from typing import Any, TextIO
 from zoneinfo import ZoneInfo
@@ -20,7 +20,7 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.database import get_sessionmaker
 from app.models.agent_communication import MultimodalEvidence
-from scripts.dingtalk_real_fact_backfill import run_backfill
+from scripts.dingtalk_real_fact_backfill import SOURCE_TRANSPORT, run_backfill
 
 FILE_MESSAGE_RE = re.compile(
     r"^\[文件\]\s+(?P<name>.+?)\s+fileId:\s*(?P<file_id>\S+)(?:\s+注意：.*)?$",
@@ -28,6 +28,7 @@ FILE_MESSAGE_RE = re.compile(
 )
 IMAGE_MESSAGE_RE = re.compile(r"^\[图片消息\]\(mediaId=(?P<media_id>[^)]+)\)")
 DEFAULT_IGNORED_SENDERS = {"鑫泰hermes"}
+MAX_CATCH_UP = timedelta(days=7)
 
 
 class DingTalkWorkspaceSyncError(RuntimeError):
@@ -185,6 +186,30 @@ def load_existing_message_ids(*, limit: int = 5000) -> set[str]:
     return result
 
 
+def latest_synced_message_time(*, tz: tzinfo | None, limit: int = 500) -> datetime | None:
+    session_factory = get_sessionmaker()
+    with session_factory() as db:
+        rows = (
+            db.query(MultimodalEvidence.payload)
+            .order_by(MultimodalEvidence.id.desc())
+            .limit(max(1, int(limit)))
+            .all()
+        )
+    latest: datetime | None = None
+    for row in rows:
+        payload = row[0] if isinstance(row, tuple) else getattr(row, "payload", row)
+        if not isinstance(payload, Mapping) or payload.get("source_transport") != SOURCE_TRANSPORT:
+            continue
+        try:
+            event_time = datetime.fromisoformat(str(payload.get("event_time") or "").strip())
+        except ValueError:
+            continue
+        event_time = event_time.replace(tzinfo=tz) if event_time.tzinfo is None else event_time.astimezone(tz)
+        if latest is None or event_time > latest:
+            latest = event_time
+    return latest
+
+
 def prepare_backfill_rows(
     messages: list[Mapping[str, Any]],
     *,
@@ -288,6 +313,9 @@ def sync_workspace_history(
     max_pages: int,
 ) -> dict[str, Any]:
     start = end - timedelta(minutes=max(1, int(lookback_minutes)))
+    last_synced = latest_synced_message_time(tz=end.tzinfo)
+    if last_synced is not None:
+        start = max(min(start, last_synced), end - MAX_CATCH_UP)
     messages = client.list_messages(start=start, end=end, max_pages=max_pages)
     existing_ids = load_existing_message_ids()
     with tempfile.TemporaryDirectory(prefix="xintai-dingtalk-workspace-") as temp_dir:
@@ -314,7 +342,7 @@ def sync_workspace_history(
             backfill_summary = run_backfill(
                 input_jsonl=input_path,
                 files_root=root,
-                days=max(3, (max(1, int(lookback_minutes)) // 1440) + 2),
+                days=max(3, (end - start).days + 2),
             )
     return {
         "window_start": start.isoformat(),
