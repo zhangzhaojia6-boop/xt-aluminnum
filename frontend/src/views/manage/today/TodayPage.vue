@@ -862,9 +862,9 @@ onBeforeUnmount(() => {
 }
 .xt-today__topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
 .xt-today__identity { flex: 1; min-width: 160px; }
-.xt-today__identity > span { font-size: 11px; color: #737b83; }
+.xt-today__identity > span { font-size: 11px; color: #6c737a; }
 .xt-today__identity h1 { margin: 6px 0; font-size: 27px; font-weight: 650; line-height: 1.25; letter-spacing: 0; }
-.xt-today__identity p { margin: 0; font-size: 12px; color: #77818a; }
+.xt-today__identity p { margin: 0; font-size: 12px; color: #6b737c; }
 .xt-today__top-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
 .xt-today__quick-nav { order: 3; flex: 1 0 100%; display: flex; gap: 24px; border-bottom: 1px solid #e0e5e3; overflow-x: auto; }
 .xt-today__quick-link { display: block; padding: 10px 0 13px; color: #6b747d; font-size: 12px; white-space: nowrap; }
@@ -887,13 +887,13 @@ onBeforeUnmount(() => {
 :deep(.xt-kpi-bar__label) { color: #5c6670; font-size: 12px; font-weight: 500; }
 :deep(.xt-kpi-bar__value) { margin: 12px 0 6px; font-family: 'Segoe UI', sans-serif; font-size: 28px; font-weight: 600; letter-spacing: 0; flex-wrap: wrap; gap: 5px; }
 :deep(.xt-kpi-bar__value span) { color: #242d31; }
-:deep(.xt-kpi-bar__value small) { color: #727d83; font-size: 11px; font-weight: 400; }
-:deep(.xt-kpi-bar__source), :deep(.xt-kpi-bar__hint) { color: #748078; font-size: 10px; font-weight: 400; overflow-wrap: anywhere; }
+:deep(.xt-kpi-bar__value small) { color: #697379; font-size: 11px; font-weight: 400; }
+:deep(.xt-kpi-bar__source), :deep(.xt-kpi-bar__hint) { color: #6a746d; font-size: 10px; font-weight: 400; overflow-wrap: anywhere; }
 :deep(.xt-kpi-bar__hint--placeholder) { height: 0; }
 :deep(.xt-kpi-bar__delta) { font-size: 10px; color: #297359; }
 .xt-today__sources { border-bottom: 1px solid #e6e9e7; padding-bottom: 12px; }
 .xt-today__sources summary { cursor: pointer; color: #4e5d55; font-size: 12px; }
-.xt-today__sources summary span { margin-left: 14px; color: #7e8781; font-size: 11px; }
+.xt-today__sources summary span { margin-left: 14px; color: #6c746f; font-size: 11px; }
 .xt-today__fact-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding-top: 12px; }
 .xt-today__fact-item { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #e3e7e4; border-radius: 6px; background: #fff; color: #59655e; text-align: left; font: inherit; cursor: pointer; min-width: 0; overflow-wrap: anywhere; }
 .xt-today__fact-item:disabled { cursor: default; }
@@ -912,54 +912,54 @@ onBeforeUnmount(() => {
 .xt-today__panel-head, .xt-today__rail-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .xt-today__panel-head h2, .xt-today__rail-head h2 { margin: 0; font-size: 15px; font-weight: 600; color: #2c3530; }
 .xt-today__panel-head h3 { margin: 0; font-size: 12px; font-weight: 600; }
-.xt-today__panel-head > span, .xt-today__rail-head > span { color: #828b85; font-size: 10px; }
+.xt-today__panel-head > span, .xt-today__rail-head > span { color: #6c736e; font-size: 10px; }
 .xt-today__table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.xt-today__table th { color: #899087; font-weight: 400; font-size: 10px; padding: 10px 6px; text-align: left; border-bottom: 1px solid #e2e7e3; }
+.xt-today__table th { color: #6e736c; font-weight: 400; font-size: 10px; padding: 10px 6px; text-align: left; border-bottom: 1px solid #e2e7e3; }
 .xt-today__table td { padding: 14px 6px; border-bottom: 1px solid #ecefed; color: #525f56; }
 .xt-today__table .is-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .xt-today__table tbody tr:hover { background: #f2f5f3; }
 .xt-today__wip-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
 .xt-today__wip-card { display: grid; gap: 5px; padding: 12px 0; border-bottom: 1px solid #e5eae6; min-width: 0; }
-.xt-today__wip-card > span { color: #748075; font-size: 11px; }
+.xt-today__wip-card > span { color: #6a756b; font-size: 11px; }
 .xt-today__wip-card b { color: #344c3d; font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.xt-today__wip-card small { color: #8a948b; font-size: 10px; overflow-wrap: anywhere; }
+.xt-today__wip-card small { color: #6c746d; font-size: 10px; overflow-wrap: anywhere; }
 .xt-today__flow { order: 2; border-top: 1px solid #e3e8e4; padding-top: 20px; }
 .xt-today__flow-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 20px; list-style: none; padding: 0; margin: 0; }
 .xt-today__flow-step { display: grid; align-content: start; gap: 6px; min-width: 0; padding: 0 0 12px; border-bottom: 1px solid #e8ece8; }
-.xt-today__flow-icon { width: 34px; height: 34px; color: #6a9180; }
+.xt-today__flow-icon { width: 34px; height: 34px; color: #59796b; }
 .xt-today__flow-title { font-size: 12px; font-weight: 600; }
 .xt-today__flow-metric { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; }
-.xt-today__flow-metric span { color: #7f8a80; }
+.xt-today__flow-metric span { color: #6b746c; }
 .xt-today__flow-metric b { font-weight: 500; font-variant-numeric: tabular-nums; }
-.xt-today__flow-metric.is-muted { color: #798579; font-size: 10px; }
+.xt-today__flow-metric.is-muted { color: #6a756a; font-size: 10px; }
 .xt-today__flow-sub { list-style: none; margin: 4px 0 0; padding: 0; }
-.xt-today__flow-sub li { display: flex; justify-content: space-between; gap: 5px; padding: 3px 0; font-size: 10px; color: #819084; }
+.xt-today__flow-sub li { display: flex; justify-content: space-between; gap: 5px; padding: 3px 0; font-size: 10px; color: #69756c; }
 .xt-today__flow-sub b { font-weight: 400; white-space: nowrap; }
 .xt-today__metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; order: 3; }
 .xt-today__compare-card { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 12px 0; border-top: 1px solid #e3e8e4; }
-.xt-today__compare-card > span { color: #7c877e; font-size: 11px; }
+.xt-today__compare-card > span { color: #6b746c; font-size: 11px; }
 .xt-today__compare-card strong { color: #354b3a; font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.xt-today__compare-card small { color: #849187; font-size: 10px; }
+.xt-today__compare-card small { color: #6a746c; font-size: 10px; }
 .xt-today__event-rail { min-width: 0; border-left: 1px solid #e1e7e2; padding-left: 24px; }
 .xt-today__live-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #306a50; padding: 14px 0 18px; border-bottom: 1px solid #e2e8e3; margin-bottom: 18px; }
 .xt-today__live-link span { display: flex; flex-direction: column; gap: 4px; }
 .xt-today__live-link strong { font-size: 12px; font-weight: 600; }
-.xt-today__live-link small { color: #828e82; font-size: 10px; }
+.xt-today__live-link small { color: #6b746b; font-size: 10px; }
 .xt-today__shift-card { margin-bottom: 18px; }
 .xt-today__shift-list { display: grid; gap: 9px; }
 .xt-today__shift-row { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 8px; font-size: 11px; color: #627363; }
 .xt-today__shift-row b { text-align: center; font-weight: 500; }
-.xt-today__shift-row small { text-align: right; font-size: 10px; color: #8a948a; }
+.xt-today__shift-row small { text-align: right; font-size: 10px; color: #6c746c; }
 .xt-today__event-card { padding: 14px 0; border-top: 1px solid #e4e9e5; overflow-wrap: anywhere; }
 .xt-today__event-top { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; margin-bottom: 7px; color: #3c765b; }
-.xt-today__event-top time { color: #919a92; }
-.xt-today__event-card.tone-warning .xt-today__event-top { color: #9d6b25; }
+.xt-today__event-top time { color: #6d746e; }
+.xt-today__event-card.tone-warning .xt-today__event-top { color: #996824; }
 .xt-today__event-card.tone-danger .xt-today__event-top { color: #b24a45; }
 .xt-today__event-card > strong { font-size: 12px; font-weight: 500; line-height: 1.6; }
-.xt-today__event-card p { font-size: 11px; line-height: 1.8; margin: 6px 0 0; color: #849084; }
-.xt-today__empty { padding: 28px 0; font-size: 12px; color: #7d887f; }
+.xt-today__event-card p { font-size: 11px; line-height: 1.8; margin: 6px 0 0; color: #6a746a; }
+.xt-today__empty { padding: 28px 0; font-size: 12px; color: #6b746d; }
 .xt-today__bottom-status { display: flex; flex-wrap: wrap; gap: 20px; border-top: 1px solid #e2e7e3; padding-top: 12px; }
-.xt-today__status-pill { display: inline-flex; align-items: center; gap: 6px; color: #89948b; font-size: 10px; }
+.xt-today__status-pill { display: inline-flex; align-items: center; gap: 6px; color: #6c746d; font-size: 10px; }
 .xt-today__status-pill b, .xt-today__status-pill strong { font-weight: 400; }
 .xt-today__status-pill i { width: 5px; height: 5px; border-radius: 50%; background: #729d82; }
 .xt-today__status-pill.tone-warning i { background: #b48c50; }
@@ -970,13 +970,13 @@ onBeforeUnmount(() => {
 :deep(.xt-cal-pop) { background: #fff; border-color: #dce4df; box-shadow: 0 8px 24px #152f201a; left: auto; right: 0; max-width: calc(100vw - 32px); }
 :deep(.xt-cal-pop__title), :deep(.xt-cal-pop__weekdays) { color: #516659; }
 :deep(.xt-cal-pop__cell.is-selected) { background: #236958; color: #fff; }
-:deep(.xt-cal-pop__cell.is-out), :deep(.xt-cal-pop__cell.is-future) { color: #909c94; }
+:deep(.xt-cal-pop__cell.is-out), :deep(.xt-cal-pop__cell.is-future) { color: #6b746e; }
 :deep(.xt-date-switcher button:hover:not(:disabled)) { background: #edf4ef; color: #236958; }
 :deep(.xt-date-switcher__label) { font-family: inherit; font-size: 12px; }
 :deep(.xt-missing-report) { background: #f1f5f2; color: #546b5d; box-shadow: none; border-color: #dce5de; border-radius: 6px; padding: 12px; }
 :deep(.xt-missing-report__head h2), :deep(.xt-missing-report__head strong), :deep(.xt-missing-report__stats b) { color: #466251; }
-:deep(.xt-missing-report__head small), :deep(.xt-missing-report__chip) { color: #697b6d; }
-:deep(.xt-missing-report__chip.is-muted) { color: #697b6d; }
+:deep(.xt-missing-report__head small), :deep(.xt-missing-report__chip) { color: #657669; }
+:deep(.xt-missing-report__chip.is-muted) { color: #657669; }
 button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid #397b69; outline-offset: 3px; }
 @media (max-width: 1280px) {
   .xt-today__command-wall { grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; }

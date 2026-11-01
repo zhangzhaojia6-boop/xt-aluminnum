@@ -690,6 +690,11 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     })
   })
 
+  // 车间看板会读 MES 在制统计和加工记录；不模拟时请求落到 e2e 后端，假令牌被判未登录后整页退回登录页
+  await page.route(/.*\/api\/v1\/mes\/extended\/(wip-total-snapshots|workshop-process-records)(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  })
+
   await page.route('**/api/v1/master/workshops**', async (route) => {
     await route.fulfill({
       status: 200,
