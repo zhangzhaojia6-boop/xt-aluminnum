@@ -1361,3 +1361,44 @@ def test_workshop_reporting_meta_returns_backend_display_fields() -> None:
         'source_variant': 'mobile',
         'status_hint': '主操待补，系统暂未看到本班原始值',
     }
+
+
+def test_daily_production_route_shows_persisted_daily_facts(monkeypatch) -> None:
+    def fake_get_db():
+        yield DummyDB()
+
+    def fake_get_user():
+        return SimpleNamespace(
+            id=7,
+            role='manager',
+            is_admin=False,
+            is_manager=True,
+            is_reviewer=False,
+            workshop_id=None,
+            data_scope_type='all',
+        )
+
+    def fake_overview(_db, *, target_date, wip_date=None):
+        return {
+            'target_date': target_date.isoformat(),
+            'yield_rates': {'daily': None},
+            'contracts': {'daily_new': None},
+            'header_kpis': [{'key': 'daily_yield', 'value': None}],
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_manager_user] = fake_get_user
+    monkeypatch.setattr('app.services.report.daily_overview_builder.build_daily_production_overview', fake_overview)
+    monkeypatch.setattr(
+        'app.services.report.daily_fact_overlay.latest_daily_fact_values',
+        lambda _db, *, target_date: {'daily_yield_rate': {'value': 82.73, 'source_type': 'dingtalk_supplement'}},
+    )
+
+    response = TestClient(app).get('/api/v1/dashboard/daily-production', params={'target_date': '2026-10-31'})
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['yield_rates']['daily'] == 82.73
+    assert payload['header_kpis'][0]['value'] == 82.73
+    assert payload['fact_overlay'] == {'daily_yield_rate': 'dingtalk_supplement'}
