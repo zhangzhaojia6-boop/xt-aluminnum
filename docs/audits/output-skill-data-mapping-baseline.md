@@ -335,7 +335,7 @@ cd frontend && npm run build
 | 项目 | 修复后规则 |
 |---|---|
 | 车间别名 | 在映射核对服务内置常用车间别名，例如 `铸轧二 -> 铸二`、`1650车间 -> 冷轧1650`、`园区淬火车间 -> 淬火车间`，接口传入的别名仍可覆盖默认规则 |
-| 在制料单位 | `mes_wip_total_snapshots.doing_weight_tons` 实际来自 MES `FeedingWeight`，映射核对时按公斤除以 1000 转成吨 |
+| 在制料单位 | `mes_wip_total_snapshots.doing_weight_tons` 实际来自 MES `FeedingWeight`，映射核对时按公斤除以 1000 转成吨（2026-11-01 更新：MES 现在也会返回以吨计的行，如 `精整:剪切 528`，改为与日报取数一致，逐行判断，单行超过 1000 才按公斤换算） |
 | 在制料范围 | 只允许使用当前生产日 07:30 到次日 07:30 范围内的总量快照，不再用未来最新快照兜底历史日期 |
 | 在制料缺失 | 当日明细没有材料重量、且同生产日没有总量快照时，不再输出 `wip_total=0`，改为标记 `wip_source_issue=missing_material_weight_for_business_date` |
 

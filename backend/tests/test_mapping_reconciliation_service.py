@@ -1222,6 +1222,47 @@ def test_build_system_mapping_rows_flattens_wip_with_total_snapshot_fallback() -
     } in rows
 
 
+def test_build_system_mapping_rows_keeps_ton_wip_rows_in_tons() -> None:
+    engine = create_engine('sqlite:///:memory:')
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+
+    with Session(engine) as db:
+        db.add_all(
+            [
+                MesDailyWipSnapshot(
+                    business_date=date(2026, 11, 1),
+                    workshop_name='精整',
+                    process_name='剪切',
+                    coil_count=2,
+                    material_weight_tons=None,
+                    feeding_weight_tons=13.0,
+                    source='mes_coil_snapshot',
+                ),
+                MesWipTotalSnapshot(
+                    source_id='精整:剪切',
+                    workshop_name='精整',
+                    process_name='剪切',
+                    doing_weight_tons=528.0,
+                    snapshot_at=datetime(2026, 11, 1, 8, 0, tzinfo=UTC),
+                ),
+                MesWipTotalSnapshot(
+                    source_id='精整:包装',
+                    workshop_name='精整',
+                    process_name='包装',
+                    doing_weight_tons=264254.65,
+                    snapshot_at=datetime(2026, 11, 1, 8, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = build_system_mapping_rows(db, business_date=date(2026, 11, 1))
+
+    wip_rows = [row for row in rows if row.get('process') == '在制料']
+    # 528 吨按吨计，264254.65 公斤按行换成 264.25 吨，再按车间相加
+    assert [(row['workshop'], row['wip_total']) for row in wip_rows] == [('精整', 792.2547)]
+
+
 def test_build_system_mapping_rows_does_not_use_out_of_window_wip_snapshot() -> None:
     engine = create_engine('sqlite:///:memory:')
     Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
