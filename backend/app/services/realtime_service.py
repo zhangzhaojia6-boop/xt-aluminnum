@@ -725,7 +725,9 @@ def _build_machine_mes_binding_summary(entries: list[dict]) -> dict:
 def _round_rate(input_total: float, output_total: float) -> float | None:
     if input_total <= 0:
         return None
-    return round((output_total / input_total) * 100, 2)
+    rate = round((output_total / input_total) * 100, 2)
+    # 产出大于投入说明投入、产出没对上，和经营总览一样不显示超过 100% 的成品率
+    return rate if rate <= 100 else None
 
 
 def _prefer_number(primary: Decimal | float | int | None, fallback: Decimal | float | int | None) -> float:

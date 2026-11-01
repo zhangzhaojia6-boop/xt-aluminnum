@@ -2744,3 +2744,11 @@ def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatc
     assert payload['factory_total']['daily_output_source'] == 'mes_workshop_process_records'
     assert payload['factory_total']['packaging_monthly_output'] == 52.5
     assert payload['factory_total']['month_to_date_output'] == 52.5
+
+
+def test_live_yield_above_100_percent_is_not_credible():
+    # 产出大于投入时成品率超过 100%，和经营总览一样按不可信处理，不显示
+    assert realtime_service._round_rate(93.04, 97.03) is None
+    assert realtime_service._round_rate(116.42, 111.8) == 96.03
+    assert realtime_service._round_rate(100.0, 100.0) == 100.0
+    assert realtime_service._round_rate(0, 5) is None
