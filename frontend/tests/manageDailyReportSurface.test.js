@@ -8,8 +8,10 @@ import {
   buildFactClosureSurface,
   buildDailyWorkshopRows,
   buildDailyWipRows,
+  factSourceLabel,
   MISSING_DAILY_VALUE,
   openFactTrace,
+  sumWipWeight,
 } from '../src/utils/manageDailyReportSurface.js'
 
 test('fact action summary separates owner fill, source review, and dependency work', () => {
@@ -119,11 +121,30 @@ test('daily settlement cards use only trusted closure facts for mapped KPIs', ()
       .filter((item) => ['plant-output', 'finished-inbound', 'yield-rate'].includes(item.key))
       .map((item) => [item.key, item.value, item.unit, item.status, item.sourceLabel]),
     [
-      ['plant-output', '62', '吨', 'confirmed', 'mes_packaging_output'],
+      ['plant-output', '62', '吨', 'confirmed', '外部 MES 包装产量'],
       ['finished-inbound', '--', '吨', 'missing', '暂无可信来源'],
-      ['yield-rate', '--', '%', 'missing', 'computed_same_basis'],
+      ['yield-rate', '--', '%', 'missing', '数据中枢同口径计算'],
     ]
   )
+})
+
+test('feeding input card names the source the overview adopted', () => {
+  const [mesCard] = buildDailySettlementCards({ plant_output: { factory_feeding_daily_input: 56.5 } })
+  const [reportCard] = buildDailySettlementCards({
+    plant_output: { factory_feeding_daily_input: 665, factory_feeding_source: 'dingtalk_supplement' },
+  })
+
+  assert.equal(mesCard.sourceLabel, 'MES投料')
+  assert.equal(reportCard.value, '665')
+  assert.equal(reportCard.sourceLabel, '钉钉补充事实')
+})
+
+test('fact sources show in Chinese and unknown ones pass through', () => {
+  assert.equal(factSourceLabel('dingtalk_supplement'), '钉钉补充事实')
+  assert.equal(factSourceLabel('MES Packaging Output'), '外部 MES 包装产量')
+  assert.equal(factSourceLabel('mes_wip_total_snapshot'), 'MES 在制料统计')
+  assert.equal(factSourceLabel('暂无可信来源'), '暂无可信来源')
+  assert.equal(factSourceLabel(null), '')
 })
 
 test('daily settlement cards hide mapped overview numbers when closure is malformed', () => {
@@ -288,9 +309,24 @@ test('daily wip rows keep source positions and show daily snapshot reference', (
   assert.equal(rows[0].title, '园区在线')
   assert.equal(rows[0].weightText, '9.5 吨')
   assert.equal(rows[0].totalWeight, 9.5)
-  assert.equal(rows[0].feedingText, '投料 12.3 吨')
+  assert.equal(rows[0].detailText, '3 卷 · 投料 12.3 吨')
   assert.equal(rows[0].sourceLabel, '外部 MES 当日快照参考')
   assert.deepEqual(rows.map((row) => row.title), ['园区在线', '新厂北线', '1650/2050冷轧'])
+})
+
+test('daily wip rows leave unknown weight, coils and feeding empty instead of zero', () => {
+  const rows = buildDailyWipRows([
+    { workshop: '精整', total_weight: 695.5, coil_count: null, feeding_weight: null, source_label: '日报口径' },
+    { workshop: '拉矫车间', total_weight: null, coil_count: 2, feeding_weight: 13, source_label: '外部 MES 当日快照参考' },
+  ])
+
+  assert.equal(rows[0].detailText, '日报口径')
+  assert.equal(rows[1].weightText, MISSING_DAILY_VALUE)
+  assert.equal(rows[1].totalWeight, null)
+  assert.equal(rows[1].detailText, '2 卷 · 投料 13 吨')
+  assert.equal(sumWipWeight(rows), 695.5)
+  assert.equal(sumWipWeight([rows[1]]), null)
+  assert.equal(sumWipWeight([]), null)
 })
 
 test('fact closure surface shows zero blocked count when critical facts are confirmed', () => {

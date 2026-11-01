@@ -75,7 +75,7 @@
           <small v-if="fact.unit">{{ fact.unit }}</small>
         </strong>
         <span class="xt-today__fact-status">{{ factStatusText(fact.status) }}</span>
-        <span class="xt-today__fact-source">{{ fact.source }}</span>
+        <span class="xt-today__fact-source">{{ factSourceLabel(fact.source) }}</span>
         <span class="xt-today__fact-window">{{ fact.businessWindow || '--' }}</span>
       </button>
     </section>
@@ -191,7 +191,7 @@
               <div v-for="row in wipRows" :key="row.key" class="xt-today__wip-card">
                 <span>{{ row.title }}</span>
                 <b>{{ row.weightText }}</b>
-                <small>{{ row.countText }} · {{ row.feedingText }}</small>
+                <small>{{ row.detailText }}</small>
               </div>
             </div>
             <div v-else class="xt-today__empty">暂无在制料数据</div>
@@ -342,7 +342,10 @@ import { buildTodayStitchSurface } from '../../../utils/stitchManageSurface.js'
 import {
   buildFactActionSummary,
   buildFactClosureSurface,
+  factSourceLabel,
+  MISSING_DAILY_VALUE,
   openFactTrace,
+  sumWipWeight,
 } from '../../../utils/manageDailyReportSurface.js'
 
 const auth = useAuthStore()
@@ -509,8 +512,8 @@ const comparisonCards = computed(() => stitchSurface.value.comparisonRail)
 const workshopRows = computed(() => stitchSurface.value.workshopTable)
 const wipRows = computed(() => stitchSurface.value.wipDistribution)
 const wipTotalText = computed(() => {
-  const total = wipRows.value.reduce((sum, row) => sum + (Number(row.totalWeight) || 0), 0)
-  return `${fmt(total)} 吨`
+  const total = sumWipWeight(wipRows.value)
+  return total === null ? MISSING_DAILY_VALUE : `${fmt(total)} 吨`
 })
 const missingRows = computed(() => stitchSurface.value.missingReportRows)
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)

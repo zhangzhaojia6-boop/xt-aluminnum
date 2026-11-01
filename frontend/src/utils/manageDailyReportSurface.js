@@ -52,6 +52,34 @@ function normalizeFactSource(value) {
     .replace(/^_|_$/g, '')
 }
 
+// 名称与后端 hermes_day1_report_service 的来源名称一致
+const FACT_SOURCE_LABELS = {
+  dingtalk_supplement: '钉钉补充事实',
+  root_owner_correction: '最高权限者确认',
+  verified_owner_daily: '责任人扫码补录',
+  owner_daily: '数据中枢一日汇总',
+  owner_or_energy_summary: '数据中枢能耗汇总',
+  data_hub_manual: '数据中枢手工录入',
+  iot_energy: 'IoT 能耗',
+  mes_packaging_output: '外部 MES 包装产量',
+  mes_verified: '外部 MES 核验',
+  finished_inbound_output: '外部 MES 入库产量',
+  mes_stock_header_records: '外部 MES 入库单',
+  mes_stock_records: '外部 MES 入库明细',
+  wms_direct: '外部 WMS',
+  mes_wip_total_snapshot: 'MES 在制料统计',
+  mes_wip_distribution: 'MES 在制料统计',
+  mes_daily_wip_snapshot: '外部 MES 当日快照参考',
+  mes_coil_snapshot_business_date: '外部 MES 当日快照参考',
+  quality_yield_daily: '质检日成品率',
+  computed_same_basis: '数据中枢同口径计算',
+}
+
+export function factSourceLabel(value) {
+  if (typeof value !== 'string' || !value.trim()) return ''
+  return FACT_SOURCE_LABELS[normalizeFactSource(value)] || value.trim()
+}
+
 export function safeFactSource(value, field) {
   const normalized = normalizeFactSource(value)
   const allowed = TRUSTED_FACT_SOURCES[field]
@@ -145,7 +173,7 @@ export function buildDailySettlementCards(overview = {}, factClosure) {
     {
       key: 'feeding-input',
       label: '投料量',
-      sourceLabel: 'MES投料',
+      sourceLabel: factSourceLabel(plantOutput.factory_feeding_source) || 'MES投料',
       value: formatPlainMetric(plantOutput.factory_feeding_daily_input),
       unit: plantOutput.factory_feeding_daily_input == null ? '' : '吨',
       tone: plantOutput.factory_feeding_daily_input == null ? 'muted' : 'primary',
@@ -226,7 +254,7 @@ export function buildDailySettlementCards(overview = {}, factClosure) {
       value: confirmed ? formatPlainMetric(numeric) : '--',
       unit: fact.unit || '',
       status: confirmed ? 'confirmed' : (fact.status === 'confirmed' ? 'missing' : fact.status || 'missing'),
-      sourceLabel: fact.source || '暂无可信来源',
+      sourceLabel: factSourceLabel(fact.source) || '暂无可信来源',
       tone: confirmed ? card.tone : 'muted',
     }
   })
@@ -281,18 +309,27 @@ export function buildDailyWipRows(rows = []) {
   return filterVisibleWipRows(rows)
     .map((row, index) => {
       const title = rawWorkshopName(row) || '--'
-      const feedingText = formatMetric(row.feeding_weight, '吨')
-      const totalWeight = toNumber(row.total_weight)
+      const coilCount = toNumber(row.coil_count)
+      const sourceLabel = row.source_label || '外部 MES 当日快照参考'
+      // 卷数、投料不知道时不写，避免显示成 0
+      const details = [
+        coilCount ? `${coilCount} 卷` : '',
+        toNumber(row.feeding_weight) === null ? '' : `投料 ${formatMetric(row.feeding_weight, '吨')}`,
+      ].filter(Boolean)
       return {
         key: `${title}-${index}`,
         title,
         weightText: formatMetric(row.total_weight, '吨'),
-        totalWeight: totalWeight ?? 0,
-        feedingText: feedingText === MISSING_DAILY_VALUE ? '投料 —' : `投料 ${feedingText}`,
-        countText: `${toNumber(row.coil_count) ?? 0} 卷`,
-        sourceLabel: row.source_label || '外部 MES 当日快照参考',
+        totalWeight: toNumber(row.total_weight),
+        detailText: details.join(' · ') || sourceLabel,
+        sourceLabel,
       }
     })
+}
+
+export function sumWipWeight(rows = []) {
+  const weights = rows.map((row) => row.totalWeight).filter((weight) => weight !== null && weight !== undefined)
+  return weights.length ? weights.reduce((sum, weight) => sum + weight, 0) : null
 }
 
 export function buildFactActionSummary(factMissing) {
