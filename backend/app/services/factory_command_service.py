@@ -823,7 +823,7 @@ def _paged_coils(
     coil_query = db.query(MesCoilSnapshot)
     if not _is_sqlalchemy_query(coil_query):
         rows = _filter_coils(_scoped_coils(db, scope=scope), workshop=workshop, destination=destination, query=query)
-        return rows[offset : offset + limit]
+        return sorted(rows, key=_coil_seen_key, reverse=True)[offset : offset + limit]
 
     expressions = (
         _scope_coil_expression(_scope_workshop_tokens(db, scope)),
@@ -834,7 +834,14 @@ def _paged_coils(
     for expression in expressions:
         if expression is not None:
             coil_query = coil_query.filter(expression)
-    return list(coil_query.order_by(MesCoilSnapshot.id.asc()).offset(offset).limit(limit).all())
+    # 卷快照每次只刷新最近被操作过的卷，旧行一直留着；先给最近见到的卷
+    ordered = coil_query.order_by(MesCoilSnapshot.last_seen_from_mes_at.desc().nulls_last(), MesCoilSnapshot.id.desc())
+    return list(ordered.offset(offset).limit(limit).all())
+
+
+def _coil_seen_key(row: Any) -> tuple[float, int]:
+    seen = getattr(row, 'last_seen_from_mes_at', None)
+    return (seen.timestamp() if hasattr(seen, 'timestamp') else float('-inf'), int(getattr(row, 'id', 0) or 0))
 
 
 def _filter_coils(

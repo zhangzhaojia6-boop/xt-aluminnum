@@ -1474,11 +1474,29 @@ def test_list_coils_pushes_filters_and_page_to_database(monkeypatch, tmp_path):
         query='LZ',
     )
 
-    assert [item['coil_key'] for item in coils] == ['MES:2', 'MES:3']
+    # 没有同步时间时按 id 倒序，新行在前
+    assert [item['coil_key'] for item in coils] == ['MES:2', 'MES:1']
 
     unknown_coils = factory_command_service.list_coils(db, limit=10, destination='unknown', query='EMPTY')
 
     assert [item['coil_key'] for item in unknown_coils] == ['MES:6']
+
+
+def test_list_coils_lists_most_recently_seen_first(tmp_path):
+    db = _sqlalchemy_session(tmp_path)
+    db.add_all(
+        [
+            MesCoilSnapshot(coil_id='fallback:OLD', tracking_card_no='OLD', batch_no='B-OLD', current_workshop='精整', current_process='包装', last_seen_from_mes_at=datetime(2026, 5, 7, 9, 0, tzinfo=UTC)),
+            MesCoilSnapshot(coil_id='MES:NEW', tracking_card_no='NEW', batch_no='B-NEW', current_workshop='精整', current_process='剪切', next_process='包装', last_seen_from_mes_at=datetime(2026, 11, 1, 14, 0, tzinfo=UTC)),
+            MesCoilSnapshot(coil_id='MES:MID', tracking_card_no='MID', batch_no='B-MID', current_workshop='拉矫车间', current_process='拉矫', next_process='包装', last_seen_from_mes_at=datetime(2026, 10, 31, 14, 0, tzinfo=UTC)),
+        ]
+    )
+    db.commit()
+
+    coils = factory_command_service.list_coils(db, limit=2)
+
+    # 卷快照每次只刷新最近被操作过的卷，旧行一直留着；列表先给最近见到的卷
+    assert [item['coil_key'] for item in coils] == ['MES:NEW', 'MES:MID']
 
 
 def test_factory_command_filters_projection_rows_by_workshop_scope(monkeypatch):
