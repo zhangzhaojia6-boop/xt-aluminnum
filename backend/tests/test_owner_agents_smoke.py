@@ -205,6 +205,7 @@ def test_quality_yield_and_issue(db: Session):
     assert issue.quality_issue_type == 'surface_scratch'
 
 
+@pytest.mark.filterwarnings('error::sqlalchemy.exc.SAWarning')
 def test_planning_plan_and_breakdown(db: Session):
     plan = planning.upsert_plan(
         db,
@@ -257,6 +258,7 @@ def test_storage_four_scalars(db: Session):
     assert float(row.contract_received) == pytest.approx(120.0)
 
 
+@pytest.mark.filterwarnings('error::sqlalchemy.exc.SAWarning')
 def test_shipment_outflow_append_and_replace(db: Session):
     one = shipment_outflow.add_record(
         db,

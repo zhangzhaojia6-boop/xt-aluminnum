@@ -2225,7 +2225,15 @@ def test_production_sync_status_trusted_head_probe_blocks_unmerged_targets() -> 
             encoding='utf-8',
             newline='\n',
         )
-        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_path, timeout=15)
+        result = subprocess.run(
+            [bash, script_path.name],
+            capture_output=True,
+            encoding='utf-8',
+            errors='replace',
+            check=False,
+            cwd=tmp_path,
+            timeout=15,
+        )
     finally:
         _remove_test_tree(tmp_path)
 
@@ -2320,7 +2328,15 @@ def test_production_sync_status_hermes_cloud_ref_probe_ignores_evil_local_branch
             encoding='utf-8',
             newline='\n',
         )
-        result = subprocess.run([bash, script_path.name], capture_output=True, text=True, check=False, cwd=tmp_path, timeout=15)
+        result = subprocess.run(
+            [bash, script_path.name],
+            capture_output=True,
+            encoding='utf-8',
+            errors='replace',
+            check=False,
+            cwd=tmp_path,
+            timeout=15,
+        )
     finally:
         _remove_test_tree(tmp_path)
 
