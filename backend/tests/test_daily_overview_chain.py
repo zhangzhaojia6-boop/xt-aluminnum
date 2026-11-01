@@ -176,6 +176,8 @@ def test_daily_overview_defaults_wip_to_next_business_day(monkeypatch) -> None:
 
     assert payload['wip_business_date'] == '2026-06-17'
     assert seen['wip_date'] == date(2026, 6, 17)
+    # 没有在制数据时是缺失，不是 0 吨
+    assert payload['header_kpis'][2]['value'] is None
 
 
 def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
@@ -387,7 +389,7 @@ def test_wip_distribution_uses_wip_total_when_daily_snapshot_weight_is_zero(tmp_
             'workshop': '新厂在线车间',
             'coil_count': 588,
             'total_weight': 4.47,
-            'feeding_weight': 0.0,
+            'feeding_weight': None,
             'source_basis': 'mes_wip_total_snapshot',
             'source_label': 'MES 在制料统计',
             'snapshot_at': '2026-05-29T08:00:00',
@@ -436,7 +438,7 @@ def test_wip_distribution_prefers_wip_total_snapshot_over_daily_snapshot(tmp_pat
             'workshop': '精整',
             'coil_count': 33839,
             'total_weight': 264.25,
-            'feeding_weight': 0.0,
+            'feeding_weight': None,
             'source_basis': 'mes_wip_total_snapshot',
             'source_label': 'MES 在制料统计',
             'snapshot_at': '2026-06-17T08:00:00',
@@ -1362,3 +1364,36 @@ def test_shift_breakdown_excludes_factory_special_workshop_from_expected_total(t
     assert by_code['A']['shift_name'] == '长白班'
     assert by_code['A']['reported_workshops'] == 1
     assert by_code['A']['expected_workshops'] == 1
+
+
+def test_wip_distribution_shows_unknown_weights_as_missing(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-unknown-wip.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all([
+        MesDailyWipSnapshot(
+            business_date=date(2026, 10, 31),
+            workshop_name='精整',
+            process_name='剪切',
+            coil_count=2,
+            material_weight_tons=None,
+            feeding_weight_tons=13.0,
+            source='mes_coil_snapshot',
+        ),
+        MesWipTotalSnapshot(
+            source_id='精整:剪切',
+            workshop_name='精整',
+            process_name='剪切',
+            doing_count=None,
+            doing_weight_tons=528.0,
+            snapshot_at=datetime(2026, 11, 1, 8, 0, tzinfo=UTC),
+        ),
+    ])
+    db.commit()
+
+    from_daily_snapshot = daily_overview_builder._build_wip_distribution(db, date(2026, 10, 31))
+    from_wip_total = daily_overview_builder._build_wip_distribution(db, date(2026, 11, 1))
+
+    # 当日快照没有材料重量、在制料统计没有卷数和投料重量时都是未知，不能显示成 0
+    assert [(row['coil_count'], row['total_weight'], row['feeding_weight']) for row in from_daily_snapshot] == [(2, None, 13.0)]
+    assert [(row['coil_count'], row['total_weight'], row['feeding_weight']) for row in from_wip_total] == [(None, 528.0, None)]

@@ -88,4 +88,5 @@ test('ProductionPage renders the Stitch source strip from a normalized productio
   assert.match(SRC, /process_output_tons:\s*factoryCommandOverview\.process_output_tons/)
   assert.match(SRC, /dailyProcessOutput/)
   assert.match(SRC, /snapshot\.data\.value\.process_total_output/)
+  assert.match(SRC, /wip_tons:\s*sumWipWeight\(buildDailyWipRows\(dailyOverview\.wip_distribution/)
 })

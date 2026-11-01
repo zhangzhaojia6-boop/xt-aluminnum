@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -31,6 +31,20 @@ LEADER_METRIC_FACTS = {
     'yield_rate': 'daily_yield_rate',
     'contract_weight': 'daily_contract_weight',
 }
+# 日报「当天在制料」的各段，不含退火分厂、精整分厂两个小计
+OVERVIEW_WIP_FIELDS = (
+    ('wip_1650_2050_cold', '1650/2050冷轧'),
+    ('wip_1850_cold', '1850冷轧'),
+    ('wip_milling', '铣床'),
+    ('wip_new_north', '新厂北线'),
+    ('wip_new_south', '新厂南线'),
+    ('wip_park_anneal', '园区退火'),
+    ('wip_straightening', '拉矫'),
+    ('wip_finishing', '精整'),
+    ('wip_park_finishing', '园区精整'),
+    ('wip_hot_plate_shearing', '热轧中厚板剪切'),
+    ('wip_coating', '彩涂'),
+)
 PROJECTION_PRIORITY = source_lane_priority(SOURCE_LANE_DATA_HUB_PROJECTION)
 
 
@@ -68,9 +82,46 @@ def overlay_daily_overview(overview: dict[str, Any], facts: Mapping[str, Mapping
         if field == 'remaining_contract_weight' and 'remaining_contract_delta' in applied:
             kpi['delta'] = facts['remaining_contract_delta']['value']
             kpi['delta_label'] = _fmt_delta_label(kpi['delta'])
+    wip_source = _overlay_wip(overview, facts)
+    if wip_source is not None:
+        applied['wip_total'] = wip_source
     if applied:
         overview['fact_overlay'] = applied
     return overview
+
+
+def _overlay_wip(overview: dict[str, Any], facts: Mapping[str, Mapping[str, Any]]) -> Any:
+    # 在制料统计每天被原地覆盖，过去日期只有日报快照里还留着；按目标日次日取在制时和日报一致
+    total = _adopted_fact(facts, 'wip_total')
+    if total is None or not _default_wip_date(overview):
+        return None
+    rows = [
+        {
+            'workshop': label,
+            'coil_count': None,
+            'total_weight': fact['value'],
+            'feeding_weight': None,
+            'source_basis': 'daily_fact_snapshot',
+            'source_label': '日报口径',
+        }
+        for field, label in OVERVIEW_WIP_FIELDS
+        if (fact := _adopted_fact(facts, field)) is not None and _positive(fact['value'])
+    ]
+    if rows:
+        overview['wip_distribution'] = sorted(rows, key=lambda row: -float(row['total_weight']))
+    for kpi in overview.get('header_kpis') or []:
+        if kpi.get('key') == 'wip_total':
+            kpi['value'] = total['value']
+    return total.get('source_type') or total.get('source')
+
+
+def _default_wip_date(overview: Mapping[str, Any]) -> bool:
+    try:
+        target_date = date.fromisoformat(str(overview.get('target_date')))
+        wip_date = date.fromisoformat(str(overview.get('wip_business_date')))
+    except ValueError:
+        return False
+    return wip_date == target_date + timedelta(days=1)
 
 
 def overlay_factory_dashboard(dashboard: dict[str, Any], facts: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:

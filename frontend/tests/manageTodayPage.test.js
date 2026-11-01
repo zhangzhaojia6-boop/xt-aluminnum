@@ -114,7 +114,8 @@ test('TodayPage shows total wip tons next to the position count', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.match(src, /\{\{\s*wipRows\.length\s*\}\}\s*个位置\s*·\s*\{\{\s*wipTotalText\s*\}\}/)
   assert.match(src, /const wipTotalText\s*=\s*computed/)
-  assert.match(src, /row\.totalWeight/)
+  assert.match(src, /sumWipWeight\(wipRows\.value\)/)
+  assert.match(src, /\{\{\s*row\.detailText\s*\}\}/)
 })
 
 test('TodayPage keeps factory command data basis in the Stitch wall', () => {

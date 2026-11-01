@@ -487,12 +487,13 @@ def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, d
 def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
     wip_total_rows = _latest_wip_total_by_workshop(db, target_date)
     if wip_total_rows:
+        # 在制料统计不带投料重量，卷数常为空；未知就留空，不显示成 0
         result = [
             {
                 'workshop': row['workshop'],
-                'coil_count': row['coil_count'],
+                'coil_count': row['coil_count'] or None,
                 'total_weight': _round2(row['total_weight']),
-                'feeding_weight': 0.0,
+                'feeding_weight': None,
                 'source_basis': row['source_basis'],
                 'source_label': row['source_label'],
                 'snapshot_at': row['snapshot_at'].isoformat() if row.get('snapshot_at') is not None else None,
@@ -527,8 +528,8 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
             result.append({
                 'workshop': workshop,
                 'coil_count': coil_count,
-                'total_weight': _round2(total_weight),
-                'feeding_weight': _round2(_to_float(feeding_weight)),
+                'total_weight': _round2(total_weight) if weight is not None else None,
+                'feeding_weight': _round2(_to_float(feeding_weight)) if feeding_weight is not None else None,
                 'source_basis': source_basis,
                 'source_label': source_label,
             })
@@ -566,12 +567,11 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
     )
     result = []
     for workshop, count, weight, feeding_weight in rows:
-        w = _to_float(weight) / 1000
         result.append({
             'workshop': workshop,
             'coil_count': count or 0,
-            'total_weight': _round2(w),
-            'feeding_weight': _round2(_to_float(feeding_weight)),
+            'total_weight': _round2(_to_float(weight) / 1000) if weight is not None else None,
+            'feeding_weight': _round2(_to_float(feeding_weight)) if feeding_weight is not None else None,
             'source_basis': 'mes_coil_snapshot_business_date',
             'source_label': '外部 MES 当日快照参考',
         })
@@ -1399,7 +1399,7 @@ def build_daily_production_overview(
          'delta': _delta(plant_output['daily_output'], plant_output['yesterday_output']),
          'delta_label': _fmt_delta_label(_delta(plant_output['daily_output'], plant_output['yesterday_output']))},
         {'key': 'plant_inbound_output', 'label': '全厂入库产量', 'value': plant_output.get('finished_inbound_output'), 'unit': '吨'},
-        {'key': 'wip_total', 'label': '在制料总计', 'value': _round2(wip_total), 'unit': '吨'},
+        {'key': 'wip_total', 'label': '在制料总计', 'value': _round2(wip_total) if wip_total > 0 else None, 'unit': '吨'},
         {'key': 'daily_yield', 'label': '日成品率', 'value': yield_rates.get('daily'), 'unit': '%',
          'delta': yield_rates.get('daily_delta'),
          'delta_label': _fmt_delta_label(yield_rates.get('daily_delta'), suffix='%')},

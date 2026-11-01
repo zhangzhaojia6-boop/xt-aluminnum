@@ -281,18 +281,27 @@ export function buildDailyWipRows(rows = []) {
   return filterVisibleWipRows(rows)
     .map((row, index) => {
       const title = rawWorkshopName(row) || '--'
-      const feedingText = formatMetric(row.feeding_weight, '吨')
-      const totalWeight = toNumber(row.total_weight)
+      const coilCount = toNumber(row.coil_count)
+      const sourceLabel = row.source_label || '外部 MES 当日快照参考'
+      // 卷数、投料不知道时不写，避免显示成 0
+      const details = [
+        coilCount ? `${coilCount} 卷` : '',
+        toNumber(row.feeding_weight) === null ? '' : `投料 ${formatMetric(row.feeding_weight, '吨')}`,
+      ].filter(Boolean)
       return {
         key: `${title}-${index}`,
         title,
         weightText: formatMetric(row.total_weight, '吨'),
-        totalWeight: totalWeight ?? 0,
-        feedingText: feedingText === MISSING_DAILY_VALUE ? '投料 —' : `投料 ${feedingText}`,
-        countText: `${toNumber(row.coil_count) ?? 0} 卷`,
-        sourceLabel: row.source_label || '外部 MES 当日快照参考',
+        totalWeight: toNumber(row.total_weight),
+        detailText: details.join(' · ') || sourceLabel,
+        sourceLabel,
       }
     })
+}
+
+export function sumWipWeight(rows = []) {
+  const weights = rows.map((row) => row.totalWeight).filter((weight) => weight !== null && weight !== undefined)
+  return weights.length ? weights.reduce((sum, weight) => sum + weight, 0) : null
 }
 
 export function buildFactActionSummary(factMissing) {

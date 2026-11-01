@@ -10,6 +10,7 @@ import {
   buildDailyWipRows,
   MISSING_DAILY_VALUE,
   openFactTrace,
+  sumWipWeight,
 } from '../src/utils/manageDailyReportSurface.js'
 
 test('fact action summary separates owner fill, source review, and dependency work', () => {
@@ -288,9 +289,24 @@ test('daily wip rows keep source positions and show daily snapshot reference', (
   assert.equal(rows[0].title, '园区在线')
   assert.equal(rows[0].weightText, '9.5 吨')
   assert.equal(rows[0].totalWeight, 9.5)
-  assert.equal(rows[0].feedingText, '投料 12.3 吨')
+  assert.equal(rows[0].detailText, '3 卷 · 投料 12.3 吨')
   assert.equal(rows[0].sourceLabel, '外部 MES 当日快照参考')
   assert.deepEqual(rows.map((row) => row.title), ['园区在线', '新厂北线', '1650/2050冷轧'])
+})
+
+test('daily wip rows leave unknown weight, coils and feeding empty instead of zero', () => {
+  const rows = buildDailyWipRows([
+    { workshop: '精整', total_weight: 695.5, coil_count: null, feeding_weight: null, source_label: '日报口径' },
+    { workshop: '拉矫车间', total_weight: null, coil_count: 2, feeding_weight: 13, source_label: '外部 MES 当日快照参考' },
+  ])
+
+  assert.equal(rows[0].detailText, '日报口径')
+  assert.equal(rows[1].weightText, MISSING_DAILY_VALUE)
+  assert.equal(rows[1].totalWeight, null)
+  assert.equal(rows[1].detailText, '2 卷 · 投料 13 吨')
+  assert.equal(sumWipWeight(rows), 695.5)
+  assert.equal(sumWipWeight([rows[1]]), null)
+  assert.equal(sumWipWeight([]), null)
 })
 
 test('fact closure surface shows zero blocked count when critical facts are confirmed', () => {
