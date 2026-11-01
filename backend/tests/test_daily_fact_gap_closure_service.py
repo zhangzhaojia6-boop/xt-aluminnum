@@ -4,7 +4,8 @@ from datetime import UTC, date, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 from app.models import Base
-from app.models.agent_communication import AgentEvent, AgentOutboxMessage, CommunicationChannel
+from app.models.agent_communication import AgentEvent, AgentOutboxMessage, CommunicationChannel, MultimodalEvidence
+from app.models.hermes_factory_brain import HermesDingTalkSamplingRule
 from app.domain.daily_report_field_contract import DAILY_REPORT_FIELD_CONTRACT_VERSION
 from app.services import agent_communication_service
 from app.services.report import daily_fact_gap_closure_service
@@ -1224,6 +1225,85 @@ def test_sync_notifies_only_when_a_new_human_action_appears() -> None:
             item["field"]
             for item in latest.payload["assignments"]
         } == {"hot_roll_daily", "total_electricity_kwh"}
+    finally:
+        db.close()
+
+
+def _registered_source_evidence(db: Session, *, field: str, created_at: datetime, rule_status: str = "active") -> None:
+    rule_key = "registered-file:yield-workbook:yao-caiyun"
+    db.add(
+        HermesDingTalkSamplingRule(
+            rule_key=rule_key,
+            channel_key="cid-yield",
+            specialist_user_id="yao-caiyun",
+            content_types=["file"],
+            time_window_payload={"mode": "registered_file", "file_name_pattern": "各车间成品率"},
+            status=rule_status,
+        )
+    )
+    db.add(
+        MultimodalEvidence(
+            evidence_type="dingtalk_file",
+            confirmation_status="specialist_sampled",
+            payload={"sampling_rule_key": rule_key, "fact_updates": {field: {"value": 82.73}}},
+            created_at=created_at,
+        )
+    )
+    db.flush()
+
+
+def _assigned_fields(db: Session, outbox_message_id: int | None) -> set[str]:
+    message = db.get(AgentOutboxMessage, outbox_message_id)
+    assert message is not None
+    return {item["field"] for item in message.payload["assignments"]}
+
+
+def test_sync_waits_for_registered_dingtalk_source_until_report_cutoff() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+        _registered_source_evidence(db, field="daily_yield_rate", created_at=NOW - timedelta(days=1))
+        bundle = _bundle("hot_roll_daily", "daily_yield_rate")
+
+        early = sync_daily_fact_gap_events(db, business_date=TARGET_DATE, bundle=bundle, trace_id="trace-registered", now=NOW)
+        early_fields = _assigned_fields(db, early["outbox_message_id"])
+        yield_event = next(
+            event for event in db.query(AgentEvent).all() if (event.payload or {}).get("field") == "daily_yield_rate"
+        )
+        early_status = yield_event.payload["automation_status"]
+        late = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=bundle,
+            trace_id="trace-registered",
+            now=NOW + timedelta(hours=2),
+        )
+        db.commit()
+
+        assert early_fields == {"hot_roll_daily"}
+        assert early_status == "waiting_for_registered_source"
+        assert late["outbox_message_id"] != early["outbox_message_id"]
+        assert _assigned_fields(db, late["outbox_message_id"]) == {"hot_roll_daily", "daily_yield_rate"}
+    finally:
+        db.close()
+
+
+def test_sync_does_not_wait_for_inactive_or_stale_registered_sources() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+        _registered_source_evidence(db, field="daily_yield_rate", created_at=NOW - timedelta(days=1), rule_status="paused")
+
+        result = sync_daily_fact_gap_events(
+            db,
+            business_date=TARGET_DATE,
+            bundle=_bundle("hot_roll_daily", "daily_yield_rate"),
+            trace_id="trace-registered-paused",
+            now=NOW,
+        )
+        db.commit()
+
+        assert _assigned_fields(db, result["outbox_message_id"]) == {"hot_roll_daily", "daily_yield_rate"}
     finally:
         db.close()
 
