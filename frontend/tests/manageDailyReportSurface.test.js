@@ -8,6 +8,7 @@ import {
   buildFactClosureSurface,
   buildDailyWorkshopRows,
   buildDailyWipRows,
+  factSourceLabel,
   MISSING_DAILY_VALUE,
   openFactTrace,
   sumWipWeight,
@@ -120,11 +121,30 @@ test('daily settlement cards use only trusted closure facts for mapped KPIs', ()
       .filter((item) => ['plant-output', 'finished-inbound', 'yield-rate'].includes(item.key))
       .map((item) => [item.key, item.value, item.unit, item.status, item.sourceLabel]),
     [
-      ['plant-output', '62', '吨', 'confirmed', 'mes_packaging_output'],
+      ['plant-output', '62', '吨', 'confirmed', '外部 MES 包装产量'],
       ['finished-inbound', '--', '吨', 'missing', '暂无可信来源'],
-      ['yield-rate', '--', '%', 'missing', 'computed_same_basis'],
+      ['yield-rate', '--', '%', 'missing', '数据中枢同口径计算'],
     ]
   )
+})
+
+test('feeding input card names the source the overview adopted', () => {
+  const [mesCard] = buildDailySettlementCards({ plant_output: { factory_feeding_daily_input: 56.5 } })
+  const [reportCard] = buildDailySettlementCards({
+    plant_output: { factory_feeding_daily_input: 665, factory_feeding_source: 'dingtalk_supplement' },
+  })
+
+  assert.equal(mesCard.sourceLabel, 'MES投料')
+  assert.equal(reportCard.value, '665')
+  assert.equal(reportCard.sourceLabel, '钉钉补充事实')
+})
+
+test('fact sources show in Chinese and unknown ones pass through', () => {
+  assert.equal(factSourceLabel('dingtalk_supplement'), '钉钉补充事实')
+  assert.equal(factSourceLabel('MES Packaging Output'), '外部 MES 包装产量')
+  assert.equal(factSourceLabel('mes_wip_total_snapshot'), 'MES 在制料统计')
+  assert.equal(factSourceLabel('暂无可信来源'), '暂无可信来源')
+  assert.equal(factSourceLabel(null), '')
 })
 
 test('daily settlement cards hide mapped overview numbers when closure is malformed', () => {

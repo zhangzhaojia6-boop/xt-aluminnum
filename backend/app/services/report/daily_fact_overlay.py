@@ -17,10 +17,12 @@ OVERVIEW_FACT_PATHS = {
     'daily_contract_weight': (('contracts', 'daily_new'),),
     'remaining_contract_weight': (('contracts', 'remaining'),),
     'remaining_contract_delta': (('contracts', 'remaining_delta'),),
+    'daily_input_weight': (('plant_output', 'factory_feeding_daily_input'),),
 }
 OVERVIEW_SOURCE_PATHS = {
     'daily_yield_rate': (('yield_rates', 'source'), ('plant_output', 'yield_rate_source')),
     'monthly_yield_rate': (('yield_rates', 'monthly_source'),),
+    'daily_input_weight': (('plant_output', 'factory_feeding_source'),),
 }
 OVERVIEW_KPI_FACTS = {
     'daily_yield': 'daily_yield_rate',

@@ -72,7 +72,7 @@ test('TodayPage removes fixed source claims and relies on backend fact sources',
   assert.doesNotMatch(src, />MES 外部数据</)
   assert.doesNotMatch(src, />人工填报</)
   assert.doesNotMatch(src, />算法数据</)
-  assert.match(src, /fact\.source/)
+  assert.match(src, /\{\{\s*factSourceLabel\(fact\.source\)\s*\}\}/)
 })
 
 test('TodayPage keeps exception as an entrance without proactive prompts', () => {
@@ -167,7 +167,7 @@ test('Today surface replaces overview guesses with confirmed or missing closure 
 
   const byKey = Object.fromEntries(surface.kpiStrip.map((item) => [item.key, item]))
   assert.equal(byKey['plant-output'].value, '62')
-  assert.equal(byKey['plant-output'].sourceLabel, 'mes_packaging_output')
+  assert.equal(byKey['plant-output'].sourceLabel, '外部 MES 包装产量')
   assert.equal(byKey['finished-inbound'].value, '--')
   assert.equal(byKey['finished-inbound'].status, 'missing')
   assert.equal(byKey['finished-inbound'].sourceLabel, '暂无可信来源')

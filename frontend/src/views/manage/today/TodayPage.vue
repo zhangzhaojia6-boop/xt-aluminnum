@@ -75,7 +75,7 @@
           <small v-if="fact.unit">{{ fact.unit }}</small>
         </strong>
         <span class="xt-today__fact-status">{{ factStatusText(fact.status) }}</span>
-        <span class="xt-today__fact-source">{{ fact.source }}</span>
+        <span class="xt-today__fact-source">{{ factSourceLabel(fact.source) }}</span>
         <span class="xt-today__fact-window">{{ fact.businessWindow || '--' }}</span>
       </button>
     </section>
@@ -342,6 +342,7 @@ import { buildTodayStitchSurface } from '../../../utils/stitchManageSurface.js'
 import {
   buildFactActionSummary,
   buildFactClosureSurface,
+  factSourceLabel,
   MISSING_DAILY_VALUE,
   openFactTrace,
   sumWipWeight,

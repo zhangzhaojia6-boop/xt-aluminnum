@@ -13,12 +13,13 @@ BUNDLE_FACTS = {
     'daily_contract_weight': _fact(563),
     'remaining_contract_weight': _fact(5160),
     'remaining_contract_delta': _fact(368.0),
+    'daily_input_weight': _fact(665),
 }
 
 
 def _overview():
     return {
-        'plant_output': {'daily_output': 511.35, 'yield_rate': None, 'monthly_yield_rate': None, 'yield_rate_source': 'unavailable_requires_same_basis'},
+        'plant_output': {'daily_output': 511.35, 'yield_rate': None, 'monthly_yield_rate': None, 'yield_rate_source': 'unavailable_requires_same_basis', 'factory_feeding_daily_input': 56.5},
         'yield_rates': {'daily': None, 'monthly': None},
         'contracts': {'daily_new': None, 'remaining': None, 'remaining_delta': None, 'quality_status': 'missing'},
         'header_kpis': [
@@ -42,6 +43,9 @@ def test_daily_overview_shows_persisted_daily_facts_with_their_source() -> None:
     assert overview['contracts']['daily_new'] == 563
     assert overview['contracts']['remaining'] == 5160
     assert overview['contracts']['remaining_delta'] == 368.0
+    # 投料量和日报一致：钉钉采信的当日投料优先于 MES 卷快照推算
+    assert overview['plant_output']['factory_feeding_daily_input'] == 665
+    assert overview['plant_output']['factory_feeding_source'] == 'dingtalk_supplement'
     kpis = {kpi['key']: kpi for kpi in overview['header_kpis']}
     assert kpis['plant_daily_output']['value'] == 511.35
     assert kpis['daily_yield']['value'] == 82.73
