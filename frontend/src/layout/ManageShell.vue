@@ -169,7 +169,7 @@ const SettingsDrawer = defineAsyncComponent(() => import('../components/manage/S
 import { XtLogo } from '../components/xt'
 import { manageNavGroups } from '../config/manage-navigation'
 import { useAuthStore } from '../stores/auth'
-import { AI_ASSISTANT_OPEN_EVENT } from '../utils/assistantLauncher'
+import { AI_ASSISTANT_OPEN_EVENT, buildAssistantScope } from '../utils/assistantLauncher'
 import { useHudTheme } from '../composables/useHudTheme.js'
 
 useHudTheme()
@@ -215,10 +215,7 @@ const filteredSearchItems = computed(() => {
 })
 const assistantContext = computed(() => assistantContextOverride.value || ({
   route: route.path,
-  scope: {
-    type: 'route',
-    key: route.path || '/manage/today'
-  }
+  scope: buildAssistantScope(route)
 }))
 
 function isActive(path) {
@@ -263,10 +260,7 @@ function handleAssistantOpen(event) {
   const detail = event.detail || {}
   assistantContextOverride.value = {
     route: route.path,
-    scope: detail.scope || {
-      type: 'route',
-      key: route.path || '/manage/today'
-    },
+    scope: buildAssistantScope(route, detail.scope),
     freshness: detail.freshness || {}
   }
   assistantInitialPrompt.value = String(detail.question || '').trim()

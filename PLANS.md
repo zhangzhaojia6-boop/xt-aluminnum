@@ -3,7 +3,32 @@
 > This is a living document. Codex updates it as tasks progress.
 > Use this file to plan complex features before implementation.
 
-## Current Plan: 数据中枢优化三阶段（MES MVC 已接入）
+## Current Plan: 2026-10-31 接手后恢复与验收
+
+### Goal
+沿用 [去统计流 SPEC](docs/superpowers/specs/2026-08-14-statistics-free-operations-spec.md)：10:00 只发送 127 字段完整、无阻塞冲突的正式日报。完成标准：试点车间一周，工人-班长-管理者三端零人工中转。项目自 2026-09-18（`main@0c41ce4a`）起暂停。
+
+### Design Decisions
+- 串行推进：恢复生产 → 单日 127 字段全链路验收 → 试点车间一周；前一步未达标不进下一步。
+- 恢复期日报只发给项目负责人本人，首次发送前先给其过目；单日验收通过后再发真实群。
+- 单日验收选恢复后第一个完整业务日，对照当天手工日报；`D:\输出skill` 只作比对。
+- 网页 AI 四个已知问题在等待期间本地修复并开 PR，生产稳定后再合并部署。
+- 操作边界：只读排查与测试可直接做；走现有带回滚流程部署后告知；写生产库先备份并留 trace；首次给真实员工发钉钉先过目。
+
+### Tasks
+- [ ] 恢复生产访问：生产机 SSH 访问方式；解除 GitHub Actions 账单锁定
+- [ ] 生产恢复：连续 7 个业务日 `/healthz`、`/readyz` 正常，MES 每日同步，Hermes 钉钉 Stream 在线，10:00 日报任务按时跑并留 trace
+- [ ] 单日 127 字段全链路验收（来源 → 日报正文 → 看板 → Hermes 回答 → 缺口任务 → 投递）
+- [x] 网页 AI 修复（PR 待合并）：继承日报日期与事实版本、模型数字一致性校验、工厂大脑未取数不报 replied、日报事实阻塞时不显示“正常运行”
+- [ ] 指定试点车间并跑一周
+
+### Notes
+- 2026-10-31 外部探测：8.140.218.13 的 22/80 端口可连，HTTP 请求挂起无响应；需登录机器排查。
+- 前端全量测试有 12 项既有失败（ManageShell/TodayPage 源码断言，9/14 改版后过期），后端全量有 2 项既有失败（`test_production_workflow_contracts.py`），均非本轮引入。
+
+---
+
+## Previous Plan: 数据中枢优化三阶段（MES MVC 已接入）
 
 ### Goal
 把现有"手填 + 投影骨架 + 5 个确定性 agent + 钉钉占位"这套自洽闭环打磨到极致。不等 MES，先把现状跑通、跑顺、跑快。

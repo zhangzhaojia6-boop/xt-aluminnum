@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -316,3 +316,175 @@ def test_answer_from_context_records_usage_and_respects_daily_limit(tmp_path, mo
         assert db.query(AssistantUsage).count() == 1
     finally:
         db.close()
+
+
+def _patch_empty_context(monkeypatch, *, freshness_status='fresh'):
+    monkeypatch.setattr(
+        ai_context_service.factory_command_service,
+        'build_freshness',
+        lambda _db: {'status': freshness_status, 'lag_seconds': 30},
+    )
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_machine_lines', lambda _db: [])
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_coils', lambda _db: [])
+
+
+def _fake_llm_answer(content):
+    return lambda **_kwargs: LlmTextResponse(
+        content=content, input_tokens=1, output_tokens=1, total_tokens=2, raw_usage={}
+    )
+
+
+def test_llm_answer_with_number_absent_from_facts_falls_back_to_deterministic(monkeypatch):
+    _patch_empty_context(monkeypatch)
+    monkeypatch.setattr(
+        ai_context_service,
+        'generate_llm_summary_with_usage',
+        _fake_llm_answer('{"answer":"今天产量为999999吨。","recommended_next_actions":["直接用于决策"]}'),
+    )
+
+    answer = ai_context_service.answer_from_context(
+        _FakeDB(),
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='今天产量多少？',
+        settings=_llm_settings(),
+    )
+
+    assert '999999' not in answer['answer']
+    assert answer['answer'] == '当前上下文未发现明确异常，建议继续查看同步新鲜度和机列负荷。'
+    assert answer['recommended_next_actions'] == ['查看证据卷', '打开工厂总览', '创建关注项']
+
+
+def test_llm_verification_claim_without_evidence_falls_back(monkeypatch):
+    _patch_empty_context(monkeypatch, freshness_status='stale')
+    monkeypatch.setattr(
+        ai_context_service,
+        'generate_llm_summary_with_usage',
+        _fake_llm_answer('{"answer":"数据已经核验完成，可以放心使用。"}'),
+    )
+
+    answer = ai_context_service.answer_from_context(
+        _FakeDB(),
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='数据可信吗？',
+        settings=_llm_settings(),
+    )
+
+    assert '核验' not in answer['answer']
+    assert answer['confidence'] == 'medium'
+
+
+def test_llm_answer_may_restate_numbers_present_in_facts(monkeypatch):
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'build_freshness', lambda _db: {'status': 'fresh', 'lag_seconds': 30})
+    monkeypatch.setattr(
+        ai_context_service.factory_command_service,
+        'list_machine_lines',
+        lambda _db: [{'line_code': '冷轧:01', 'active_coil_count': 2, 'output_tons': 120.46}],
+    )
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_coils', lambda _db: [])
+    monkeypatch.setattr(
+        ai_context_service,
+        'generate_llm_summary_with_usage',
+        _fake_llm_answer('{"answer":"冷轧:01 有 2 卷在制，产出约 120.5 吨。"}'),
+    )
+
+    answer = ai_context_service.answer_from_context(
+        _FakeDB(),
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='冷轧怎么样？',
+        settings=_llm_settings(),
+    )
+
+    assert answer['answer'] == '冷轧:01 有 2 卷在制，产出约 120.5 吨。'
+
+
+def _daily_snapshot(**overrides):
+    values = {
+        'business_date': date(2026, 10, 29),
+        'payload_hash': 'a1b2c3d4e5f6a7b8',
+        'trace_id': 'trace-daily-1029',
+        'snapshot_reason': 'scheduled_daily_closure',
+        'adopted_values': {'total_output_daily': 1935.649, 'total_electricity_kwh': None},
+        'conflicts': [],
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def test_context_pack_uses_daily_fact_version_for_selected_business_date(monkeypatch):
+    _patch_empty_context(monkeypatch)
+    requested = {}
+
+    def fake_latest(_db, *, target_date):
+        requested['target_date'] = target_date
+        return _daily_snapshot()
+
+    monkeypatch.setattr(ai_context_service.daily_report_fact_closure, '_latest_daily_fact_snapshot', fake_latest)
+
+    pack = ai_context_service.build_context_pack(
+        _FakeDB(),
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        intent='factory_status',
+        scope={'type': 'route', 'key': '/manage/today', 'business_date': '2026-10-29'},
+    )
+
+    assert requested['target_date'] == date(2026, 10, 29)
+    assert pack['daily_facts']['business_date'] == '2026-10-29'
+    assert pack['daily_facts']['fact_version'] == 'a1b2c3d4e5f6a7b8'
+    assert pack['daily_facts']['trace_id'] == 'trace-daily-1029'
+    assert pack['daily_facts']['adopted_values']['total_output_daily'] == 1935.649
+    assert pack['daily_facts']['missing_fields'] == ['total_electricity_kwh']
+
+
+def test_answer_cites_daily_fact_version_and_allows_its_numbers(monkeypatch):
+    _patch_empty_context(monkeypatch)
+    monkeypatch.setattr(
+        ai_context_service.daily_report_fact_closure,
+        '_latest_daily_fact_snapshot',
+        lambda _db, *, target_date: _daily_snapshot(),
+    )
+    monkeypatch.setattr(
+        ai_context_service,
+        'generate_llm_summary_with_usage',
+        _fake_llm_answer('{"answer":"10月29日全厂产量 1935.65 吨，用电量缺失。"}'),
+    )
+
+    answer = ai_context_service.answer_from_context(
+        _FakeDB(),
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='昨天产量多少？',
+        scope={'type': 'route', 'key': '/manage/today', 'business_date': '2026-10-29'},
+        settings=_llm_settings(),
+    )
+
+    assert answer['answer'] == '10月29日全厂产量 1935.65 吨，用电量缺失。'
+    daily_refs = [ref for ref in answer['evidence_refs'] if ref.get('kind') == 'daily_fact_bundle']
+    assert daily_refs == [
+        {
+            'kind': 'daily_fact_bundle',
+            'key': 'a1b2c3d4e5f6a7b8',
+            'business_date': '2026-10-29',
+            'trace_id': 'trace-daily-1029',
+        }
+    ]
+    assert 'total_electricity_kwh' in answer['missing_data']
+
+
+def test_selected_business_date_without_snapshot_is_reported_missing(monkeypatch):
+    _patch_empty_context(monkeypatch)
+    monkeypatch.setattr(
+        ai_context_service.daily_report_fact_closure,
+        '_latest_daily_fact_snapshot',
+        lambda _db, *, target_date: None,
+    )
+
+    answer = ai_context_service.answer_from_context(
+        _FakeDB(),
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='昨天产量多少？',
+        scope={'type': 'route', 'key': '/manage/today', 'business_date': '2026-10-29'},
+        settings=_llm_settings(LLM_ENABLED=False),
+    )
+
+    assert 'daily_fact_bundle' in answer['missing_data']
+    assert answer['confidence'] == 'low'
+    assert '2026-10-29' in answer['answer']
