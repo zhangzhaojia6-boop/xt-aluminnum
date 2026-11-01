@@ -771,7 +771,7 @@ def test_owner_verified_yield_workbook_adds_cell_traceable_fact_update(monkeypat
         monkeypatch.setattr(
             daily_fact_bundle.template_daily_report,
             'build_template_daily_report_facts',
-            lambda db, *, target_date, wip_date=None: {
+            lambda db, *, target_date, wip_date=None, **_kwargs: {
                 'values': {'daily_yield_rate': 96.23},
                 'sources': {'daily_yield_rate': 'computed'},
                 'missing_fields': [],
@@ -852,7 +852,7 @@ def test_owner_verified_wip_screenshot_adds_traceable_fact_update(monkeypatch, t
         monkeypatch.setattr(
             daily_fact_bundle.template_daily_report,
             'build_template_daily_report_facts',
-            lambda db, *, target_date, wip_date=None: {
+            lambda db, *, target_date, wip_date=None, **_kwargs: {
                 'values': {'wip_total': 1758.5},
                 'sources': {'wip_total': 'mes_wip_distribution'},
                 'missing_fields': [],
@@ -1092,7 +1092,7 @@ def test_machine_only_sync_auto_adopts_registered_yield_file(monkeypatch, tmp_pa
         monkeypatch.setattr(
             daily_fact_bundle.template_daily_report,
             'build_template_daily_report_facts',
-            lambda db, *, target_date, wip_date=None: {
+            lambda db, *, target_date, wip_date=None, **_kwargs: {
                 'values': {},
                 'sources': {},
                 'missing_fields': ['daily_yield_rate'],
@@ -1178,7 +1178,7 @@ def test_machine_only_sync_auto_adopts_registered_contract_message(monkeypatch, 
         monkeypatch.setattr(
             daily_fact_bundle.template_daily_report,
             'build_template_daily_report_facts',
-            lambda db, *, target_date, wip_date=None: {
+            lambda db, *, target_date, wip_date=None, **_kwargs: {
                 'values': {},
                 'sources': {},
                 'missing_fields': ['daily_contract_weight', 'remaining_contract_weight'],

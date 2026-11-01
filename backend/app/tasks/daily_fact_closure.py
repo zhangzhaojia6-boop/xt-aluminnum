@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.business_time import last_completed_production_business_date, local_now
 from app.database import get_sessionmaker
 from app.models.reports import DailyReport
-from app.services.report.daily_fact_bundle import build_daily_fact_bundle
+from app.services.report.daily_fact_bundle import _conflict_blocks_ready, build_daily_fact_bundle
 from app.services.report.daily_fact_gap_closure_service import (
     list_open_daily_fact_gap_dates,
     sync_daily_fact_gap_events,
@@ -36,6 +36,7 @@ def run_daily_fact_closure(
             persist_run=True,
             snapshot_reason="scheduled_daily_closure",
             allow_output_skill_reference_adoption=False,
+            allow_datahub_final_reference=False,
             now=now,
         )
         gap_result = sync_daily_fact_gap_events(
@@ -56,7 +57,7 @@ def run_daily_fact_closure(
         "release_ready": (
             bundle["fact_closure"]["status"] == "pass"
             and int(gap_result.get("open") or 0) == 0
-            and not bundle.get("conflicts")
+            and not any(_conflict_blocks_ready(item) for item in bundle.get("conflicts") or [])
         ),
     }
 
