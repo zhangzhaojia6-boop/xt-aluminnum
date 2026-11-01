@@ -31,6 +31,16 @@ def _target_or_last_completed(target_date: date | None) -> date:
     return target_date or last_completed_production_business_date()
 
 
+def _factory_dashboard_with_daily_facts(db: Session, target_date: date | None) -> dict:
+    from app.services.report import daily_fact_overlay
+
+    effective_date = _target_or_last_completed(target_date)
+    return daily_fact_overlay.overlay_factory_dashboard(
+        report_service.build_factory_dashboard(db, target_date=effective_date),
+        daily_fact_overlay.latest_daily_fact_values(db, target_date=effective_date),
+    )
+
+
 def _is_sensitive_key(key: object) -> bool:
     key_text = str(key).lower()
     return any(part in key_text for part in _SENSITIVE_KEY_PARTS)
@@ -82,7 +92,7 @@ def factory_director_dashboard(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    return report_service.build_factory_dashboard(db, target_date=_target_or_last_completed(target_date))
+    return _factory_dashboard_with_daily_facts(db, target_date)
 
 
 @router.get('/workshop-director', response_model=WorkshopDashboardResponse, response_model_exclude_none=True)
@@ -229,7 +239,7 @@ def factory_dashboard_alias(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    return report_service.build_factory_dashboard(db, target_date=_target_or_last_completed(target_date))
+    return _factory_dashboard_with_daily_facts(db, target_date)
 
 
 @router.get('/workshop', response_model=WorkshopDashboardResponse, response_model_exclude_none=True)
@@ -306,9 +316,14 @@ def daily_production_overview(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    from app.services.report import daily_overview_builder
-    return daily_overview_builder.build_daily_production_overview(
+    from app.services.report import daily_fact_overlay, daily_overview_builder
+    effective_date = _target_or_last_completed(target_date)
+    overview = daily_overview_builder.build_daily_production_overview(
         db,
-        target_date=_target_or_last_completed(target_date),
+        target_date=effective_date,
         wip_date=wip_date,
+    )
+    return daily_fact_overlay.overlay_daily_overview(
+        overview,
+        daily_fact_overlay.latest_daily_fact_values(db, target_date=effective_date),
     )
