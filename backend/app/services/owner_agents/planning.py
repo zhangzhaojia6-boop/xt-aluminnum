@@ -63,7 +63,7 @@ def replace_alloy_breakdown(
     db.query(AlloySpecBreakdown).filter(
         AlloySpecBreakdown.business_date == business_date,
         AlloySpecBreakdown.workshop_code == workshop_code,
-    ).delete(synchronize_session=False)
+    ).delete(synchronize_session='fetch')
     db.flush()
 
     created: list[AlloySpecBreakdown] = []

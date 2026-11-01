@@ -59,7 +59,7 @@ def replace_for_date(
 ) -> list[ShipmentOutflowRecord]:
     db.query(ShipmentOutflowRecord).filter(
         ShipmentOutflowRecord.business_date == business_date
-    ).delete(synchronize_session=False)
+    ).delete(synchronize_session='fetch')
     db.flush()
 
     created: list[ShipmentOutflowRecord] = []
