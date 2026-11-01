@@ -127,6 +127,24 @@ def test_hub_query_tool_returns_structured_payload() -> None:
     assert 'priority_order' not in result['source_guidance']
 
 
+def test_hub_query_tool_returns_daily_fact_bundle_facts(monkeypatch) -> None:
+    from app.services import hermes_langchain_tools
+
+    seen: dict[str, object] = {}
+
+    def fake_payload(db, *, target_date, **kwargs):
+        seen.update(target_date=target_date, **kwargs)
+        return {'status': 'blocked', 'facts': {'values': {'remaining_contract_weight': 5160}}}
+
+    monkeypatch.setattr(hermes_langchain_tools.template_daily_report, 'build_template_daily_report_payload', fake_payload)
+    registry = build_tool_registry(build_production_tool_adapters(_db()))
+
+    result = registry['hub_query'](business_date='2026-10-31', query_type='production')
+
+    assert seen['use_fact_bundle'] is True
+    assert result['facts']['values']['remaining_contract_weight'] == 5160
+
+
 def test_hub_query_tool_uses_metric_specific_priority_order_when_metric_key_present() -> None:
     registry = build_tool_registry(build_production_tool_adapters(_db()))
 
