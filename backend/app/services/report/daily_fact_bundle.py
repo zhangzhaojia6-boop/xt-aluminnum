@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import json
@@ -225,6 +225,12 @@ def build_daily_fact_bundle(
     reference_only = allow_output_skill_reference_adoption and _should_adopt_output_skill_reference()
     bundle["reference_only"] = reference_only
     bundle = _apply_dingtalk_supplements(
+        db,
+        bundle=bundle,
+        business_date=business_date,
+        now=effective_now,
+    )
+    bundle = _apply_dingtalk_remaining_contract_delta(
         db,
         bundle=bundle,
         business_date=business_date,
@@ -1063,6 +1069,74 @@ def _apply_dingtalk_supplements(
     bundle["dingtalk_refs"] = dingtalk_refs
     if applied_field_names:
         _remove_applied_missing_fields(bundle, applied_field_names)
+    return _refresh_bundle_metadata(bundle)
+
+
+def _apply_dingtalk_remaining_contract_delta(
+    db: Session,
+    *,
+    bundle: dict[str, Any],
+    business_date: date,
+    now: datetime,
+) -> dict[str, Any]:
+    facts = dict(bundle.get("facts") or {})
+    current = facts.get("remaining_contract_weight")
+    old_fact = facts.get("remaining_contract_delta")
+    new_priority = SOURCE_PRIORITY["dingtalk_supplement"]
+    if not isinstance(current, Mapping) or current.get("source_type") != "dingtalk_supplement":
+        return bundle
+    if isinstance(old_fact, Mapping) and int(old_fact.get("priority") or 0) >= new_priority:
+        return bundle
+    previous_date = business_date - timedelta(days=1)
+    previous_facts = _apply_dingtalk_supplements(db, bundle={"facts": {}}, business_date=previous_date, now=now)["facts"]
+    previous = previous_facts.get("remaining_contract_weight")
+    if not isinstance(previous, Mapping):
+        return bundle
+    try:
+        value = round(float(current["value"]) - float(previous["value"]), 3)
+    except (TypeError, ValueError):
+        return bundle
+
+    previous_detail = previous.get("source_detail") or {}
+    source_detail = {
+        **dict(current.get("source_detail") or {}),
+        "previous_business_date": previous_date.isoformat(),
+        "previous_evidence_id": previous_detail.get("evidence_id"),
+        "previous_trace_id": previous_detail.get("trace_id"),
+        "previous_value": previous.get("value"),
+    }
+    reason = "钉钉计划科合同消息：当日总余合同量减前一日总余合同量"
+    fact = _fact_item(
+        value=value,
+        unit=current.get("unit"),
+        source="dingtalk_supplement",
+        source_type="dingtalk_supplement",
+        priority=new_priority,
+        freshness="supplemented",
+        confidence=_source_confidence("dingtalk_supplement"),
+        adoption_reason=reason,
+        source_detail=source_detail,
+        source_ref=source_detail,
+    )
+    evidence_gaps = list(dict.fromkeys([*(current.get("evidence_gaps") or []), *(previous.get("evidence_gaps") or [])]))
+    fact["evidence_status"] = "confirmed" if not evidence_gaps else "needs_evidence"
+    fact["evidence_gaps"] = evidence_gaps
+    facts["remaining_contract_delta"] = fact
+    bundle["facts"] = facts
+    if isinstance(old_fact, Mapping) and old_fact.get("value") != value:
+        bundle["conflicts"] = [
+            *(bundle.get("conflicts") or []),
+            {
+                "field": "remaining_contract_delta",
+                "type": "dingtalk_supplement",
+                "previous_source": old_fact.get("source_type") or old_fact.get("source"),
+                "previous_value": old_fact.get("value"),
+                "adopted_source": "dingtalk_supplement",
+                "adopted_value": value,
+                "reason": reason,
+            },
+        ]
+    _remove_applied_missing_fields(bundle, {"remaining_contract_delta"})
     return _refresh_bundle_metadata(bundle)
 
 

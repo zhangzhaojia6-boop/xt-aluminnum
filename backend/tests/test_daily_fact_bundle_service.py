@@ -2441,6 +2441,143 @@ def test_dingtalk_daily_input_updates_canonical_and_template_alias(
     ]
 
 
+def _plan_contract_remaining_evidence(business_date: str, remaining: int) -> MultimodalEvidence:
+    return MultimodalEvidence(
+        evidence_type="dingtalk_text",
+        recognized_text=f"投料量：2050投料414吨 当天合同563吨 总余合同量{remaining}吨",
+        confirmation_status="specialist_sampled",
+        payload={
+            "business_date": business_date,
+            "trace_id": f"trace-plan-contract-{business_date}",
+            "parse_status": "text_captured",
+            "fact_updates": {
+                "remaining_contract_weight": {
+                    "value": remaining,
+                    "unit": "吨",
+                    "reason": "钉钉计划科合同消息明确总余合同量",
+                    "source_ref": {"parser": "plan_contract_message_v1", "business_date": business_date},
+                }
+            },
+        },
+    )
+
+
+def _patch_contract_template(monkeypatch, *, values: dict[str, Any], sources: dict[str, Any]) -> dict[str, Any]:
+    from app.services.report import daily_fact_bundle
+
+    rendered_values: dict[str, Any] = {}
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": dict(values),
+            "sources": dict(sources),
+            "missing_fields": ["remaining_contract_weight", "remaining_contract_delta"],
+            "conflicts": [],
+        }
+
+    def fake_render(payload):
+        rendered_values.update(payload["values"])
+        return "rendered"
+
+    monkeypatch.setattr(daily_fact_bundle.template_daily_report, "build_template_daily_report_facts", fake_template_facts)
+    monkeypatch.setattr(daily_fact_bundle.template_daily_report, "render_template_daily_report", fake_render)
+    return rendered_values
+
+
+def test_dingtalk_remaining_contract_delta_uses_previous_day_dingtalk_remaining(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    rendered_values = _patch_contract_template(monkeypatch, values={}, sources={})
+    db_session.add_all(
+        [
+            _plan_contract_remaining_evidence("2026-10-30", 4792),
+            _plan_contract_remaining_evidence("2026-10-31", 5160),
+        ]
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 10, 31),
+        allow_output_skill_reference_adoption=False,
+        now=datetime(2026, 11, 1, 10, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    fact = bundle["facts"]["remaining_contract_delta"]
+    assert fact["value"] == 368
+    assert fact["unit"] == "吨"
+    assert fact["source_type"] == "dingtalk_supplement"
+    assert fact["evidence_status"] == "confirmed"
+    assert fact["source_detail"]["evidence_id"] == 2
+    assert fact["source_detail"]["previous_evidence_id"] == 1
+    assert fact["source_detail"]["previous_business_date"] == "2026-10-30"
+    assert fact["source_detail"]["previous_value"] == 4792
+    assert rendered_values["remaining_contract_delta"] == 368
+    assert "remaining_contract_delta" not in bundle["missing"]
+
+
+def test_dingtalk_remaining_contract_delta_replaces_lower_priority_delta(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    _patch_contract_template(
+        monkeypatch,
+        values={"remaining_contract_delta": 12},
+        sources={"remaining_contract_delta": "previous_final_report"},
+    )
+    db_session.add_all(
+        [
+            _plan_contract_remaining_evidence("2026-10-30", 4792),
+            _plan_contract_remaining_evidence("2026-10-31", 5160),
+        ]
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 10, 31),
+        allow_output_skill_reference_adoption=False,
+        now=datetime(2026, 11, 1, 10, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert bundle["facts"]["remaining_contract_delta"]["value"] == 368
+    assert any(
+        item["field"] == "remaining_contract_delta"
+        and item["type"] == "dingtalk_supplement"
+        and item["previous_source"] == "previous_final_report"
+        and item["previous_value"] == 12
+        and item["adopted_value"] == 368
+        for item in bundle["conflicts"]
+    )
+
+
+def test_dingtalk_remaining_contract_delta_stays_missing_without_previous_day_message(
+    monkeypatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    _patch_contract_template(monkeypatch, values={}, sources={})
+    db_session.add(_plan_contract_remaining_evidence("2026-10-31", 5160))
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=date(2026, 10, 31),
+        allow_output_skill_reference_adoption=False,
+        now=datetime(2026, 11, 1, 10, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert bundle["facts"]["remaining_contract_weight"]["value"] == 5160
+    assert "remaining_contract_delta" not in bundle["facts"]
+    assert "remaining_contract_delta" in bundle["missing"]
+
+
 def test_human_confirmed_dingtalk_confirm_result_stays_candidate_only(
     monkeypatch,
     db_session: Session,
