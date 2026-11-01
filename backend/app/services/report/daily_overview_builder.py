@@ -744,36 +744,34 @@ def _build_energy(db: Session, target_date: date) -> dict:
     }
 
 
-def _build_contracts(db: Session, target_date: date) -> dict:
-    projection = build_contract_projection(db, target_date=target_date)
-    daily_new = _round2(_to_float(projection.get('daily_contract_weight')))
-    monthly_total = _round2(_to_float(projection.get('month_to_date_contract_weight')))
-    remaining = _round2(_to_float(projection.get('remaining_contract_weight')))
-    remaining_delta = _round2(_to_float(projection.get('remaining_contract_delta_weight')))
-    projection_delta_raw = projection.get('remaining_contract_delta_weight')
-    has_explicit_delta = (projection_delta_raw not in (None, '') and _to_float(projection_delta_raw) != 0) or any(
-        item.get('remaining_contract_delta_weight') is not None
+def _reported_contract_value(projection: dict, field_name: str) -> float | None:
+    raw = projection.get(field_name)
+    reported = (raw not in (None, '') and _to_float(raw) != 0) or any(
+        item.get(field_name) is not None
         for item in projection.get('items', [])
         if isinstance(item, dict)
     )
-    if not has_explicit_delta and remaining is not None:
+    return _round2(_to_float(raw)) if reported else None
+
+
+def _build_contracts(db: Session, target_date: date) -> dict:
+    projection = build_contract_projection(db, target_date=target_date)
+    daily_new = _reported_contract_value(projection, 'daily_contract_weight')
+    monthly_total = _reported_contract_value(projection, 'month_to_date_contract_weight')
+    remaining = _reported_contract_value(projection, 'remaining_contract_weight')
+    remaining_delta = _reported_contract_value(projection, 'remaining_contract_delta_weight')
+    if remaining_delta is None and remaining is not None:
         previous_projection = build_contract_projection(db, target_date=target_date - timedelta(days=1))
-        if previous_projection.get('quality_status') != 'missing':
-            previous_remaining = _round2(_to_float(previous_projection.get('remaining_contract_weight')))
-            if previous_remaining is not None:
-                remaining_delta = _delta(remaining, previous_remaining)
+        previous_remaining = _reported_contract_value(previous_projection, 'remaining_contract_weight')
+        if previous_remaining is not None:
+            remaining_delta = _delta(remaining, previous_remaining)
     quality_status = projection.get('quality_status')
-    has_contract_projection = quality_status != 'missing'
 
     return {
         'daily_new': daily_new,
         'monthly_total': monthly_total,
-        'daily_input': (
-            _round2(_to_float(projection.get('daily_input_weight'))) if has_contract_projection else None
-        ),
-        'monthly_input': (
-            _round2(_to_float(projection.get('month_to_date_input_weight'))) if has_contract_projection else None
-        ),
+        'daily_input': _reported_contract_value(projection, 'daily_input_weight'),
+        'monthly_input': _reported_contract_value(projection, 'month_to_date_input_weight'),
         'remaining': remaining,
         'remaining_delta': remaining_delta,
         'unit': '吨',
