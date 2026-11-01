@@ -396,18 +396,25 @@ def _query_input_output_by_workshop(db: Session, start: date, end: date) -> dict
     }
 
 
+def _counted_output(payload: dict[str, Any]) -> float | None:
+    # 冷轧要靠开坯、中退、成品标记才知道哪道算产量；MES 过站记录不带标记时算不出，是缺失而不是 0
+    if set(payload.get('process_stage_outputs') or {}) == {'unmarked'}:
+        return None
+    return payload['output']
+
+
 def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str]) -> list[dict]:
     month_start = target_date.replace(day=1)
     today_scope = _mixed_workshop_output_scope_by_workshop(db, target_date, target_date)
     yesterday_scope = _mixed_workshop_output_scope_by_workshop(db, target_date - timedelta(days=1), target_date - timedelta(days=1))
     monthly_scope = _mixed_workshop_output_scope_by_workshop(db, month_start, target_date)
-    today = {wid: payload['output'] for wid, payload in today_scope.items()}
-    yesterday = {wid: payload['output'] for wid, payload in yesterday_scope.items()}
-    monthly = {wid: payload['output'] for wid, payload in monthly_scope.items()}
+    today = {wid: _counted_output(payload) for wid, payload in today_scope.items()}
+    yesterday = {wid: _counted_output(payload) for wid, payload in yesterday_scope.items()}
+    monthly = {wid: _counted_output(payload) for wid, payload in monthly_scope.items()}
 
     rows = []
     all_ids = (set(today_scope) | set(yesterday_scope) | set(monthly_scope)) & set(ws_map)
-    for wid in sorted(all_ids, key=lambda w: -(today.get(w, 0))):
+    for wid in sorted(all_ids, key=lambda w: -(today.get(w) or 0)):
         name = ws_map.get(wid, f'车间{wid}')
         d = _round2(today.get(wid, 0))
         m = _round2(monthly.get(wid, 0))
