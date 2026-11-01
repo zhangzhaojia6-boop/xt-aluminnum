@@ -3,9 +3,10 @@ import { expect, test } from '@playwright/test'
 
 import { clearAuthStorage } from '../helpers/mock-login'
 import { setupReviewSessionAndMocks } from '../helpers/review-mocks'
+import { setupUnifiedPerCoilEntrySession } from '../helpers/unified-entry-mocks'
 
 const authPages = [
-  { name: 'yesterday dashboard', path: '/manage/today', scope: 'main', heading: '工厂总览' },
+  { name: 'yesterday dashboard', path: '/manage/today', scope: 'main', heading: '经营总览' },
   { name: 'production dashboard', path: '/manage/production', scope: 'main', testId: 'manage-production' },
   { name: 'workshop dashboard', path: '/manage/workshop-dashboard', scope: 'main', testId: 'workshop-dashboard' },
   { name: 'system settings center', path: '/manage/admin/settings', scope: 'main', heading: '系统设置' },
@@ -13,12 +14,13 @@ const authPages = [
   { name: 'quality alerts', path: '/manage/alerts?surface=quality', scope: 'main', heading: '异常', mocks: setupQualityMocks },
   { name: 'reconciliation alerts', path: '/manage/alerts?surface=reconciliation', scope: 'main', heading: '异常', mocks: setupReconciliationMocks },
   { name: 'master center', path: '/manage/master', scope: 'main', heading: '车间主数据' },
-  { name: 'mobile entry', path: '/entry', scope: '.mobile-shell', testId: 'mobile-entry' },
+  { name: 'mobile entry', path: '/entry', scope: '.mobile-shell', testId: 'mobile-entry', session: 'operator' },
   {
     name: 'mobile shift report',
     path: '/mobile/report/2026-04-23/1',
     scope: '.mobile-shell',
     testId: 'mobile-shift-report-workspace',
+    session: 'operator',
     mocks: setupMobileReportMocks
   }
 ]
@@ -230,7 +232,13 @@ test.describe('contrast accessibility audit', () => {
 
   for (const target of authPages) {
     test(`${target.name} has no WCAG AA color contrast violations`, async ({ page }) => {
-      await setupReviewSessionAndMocks(page)
+      if (target.session === 'operator') {
+        // 填报页只对机台账号开放，管理员会被引导到系统设置
+        await page.setViewportSize({ width: 390, height: 844 })
+        await setupUnifiedPerCoilEntrySession(page)
+      } else {
+        await setupReviewSessionAndMocks(page)
+      }
       if (target.mocks) await target.mocks(page)
       await page.goto(target.path)
       await expectPageReady(page, target)
