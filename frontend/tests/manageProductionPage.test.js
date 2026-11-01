@@ -85,7 +85,8 @@ test('ProductionPage renders the Stitch source strip from a normalized productio
   assert.match(SRC, /<FactorySourceStrip[\s\S]*:overview="stitchSurface\.sourceOverview"/)
   assert.match(SRC, /const productionSourceOverview = computed/)
   assert.match(SRC, /today_output_tons:\s*plantOutput\.daily_output/)
-  assert.match(SRC, /process_output_tons:\s*factoryCommandOverview\.process_output_tons/)
+  // 同一天、同一个「过站下机参考」，和经营总览用同一个数；经营总览没有时才用工厂指挥实时汇总
+  assert.match(SRC, /process_output_tons:\s*dailyProcessOutput\s*\?\?\s*factoryCommandOverview\.process_output_tons/)
   assert.match(SRC, /dailyProcessOutput/)
   assert.match(SRC, /snapshot\.data\.value\.process_total_output/)
   assert.match(SRC, /wip_tons:\s*sumWipWeight\(buildDailyWipRows\(dailyOverview\.wip_distribution/)

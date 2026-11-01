@@ -245,9 +245,9 @@ const productionSourceOverview = computed(() => {
     ...factoryCommandOverview,
     source: plantOutput.daily_output == null ? factoryCommandOverview.source : 'mes_projection',
     today_output_tons: plantOutput.daily_output ?? factoryCommandOverview.today_output_tons,
-    process_output_tons: factoryCommandOverview.process_output_tons
+    process_output_tons: dailyProcessOutput
+      ?? factoryCommandOverview.process_output_tons
       ?? factoryCommandOverview.total_output_tons
-      ?? dailyProcessOutput
       ?? snapshot.data.value.process_total_output,
     // 在制是存量，和经营总览同一天的在制料一致；工厂指挥给的是当天投入减产出，不是存量
     wip_tons: sumWipWeight(buildDailyWipRows(dailyOverview.wip_distribution || [])),
