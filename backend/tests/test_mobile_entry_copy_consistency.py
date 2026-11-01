@@ -75,9 +75,10 @@ def test_unified_entry_form_keeps_endpoint_specific_payloads() -> None:
     assert "function buildCoilEntryPayload" in source
     assert "function buildMobileReportPayload" in source
     assert "data: { ...form }" not in source
-    assert "await createCoilEntry(buildCoilEntryPayload(sc), { skipErrorToast: true })" in source
-    assert "const payload = buildMobileReportPayload(sc)" in source
-    assert "await submitMobileReport(payload)" in source
+    assert "retryPayload = buildCoilEntryPayload(sc)" in source
+    assert "await createCoilEntry(retryPayload, { skipErrorToast: true })" in source
+    assert "retryPayload = buildMobileReportPayload(sc)" in source
+    assert "await submitMobileReport(retryPayload)" in source
 
 
 def test_mobile_error_parsers_handle_object_detail_payloads() -> None:
