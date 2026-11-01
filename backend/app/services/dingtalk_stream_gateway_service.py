@@ -33,6 +33,7 @@ from app.services.dingtalk_service import DingTalkDownloadedFile, DingTalkServic
 from app.services.dingtalk_stream_event_service import NormalizedDingTalkEvent
 from app.services.dingtalk_stream_event_service import normalize_dingtalk_stream_event, validate_authorized_group
 from app.services.hermes_day1_evidence_service import record_day1_dingtalk_evidence
+from app.services.hermes_dingtalk_sampling_service import promote_registered_energy_file_evidence
 
 
 LOGGER = logging.getLogger(__name__)
@@ -238,6 +239,8 @@ def _ingest_file_event(
         if process_energy
         else None
     )
+    if (energy_result or {}).get('status') == 'staged':
+        _promote_registered_energy_file(db, evidence, event)
     return _result(
         event,
         accepted=True,
@@ -304,6 +307,23 @@ def _maybe_ingest_energy_file(
             event.trace_id,
         )
         return {'status': 'blocked', 'reason': 'energy_ingest_failed', 'error': exc.__class__.__name__}
+
+
+def _promote_registered_energy_file(
+    db: Session,
+    evidence: MultimodalEvidence,
+    event: NormalizedDingTalkEvent,
+) -> None:
+    try:
+        promote_registered_energy_file_evidence(db, evidence_id=evidence.id)
+        db.commit()
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        LOGGER.warning(
+            'dingtalk_stream_energy_promotion_failed error=%s trace_id=%s',
+            exc.__class__.__name__,
+            event.trace_id,
+        )
 
 
 def _base_evidence_payload(

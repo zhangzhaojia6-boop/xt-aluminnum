@@ -20,6 +20,7 @@ from app.services.dingtalk_verified_fact_extractor import (
 
 REGISTERED_FILE_MODE = 'registered_file'
 REGISTERED_MESSAGE_MODE = 'registered_message'
+REGISTERED_ENERGY_FILE_MODE = 'registered_energy_file'
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,6 +209,45 @@ def adopt_registered_message_evidence(db: Session, *, evidence_id: int) -> str |
     evidence.confirmation_status = 'specialist_sampled'
     db.flush()
     return rule.rule_key
+
+
+def promote_registered_energy_file_evidence(db: Session, *, evidence_id: int) -> str | None:
+    evidence = db.get(MultimodalEvidence, int(evidence_id))
+    if evidence is None:
+        return None
+    payload = dict(evidence.payload or {})
+    ingest = payload.get('energy_ingest') or {}
+    if ingest.get('status') != 'staged' or not ingest.get('batch_id') or payload.get('energy_promotion'):
+        return None
+    rule = _registered_rule(
+        db,
+        payload=payload,
+        mode=REGISTERED_ENERGY_FILE_MODE,
+        content_type='file',
+        pattern_key='file_name_pattern',
+        subject=str(payload.get('file_name') or ''),
+    )
+    if rule is None:
+        return None
+    from scripts.dry_run_energy_import import promote_daily_energy_batch
+
+    promotion = {'rule_key': rule.rule_key, 'batch_id': int(ingest['batch_id'])}
+    evidence.payload = {**payload, 'energy_promotion': {**promotion, 'status': 'promoted'}}
+    db.flush()
+    result = promote_daily_energy_batch(db, batch_id=promotion['batch_id'], commit=True)
+    if result.get('committed'):
+        return rule.rule_key
+    evidence = db.get(MultimodalEvidence, int(evidence_id))
+    evidence.payload = {
+        **dict(evidence.payload or {}),
+        'energy_promotion': {
+            **promotion,
+            'status': 'blocked',
+            'blocking_issues': [issue.get('code') for issue in result.get('blocking_issues') or []],
+        },
+    }
+    db.flush()
+    return None
 
 
 def _registered_rule(

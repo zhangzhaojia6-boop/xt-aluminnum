@@ -1401,6 +1401,63 @@ def test_energy_workbook_does_not_mix_manual_workbook_batches_for_total_cost() -
         db.close()
 
 
+def test_energy_workbook_reads_latest_electricity_and_gas_batches_separately() -> None:
+    db = _session()
+    try:
+        batches = {}
+        for energy_type, rows, record_value in (
+            ('electricity', (('高压合计', 178000), ('合计', 175950)), 54700),
+            ('gas', (('铸锭', 24381), ('铸二', 5170), ('合计', 46519)), 24381),
+        ):
+            batch = ImportBatch(
+                batch_no=f'IMP-ENERGY-{energy_type.upper()}-20260717',
+                import_type='energy',
+                source_type='daily_energy_report_locked',
+                file_name=f'7月份各车间{energy_type}统计表.xls',
+                total_rows=len(rows),
+                success_rows=1,
+                failed_rows=0,
+                skipped_rows=len(rows) - 1,
+                status='completed',
+                quality_status='warning',
+                parsed_successfully=True,
+            )
+            db.add(batch)
+            db.flush()
+            for row_number, (label, value) in enumerate(rows, start=1):
+                row = _energy_row(row_number, energy_type, label, value)
+                row.batch_id = batch.id
+                db.add(row)
+            db.add(
+                EnergyImportRecord(
+                    import_batch_id=batch.id,
+                    business_date=REPORT_DATE,
+                    workshop_code='RZ' if energy_type == 'electricity' else 'ZD',
+                    shift_code=None,
+                    energy_type=energy_type,
+                    energy_value=record_value,
+                    unit='kWh' if energy_type == 'electricity' else 'm3',
+                )
+            )
+            batches[energy_type] = batch
+        db.commit()
+
+        facts = template_daily_fact_sources.TemplateDailyFacts(target_date=REPORT_DATE)
+        template_daily_fact_sources.collect_imported_energy_workbook_facts(db, facts)
+
+        assert facts.values['total_electricity_kwh'] == 178000
+        assert facts.values['subitem_electricity_kwh'] == 175950
+        assert facts.values['total_gas_m3'] == 46519
+        assert facts.values['smelting_gas_m3'] == 24381
+        assert facts.values['cast_2_gas_m3'] == 5170
+        assert facts.sources['total_electricity_kwh']['import_batch_id'] == batches['electricity'].id
+        assert facts.sources['total_gas_m3']['import_batch_id'] == batches['gas'].id
+        assert facts.sources['cast_2_gas_m3']['file_name'] == '7月份各车间gas统计表.xls'
+        assert 'total_cost_10k' not in facts.values
+    finally:
+        db.close()
+
+
 def test_energy_workbook_does_not_derive_per_ton_cost_from_rejected_total_cost() -> None:
     db = _session()
     try:

@@ -1885,8 +1885,12 @@ def collect_imported_daily_production_facts(db: Session, facts: TemplateDailyFac
             )
 
 
-def _latest_promoted_energy_batch(db: Session, target_date: date) -> ImportBatch | None:
-    return (
+def _latest_promoted_energy_batch(
+    db: Session,
+    target_date: date,
+    energy_type: str | None = None,
+) -> ImportBatch | None:
+    query = (
         db.query(ImportBatch)
         .join(EnergyImportRecord, EnergyImportRecord.import_batch_id == ImportBatch.id)
         .filter(
@@ -1896,9 +1900,71 @@ def _latest_promoted_energy_batch(db: Session, target_date: date) -> ImportBatch
             ImportBatch.quality_status != "blocked",
             EnergyImportRecord.business_date == target_date,
         )
-        .order_by(ImportBatch.id.desc())
-        .first()
     )
+    if energy_type is not None:
+        query = query.filter(EnergyImportRecord.energy_type == energy_type)
+    return query.order_by(ImportBatch.id.desc()).first()
+
+
+def _group_energy_batch_rows(
+    db: Session,
+    target_date: date,
+    batch: ImportBatch,
+    grouped: dict[str, list[tuple[float, ImportRow, dict[str, Any]]]],
+    *,
+    energy_type: str | None = None,
+) -> set[str]:
+    import_rows = (
+        db.query(ImportRow)
+        .filter(
+            ImportRow.batch_id == batch.id,
+            ImportRow.status.in_(("success", "skipped")),
+        )
+        .order_by(ImportRow.row_number.asc())
+        .all()
+    )
+    promoted_records = (
+        db.query(EnergyImportRecord)
+        .filter(
+            EnergyImportRecord.import_batch_id == batch.id,
+            EnergyImportRecord.business_date == target_date,
+        )
+        .all()
+    )
+
+    seen_types: set[str] = set()
+    for row in import_rows:
+        mapped = row.mapped_data if isinstance(row.mapped_data, dict) else {}
+        if str(mapped.get("business_date") or "") != target_date.isoformat():
+            continue
+        row_energy_type = str(mapped.get("energy_type") or "").strip().lower()
+        if energy_type is not None and row_energy_type != energy_type:
+            continue
+        seen_types.add(row_energy_type)
+        try:
+            value = float(mapped.get("energy_value"))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(value):
+            continue
+        field_name = daily_energy_report_fact_field(
+            row_energy_type,
+            str(mapped.get("source_label") or ""),
+        )
+        if field_name is None:
+            continue
+        if (
+            mapped.get("report_field") != field_name
+            and not _legacy_energy_field_has_promoted_record(
+                field_name=field_name,
+                mapped=mapped,
+                value=value,
+                promoted_records=promoted_records,
+            )
+        ):
+            continue
+        grouped.setdefault(field_name, []).append((value, row, mapped))
+    return seen_types
 
 
 def _legacy_energy_field_has_promoted_record(
@@ -1942,52 +2008,17 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
     batch = _latest_promoted_energy_batch(db, facts.target_date)
     if batch is None:
         return
-    import_rows = (
-        db.query(ImportRow)
-        .filter(
-            ImportRow.batch_id == batch.id,
-            ImportRow.status.in_(("success", "skipped")),
-        )
-        .order_by(ImportRow.row_number.asc())
-        .all()
-    )
-    promoted_records = (
-        db.query(EnergyImportRecord)
-        .filter(
-            EnergyImportRecord.import_batch_id == batch.id,
-            EnergyImportRecord.business_date == facts.target_date,
-        )
-        .all()
-    )
-
+    batches_by_id = {batch.id: batch}
     grouped: dict[str, list[tuple[float, ImportRow, dict[str, Any]]]] = {}
-    for row in import_rows:
-        mapped = row.mapped_data if isinstance(row.mapped_data, dict) else {}
-        if str(mapped.get("business_date") or "") != facts.target_date.isoformat():
+    seen_types = _group_energy_batch_rows(db, facts.target_date, batch, grouped)
+    for energy_type in ("electricity", "gas"):
+        if energy_type in seen_types:
             continue
-        try:
-            value = float(mapped.get("energy_value"))
-        except (TypeError, ValueError):
+        other_batch = _latest_promoted_energy_batch(db, facts.target_date, energy_type)
+        if other_batch is None or other_batch.id in batches_by_id:
             continue
-        if not math.isfinite(value):
-            continue
-        field_name = daily_energy_report_fact_field(
-            str(mapped.get("energy_type") or "").strip().lower(),
-            str(mapped.get("source_label") or ""),
-        )
-        if field_name is None:
-            continue
-        if (
-            mapped.get("report_field") != field_name
-            and not _legacy_energy_field_has_promoted_record(
-                field_name=field_name,
-                mapped=mapped,
-                value=value,
-                promoted_records=promoted_records,
-            )
-        ):
-            continue
-        grouped.setdefault(field_name, []).append((value, row, mapped))
+        batches_by_id[other_batch.id] = other_batch
+        _group_energy_batch_rows(db, facts.target_date, other_batch, grouped, energy_type=energy_type)
 
     if "cast_2_gas_m3" in grouped or "cast_3_gas_m3" in grouped:
         grouped["cast_roll_gas_m3"] = [
@@ -2016,6 +2047,7 @@ def collect_imported_energy_workbook_facts(db: Session, facts: TemplateDailyFact
             for _value, row, mapped in values
         ]
         anchor_token = ",".join(str(row.id) for _value, row, _mapped in values)
+        batch = batches_by_id[values[0][1].batch_id]
         _set_value(
             facts,
             field_name,
