@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.domain.daily_report_field_contract import SOURCE_LANE_DATA_HUB_PROJECTION, source_lane_priority
 from app.services.leader_summary_service import build_deterministic_leader_summary
 from app.services.report.daily_overview_builder import _fmt_delta_label
 from app.services.report.daily_report_fact_closure import _latest_daily_fact_snapshot
@@ -30,6 +31,7 @@ LEADER_METRIC_FACTS = {
     'yield_rate': 'daily_yield_rate',
     'contract_weight': 'daily_contract_weight',
 }
+PROJECTION_PRIORITY = source_lane_priority(SOURCE_LANE_DATA_HUB_PROJECTION)
 
 
 def latest_daily_fact_values(db: Session | None, *, target_date: date) -> dict[str, Mapping[str, Any]]:
@@ -47,7 +49,7 @@ def latest_daily_fact_values(db: Session | None, *, target_date: date) -> dict[s
 def overlay_daily_overview(overview: dict[str, Any], facts: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     applied: dict[str, Any] = {}
     for field, paths in OVERVIEW_FACT_PATHS.items():
-        fact = facts.get(field)
+        fact = _adopted_fact(facts, field)
         if fact is None:
             continue
         source = fact.get('source_type') or fact.get('source')
@@ -77,13 +79,22 @@ def overlay_factory_dashboard(dashboard: dict[str, Any], facts: Mapping[str, Map
         if not isinstance(metrics, dict):
             continue
         for key, field in LEADER_METRIC_FACTS.items():
-            if field in facts:
-                metrics[key] = facts[field]['value']
-        if 'daily_yield_rate' not in facts and not _positive(metrics.get('yield_rate')):
+            fact = _adopted_fact(facts, field)
+            if fact is not None:
+                metrics[key] = fact['value']
+        if _adopted_fact(facts, 'daily_yield_rate') is None and not _positive(metrics.get('yield_rate')):
             metrics['yield_rate'] = None
     if leader_summary.get('summary_source') == 'deterministic' and isinstance(leader_summary.get('metrics'), dict):
         leader_summary['summary_text'] = build_deterministic_leader_summary(metrics=leader_summary['metrics'])
     return dashboard
+
+
+def _adopted_fact(facts: Mapping[str, Mapping[str, Any]], field: str) -> Mapping[str, Any] | None:
+    fact = facts.get(field)
+    if fact is None:
+        return None
+    source = fact.get('source_type') or fact.get('source')
+    return fact if source_lane_priority(source) > PROJECTION_PRIORITY else None
 
 
 def _positive(value: Any) -> bool:
