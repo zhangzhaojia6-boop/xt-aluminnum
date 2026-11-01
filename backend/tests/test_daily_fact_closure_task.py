@@ -537,3 +537,74 @@ def test_startup_catchup_executes_missed_business_day_and_is_idempotent(
     snapshot = db_session.query(DailyFactBundleSnapshot).one()
     assert snapshot.business_date == date(2026, 7, 7)
     assert snapshot.snapshot_reason == "scheduled_daily_closure"
+
+
+def _stub_wip_template(monkeypatch: pytest.MonkeyPatch, live_wip: dict[str, float]) -> None:
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setenv("OUTPUT_SKILL_REFERENCE_MODE", "compare")
+    monkeypatch.delenv("OUTPUT_SKILL_ROOT", raising=False)
+    monkeypatch.delenv("OUTPUT_SKILL_REFERENCE_ROOT", raising=False)
+
+    def fake_template_facts(db, *, target_date, wip_date=None):
+        return {
+            "values": {"total_output_daily": 511.35, **live_wip},
+            "sources": {
+                "total_output_daily": {"source_type": "mes_packaging_output"},
+                **{field: {"source_type": "mes_wip_total_snapshot"} for field in live_wip},
+            },
+            "missing_fields": [] if live_wip else ["wip_total"],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(daily_fact_bundle.template_daily_report, "build_template_daily_report_facts", fake_template_facts)
+
+
+def _scheduled_bundle(db_session: Session, business_date: date) -> dict:
+    from app.services.report import daily_fact_bundle
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(
+        db_session,
+        business_date=business_date,
+        trace_id=f"daily-fact-closure:{business_date.isoformat()}",
+        persist_run=True,
+        snapshot_reason="scheduled_daily_closure",
+        allow_output_skill_reference_adoption=False,
+    )
+    db_session.commit()
+    return bundle
+
+
+def test_refresh_keeps_wip_captured_before_live_wip_rolled_over(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    live_wip = {"wip_total": 2245.0}
+    _stub_wip_template(monkeypatch, live_wip)
+    _scheduled_bundle(db_session, date(2026, 10, 31))
+    first_snapshot_id = db_session.query(DailyFactBundleSnapshot).one().id
+
+    live_wip.clear()
+    refreshed = _scheduled_bundle(db_session, date(2026, 10, 31))
+
+    assert refreshed["facts"]["wip_total"]["value"] == 2245.0
+    assert refreshed["facts"]["wip_total"]["source_type"] == "mes_wip_total_snapshot"
+    assert refreshed["facts"]["wip_total"]["carried_over_from_snapshot_id"] == first_snapshot_id
+    assert "wip_total" not in refreshed["missing_fields"]
+    snapshot = db_session.query(DailyFactBundleSnapshot).one()
+    assert snapshot.facts["wip_total"]["value"] == 2245.0
+
+
+def test_refresh_uses_live_wip_when_it_is_still_available(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    live_wip = {"wip_total": 2245.0}
+    _stub_wip_template(monkeypatch, live_wip)
+    _scheduled_bundle(db_session, date(2026, 10, 31))
+
+    live_wip["wip_total"] = 2300.0
+    refreshed = _scheduled_bundle(db_session, date(2026, 10, 31))
+
+    assert refreshed["facts"]["wip_total"]["value"] == 2300.0
+    assert "carried_over_from_snapshot_id" not in refreshed["facts"]["wip_total"]

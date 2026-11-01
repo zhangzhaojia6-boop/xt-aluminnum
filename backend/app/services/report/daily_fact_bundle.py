@@ -36,7 +36,7 @@ from app.services.hermes_dingtalk_evidence_service import (
 )
 from app.services.hermes_day1_harness_service import build_output_skill_alignment, load_output_skill_daily_reference
 from app.services.report.daily_fact_evidence_contracts import DailyFactEvidenceVerifier
-from app.services.report.daily_report_fact_closure import build_daily_report_fact_closure
+from app.services.report.daily_report_fact_closure import _latest_daily_fact_snapshot, build_daily_report_fact_closure
 from app.services.report.daily_report_gap_analysis import build_daily_report_gap_plan
 from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 from app.services.report import template_daily_report
@@ -244,6 +244,7 @@ def build_daily_fact_bundle(
             business_date=business_date,
         )
     bundle = _apply_root_owner_corrections(db, bundle=bundle, business_date=business_date)
+    bundle = _carry_over_point_in_time_facts(db, bundle=bundle, business_date=business_date)
     rendered_text = _render_bundle_daily_text(bundle)
     bundle["output_skill_alignment"] = build_output_skill_alignment(
         rendered_text,
@@ -656,6 +657,32 @@ def _persist_bundle(
             setattr(snapshot, field_name, value)
         db.flush()
     return run, snapshot
+
+
+def _carry_over_point_in_time_facts(
+    db: Session,
+    *,
+    bundle: dict[str, Any],
+    business_date: date,
+) -> dict[str, Any]:
+    previous = _latest_daily_fact_snapshot(db, target_date=business_date)
+    previous_facts = previous.facts if previous is not None and isinstance(previous.facts, Mapping) else {}
+    facts = dict(bundle.get("facts") or {})
+    carried: set[str] = set()
+    for field_name in TEMPLATE_FIELD_GROUPS["wip"]:
+        old_fact = previous_facts.get(field_name)
+        new_fact = facts.get(field_name)
+        if not isinstance(old_fact, Mapping) or not _has_fact_value(old_fact.get("value")):
+            continue
+        if isinstance(new_fact, Mapping) and _has_fact_value(new_fact.get("value")):
+            continue
+        facts[field_name] = {**dict(old_fact), "carried_over_from_snapshot_id": previous.id}
+        carried.add(field_name)
+    if not carried:
+        return bundle
+    bundle["facts"] = facts
+    _remove_applied_missing_fields(bundle, carried)
+    return _refresh_bundle_metadata(bundle)
 
 
 def _apply_root_owner_corrections(
