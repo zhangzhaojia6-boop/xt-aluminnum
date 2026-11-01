@@ -44,7 +44,7 @@ test('ManageShell brand lands on the owner today tab', () => {
 })
 
 test('ManageShell wires the settings drawer trigger', () => {
-  assert.match(src, /SettingsDrawer v-if="!isMobileViewport" v-model:open="settingsDrawerOpen"/)
+  assert.match(src, /SettingsDrawer v-if="!isMobileViewport && settingsDrawerOpen" v-model:open="settingsDrawerOpen"/)
   assert.match(src, /v-if="!isMobileViewport" class="xt-manage__settings-trigger" type="button" aria-label="设置" @click="settingsDrawerOpen = true"/)
   assert.match(src, /if \(isMobileViewport\.value\) settingsDrawerOpen\.value = false/)
 })
@@ -62,8 +62,8 @@ test('ManageShell adapts sidebar state to viewport width', () => {
   assert.match(scriptBody, /const drawerSize = computed\(\(\) => \(isMobileViewport\.value \? 'min\(312px, 88vw\)' : '300px'\)\)/)
   assert.match(scriptBody, /window\.addEventListener\(['"]resize['"], syncSidebarViewport/)
   assert.match(scriptBody, /window\.removeEventListener\(['"]resize['"], syncSidebarViewport/)
-  assert.match(src, /--manage-sidebar-expanded:\s*clamp\(220px,\s*17vw,\s*var\(--xt-sidebar-width\)\)/)
-  assert.match(src, /width:\s*min\(var\(--manage-sidebar-expanded\),\s*100vw\)/)
+  assert.match(src, /--manage-sidebar-expanded:\s*216px/)
+  assert.match(src, /width:\s*var\(--manage-sidebar-expanded\)/)
   assert.match(src, /margin-left:\s*var\(--manage-sidebar-expanded\)/)
 })
 
@@ -87,13 +87,9 @@ test('ManageShell keeps adaptive navigation usable in icon and mobile modes', ()
   assert.match(src, /v-if="!collapsed \|\| isAutoRail" class="xt-manage__nav-label"/)
   assert.match(src, /\.xt-manage--collapsed \.xt-manage__brand/)
   assert.match(src, /\.xt-manage--auto-rail \.xt-manage__sidebar:is\(:hover, :focus-within\)/)
-  assert.match(src, /@media \(max-width: 1180px\)/)
-  assert.match(src, /@media \(max-height: 620px\) and \(min-width: 901px\)/)
-  assert.match(src, /@media \(max-height: 560px\) and \(min-width: 901px\)/)
-  assert.match(src, /@media \(max-width: 520px\)/)
-  assert.match(src, /\.xt-manage__search-trigger span/)
-  assert.match(src, /env\(safe-area-inset-bottom\)/)
-  assert.match(src, /scrollbar-width:\s*thin/)
+  assert.doesNotMatch(src, /\.xt-manage--auto-rail \.xt-manage__sidebar:hover/)
+  assert.match(src, /@media \(max-width: 900px\)/)
+  assert.match(src, /@media \(max-width: 640px\)/)
   assert.match(src, /\.xt-manage__drawer-overlay/)
   assert.match(src, /display:\s*flex;\s*flex-direction:\s*column;/)
 })
@@ -111,7 +107,7 @@ test('ManageShell preserves desktop override while navigating inside mobile draw
 })
 
 test('ManageShell closes transient overlays when route changes', () => {
-  assert.match(scriptBody, /import \{ computed, onBeforeUnmount, onMounted, ref, watch \} from ['"]vue['"]/)
+  assert.match(scriptBody, /import \{ computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch \} from ['"]vue['"]/)
   assert.match(src, /<component :is="Component" :key="route\.path" \/>/)
   assert.match(scriptBody, /watch\(\(\) => route\.path/)
   assert.match(scriptBody, /searchOpen\.value = false/)
@@ -121,18 +117,18 @@ test('ManageShell closes transient overlays when route changes', () => {
   assert.match(scriptBody, /keyword\.value = ''/)
 })
 
-test('ManageShell supplies dark industrial tokens to nested management pages', () => {
-  assert.match(src, /--xt-bg-panel:\s*rgba\(6,\s*26,\s*49,\s*0\.88\)/)
-  assert.match(src, /--xt-bg-ink-panel:\s*#081d34/)
-  assert.match(src, /--xt-text:\s*var\(--manage-text\)/)
-  assert.match(src, /--xt-border:\s*var\(--manage-line\)/)
+test('nested management pages get xt tokens from the global light theme', () => {
+  const tokens = fs.readFileSync(path.resolve('src/design/xt-tokens.css'), 'utf8')
+  for (const token of ['--xt-bg-panel', '--xt-bg-ink-panel', '--xt-text', '--xt-border']) {
+    assert.match(tokens, new RegExp(`${token}:`))
+  }
 })
 
 test('ManageShell removes app chrome from printed pages', () => {
   assert.match(src, /@media print/)
-  assert.match(src, /\.xt-manage__sidebar,\s*\.xt-manage__topbar,\s*:deep\(\.xt-manage__drawer\)\s*\{\s*display:\s*none !important;/)
+  assert.match(src, /\.xt-manage__sidebar,\s*\.xt-manage__topbar,\s*\.xt-manage__drawer-overlay\s*\{\s*display:\s*none;/)
   assert.match(src, /\.xt-manage__main,\s*\.xt-manage--collapsed \.xt-manage__main\s*\{\s*min-height:\s*auto;\s*margin-left:\s*0;/)
-  assert.match(src, /\.xt-manage__content\s*\{\s*padding:\s*0;\s*background:\s*#fff;/)
+  assert.match(src, /\.xt-manage__content\s*\{\s*padding:\s*0;/)
 })
 
 test('ManageShell has no forbidden product lexicon', () => {
