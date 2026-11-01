@@ -457,11 +457,10 @@ def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, d
         rows = (
             db.query(
                 MesWipTotalSnapshot.workshop_name,
-                func.sum(MesWipTotalSnapshot.doing_count),
-                func.sum(MesWipTotalSnapshot.doing_weight_tons),
+                MesWipTotalSnapshot.doing_count,
+                MesWipTotalSnapshot.doing_weight_tons,
             )
             .filter(MesWipTotalSnapshot.snapshot_at == latest_at)
-            .group_by(MesWipTotalSnapshot.workshop_name)
             .all()
         )
     except (OperationalError, ProgrammingError):
@@ -472,15 +471,18 @@ def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, d
         key = _wip_workshop_key(workshop)
         if not key:
             continue
-        result[key] = {
+        # 单位按行判断：先相加再判断，会把以吨计但合计超过 1000 的车间误当成公斤
+        row = result.setdefault(key, {
             'key': key,
             'workshop': workshop,
-            'coil_count': int(count or 0),
-            'total_weight': _wip_weight_tons(weight),
+            'coil_count': 0,
+            'total_weight': 0.0,
             'snapshot_at': latest_at,
             'source_basis': 'mes_wip_total_snapshot',
             'source_label': 'MES 在制料统计',
-        }
+        })
+        row['coil_count'] += int(count or 0)
+        row['total_weight'] += _wip_weight_tons(weight)
     return result
 
 

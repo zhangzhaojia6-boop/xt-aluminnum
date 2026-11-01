@@ -1131,7 +1131,10 @@ def _wip_total_snapshot_weight_tons(value: Any) -> float | None:
     number = _to_float(value)
     if number is None:
         return None
-    return number / 1000
+    # 与日报取数一致：单行超过 1000 视为公斤，否则已是吨
+    if number > 1000:
+        return number / 1000
+    return number
 
 
 def _consumable_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -1172,10 +1175,9 @@ def _latest_wip_total_by_workshop(db: Session, *, business_date: date) -> dict[s
         rows = (
             query.with_entities(
                 MesWipTotalSnapshot.workshop_name,
-                func.sum(MesWipTotalSnapshot.doing_count),
-                func.sum(MesWipTotalSnapshot.doing_weight_tons),
+                MesWipTotalSnapshot.doing_count,
+                MesWipTotalSnapshot.doing_weight_tons,
             )
-            .group_by(MesWipTotalSnapshot.workshop_name)
             .all()
         )
     except (OperationalError, ProgrammingError):
@@ -1186,11 +1188,9 @@ def _latest_wip_total_by_workshop(db: Session, *, business_date: date) -> dict[s
         key = _normalize_text(workshop)
         if not key:
             continue
-        result[key] = {
-            'workshop': str(workshop or ''),
-            'coil_count': int(count or 0),
-            'wip_total': _wip_total_snapshot_weight_tons(weight) or 0.0,
-        }
+        item = result.setdefault(key, {'workshop': str(workshop or ''), 'coil_count': 0, 'wip_total': 0.0})
+        item['coil_count'] += int(count or 0)
+        item['wip_total'] += _wip_total_snapshot_weight_tons(weight) or 0.0
     return result
 
 

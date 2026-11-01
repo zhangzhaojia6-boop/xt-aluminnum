@@ -444,6 +444,23 @@ def test_wip_distribution_prefers_wip_total_snapshot_over_daily_snapshot(tmp_pat
     ]
 
 
+def test_wip_distribution_converts_units_per_row_before_summing_a_workshop(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip-per-row.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    snapshot_at = datetime(2026, 11, 1, 8, 0, tzinfo=UTC)
+    db.add_all([
+        MesWipTotalSnapshot(source_id='精整:剪切', workshop_name='精整', process_name='剪切', doing_weight_tons=700.0, snapshot_at=snapshot_at),
+        MesWipTotalSnapshot(source_id='精整:纵剪', workshop_name='精整', process_name='纵剪', doing_weight_tons=400.0, snapshot_at=snapshot_at),
+    ])
+    db.commit()
+
+    payload = daily_overview_builder._build_wip_distribution(db, date(2026, 11, 1))
+
+    # 每行都以吨计；不能把车间合计超过 1000 当成公斤再除以 1000
+    assert [(row['workshop'], row['total_weight']) for row in payload] == [('精整', 1100.0)]
+
+
 def test_wip_distribution_does_not_use_other_day_wip_total_snapshot(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip-total-strict-date.db'}", future=True)
     Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
