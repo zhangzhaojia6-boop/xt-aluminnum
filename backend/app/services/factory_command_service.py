@@ -120,11 +120,12 @@ def _destination(row: Any) -> dict[str, str]:
 
 
 def _weight(row: Any) -> float:
-    for field_name in ('net_weight', 'gross_weight', 'material_weight', 'feeding_weight'):
-        value = getattr(row, field_name, None)
-        if value is not None:
-            return _number(value)
-    return 0.0
+    # MES 卷的净重、毛重、材料重量以公斤计，投料重量以吨计；在制卷的净重常记为 0，要跳过
+    for field_name in ('net_weight', 'gross_weight', 'material_weight'):
+        value = _number(getattr(row, field_name, None))
+        if value > 0:
+            return value / 1000
+    return _number(getattr(row, 'feeding_weight', None))
 
 
 def _weight_tons_from_process(record: Any, tons_field: str, kg_field: str) -> float | None:
@@ -1062,6 +1063,10 @@ def _latest_wip_snapshots(rows: Iterable[Any]) -> list[Any]:
     return [row for row in row_list if getattr(row, 'snapshot_at', None) == latest]
 
 
+def _wip_total_tons(rows: Iterable[Any]) -> float:
+    return sum(_possible_tons(getattr(row, 'doing_weight_tons', None)) or 0.0 for row in rows)
+
+
 def _build_overview_from_mes_extended(
     db: Session,
     *,
@@ -1093,7 +1098,7 @@ def _build_overview_from_mes_extended(
     today_output = sum(_number(getattr(row, 'net_weight_tons', None)) for row in today_stock_rows)
     stock_total = today_output
     daily_wip_total = sum(_number(getattr(row, 'material_weight_tons', None)) for row in daily_wip_rows)
-    wip_total = daily_wip_total if daily_wip_rows else sum(_number(getattr(row, 'doing_weight_tons', None)) for row in wip_rows)
+    wip_total = daily_wip_total if daily_wip_rows else _wip_total_tons(wip_rows)
     if wip_total <= 0 and total_input > 0:
         wip_total = max(total_input - total_output, 0.0)
 
@@ -1562,11 +1567,16 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, 
         )
         if extended_overview is not None:
             return extended_overview
+    # 卷快照每次只刷新派工单前几十卷，其余是旧行，按卷相加代表不了全部在制；有 MES 在制料统计时以它为准
+    mes_wip_rows = _latest_wip_snapshots(
+        _scoped_mes_extended_rows(db, MesWipTotalSnapshot, scope=scope, workshop_field='workshop_name')
+    )
+    wip_tons = _wip_total_tons(mes_wip_rows) if mes_wip_rows else sum(_weight(row) for row in wip_rows)
     return {
         'business_date': target_date.isoformat(),
         'source': response_freshness.get('source') or 'mes_projection',
         'freshness': response_freshness,
-        'wip_tons': round(sum(_weight(row) for row in wip_rows), 4),
+        'wip_tons': round(wip_tons, 4),
         'today_output_tons': round(max(today_output_tons, local_output_tons), 4),
         'stock_tons': round(sum(_weight(row) for row in stock_rows), 4),
         'total_input_tons': local_overview['total_input_tons'] if has_local_rows else 0.0,

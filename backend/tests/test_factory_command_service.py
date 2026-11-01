@@ -117,8 +117,8 @@ def _coil(**overrides):
         'next_process': '退火',
         'status_name': '生产中',
         'delay_hours': 0.0,
-        'net_weight': 10.0,
-        'gross_weight': 10.2,
+        'net_weight': 10000.0,
+        'gross_weight': 10200.0,
         'feeding_weight': 10.5,
         'process_route_text': '铸轧-冷轧-退火',
         'in_stock_date': None,
@@ -184,9 +184,9 @@ def _factory_realtime_session(tmp_path):
 def test_factory_overview_groups_projection_rows_and_labels_estimates(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=10.0, delay_hours=0),
-            _coil(coil_id='MES:2', current_workshop='退火', current_process=None, net_weight=5.0, delay_hours=4),
-            _coil(coil_id='MES:3', current_workshop='成品库', status_name='已入库', net_weight=2.0, in_stock_date=datetime(2026, 5, 2, 9, 0, tzinfo=UTC)),
+            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=10000.0, delay_hours=0),
+            _coil(coil_id='MES:2', current_workshop='退火', current_process=None, net_weight=5000.0, delay_hours=4),
+            _coil(coil_id='MES:3', current_workshop='成品库', status_name='已入库', net_weight=2000.0, in_stock_date=datetime(2026, 5, 2, 9, 0, tzinfo=UTC)),
         ]
     )
     monkeypatch.setattr(
@@ -205,6 +205,83 @@ def test_factory_overview_groups_projection_rows_and_labels_estimates(monkeypatc
     assert overview['cost_estimate']['label'] == '经营估算'
     assert 'profit' not in ''.join(overview['cost_estimate'].keys()).lower()
     assert overview['missing_data'] == ['cost_inputs']
+
+
+def test_factory_coil_weights_read_mes_kilograms_as_tons(monkeypatch):
+    # 与 MES 同步一致：净重、毛重、材料重量以公斤计，投料重量以吨计；在制卷净重常记为 0
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', net_weight=0, gross_weight=None, material_weight=9750.0, feeding_weight=10.0),
+            _coil(coil_id='MES:2', net_weight=None, gross_weight=None, material_weight=None, feeding_weight=8.0),
+            _coil(
+                coil_id='MES:3',
+                current_workshop='成品库',
+                status_name='已入库',
+                net_weight=724.0,
+                gross_weight=779.0,
+                feeding_weight=1.0,
+                in_stock_date=datetime(2026, 5, 2, 9, 0, tzinfo=UTC),
+            ),
+        ]
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    overview = factory_command_service.build_overview(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+    destinations = {item['kind']: item['tons'] for item in factory_command_service.list_destinations(db)}
+
+    assert overview['wip_tons'] == 17.75
+    assert overview['stock_tons'] == 0.724
+    assert overview['today_output_tons'] == 0.724
+    assert destinations == {'in_progress': 17.75, 'finished_stock': 0.724}
+
+
+def _wip_total_batches():
+    # 精整:包装 以公斤计，其余以吨计；4/21 那批是表里残留的旧行
+    latest = datetime(2026, 5, 2, 7, 59, tzinfo=UTC)
+    return [
+        SimpleNamespace(id=1, workshop_name='精整', process_name='剪切', doing_weight_tons=528.0, snapshot_at=latest),
+        SimpleNamespace(id=2, workshop_name='精整', process_name='包装', doing_weight_tons=264254.65, snapshot_at=latest),
+        SimpleNamespace(id=3, workshop_name='彩涂', process_name='洗拉', doing_weight_tons=12.0, snapshot_at=datetime(2026, 4, 21, 7, 40, tzinfo=UTC)),
+    ]
+
+
+def test_factory_overview_from_mes_extended_converts_wip_units_per_row(monkeypatch):
+    db = _FakeDB(wip_snapshots=_wip_total_batches())
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    overview = factory_command_service.build_overview(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert overview['source'] == 'mes_extended'
+    assert overview['wip_tons'] == 792.2547
+
+
+def test_factory_overview_mixed_wip_uses_latest_mes_wip_total_batch(monkeypatch):
+    # 卷快照每次只刷新派工单前几十卷，其余是旧行；有 MES 在制料统计时以它为准
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=0, material_weight=9750.0),
+            _coil(coil_id='MES:2', current_workshop='冷轧', net_weight=0, material_weight=8000.0),
+        ],
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        equipment=[SimpleNamespace(id=101, code='CRM-01', name='1#轧机', workshop_id=1)],
+        shift_rows=[_shift_data(input_weight=4000.0, output_weight=3500.0, qualified_weight=3500.0)],
+        wip_snapshots=_wip_total_batches(),
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-02T08:00:00+00:00',
+        },
+    )
+
+    overview = factory_command_service.build_overview(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert overview['source'] == 'mixed'
+    assert overview['wip_tons'] == 792.2547
 
 
 def test_factory_overview_falls_back_to_local_shift_data_when_projection_empty(monkeypatch):
@@ -320,7 +397,7 @@ def test_factory_overview_includes_pending_mobile_coil_aggregates(monkeypatch):
 def test_factory_overview_blends_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=10.0),
+            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=10000.0),
         ],
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
         equipment=[SimpleNamespace(id=101, code='CRM-01', name='1#轧机', workshop_id=1)],
@@ -367,7 +444,7 @@ def test_factory_overview_blends_local_mobile_coil_aggregates_when_projection_ex
 def test_factory_overview_uses_mes_extended_tables_when_local_rows_absent(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='在线退火分厂', net_weight=10.0),
+            _coil(coil_id='MES:1', current_workshop='在线退火分厂', net_weight=10000.0),
         ],
         process_records=[
             SimpleNamespace(
@@ -778,7 +855,7 @@ def test_factory_lists_fall_back_to_unbound_live_machine_lines(monkeypatch):
 def test_factory_machine_lines_blend_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='冷轧', machine_code='CRM-01', net_weight=10.0),
+            _coil(coil_id='MES:1', current_workshop='冷轧', machine_code='CRM-01', net_weight=10000.0),
         ],
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
         lines=[SimpleNamespace(line_code='CRM-01', line_name='1#轧机', workshop_name='冷轧', slot_no=1)],
@@ -815,7 +892,7 @@ def test_factory_machine_lines_blend_local_mobile_coil_aggregates_when_projectio
 def test_factory_machine_lines_use_latest_fill_business_date_and_reporting_machine(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='2050车间', machine_code='2050冷轧（WIFI）', net_weight=10.0),
+            _coil(coil_id='MES:1', current_workshop='2050车间', machine_code='2050冷轧（WIFI）', net_weight=10000.0),
         ],
         workshops=[SimpleNamespace(id=5, name='2050车间', code='LZ2050')],
         lines=[SimpleNamespace(line_code='2050车间:2050冷轧（wifi）', line_name='2050冷轧（WIFI）', workshop_name='2050车间', slot_no=None)],
@@ -1071,7 +1148,7 @@ def test_factory_command_uses_live_fill_entries_with_mes_material_code_alias(tmp
 def test_factory_workshops_blend_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=10.0),
+            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=10000.0),
         ],
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
         shift_rows=[
@@ -1120,9 +1197,9 @@ def test_factory_workshops_blend_local_mobile_coil_aggregates_when_projection_ex
 def test_workshops_and_machine_lines_group_by_current_scope(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='冷轧', machine_code='冷轧:01', net_weight=10.0, delay_hours=0),
-            _coil(coil_id='MES:2', current_workshop='冷轧', machine_code='冷轧:01', net_weight=5.0, delay_hours=3),
-            _coil(coil_id='MES:3', current_workshop='退火', machine_code='退火:02', net_weight=7.0, delay_hours=0),
+            _coil(coil_id='MES:1', current_workshop='冷轧', machine_code='冷轧:01', net_weight=10000.0, delay_hours=0),
+            _coil(coil_id='MES:2', current_workshop='冷轧', machine_code='冷轧:01', net_weight=5000.0, delay_hours=3),
+            _coil(coil_id='MES:3', current_workshop='退火', machine_code='退火:02', net_weight=7000.0, delay_hours=0),
         ],
         lines=[
             SimpleNamespace(line_code='冷轧:01', line_name='1#轧机', workshop_name='冷轧', slot_no=1),
@@ -1147,8 +1224,8 @@ def test_workshops_and_machine_lines_group_by_current_scope(monkeypatch):
 def test_machine_lines_group_missing_mes_machine_code_as_unmatched(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='2050车间', machine_code=None, net_weight=10.0),
-            _coil(coil_id='MES:2', current_workshop='冷轧', machine_code='冷轧:01', net_weight=5.0),
+            _coil(coil_id='MES:1', current_workshop='2050车间', machine_code=None, net_weight=10000.0),
+            _coil(coil_id='MES:2', current_workshop='冷轧', machine_code='冷轧:01', net_weight=5000.0),
         ],
         lines=[SimpleNamespace(line_code='冷轧:01', line_name='1#轧机', workshop_name='冷轧', slot_no=1)],
     )
@@ -1167,8 +1244,8 @@ def test_machine_lines_group_missing_mes_machine_code_as_unmatched(monkeypatch):
 def test_machine_line_aliases_normalize_non_slot_machine_names(monkeypatch):
     db = _FakeDB(
         coils=[
-            _coil(coil_id='MES:1', current_workshop='冷轧', machine_code='1450冷轧1/2号机', net_weight=10.0),
-            _coil(coil_id='MES:2', current_workshop='冷轧', machine_code='CRM-1450-1', net_weight=5.0),
+            _coil(coil_id='MES:1', current_workshop='冷轧', machine_code='1450冷轧1/2号机', net_weight=10000.0),
+            _coil(coil_id='MES:2', current_workshop='冷轧', machine_code='CRM-1450-1', net_weight=5000.0),
         ],
         lines=[
             SimpleNamespace(
@@ -1486,8 +1563,8 @@ def test_factory_command_filters_projection_rows_by_workshop_scope(monkeypatch):
     db = _FakeDB(
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
         coils=[
-            _coil(coil_id='MES:1', current_workshop='冷轧', workshop_code='LZ', machine_code='1#轧机', net_weight=10.0),
-            _coil(coil_id='MES:2', current_workshop='退火', workshop_code='TH', machine_code='2#退火炉', net_weight=7.0),
+            _coil(coil_id='MES:1', current_workshop='冷轧', workshop_code='LZ', machine_code='1#轧机', net_weight=10000.0),
+            _coil(coil_id='MES:2', current_workshop='退火', workshop_code='TH', machine_code='2#退火炉', net_weight=7000.0),
         ],
         lines=[
             SimpleNamespace(line_code='冷轧:01', line_name='1#轧机', workshop_name='冷轧', slot_no=1),
