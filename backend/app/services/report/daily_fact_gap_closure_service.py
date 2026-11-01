@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -15,7 +15,9 @@ from app.domain.daily_report_field_contract import daily_report_field_contract_f
 from app.models.agent_communication import (
     AgentEvent,
     AgentOutboxMessage,
+    MultimodalEvidence,
 )
+from app.models.hermes_factory_brain import HermesDingTalkSamplingRule
 from app.services import agent_communication_service
 from app.services.report.daily_fact_notification_routing import (
     resolve_daily_fact_notification_routes,
@@ -31,6 +33,9 @@ SOURCE_TYPE = "daily_fact_closure"
 AGENT_CODE = "factory_dispatch"
 OPEN_EVENT_STATUSES = {"new", "open", "pending"}
 OUTBOX_DEDUPE_MINUTES = 31 * 24 * 60
+# 约定钉钉来源（如姚彩云的成品率表）常在 08:05 之后才送达：它近期送过的字段，日报发布当天 10:00 前先等它，不催人补录。
+REGISTERED_SOURCE_WAIT_UNTIL = time(10, 0)
+REGISTERED_SOURCE_LOOKBACK = timedelta(days=14)
 DELIVERY_STATUS_PRIORITY = ("dead_letter", "retrying", "pending", "failed", "sent", "dry_run")
 CORE_FIELD_LABELS = {
     "total_output_daily": "全厂总产量",
@@ -73,6 +78,8 @@ def sync_daily_fact_gap_events(
 ) -> dict[str, Any]:
     checked_at = local_now(now)
     gap_items = _real_source_gap_items(bundle)
+    wait_until = datetime.combine(business_date + timedelta(days=1), REGISTERED_SOURCE_WAIT_UNTIL, tzinfo=checked_at.tzinfo)
+    registered_fields = _registered_source_fields(db, now=checked_at) if checked_at < wait_until else set()
     for item in gap_items:
         item["action_route"] = build_daily_report_gap_action_route(
             business_date=business_date,
@@ -80,6 +87,7 @@ def sync_daily_fact_gap_events(
             trace_id=trace_id,
             action=item,
         )
+        item["waiting_for_registered_source"] = item["field"] in registered_fields
         item["human_action_required"] = _human_action_required(item)
         item["automation_status"] = _automation_status(item)
     existing_events = (
@@ -275,7 +283,7 @@ def sync_daily_fact_gap_events(
                 agent_code=AGENT_CODE,
                 channel_key=channel.channel_key,
                 channel_type=channel.channel_type,
-                title=f"【Hermes 事实闭环】{business_date.isoformat()}",
+                title=f"【日报事实核对】{business_date.isoformat()}",
                 content=_outbox_content(
                     business_date=business_date,
                     gap_items=gap_items,
@@ -610,7 +618,7 @@ def _outbox_content(
             f"- 业务日：{business_date.isoformat()}\n"
             "- 结果：日报缺失事实已补齐，相关事件已自动关闭\n"
             f"- 本轮关单：{resolved_count} 项\n"
-            f"- 追踪号：{trace_id}"
+            f"- 查询编号：{trace_id}"
         )
     action_items = [
         item
@@ -624,6 +632,16 @@ def _outbox_content(
     dependency_count = sum(
         item.get("automation_status") == "waiting_for_dependencies"
         for item in gap_items
+    )
+    registered_wait_count = sum(
+        item.get("automation_status") == "waiting_for_registered_source"
+        for item in gap_items
+    )
+    automatic_count = source_recheck_count + dependency_count + registered_wait_count
+    automatic_line = (
+        f"- 其余 {automatic_count} 项由系统自动核对或等钉钉送达，暂时不用处理；同样的缺口不会重复提醒\n"
+        if automatic_count
+        else "- 同样的缺口不会重复提醒\n"
     )
     item_lines = []
     for item in action_items[:8]:
@@ -649,11 +667,10 @@ def _outbox_content(
         "鑫泰铝业智能大脑完成本轮事实核对。\n\n"
         f"- 业务日：{business_date.isoformat()}\n"
         f"- 需要人工补录：{len(action_items)} 项\n"
-        f"- 后台处理中：来源复查 {source_recheck_count} 项，"
-        f"依赖补齐 {dependency_count} 项；状态不变不会重复提醒\n"
+        f"{automatic_line}"
         f"{resolved_line}"
         + "\n".join(item_lines)
-        + f"\n- 追踪号：{trace_id}"
+        + f"\n- 查询编号：{trace_id}"
     )
 
 
@@ -661,6 +678,7 @@ def _human_action_required(item: Mapping[str, Any]) -> bool:
     return (
         str(item.get("entry_route") or "") == "/entry/fill"
         and bool(item.get("entry_fields"))
+        and not item.get("waiting_for_registered_source")
     )
 
 
@@ -668,7 +686,34 @@ def _human_action_items(gap_items: list[dict[str, Any]]) -> list[dict[str, Any]]
     return [item for item in gap_items if _human_action_required(item)]
 
 
+def _registered_source_fields(db: Session, *, now: datetime) -> set[str]:
+    if not hasattr(db, "query"):
+        return set()
+    active_rule_keys = {
+        rule_key
+        for (rule_key,) in db.query(HermesDingTalkSamplingRule.rule_key)
+        .filter(HermesDingTalkSamplingRule.status == "active")
+        .all()
+    }
+    if not active_rule_keys:
+        return set()
+    fields: set[str] = set()
+    for (payload,) in (
+        db.query(MultimodalEvidence.payload)
+        .filter(MultimodalEvidence.created_at >= now - REGISTERED_SOURCE_LOOKBACK)
+        .all()
+    ):
+        if not isinstance(payload, Mapping) or payload.get("sampling_rule_key") not in active_rule_keys:
+            continue
+        updates = payload.get("fact_updates")
+        if isinstance(updates, Mapping):
+            fields.update(str(field) for field in updates)
+    return fields
+
+
 def _automation_status(item: Mapping[str, Any]) -> str:
+    if item.get("waiting_for_registered_source"):
+        return "waiting_for_registered_source"
     if _human_action_required(item):
         return "waiting_for_owner"
     if str(item.get("fill_strategy") or "") == "dependency_fill":
