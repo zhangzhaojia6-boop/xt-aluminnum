@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -8,7 +8,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.energy import EnergyImportRecord, MachineEnergyRecord
 from app.models.imports import ImportBatch
 from app.models.master import Equipment, Workshop
-from app.models.mes import MesStockRecord
+from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.schemas.energy import EnergySummaryOut
 from app.models.shift import ShiftConfig
@@ -37,6 +37,7 @@ def _session_factory(tmp_path):
             EnergyImportRecord.__table__,
             MachineEnergyRecord.__table__,
             MesStockRecord.__table__,
+            MesWorkshopProcessRecord.__table__,
         ],
     )
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
@@ -75,10 +76,20 @@ def test_energy_summary_uses_mes_packaging_output_when_shift_output_is_empty(tmp
                     energy_kwh=1000,
                     gas_m3=0,
                 ),
+                MesWorkshopProcessRecord(
+                    source_id='pkg-jz-today',
+                    source_path='sqlserver',
+                    workshop_name='精整',
+                    process_name='包装',
+                    output_weight_tons=100,
+                    business_date=BUSINESS_DATE,
+                    end_time=datetime(2026, 6, 12, 12, 0),
+                ),
+                # 成品库调拨是入库口径，不是包装产量（CONTEXT.md），不能当吨能耗分母
                 MesStockRecord(
                     source_id='stock-in-today',
                     source_path='sqlserver',
-                    net_weight_tons=100,
+                    net_weight_tons=300,
                     status_name='1',
                     business_date=BUSINESS_DATE,
                     source_payload={
@@ -100,10 +111,11 @@ def test_energy_summary_uses_mes_packaging_output_when_shift_output_is_empty(tmp
     assert summary['energy_per_ton'] == 10
     basis_row = next(row for row in summary['rows'] if row['source'] == 'mes_packaging_output_basis')
     assert basis_row['output_weight'] == 100
-    assert basis_row['electricity_value'] == 0
-    assert basis_row['gas_value'] == 0
-    assert basis_row['water_value'] == 0
-    assert basis_row['total_energy'] == 0
+    # 这一行只给分母，能耗未知就留空，不写 0
+    assert basis_row['electricity_value'] is None
+    assert basis_row['gas_value'] is None
+    assert basis_row['water_value'] is None
+    assert basis_row['total_energy'] is None
     assert basis_row['energy_per_ton'] == 10
     assert EnergySummaryOut(**basis_row).source_label == '全厂包装'
 
@@ -144,3 +156,27 @@ def test_imported_energy_summary_exposes_only_recorded_energy_types(tmp_path) ->
     assert summary['electricity_value'] == 173500
     assert summary['gas_value'] == 0
     assert summary['available_energy_types'] == ['electricity']
+
+
+def test_energy_per_ton_is_missing_without_energy_data(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(
+            MesWorkshopProcessRecord(
+                source_id='pkg-jz-no-energy',
+                source_path='sqlserver',
+                workshop_name='精整',
+                process_name='包装',
+                output_weight_tons=511.35,
+                business_date=BUSINESS_DATE,
+                end_time=datetime(2026, 6, 12, 12, 0),
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        summary = energy_service.summarize_energy_for_date(db, business_date=BUSINESS_DATE)
+
+    # 没有能耗数据时吨能耗是缺失，不是 0
+    assert summary['total_output_weight'] == 511.35
+    assert summary['energy_per_ton'] is None

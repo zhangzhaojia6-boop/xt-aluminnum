@@ -14,7 +14,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.energy import EnergyImportRecord, IotEnergySnapshot, MachineEnergyRecord
 from app.models.imports import ImportRow
 from app.models.master import Workshop
-from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
+from app.models.mes import MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -29,7 +29,6 @@ VALID_ENERGY_TYPES = {'electricity', 'gas', 'water', 'other'}
 FINAL_PACKAGING_WORKSHOP_CODES = {'JZ', 'LJ', 'JQ'}
 FINAL_PACKAGING_MES_WORKSHOP_NAMES = {'精整', '拉矫', '园区剪切', '剪切'}
 MES_PACKAGING_PROCESS_KEYWORDS = ('包装', '入库')
-MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS = ('精整', '拉矫', '剪切')
 PACKAGING_INBOUND_OUTPUT_FIELD = 'packaging_inbound_output_tons'
 SUBMITTED_ENTRY_STATUSES = {'submitted', 'approved', 'auto_confirmed', 'confirmed'}
 SUBMITTED_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed', 'confirmed'}
@@ -116,27 +115,11 @@ def _plain_text(value) -> str:
     return str(value or '').strip()
 
 
-def _source_payload(row) -> dict:
-    return dict(getattr(row, 'source_payload', None) or {})
-
-
-def _status_key(value) -> str:
-    return _plain_text(value).lower()
-
-
 def _mes_output_tons(row: MesWorkshopProcessRecord) -> float:
     value = _to_float(row.output_weight_tons)
     if value is not None:
         return value
     kg_value = _to_float(row.output_weight_kg)
-    return (kg_value or 0.0) / 1000
-
-
-def _mes_stock_output_tons(row: MesStockRecord) -> float:
-    value = _to_float(row.net_weight_tons)
-    if value is not None:
-        return value
-    kg_value = _to_float(row.net_weight_kg)
     return (kg_value or 0.0) / 1000
 
 
@@ -148,45 +131,14 @@ def _is_mes_packaging_output(row: MesWorkshopProcessRecord) -> bool:
     return any(name in workshop_name for name in FINAL_PACKAGING_MES_WORKSHOP_NAMES)
 
 
-def _is_mes_stock_packaging_output(row: MesStockRecord) -> bool:
-    payload = _source_payload(row)
-    status = _status_key(row.status_name or payload.get('Status') or payload.get('status'))
-    if status not in {'', '1', 'done', 'finished', '入库', '已入库', '正常'}:
-        return False
-    from_department = _plain_text(
-        payload.get('FromDepartment')
-        or payload.get('from_department')
-        or payload.get('fromDept')
-    )
-    to_department = _plain_text(
-        payload.get('ToDepartment')
-        or payload.get('to_department')
-        or payload.get('toDept')
-    )
-    if '半成品' in to_department:
-        return False
-    if to_department == '成品库' or '成品' in to_department or '入库' in to_department:
-        return True
-    if from_department:
-        return any(keyword in from_department for keyword in MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS)
-    return _mes_stock_output_tons(row) > 0
-
-
-def _query_mes_stock_packaging_output_by_date(db: Session, *, business_date: date) -> float:
-    rows = db.query(MesStockRecord).filter(MesStockRecord.business_date == business_date).all()
-    return sum(_mes_stock_output_tons(row) for row in rows if _is_mes_stock_packaging_output(row))
-
-
 def _query_mes_process_packaging_output_by_date(db: Session, *, business_date: date) -> float:
     rows = db.query(MesWorkshopProcessRecord).filter(MesWorkshopProcessRecord.business_date == business_date).all()
     return sum(_mes_output_tons(row) for row in rows if _is_mes_packaging_output(row))
 
 
 def _mes_packaging_output_tons(db: Session, *, business_date: date) -> float:
+    # 和日报「包装产量」同一口径：完成包装工序的产量；成品库调拨是入库口径，不能拿来当分母
     try:
-        stock_output = _query_mes_stock_packaging_output_by_date(db, business_date=business_date)
-        if stock_output > 0:
-            return stock_output
         return _query_mes_process_packaging_output_by_date(db, business_date=business_date)
     except (OperationalError, ProgrammingError):
         return 0.0
@@ -679,10 +631,10 @@ def _with_mes_packaging_output_basis(
             'workshop_code': 'FACTORY',
             'shift_config_id': None,
             'shift_code': None,
-            'electricity_value': 0.0,
-            'gas_value': 0.0,
-            'water_value': 0.0,
-            'total_energy': 0.0,
+            'electricity_value': None,
+            'gas_value': None,
+            'water_value': None,
+            'total_energy': None,
             'output_weight': packaging_output,
             'energy_per_ton': total_energy / packaging_output if total_energy else None,
             'source': 'mes_packaging_output_basis',
@@ -843,7 +795,7 @@ def summarize_energy_for_date(
     else:
         total_output = row_total_output
         output_basis = 'energy_rows'
-    energy_per_ton = total_energy / total_output if total_output else None
+    energy_per_ton = total_energy / total_output if total_output and total_energy else None
     owner_electricity_value = sum(_to_float(item.get('electricity_value')) or 0.0 for item in owner_rows)
     owner_gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in owner_rows)
     owner_water_value = sum(_to_float(item.get('water_value')) or 0.0 for item in owner_rows)
@@ -875,7 +827,7 @@ def summarize_energy_for_date(
         'system_totals': {
             'total_energy': system_total_energy,
             'total_output_weight': system_total_output,
-            'energy_per_ton': system_total_energy / system_total_output if system_total_output else None,
+            'energy_per_ton': system_total_energy / system_total_output if system_total_output and system_total_energy else None,
             'row_count': len(system_rows),
         },
         'owner_totals': {
