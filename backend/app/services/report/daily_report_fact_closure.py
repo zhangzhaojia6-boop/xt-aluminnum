@@ -30,6 +30,8 @@ CRITICAL_DAILY_FACT_FIELDS = (
 
 BLOCKING_STATUSES = {"missing", "mismatch", "needs_evidence"}
 EXPLICIT_EVIDENCE_STATUS_SOURCE_TYPES = {"manual_workbook"}
+# 高优先级来源覆盖了低优先级值时留下的采信记录，不是冲突，不进告警。
+ADOPTION_RECORD_CONFLICT_TYPES = {"root_owner_correction", "verified_owner_daily", "dingtalk_supplement", "adopted_override"}
 
 
 def build_daily_report_fact_closure(bundle: Mapping[str, Any]) -> dict[str, Any]:
@@ -185,7 +187,7 @@ def _fact_conflict_alerts(conflicts: Any, *, target_date: date) -> list[dict[str
     if not isinstance(conflicts, list):
         return alerts
     for index, raw in enumerate(conflicts):
-        if not isinstance(raw, Mapping):
+        if not isinstance(raw, Mapping) or str(raw.get("type") or "").strip() in ADOPTION_RECORD_CONFLICT_TYPES:
             continue
         field = str(raw.get("field") or raw.get("field_name") or "unknown")
         item = _redact_untrusted_source_values(dict(raw), field=field)
