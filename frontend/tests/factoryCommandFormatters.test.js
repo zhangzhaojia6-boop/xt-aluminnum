@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  coilWeightText,
   destinationGroupLabel,
   formatLagLabel,
   formatMachineLineMetric,
@@ -66,4 +67,13 @@ test('factory command labels hide internal keys from management pages', () => {
   assert.equal(formatLagLabel(42), '滞后 42 秒')
   assert.equal(formatLagLabel(3661), '滞后 61 分钟')
   assert.equal(formatSyncTime('2026-05-02T08:30:00+08:00'), '05-02 08:30')
+})
+
+
+test('coil weights read MES kilograms as tons and skip unweighed zeros', () => {
+  // 在制卷没称净重（记 0）；料重、净重、毛重以公斤计，投料以吨计
+  assert.equal(coilWeightText({ material_weight: 9750, net_weight: 0, feeding_weight: 10 }), '料重9.75 吨 / 投料10 吨')
+  assert.equal(coilWeightText({ net_weight: 724, gross_weight: 779, feeding_weight: 1 }), '净重0.72 吨 / 毛重0.78 吨')
+  assert.equal(coilWeightText({ net_weight: 0, feeding_weight: null }), '重量未同步')
+  assert.equal(coilWeightText(null), '重量未同步')
 })

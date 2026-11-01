@@ -135,3 +135,22 @@ export function formatDestination(row = {}) {
     freshness: row.freshness || null
   }
 }
+
+// MES 卷的料重、净重、毛重以公斤计，投料以吨计；记 0 的是还没称重
+const COIL_WEIGHT_FIELDS = [
+  ['料重', 'material_weight', 1000],
+  ['净重', 'net_weight', 1000],
+  ['毛重', 'gross_weight', 1000],
+  ['投料', 'feeding_weight', 1],
+]
+
+export function coilWeightText(coil) {
+  const items = COIL_WEIGHT_FIELDS
+    .map(([label, field, divisor]) => {
+      const value = Number(coil?.[field])
+      if (!Number.isFinite(value) || value <= 0) return ''
+      return `${label}${(value / divisor).toFixed(2).replace(/\.00$/, '')} 吨`
+    })
+    .filter(Boolean)
+  return items.slice(0, 2).join(' / ') || '重量未同步'
+}

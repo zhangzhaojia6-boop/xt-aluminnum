@@ -134,7 +134,7 @@
                   </td>
                   <td data-label="去向">
                     {{ destinationLabel(coil.destination) }}
-                    <small>{{ weightTraceText(coil) }}</small>
+                    <small>{{ coilWeightText(coil) }}</small>
                   </td>
                 </tr>
               </template>
@@ -207,7 +207,7 @@
             </article>
             <article>
               <span>MES 卷重</span>
-              <strong>{{ weightTraceText(flowSource) }}</strong>
+              <strong>{{ coilWeightText(flowSource) }}</strong>
               <small>{{ lifecycleText(flowSource) }}</small>
             </article>
             <article>
@@ -253,6 +253,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { fetchFactoryCommandCoilFlow, fetchFactoryCommandCoils } from '../../../api/factory-command.js'
+import { coilWeightText } from '../../../utils/factoryCommandFormatters.js'
 
 const rawCoils = ref([])
 const selectedCoil = ref(null)
@@ -446,29 +447,6 @@ function formatPercent(value) {
   const numericValue = Number(value)
   if (!Number.isFinite(numericValue)) return '待同步'
   return `${(numericValue * 100).toFixed(2).replace(/\.00$/, '')}%`
-}
-
-function formatPossibleKgWeight(value) {
-  if (value === null || value === undefined || value === '') return ''
-  const numericValue = Number(value)
-  if (!Number.isFinite(numericValue)) return ''
-  const tons = Math.abs(numericValue) >= 1000 ? numericValue / 1000 : numericValue
-  return `${tons.toFixed(2).replace(/\.00$/, '')} 吨`
-}
-
-function weightTraceText(coil) {
-  const items = [
-    ['料重', coil?.material_weight],
-    ['净重', coil?.net_weight],
-    ['毛重', coil?.gross_weight],
-    ['投料', coil?.feeding_weight],
-  ]
-    .map(([label, value]) => {
-      const text = formatPossibleKgWeight(value)
-      return text ? `${label}${text}` : ''
-    })
-    .filter(Boolean)
-  return items.slice(0, 2).join(' / ') || '重量未同步'
 }
 
 function formatDateTime(value) {
