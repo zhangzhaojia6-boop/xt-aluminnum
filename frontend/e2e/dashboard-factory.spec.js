@@ -1,24 +1,17 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
-test.describe('Factory Director Dashboard', () => {
+// 厂长驾驶舱已在 d3399609 下线；旧书签按路由表落到生产分析
+test.describe('retired factory director dashboard', () => {
   test.beforeEach(async ({ page }) => {
     await setupReviewSessionAndMocks(page)
   })
 
-  test('renders factory dashboard with KPI metrics', async ({ page }) => {
-    await page.goto('/manage/factory')
-    await expect(page.getByTestId('factory-dashboard')).toBeVisible()
-    await expect(page.getByText('今日产量').first()).toBeVisible()
-  })
-
-  test('date picker changes target date', async ({ page }) => {
-    await page.goto('/manage/factory')
-    await expect(page.locator('.review-home-hero__controls .el-date-editor')).toBeVisible()
-  })
-
-  test('shows loading state then content', async ({ page }) => {
-    await page.goto('/manage/factory')
-    await expect(page.getByTestId('factory-dashboard')).toBeVisible()
-  })
+  for (const path of ['/dashboard/factory', '/factory']) {
+    test(`${path} lands on production analysis`, async ({ page }) => {
+      await page.goto(path)
+      await expect(page).toHaveURL(/\/manage\/production$/)
+      await expect(page.getByTestId('manage-production')).toBeVisible()
+    })
+  }
 })

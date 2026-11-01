@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
+import { setupStoredFillOnlySession } from './helpers/fill-only-session'
 
 const baseTimestamp = '2026-04-23T08:00:00Z'
 
@@ -105,38 +106,13 @@ async function setupQualityMocks(page, initialIssues = [createQualityIssue()]) {
   return { requests }
 }
 
-async function submitDispositionNote(page, { rowText, actionLabel, note }) {
-  const row = page.locator('.el-table__row', { hasText: rowText })
-  await expect(row).toBeVisible()
-  await row.getByRole('button', { name: actionLabel }).click()
-
-  const messageBox = page.locator('.el-message-box').last()
-  await expect(messageBox).toBeVisible()
-  await messageBox.locator('.el-message-box__input input').fill(note)
-  await messageBox.getByRole('button', { name: '提交' }).click()
-  await expect(page.locator('.el-message-box')).toHaveCount(0)
-}
-
-test('quality center lists issues and opens detail', async ({ page }) => {
+// 质量与告警中心列表、运行检查、解决和忽略已随改版并入异常页（旧地址见 review-runtime.spec.js），这里只保留仍在的详情页
+test('quality issue detail page shows the issue', async ({ page }) => {
   await setupReviewSessionAndMocks(page)
   await setupQualityMocks(page)
 
-  await page.goto('/manage/quality')
+  await page.goto('/manage/quality/detail/11')
 
-  const center = page.locator('.reference-page').filter({ has: page.getByRole('heading', { name: '质量与告警中心' }) })
-  await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(center.getByRole('heading', { name: '质量与告警中心' })).toBeVisible()
-  await expect(center.getByRole('columnheader', { name: '业务日期' })).toBeVisible()
-  await expect(center.getByRole('columnheader', { name: '问题级别' })).toBeVisible()
-  await expect(center.getByRole('columnheader', { name: '处理状态' })).toBeVisible()
-  await expect(center.getByText('成材率低于阈值')).toBeVisible()
-  await expect(center.getByText('workshop:ZR2|machine:ZD-1')).toBeVisible()
-  await expect(center.getByText('成材率', { exact: true })).toBeVisible()
-  await expect(center.getByText('预警')).toBeVisible()
-
-  await center.locator('.el-table__row', { hasText: '成材率低于阈值' }).getByRole('button', { name: '详情' }).click()
-
-  await expect(page).toHaveURL(/\/manage\/quality\/detail\/11$/)
   await expect(page.getByRole('heading', { name: '质量问题详情' })).toBeVisible()
   await expect(page.getByText('数值异常')).toBeVisible()
   await expect(page.getByText('生产系统')).toBeVisible()
@@ -144,80 +120,8 @@ test('quality center lists issues and opens detail', async ({ page }) => {
   await expect(page.getByText('成材率低于阈值')).toBeVisible()
 })
 
-test('quality center run-check uses selected business date and refreshes issues', async ({ page }) => {
-  await setupReviewSessionAndMocks(page)
-  const { requests } = await setupQualityMocks(page)
-
-  await page.goto('/manage/quality')
-
-  const center = page.locator('.reference-page').filter({ has: page.getByRole('heading', { name: '质量与告警中心' }) })
-  const businessDate = await center.locator('.el-date-editor input').first().inputValue()
-  await center.getByRole('button', { name: '运行质量检查' }).click()
-
-  await expect.poll(() => requests.runChecks).toHaveLength(1)
-  expect(requests.runChecks[0].business_date).toBe(businessDate)
-  await expect(center.getByText('workshop:ZR2|machine:ZD-2')).toBeVisible()
-  await expect(center.getByText('产出重量')).toBeVisible()
-  await expect(center.getByText('机列主操产量缺失')).toBeVisible()
-})
-
-for (const scenario of [
-  {
-    actionKey: 'resolve',
-    actionLabel: '标记已解决',
-    rowText: '已解决问题',
-    statusLabel: '已解决',
-    rawNote: '  质检复核后确认已补齐  ',
-    expectedNote: '质检复核后确认已补齐'
-  },
-  {
-    actionKey: 'ignore',
-    actionLabel: '忽略问题',
-    rowText: '忽略问题',
-    statusLabel: '已忽略',
-    rawNote: '重复导入批次，不纳入本次阻断',
-    expectedNote: '重复导入批次，不纳入本次阻断'
-  }
-]) {
-  test(`quality ${scenario.actionKey} sends operator note and updates status`, async ({ page }) => {
-    await setupReviewSessionAndMocks(page)
-    const { requests } = await setupQualityMocks(page, [
-      createQualityIssue({ id: 21, field_name: scenario.rowText, issue_desc: `${scenario.rowText}待处置` })
-    ])
-
-    await page.goto('/manage/quality')
-
-    await submitDispositionNote(page, {
-      rowText: scenario.rowText,
-      actionLabel: scenario.actionLabel,
-      note: scenario.rawNote
-    })
-
-    await expect.poll(() => requests[scenario.actionKey]).toHaveLength(1)
-    expect(requests[scenario.actionKey][0].note).toBe(scenario.expectedNote)
-    await expect(
-      page.locator('.el-table__row', { hasText: scenario.rowText }).locator('.reference-status', {
-        hasText: scenario.statusLabel
-      })
-    ).toBeVisible()
-  })
-}
-
 test('fill-only operator cannot access quality center', async ({ page }) => {
-  await setupReviewSessionAndMocks(page, {
-    token: 'playwright-fill-token',
-    user: {
-      id: 2,
-      username: 'operator',
-      name: 'Playwright Operator',
-      role: 'operator',
-      is_mobile_user: true,
-      is_reviewer: false,
-      is_manager: false,
-      data_scope_type: 'self_team',
-      assigned_shift_ids: []
-    }
-  })
+  await setupStoredFillOnlySession(page)
   await setupQualityMocks(page)
 
   await page.goto('/manage/quality')

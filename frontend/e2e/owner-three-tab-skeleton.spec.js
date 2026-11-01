@@ -17,7 +17,7 @@ test.describe('owner three-tab skeleton', () => {
     await page.goto('/manage/today')
 
     await expect(page.getByTestId('manage-today')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '工厂总览' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '经营总览' })).toBeVisible()
     await expect(page.locator('.xt-manage__sidebar .xt-manage__nav-group-label')).toHaveText([
       '实时调度',
       '昨日报表',
@@ -57,7 +57,7 @@ test.describe('owner three-tab skeleton', () => {
 
     await gotoRedirectingManagePath(page, '/manage/factory', /\/manage\/today$/)
 
-    await gotoRedirectingManagePath(page, '/manage/quality', /\/manage\/alerts(?:\?domain=quality)?$/)
+    await gotoRedirectingManagePath(page, '/manage/quality', /\/manage\/alerts\?domain=quality(?:&target_date=\d{4}-\d{2}-\d{2})?$/)
   })
 
   test('settings drawer exposes frozen destinations and routes to the page', async ({ page }) => {

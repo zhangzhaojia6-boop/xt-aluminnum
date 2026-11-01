@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test'
 
+import { clearAuthStorage } from './helpers/mock-login'
+
 test('dingtalk runtime auto logs in and lands on mobile entry', async ({ page }) => {
+  // 桌面项目会预置管理员登录状态；钉钉免登只在没有已存会话时触发
+  await clearAuthStorage(page)
   await page.addInitScript(() => {
     Object.defineProperty(window.navigator, 'userAgent', {
       get: () => 'Mozilla/5.0 DingTalk',

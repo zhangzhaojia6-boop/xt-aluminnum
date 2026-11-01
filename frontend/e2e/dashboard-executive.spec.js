@@ -1,25 +1,17 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
-test.describe('Executive Dashboard', () => {
+// 经营驾驶舱已在 d3399609 下线并入经营总览；旧书签仍要落到经营总览
+test.describe('retired executive dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await setupReviewSessionAndMocks(page, { skipLogin: true })
+    await setupReviewSessionAndMocks(page)
   })
 
-  test('renders executive dashboard with profit KPIs', async ({ page }) => {
-    await page.goto('/manage/executive')
-    await expect(page.getByText('经营驾驶舱')).toBeVisible()
-    await expect(page.getByText('昨日加工利润')).toBeVisible()
-  })
-
-  test('shows workshop profit ranking', async ({ page }) => {
-    await page.goto('/manage/executive')
-    await expect(page.getByText('车间盈亏榜')).toBeVisible()
-  })
-
-  test('date input triggers reload', async ({ page }) => {
-    await page.goto('/manage/executive')
-    const dateInput = page.locator('input[type="date"]')
-    await expect(dateInput).toBeVisible()
-  })
+  for (const path of ['/dashboard/executive', '/manage/executive']) {
+    test(`${path} lands on the business overview`, async ({ page }) => {
+      await page.goto(path)
+      await expect(page).toHaveURL(/\/manage\/today$/)
+      await expect(page.getByRole('heading', { name: '经营总览' })).toBeVisible()
+    })
+  }
 })
