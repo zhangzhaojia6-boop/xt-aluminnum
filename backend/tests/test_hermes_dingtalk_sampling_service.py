@@ -12,6 +12,7 @@ from app.models.system import User
 from app.services.hermes_dingtalk_sampling_service import (
     adopt_registered_file_evidence,
     adopt_registered_message_evidence,
+    promote_registered_energy_file_evidence,
     sample_dingtalk_message,
 )
 from app.services.hermes_dingtalk_evidence_service import query_dingtalk_evidence
@@ -339,3 +340,100 @@ def test_message_from_unregistered_sender_or_without_pattern_stays_machine_only(
     assert adopt_registered_message_evidence(db, evidence_id=chatter.id) is None
     assert stranger.confirmation_status == 'machine_only'
     assert chatter.confirmation_status == 'machine_only'
+
+
+def _staged_energy_session(tmp_path, *, file_names: tuple[str, ...]):
+    from tests.test_dry_run_energy_import_script import _load_script_module, _write_electricity_workbook
+
+    module = _load_script_module()
+    db = module._create_dry_run_session()
+    module.seed_real_master_data(db)
+    db.add(
+        HermesDingTalkSamplingRule(
+            rule_key='registered-energy-file:electricity:energy-owner',
+            channel_key='cid-energy',
+            specialist_user_id='dt-energy-owner',
+            content_types=['file'],
+            time_window_payload={'mode': 'registered_energy_file', 'days': 'daily', 'file_name_pattern': '各车间电耗统计表'},
+            priority='high',
+            status='active',
+        )
+    )
+    evidence_rows = []
+    for index, file_name in enumerate(file_names, start=1):
+        workbook = tmp_path / f'electricity-{index}.xlsx'
+        _write_electricity_workbook(workbook)
+        staged = module.stage_daily_energy_import(electricity_file=workbook, report_date=date(2026, 5, 5), db=db, commit=True)
+        evidence = MultimodalEvidence(
+            evidence_type='attachment',
+            recognized_text='各车间能耗统计表（26年5月）',
+            confirmation_status='machine_only',
+            payload={
+                'source': 'dingtalk',
+                'trace_id': f'msg-energy-{index}',
+                'group_id': 'cid-energy',
+                'dingtalk_sender_id': 'dt-energy-owner',
+                'parse_status': 'text_captured',
+                'file_name': file_name,
+                'energy_ingest': {'status': 'staged', 'business_date': '2026-05-05', 'batch_id': staged['staging_write']['batch_id']},
+            },
+        )
+        db.add(evidence)
+        db.commit()
+        evidence_rows.append(evidence)
+    return db, evidence_rows
+
+
+def test_registered_energy_file_is_promoted_after_staging(tmp_path) -> None:
+    from app.models.energy import EnergyImportRecord
+
+    db, (evidence,) = _staged_energy_session(tmp_path, file_names=('5月份各车间电耗统计表(5).xlsx',))
+
+    rule_key = promote_registered_energy_file_evidence(db, evidence_id=evidence.id)
+
+    assert rule_key == 'registered-energy-file:electricity:energy-owner'
+    records = db.query(EnergyImportRecord).filter(EnergyImportRecord.business_date == date(2026, 5, 5)).all()
+    assert {record.energy_type for record in records} == {'electricity'}
+    assert evidence.confirmation_status == 'machine_only'
+    assert evidence.payload['energy_promotion'] == {
+        'rule_key': 'registered-energy-file:electricity:energy-owner',
+        'batch_id': evidence.payload['energy_ingest']['batch_id'],
+        'status': 'promoted',
+    }
+    assert promote_registered_energy_file_evidence(db, evidence_id=evidence.id) is None
+    assert db.query(EnergyImportRecord).count() == len(records)
+
+
+def test_energy_file_outside_registered_sender_or_name_stays_staged(tmp_path) -> None:
+    from app.models.energy import EnergyImportRecord
+
+    db, (stranger, other_name) = _staged_energy_session(
+        tmp_path,
+        file_names=('5月份各车间电耗统计表(5).xlsx', '5月份各车间成品率(5).xlsx'),
+    )
+    stranger.payload = {**stranger.payload, 'dingtalk_sender_id': 'dt-someone-else'}
+    db.commit()
+
+    assert promote_registered_energy_file_evidence(db, evidence_id=stranger.id) is None
+    assert promote_registered_energy_file_evidence(db, evidence_id=other_name.id) is None
+    assert db.query(EnergyImportRecord).count() == 0
+    assert 'energy_promotion' not in stranger.payload
+
+
+def test_second_registered_energy_file_for_same_day_keeps_first_and_records_reason(tmp_path) -> None:
+    from app.models.energy import EnergyImportRecord
+
+    db, (first, second) = _staged_energy_session(
+        tmp_path,
+        file_names=('5月份各车间电耗统计表(5).xlsx', '5月份各车间电耗统计表(6).xlsx'),
+    )
+    assert promote_registered_energy_file_evidence(db, evidence_id=first.id) is not None
+    promoted_count = db.query(EnergyImportRecord).count()
+
+    assert promote_registered_energy_file_evidence(db, evidence_id=second.id) is None
+    db.commit()
+
+    assert db.query(EnergyImportRecord).count() == promoted_count
+    second = db.get(MultimodalEvidence, second.id)
+    assert second.payload['energy_promotion']['status'] == 'blocked'
+    assert second.payload['energy_promotion']['blocking_issues'] == ['duplicate_daily_energy_record']

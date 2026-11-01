@@ -690,3 +690,60 @@ def test_excel_file_can_be_passed_to_existing_energy_ingest(monkeypatch) -> None
         assert calls[0][2] == 'file-msg-001'
     finally:
         db.close()
+
+
+def _energy_workbook_download() -> dingtalk_service.DingTalkDownloadedFile:
+    workbook = openpyxl.Workbook()
+    workbook.active.append(['车间/日期', '1日'])
+    buffer = BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+    content = buffer.getvalue()
+    return dingtalk_service.DingTalkDownloadedFile(
+        download_url_host='files.dingtalk.com',
+        content=content,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        size=len(content),
+    )
+
+
+def test_staged_energy_file_is_offered_for_registered_promotion(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    promotions = []
+    monkeypatch.setattr(gateway, 'ingest_dingtalk_energy_file', lambda *_args, **_kwargs: {'status': 'staged', 'batch_id': 7})
+    monkeypatch.setattr(
+        gateway,
+        'promote_registered_energy_file_evidence',
+        lambda _db, *, evidence_id: promotions.append(evidence_id),
+    )
+    db = _db_session()
+    try:
+        payload = _file_payload(
+            content={'fileName': '10月份各车间电耗统计表(5).xls', 'downloadCode': 'download-code-001', 'fileId': 'file-001'},
+        )
+        gateway.ingest_dingtalk_stream_event(db, payload, dingtalk_service=FakeDingTalkService(result=_energy_workbook_download()))
+
+        assert promotions == [db.query(MultimodalEvidence).one().id]
+    finally:
+        db.close()
+
+
+def test_blocked_energy_file_is_not_offered_for_promotion(monkeypatch) -> None:
+    _allow_group(monkeypatch)
+    promotions = []
+    monkeypatch.setattr(gateway, 'ingest_dingtalk_energy_file', lambda *_args, **_kwargs: {'status': 'blocked'})
+    monkeypatch.setattr(
+        gateway,
+        'promote_registered_energy_file_evidence',
+        lambda _db, *, evidence_id: promotions.append(evidence_id),
+    )
+    db = _db_session()
+    try:
+        payload = _file_payload(
+            content={'fileName': '10月份各车间电耗统计表(5).xls', 'downloadCode': 'download-code-001', 'fileId': 'file-001'},
+        )
+        gateway.ingest_dingtalk_stream_event(db, payload, dingtalk_service=FakeDingTalkService(result=_energy_workbook_download()))
+
+        assert promotions == []
+    finally:
+        db.close()
