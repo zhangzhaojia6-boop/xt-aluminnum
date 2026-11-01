@@ -135,10 +135,10 @@ test('SettingsDrawer component imports config, auth store, RouterLink, and emits
 test('ManageShell wires the settings drawer gear', () => {
   const src = readFileSync(new URL('../src/layout/ManageShell.vue', import.meta.url), 'utf8')
 
-  assert.match(src, /import\s+SettingsDrawer\s+from ['"]\.\.\/components\/manage\/SettingsDrawer\.vue['"]/)
+  assert.match(src, /const SettingsDrawer = defineAsyncComponent\(\(\) => import\(['"]\.\.\/components\/manage\/SettingsDrawer\.vue['"]\)\)/)
   assert.match(src, /import\s+\{[^}]*Setting[^}]*\}\s+from ['"]@element-plus\/icons-vue['"]/)
   assert.match(src, /v-if=["']!isMobileViewport["'][^>]*aria-label=["']设置["']/)
   assert.match(src, /settingsDrawerOpen\s*=\s*ref\(false\)/)
-  assert.match(src, /<SettingsDrawer\s+v-if=["']!isMobileViewport["']\s+v-model:open=["']settingsDrawerOpen["']\s*\/>/)
+  assert.match(src, /<SettingsDrawer\s+v-if=["']!isMobileViewport && settingsDrawerOpen["']\s+v-model:open=["']settingsDrawerOpen["']\s*\/>/)
   assert.match(src, /if\s*\(\s*isMobileViewport\.value\s*\)\s*settingsDrawerOpen\.value\s*=\s*false/)
 })

@@ -23,9 +23,9 @@ test('TodayPage composes the active overview pieces', () => {
   assert.match(src, /useDashboardSnapshot/)
 })
 
-test('TodayPage h1 is the Stitch factory overview title with date context nearby', () => {
+test('TodayPage h1 is the business overview title with date context nearby', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /<h1>工厂总览<\/h1>/)
+  assert.match(src, /<h1>经营总览<\/h1>/)
   assert.match(src, /统计周期：\{\{\s*businessDateLabel\s*\}\}/)
   assert.equal(/pageTitle/.test(src), false)
 })
@@ -56,11 +56,11 @@ test('TodayPage 数字卡 not bound to click handlers', () => {
   assert.equal(/<KpiBar[^>]*@click/.test(src), false)
 })
 
-test('TodayPage uses the Stitch industrial blue wall without expensive effects', () => {
+test('TodayPage uses the light workspace without expensive effects', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   const styleBlock = src.split('<style')[1] || ''
-  assert.match(styleBlock, /#03111d/)
-  assert.match(styleBlock, /#061d2e/)
+  assert.match(src, /data-visual-pass="light-workspace"/)
+  assert.match(styleBlock, /--xt-bg-panel:\s*#fff/)
   assert.match(styleBlock, /xt-today__command-wall/)
   assert.doesNotMatch(styleBlock, /animation:\s*[^;{}]*infinite/)
   assert.doesNotMatch(styleBlock, /backdrop-filter|filter:\s*blur/i)
@@ -212,6 +212,8 @@ test('mobile Today keeps the report date on one horizontal row', () => {
   const today = source('../src/views/manage/today/TodayPage.vue')
   const switcher = source('../src/components/manage/DateSwitcher.vue')
   assert.match(switcher, /\.xt-date-switcher__label\s*\{[\s\S]*?white-space:\s*nowrap/)
-  assert.match(today, /@media \(max-width:\s*720px\)[\s\S]*?\.xt-today__top-actions\s*\{[\s\S]*?display:\s*grid/)
-  assert.match(today, /\.xt-today__top-actions\s+:deep\(\.xt-date-switcher\)\s*\{[\s\S]*?width:\s*100%/)
+  assert.match(switcher, /\.xt-date-switcher\s*\{[^}]*display:\s*flex;/)
+  assert.doesNotMatch(switcher, /\.xt-date-switcher\s*\{[^}]*flex-wrap:\s*wrap/)
+  assert.match(today, /@media \(max-width:\s*700px\)[\s\S]*?\.xt-today__top-actions\s*\{\s*width:\s*100%/)
+  assert.match(today, /@media \(max-width:\s*480px\)[\s\S]*?:deep\(\.xt-date-switcher\)\s*\{[^}]*max-width:\s*100%/)
 })

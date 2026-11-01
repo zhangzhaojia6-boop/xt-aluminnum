@@ -21,7 +21,6 @@ const entryShell = source('../src/layout/EntryShell.vue')
 
 const CORE_PAGES = [
   ['live', live],
-  ['today', today],
   ['production', production],
 ]
 
@@ -41,6 +40,7 @@ test('second pass core management pages declare the same visual pass and data-so
     assert.match(src, /人工填报/, `${name} missing manual source label`)
     assert.match(src, /算法数据/, `${name} missing algorithm source label`)
   }
+  assert.match(today, /data-visual-pass="light-workspace"/)
   assert.doesNotMatch(today, /data-testid="second-pass-source-strip"/)
   assert.doesNotMatch(today, />MES 外部数据</)
   assert.doesNotMatch(today, />人工填报</)

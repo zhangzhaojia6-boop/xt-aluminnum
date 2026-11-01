@@ -382,11 +382,11 @@ onBeforeUnmount(() => {
 .xt-manage--collapsed .xt-manage__nav-group-label,
 .xt-manage--collapsed .xt-manage__nav-label,
 .xt-manage--collapsed .xt-manage__brand-text { display: none; }
-.xt-manage--auto-rail .xt-manage__sidebar:hover { width: var(--manage-sidebar-expanded); box-shadow: 6px 0 18px #0000000a; }
-.xt-manage--auto-rail .xt-manage__sidebar:hover .xt-manage__nav-group-label,
-.xt-manage--auto-rail .xt-manage__sidebar:hover .xt-manage__nav-label,
-.xt-manage--auto-rail .xt-manage__sidebar:hover .xt-manage__brand-text { display: block; }
-.xt-manage--auto-rail .xt-manage__sidebar:hover .xt-manage__nav-item { justify-content: flex-start; }
+.xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) { width: var(--manage-sidebar-expanded); box-shadow: 6px 0 18px #0000000a; }
+.xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) .xt-manage__nav-group-label,
+.xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) .xt-manage__nav-label,
+.xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) .xt-manage__brand-text { display: block; }
+.xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) .xt-manage__nav-item { justify-content: flex-start; }
 .xt-manage__topbar {
   display: flex;
   align-items: center;
@@ -448,8 +448,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid #397b69; outline-offs
   .xt-manage__content { padding: 20px 14px; }
 }
 @media print {
-  .xt-manage__sidebar, .xt-manage__topbar { display: none; }
-  .xt-manage__main, .xt-manage--collapsed .xt-manage__main { margin-left: 0; }
+  .xt-manage__sidebar, .xt-manage__topbar, .xt-manage__drawer-overlay { display: none; }
+  .xt-manage__main, .xt-manage--collapsed .xt-manage__main { min-height: auto; margin-left: 0; }
   .xt-manage__content { padding: 0; }
 }
 </style>

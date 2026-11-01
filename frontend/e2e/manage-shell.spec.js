@@ -64,6 +64,37 @@ test.describe('ManageShell layout', () => {
     await expect(drawer).toBeHidden()
   })
 
+  test('auto rail sidebar expands when a nav link gets keyboard focus', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await setupReviewSessionAndMocks(page)
+    await page.goto('/manage/today', { waitUntil: 'networkidle' })
+    await page.mouse.move(900, 400)
+
+    await expect(page.getByTestId('manage-shell')).toHaveAttribute('data-nav-mode', 'auto-rail')
+    const sidebar = page.locator('.xt-manage__sidebar')
+    const firstLabel = sidebar.locator('.xt-manage__nav-label').first()
+    await expect(firstLabel).toBeHidden()
+
+    await sidebar.locator('.xt-manage__nav-item').first().focus()
+
+    await expect(firstLabel).toBeVisible()
+  })
+
+  test('printing hides navigation chrome including an open mobile drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 860, height: 844 })
+    await setupReviewSessionAndMocks(page)
+    await page.goto('/manage/today', { waitUntil: 'networkidle' })
+    await page.locator('.xt-manage__hamburger').click()
+    await expect(page.locator('.xt-manage__drawer-overlay')).toBeVisible()
+
+    await page.emulateMedia({ media: 'print' })
+
+    await expect(page.locator('.xt-manage__drawer-overlay')).toBeHidden()
+    await expect(page.locator('.xt-manage__topbar')).toBeHidden()
+    const mainMinHeight = await page.locator('.xt-manage__main').evaluate((el) => getComputedStyle(el).minHeight)
+    expect(['auto', '0px']).toContain(mainMinHeight)
+  })
+
   test('search overlay filters and routes to the selected result', async ({ page }) => {
     await setupReviewSessionAndMocks(page)
     await page.goto('/manage/today', { waitUntil: 'networkidle' })
