@@ -227,6 +227,7 @@ def test_fact_source_map_export_matches_committed_markdown() -> None:
 
 def test_fact_source_map_export_script_smoke_preserves_committed_markdown() -> None:
     docs_path = Path(__file__).resolve().parents[2] / "docs" / "hermes" / "fact-source-map.md"
+    original = docs_path.read_bytes()
     before = docs_path.read_text(encoding="utf-8")
     try:
         result = subprocess.run(
@@ -238,7 +239,7 @@ def test_fact_source_map_export_script_smoke_preserves_committed_markdown() -> N
         )
         after = docs_path.read_text(encoding="utf-8")
     finally:
-        docs_path.write_text(before, encoding="utf-8")
+        docs_path.write_bytes(original)
 
     assert result.returncode == 0, result.stderr
     assert "fact-source-map.md" in result.stdout
