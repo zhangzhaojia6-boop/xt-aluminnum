@@ -283,7 +283,7 @@ def sync_daily_fact_gap_events(
                 agent_code=AGENT_CODE,
                 channel_key=channel.channel_key,
                 channel_type=channel.channel_type,
-                title=f"【Hermes 事实闭环】{business_date.isoformat()}",
+                title=f"【日报事实核对】{business_date.isoformat()}",
                 content=_outbox_content(
                     business_date=business_date,
                     gap_items=gap_items,
@@ -618,7 +618,7 @@ def _outbox_content(
             f"- 业务日：{business_date.isoformat()}\n"
             "- 结果：日报缺失事实已补齐，相关事件已自动关闭\n"
             f"- 本轮关单：{resolved_count} 项\n"
-            f"- 追踪号：{trace_id}"
+            f"- 查询编号：{trace_id}"
         )
     action_items = [
         item
@@ -637,7 +637,12 @@ def _outbox_content(
         item.get("automation_status") == "waiting_for_registered_source"
         for item in gap_items
     )
-    registered_wait_text = f"，等钉钉约定来源 {registered_wait_count} 项" if registered_wait_count else ""
+    automatic_count = source_recheck_count + dependency_count + registered_wait_count
+    automatic_line = (
+        f"- 其余 {automatic_count} 项由系统自动核对或等钉钉送达，暂时不用处理；同样的缺口不会重复提醒\n"
+        if automatic_count
+        else "- 同样的缺口不会重复提醒\n"
+    )
     item_lines = []
     for item in action_items[:8]:
         owner_label = OWNER_ROLE_LABELS.get(str(item.get("owner_role")), "管理调度")
@@ -662,11 +667,10 @@ def _outbox_content(
         "鑫泰铝业智能大脑完成本轮事实核对。\n\n"
         f"- 业务日：{business_date.isoformat()}\n"
         f"- 需要人工补录：{len(action_items)} 项\n"
-        f"- 后台处理中：来源复查 {source_recheck_count} 项，"
-        f"依赖补齐 {dependency_count} 项{registered_wait_text}；状态不变不会重复提醒\n"
+        f"{automatic_line}"
         f"{resolved_line}"
         + "\n".join(item_lines)
-        + f"\n- 追踪号：{trace_id}"
+        + f"\n- 查询编号：{trace_id}"
     )
 
 

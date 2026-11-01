@@ -928,8 +928,12 @@ def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) ->
         assert assignments["hot_roll_daily"]["deadline"] == "10:00"
         assert assignments["hot_roll_daily"]["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
         assert "需要人工补录：1 项" in outbox[0].content
-        assert "依赖补齐 1 项" in outbox[0].content
-        assert "状态不变不会重复提醒" in outbox[0].content
+        assert "其余 1 项由系统自动核对或等钉钉送达，暂时不用处理" in outbox[0].content
+        assert "同样的缺口不会重复提醒" in outbox[0].content
+        assert "查询编号：daily-fact-closure:2026-07-21" in outbox[0].content
+        assert outbox[0].title == "【日报事实核对】2026-07-21"
+        for jargon in ("来源复查", "依赖补齐", "追踪号", "Hermes"):
+            assert jargon not in outbox[0].content + outbox[0].title
         assert "999999" not in outbox[0].content
         assert "total_output_daily" not in outbox[0].content
         assert "hot_roll_daily" not in outbox[0].content
