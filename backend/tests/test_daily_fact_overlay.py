@@ -96,3 +96,18 @@ def test_factory_dashboard_reports_zero_yield_as_missing_without_persisted_yield
 
 def test_latest_daily_fact_values_needs_a_database_session() -> None:
     assert daily_fact_overlay.latest_daily_fact_values(object(), target_date=None) == {}
+
+
+def test_projection_values_in_old_snapshots_are_not_overlaid() -> None:
+    stale_projection = {
+        'daily_contract_weight': _fact(0.0, 'contract_projection'),
+        'remaining_contract_weight': _fact(0.0, 'contract_projection'),
+        'daily_yield_rate': _fact(0.0, 'yield_projection'),
+    }
+
+    overview = daily_fact_overlay.overlay_daily_overview(_overview(), stale_projection)
+    dashboard = daily_fact_overlay.overlay_factory_dashboard(_factory_dashboard(yield_rate=0.0), stale_projection)
+
+    assert overview == _overview()
+    assert dashboard['leader_summary']['metrics']['yield_rate'] is None
+    assert dashboard['leader_metrics']['contract_weight'] == 0.0
