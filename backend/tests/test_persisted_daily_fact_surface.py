@@ -344,6 +344,26 @@ def test_snapshot_conflicts_and_missing_facts_become_fact_alerts(db_session: Ses
     assert payload["fact_missing"][0]["contract_version"] == DAILY_REPORT_FIELD_CONTRACT_VERSION
 
 
+def test_adoption_records_do_not_become_fact_conflict_alerts(db_session: Session) -> None:
+    _add_snapshot(
+        db_session,
+        facts=_facts(),
+        conflicts=[
+            {"field": "remaining_contract_weight", "type": "dingtalk_supplement", "previous_value": 0, "adopted_value": 5160},
+            {"field": "daily_yield_rate", "type": "verified_owner_daily", "previous_value": 84.0, "adopted_value": 84.86},
+            {"field": "wip_total", "type": "root_owner_correction", "previous_value": 1, "adopted_value": 2},
+            {"field": "monthly_yield_rate", "type": "dingtalk_candidate_not_applied", "reason": "payload_business_date_missing_or_mismatch"},
+            {"field": "daily_energy_workbook", "reason": "optional_source_unavailable"},
+        ],
+        value_suffix="adoption-records",
+    )
+    db_session.commit()
+
+    payload = _overview(db_session)
+
+    assert [item["field"] for item in payload["fact_conflicts"]] == ["monthly_yield_rate", "daily_energy_workbook"]
+
+
 def test_machine_gap_is_appended_without_hiding_daily_fact_missing_alerts(db_session: Session) -> None:
     facts = _facts()
     del facts["total_electricity_kwh"]
