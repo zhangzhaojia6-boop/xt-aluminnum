@@ -1983,7 +1983,7 @@ def list_destinations(db: Session, *, scope: ScopeSummary | None = None) -> list
         'delivery': '交付',
         'unknown': '未知',
     }
-    return [
+    destinations = [
         {
             'kind': kind,
             'label': labels.get(kind, kind),
@@ -1993,6 +1993,16 @@ def list_destinations(db: Session, *, scope: ScopeSummary | None = None) -> list
         }
         for kind, rows in grouped.items()
     ]
+    # 卷快照代表不了全部在制；有 MES 在制料统计时在制吨数用它，统计里没有卷数就留空
+    mes_wip_rows = _latest_wip_snapshots(
+        _scoped_mes_extended_rows(db, MesWipTotalSnapshot, scope=scope, workshop_field='workshop_name')
+    )
+    if mes_wip_rows:
+        for item in destinations:
+            if item['kind'] == 'in_progress':
+                item['tons'] = round(_wip_total_tons(mes_wip_rows), 4)
+                item['coil_count'] = None
+    return destinations
 
 
 def find_coil_flow_suggestion(

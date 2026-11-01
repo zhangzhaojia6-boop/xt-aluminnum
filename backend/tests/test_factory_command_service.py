@@ -284,6 +284,30 @@ def test_factory_overview_mixed_wip_uses_latest_mes_wip_total_batch(monkeypatch)
     assert overview['wip_tons'] == 792.2547
 
 
+
+def test_destinations_take_in_progress_tons_from_latest_mes_wip_total(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', net_weight=0, material_weight=9750.0),
+            _coil(coil_id='MES:2', net_weight=0, material_weight=8000.0),
+            _coil(
+                coil_id='MES:3',
+                current_workshop='成品库',
+                status_name='已入库',
+                net_weight=2000.0,
+                in_stock_date=datetime(2026, 5, 2, 9, 0, tzinfo=UTC),
+            ),
+        ],
+        wip_snapshots=_wip_total_batches(),
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    destinations = {item['kind']: item for item in factory_command_service.list_destinations(db)}
+
+    # 卷快照代表不了全部在制，在制吨数用 MES 在制料统计；统计里没有卷数，留空
+    assert (destinations['in_progress']['tons'], destinations['in_progress']['coil_count']) == (792.2547, None)
+    assert (destinations['finished_stock']['tons'], destinations['finished_stock']['coil_count']) == (2.0, 1)
+
 def test_factory_overview_falls_back_to_local_shift_data_when_projection_empty(monkeypatch):
     db = _FakeDB(
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
