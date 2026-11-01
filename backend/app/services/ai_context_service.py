@@ -139,9 +139,9 @@ def _rules_for(coils: list[Mapping[str, Any]], freshness: Mapping[str, Any]) -> 
     return rules
 
 
-def _call_scoped(func, db: Session, *, scope):
+def _call_scoped(func, db: Session, *, scope, **kwargs):
     try:
-        return func(db, scope=scope)
+        return func(db, scope=scope, **kwargs)
     except TypeError:
         return func(db)
 
@@ -343,7 +343,10 @@ def build_context_pack(
     scope_payload = scope or {'type': 'factory', 'key': 'all'}
     freshness = factory_command_service.build_freshness(db)
     data_scope = build_scope_summary(user)
-    machine_lines = _sanitize(_call_scoped(factory_command_service.list_machine_lines, db, scope=data_scope))
+    # 和页面上的机列接口一样带上用户，走实时汇总；不带用户会退回卷快照，旧卷会把在制撑大
+    machine_lines = _sanitize(
+        _call_scoped(factory_command_service.list_machine_lines, db, scope=data_scope, current_user=user)
+    )
     coils = _sanitize(_call_scoped(factory_command_service.list_coils, db, scope=data_scope))
     machine_lines, coils = _filter_for_assistant_scope(
         machine_lines=machine_lines,
