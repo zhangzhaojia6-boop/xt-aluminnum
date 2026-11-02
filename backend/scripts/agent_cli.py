@@ -75,7 +75,7 @@ COMMAND_LEVELS = {
     'day1-report': 'L3',
 }
 SQL_KEYWORDS = {'select', 'insert', 'update', 'delete', 'drop', 'alter', 'truncate', 'exec', 'execute'}
-VISUAL_URL_HOSTS = {'xtmijd.com', 'www.xtmijd.com', 'mes.xintaily.com'}
+VISUAL_URL_HOSTS = {'8.140.218.13', 'mes.xintaily.com'}
 BUSINESS_DATE_TEXT_RE = re.compile(r'(?:\d{4}[-._]\d{1,2}[-._]\d{1,2}|\d{1,2}月\d{1,2}日)')
 
 
@@ -629,7 +629,7 @@ def _cmd_approval_preview(db: Session, args: argparse.Namespace, auth: HermesAut
 
 
 def _cmd_visual_inspect(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
-    url = args.url or 'https://xtmijd.com/manage/today'
+    url = args.url or 'https://8.140.218.13/manage/today'
     host = _host(url)
     if host not in VISUAL_URL_HOSTS:
         raise AgentCliError('visual_url_not_allowed')

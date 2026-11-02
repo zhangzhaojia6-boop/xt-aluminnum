@@ -730,3 +730,15 @@ def test_learning_approve_cli_promotes_candidate_to_long_term_rag(tmp_path, monk
         db.close()
         get_engine.cache_clear()
         get_sessionmaker.cache_clear()
+
+
+def test_visual_inspect_defaults_to_public_ip_and_rejects_retired_domain() -> None:
+    result = agent_cli._cmd_visual_inspect(None, SimpleNamespace(url=None, trace_id='t'), None)
+    assert result['evidence']['url'] == 'https://8.140.218.13/manage/today'
+
+    try:
+        agent_cli._cmd_visual_inspect(None, SimpleNamespace(url='https://xtmijd.com/manage/today', trace_id='t'), None)
+    except agent_cli.AgentCliError as exc:
+        assert str(exc) == 'visual_url_not_allowed'
+    else:
+        raise AssertionError('retired domain must not be allowed')
