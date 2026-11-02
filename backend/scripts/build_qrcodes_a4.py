@@ -29,7 +29,7 @@ from app.services.real_master_data import (
 
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
 
-PROD_URL = 'https://xtmijd.com'
+PROD_URL = 'https://8.140.218.13'
 OUT_PDF = Path(__file__).resolve().parents[1] / '二维码' / '二维码-A4逐页.pdf'
 PAGE_W, PAGE_H = A4
 QR_SIZE = 120 * mm

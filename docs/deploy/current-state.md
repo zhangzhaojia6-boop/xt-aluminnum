@@ -415,6 +415,8 @@ MES_API_KEY=...
 
 结论：HTTPS 域名链路当前阻塞在域名备案/接入合规层，不是应用 readyz、nginx upstream 或后端代码问题。本轮公网正向证据以 `http://8.140.218.13/readyz` 为准；正式对外域名需要完成 ICP 备案/接入或换用已备案域名。
 
+2026-11-02 更新：用户决定弃用旧域名，直接用公网 IP `https://8.140.218.13`。xtmijd.com 现在解析到别人的主机（8.218.208.240），xt888.top 不再解析。证书改由 acme.sh 向 Let's Encrypt 按 IP 签发（shortlived，约 6 天有效，每 3 天续期，校验走 80 端口 `/var/www/letsencrypt`），装在 `/etc/nginx/ssl/8.140.218.13/`。旧域名的 certbot 续期和 hermes-feishu-webhook 站点已停用。`.env` 的 CORS 和 `PUBLIC_APP_BASE_URL` 都改成这个 IP，扫码二维码脚本和 Hermes 视觉巡检的地址也一并改了；按旧域名印的二维码要重印。
+
 外部正式联通闸门仍未完全通过，`python scripts/check_statistics_module_ready.py --json` 当前 hard fail 为：
 
 - `LLM_DISABLED`
