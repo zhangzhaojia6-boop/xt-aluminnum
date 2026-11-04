@@ -110,13 +110,13 @@ def main() -> None:
     )
     print(f'  {len(director_qrs)} 主任看板码')
 
-    print('Pulling 全厂级 role QRs (FACTORY-*)...')
+    print('Pulling 全厂级 role QRs (other virtual_role_qr)...')
     factory_qrs = remote_json(
         "SELECT json_agg(t) FROM ("
         "SELECT e.code, e.name, e.qr_code "
         "FROM equipment e "
         "WHERE e.is_active=true AND e.equipment_type='virtual_role_qr' "
-        "  AND e.code LIKE 'FACTORY-%' "
+        "  AND e.code NOT LIKE '%-EN' AND e.code NOT LIKE '%-CS' AND e.code NOT LIKE '%-DIR' "
         "ORDER BY e.sort_order, e.code"
         ") t;"
     )
