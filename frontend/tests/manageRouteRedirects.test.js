@@ -9,6 +9,7 @@ const factoryCommandShellSrc = readFileSync(new URL('../src/views/factory-comman
 const reportListSrc = readFileSync(new URL('../src/views/reports/ReportList.vue', import.meta.url), 'utf8')
 const reconciliationDetailSrc = readFileSync(new URL('../src/views/reconciliation/ReconciliationDetail.vue', import.meta.url), 'utf8')
 const manageShellSrc = readFileSync(new URL('../src/layout/ManageShell.vue', import.meta.url), 'utf8')
+const assistantLauncherSrc = readFileSync(new URL('../src/utils/assistantLauncher.js', import.meta.url), 'utf8')
 const loginSrc = readFileSync(new URL('../src/views/Login.vue', import.meta.url), 'utf8')
 const guardRulesSrc = readFileSync(new URL('../src/router/guardRules.js', import.meta.url), 'utf8')
 const appShellSrc = readFileSync(new URL('../src/layout/AppShell.vue', import.meta.url), 'utf8')
@@ -164,7 +165,8 @@ test('deleted route paths stay absent', () => {
 test('legacy route callers use the owner skeleton tabs', () => {
   assert.match(manageShellSrc, /const\s+manageHomePath\s*=\s*computed\(\(\)\s*=>\s*auth\.isWorkshopDirector\s*\?\s*['"]\/manage\/workshop-dashboard['"]\s*:\s*['"]\/manage\/today['"]\)/, 'manage shell brand should send workshop directors to their dashboard and reviewers to today')
   assert.match(manageShellSrc, /class="xt-manage__brand"\s+:to="navTo\(manageHomePath\)"/, 'manage shell brand should use the role-aware home path')
-  assert.match(manageShellSrc, /key:\s*route\.path\s*\|\|\s*['"]\/manage\/today['"]/, 'manage shell assistant fallback should use today tab')
+  assert.match(manageShellSrc, /scope:\s*buildAssistantScope\(route\)/, 'manage shell assistant scope should come from the shared builder')
+  assert.match(assistantLauncherSrc, /key:\s*path\s*\|\|\s*['"]\/manage\/today['"]/, 'assistant scope fallback should use today tab')
   assert.doesNotMatch(manageShellSrc, /\/manage\/overview/, 'manage shell should not call old overview path')
   assert.match(loginSrc, /if\s*\(\s*auth\.adminSurface\s*\)\s*return\s+['"]\/admin['"]/, 'login landing should preserve admin entry')
   assert.match(loginSrc, /if\s*\(\s*auth\.isWorkshopDirector\s*\)\s*return\s+['"]\/manage\/workshop-dashboard['"]/, 'workshop directors should land on their dashboard')

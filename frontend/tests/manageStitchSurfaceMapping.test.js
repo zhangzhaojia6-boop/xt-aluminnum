@@ -521,3 +521,24 @@ test('first-batch pages render the Stitch bottom status slot from real surface d
   assert.match(liveSource, /data-testid="stitch-bottom-status"/)
   assert.match(liveSource, /bottomStatusItems\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.bottomStatus/)
 })
+
+test('today Stitch surface does not report normal operation while daily facts are blocked', () => {
+  const blocked = buildTodayStitchSurface({
+    targetDate: '2026-10-29',
+    snapshotData: {
+      daily_overview: {
+        status: 'blocked',
+        fact_closure: { status: 'blocked', counts: { missing: 5 } },
+        missing_fields: ['total_output_daily', 'total_electricity_kwh'],
+      },
+    },
+    liveAggregation: { business_date: '2026-10-29' },
+  })
+
+  const system = blocked.bottomStatus.find((item) => item.key === 'system')
+  const data = blocked.bottomStatus.find((item) => item.key === 'data')
+  assert.equal(system?.value, '待核')
+  assert.equal(system?.tone, 'warning')
+  assert.equal(data?.value, '日报事实未闭环')
+  assert.equal(data?.tone, 'warning')
+})
