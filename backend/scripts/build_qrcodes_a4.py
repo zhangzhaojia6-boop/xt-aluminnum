@@ -3,12 +3,13 @@
 Each page has a large QR in the center plus the machine/role name, workshop,
 and the login URL. Output: backend/二维码/二维码-A4逐页.pdf
 
-Uses real_master_data config so it runs locally without SSH.
+Pulls the active QR rows from the production equipment table (same source and
+PROD_DB_PASSWORD requirement as generate_qrcodes.py), so retired workshops are
+skipped and every role / director code uses the qr_code that actually logs in.
 """
 from __future__ import annotations
 
 import io
-import sys
 from pathlib import Path
 from urllib.parse import quote
 
@@ -19,13 +20,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfgen import canvas
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from app.services.real_master_data import (
-    EQUIPMENT_BY_WORKSHOP,
-    OWNER_QR_SPECS,
-    WORKSHOPS,
-)
+from generate_qrcodes import remote_json
 
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
 
@@ -33,8 +28,6 @@ PROD_URL = 'https://8.140.218.13'
 OUT_PDF = Path(__file__).resolve().parents[1] / '二维码' / '二维码-A4逐页.pdf'
 PAGE_W, PAGE_H = A4
 QR_SIZE = 120 * mm
-
-WORKSHOP_NAME = {w['code']: w['name'] for w in WORKSHOPS}
 
 OWNER_LABEL = {
     'BZ': '班长',
@@ -47,6 +40,7 @@ OWNER_LABEL = {
     'PSH': '园区剪切',
     'RC': '回收',
     'OH': '大修',
+    'DIR': '车间主任看板',
 }
 
 
@@ -98,41 +92,34 @@ def main() -> None:
     c.setTitle('鑫泰铝业 数据中枢 · 二维码逐页')
     count = 0
 
-    for ws_code, machines in EQUIPMENT_BY_WORKSHOP.items():
-        ws_name = WORKSHOP_NAME.get(ws_code, ws_code)
-        for m in machines:
-            if m.get('operational_status', 'running') != 'running':
-                continue
-            qr_code = f"XT-{m['code']}"
-            url = f"{PROD_URL}/login?machine={quote(qr_code)}"
+    rows = remote_json(
+        "SELECT json_agg(t) FROM ("
+        "SELECT e.code, e.name, e.qr_code, e.equipment_type, w.name AS ws_name "
+        "FROM equipment e LEFT JOIN workshops w ON e.workshop_id=w.id "
+        "WHERE e.is_active=true AND e.qr_code IS NOT NULL "
+        "  AND (e.equipment_type LIKE 'virtual_%' OR e.operational_status='running') "
+        "ORDER BY e.equipment_type LIKE 'virtual_%', w.sort_order, e.sort_order, e.code"
+        ") t;"
+    )
+    for row in rows:
+        url = f"{PROD_URL}/login?machine={quote(row['qr_code'])}"
+        if row['equipment_type'].startswith('virtual_'):
+            label = OWNER_LABEL.get(row['code'].rsplit('-', 1)[-1], '角色')
             _draw_page(
                 c,
                 url=url,
-                title=f"{ws_name}  {m['name']}",
-                subtitle=f"机列码 · {m['code']}",
+                title=row['name'] or row['code'],
+                subtitle=f"角色码 · {row['code']}",
+                tag=f'{label}扫码入口',
+            )
+        else:
+            _draw_page(
+                c,
+                url=url,
+                title=f"{row['ws_name'] or ''}  {row['name']}",
+                subtitle=f"机列码 · {row['code']}",
                 tag='主操扫码填报',
             )
-            count += 1
-
-    _PER_WORKSHOP_SUFFIXES = {'BZ', 'EN', 'CS', 'OP'}
-    for suffix, label, host_code in OWNER_QR_SPECS:
-        ws_name = WORKSHOP_NAME.get(host_code, host_code)
-        eq_code = f"{host_code}-{suffix}"
-        qr_code = f"XT-{eq_code}"
-        url = f"{PROD_URL}/login?machine={quote(qr_code)}"
-        if suffix in _PER_WORKSHOP_SUFFIXES:
-            title = f"{ws_name} {label}"
-            subtitle = f"角色码 · {eq_code}"
-        else:
-            title = label
-            subtitle = f"全厂专项 · {eq_code}"
-        _draw_page(
-            c,
-            url=url,
-            title=title,
-            subtitle=subtitle,
-            tag=f'{label}扫码入口',
-        )
         count += 1
 
     c.save()
