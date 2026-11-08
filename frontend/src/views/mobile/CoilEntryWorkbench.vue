@@ -844,7 +844,7 @@ onMounted(loadData)
   border-radius: 4px;
   background: transparent;
   border-left: 0;
-  
+
 }
 
 .coil-identity__main {
@@ -854,7 +854,7 @@ onMounted(loadData)
 
 .coil-identity__main strong {
   color: var(--xt-text);
-  
+
   font-size: var(--xt-text-xl);
   font-weight: 600;
   letter-spacing: 0;
@@ -874,7 +874,7 @@ onMounted(loadData)
 
 .coil-identity__shift span:first-child {
   color: var(--xt-text);
-  
+
   font-size: var(--xt-text-lg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -935,7 +935,7 @@ onMounted(loadData)
 
 .coil-mes-pending__head strong {
   color: var(--xt-text);
-  
+
   font-size: var(--xt-text-xl);
   font-weight: 600;
 }
@@ -984,7 +984,7 @@ onMounted(loadData)
 
 .coil-mes-card__main strong {
   color: var(--xt-text);
-  
+
   font-size: var(--xt-text-lg);
   font-weight: 600;
 }
@@ -1068,7 +1068,7 @@ onMounted(loadData)
 .coil-mes-card__facts strong {
   overflow: hidden;
   color: var(--xt-text);
-  
+
   font-size: var(--xt-text-sm);
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -1099,7 +1099,7 @@ onMounted(loadData)
   border-radius: 999px;
   color: var(--xt-text);
   background: transparent;
-  
+
   font-size: var(--xt-text-xs);
 }
 
@@ -1127,7 +1127,7 @@ onMounted(loadData)
   border-radius: 4px;
   background: var(--xt-bg-panel);
   border: 1px solid var(--xt-border-light);
-  
+
 }
 
 .coil-summary__item span {
@@ -1137,7 +1137,7 @@ onMounted(loadData)
 
 .coil-summary__item strong {
   color: var(--xt-text);
-  
+
   font-size: var(--xt-text-2xl);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1150,7 +1150,7 @@ onMounted(loadData)
   background: transparent;
   border-radius: 4px;
   overflow: hidden;
-  
+
 }
 
 .coil-list__item {
@@ -1169,7 +1169,7 @@ onMounted(loadData)
 }
 
 .coil-list__left strong {
-  
+
   font-size: var(--xt-text-lg);
   font-weight: 600;
   color: var(--xt-text);
@@ -1186,7 +1186,7 @@ onMounted(loadData)
 }
 
 .coil-list__right span {
-  
+
   font-size: var(--xt-text-sm);
   font-variant-numeric: tabular-nums;
   color: var(--xt-text-secondary);
@@ -1232,7 +1232,7 @@ onMounted(loadData)
   border-radius: 4px;
   font-size: var(--xt-text-lg);
   font-weight: 600;
-  
+
 }
 
 .coil-summary-detail {
@@ -1257,7 +1257,7 @@ onMounted(loadData)
 }
 
 .coil-summary-detail__row strong {
-  
+
   font-size: var(--xt-text-2xl);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1294,7 +1294,7 @@ onMounted(loadData)
 .coil-entry-focus strong {
   overflow: hidden;
   color: var(--xt-text);
-  
+
   font-size: 16px;
   font-weight: 600;
   text-overflow: ellipsis;

@@ -453,18 +453,18 @@ onBeforeUnmount(() => {
 }
 
 .ocr-vision__hero::after {
-  
+
 }
 
 .ocr-vision__hero-copy h1 {
   margin: 0;
   color: var(--xt-text);
-  
+
   font-size: 30px;
   font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.05;
-  
+
 }
 
 .ocr-vision__eyebrow {
@@ -486,7 +486,7 @@ onBeforeUnmount(() => {
   height: 7px;
   border-radius: 50%;
   background: transparent;
-  
+
 }
 
 .ocr-vision__hero-status {
@@ -510,17 +510,17 @@ onBeforeUnmount(() => {
 
 .ocr-vision__led {
   display: inline-block;
-  
+
 }
 
 .ocr-vision__led.is-warn {
   background: transparent;
-  
+
 }
 
 .ocr-vision__led.is-danger {
   background: transparent;
-  
+
 }
 
 .ocr-vision__panel {
@@ -583,7 +583,7 @@ onBeforeUnmount(() => {
 }
 
 .ocr-vision__orbit.is-muted {
-  
+
   opacity: 0.66;
 }
 
@@ -623,7 +623,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--xt-border);
   border-radius: 4px;
   background: transparent;
-  
+
 }
 
 .ocr-vision__viewfinder.has-preview {
@@ -635,7 +635,7 @@ onBeforeUnmount(() => {
   width: 32px;
   height: 32px;
   border-color: var(--xt-border);
-  
+
 }
 
 .ocr-vision__corner.is-top-left {
@@ -742,7 +742,7 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   background: transparent;
   color: var(--xt-text);
-  
+
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -750,7 +750,7 @@ onBeforeUnmount(() => {
 .ocr-vision__confidence span::before {
   margin-right: 4px;
   color: var(--xt-text-secondary);
-  
+
   font-size: 10px;
   letter-spacing: 0.08em;
 }
@@ -819,7 +819,7 @@ onBeforeUnmount(() => {
 .ocr-vision__field-value {
   margin-top: 8px;
   color: var(--xt-text-secondary);
-  
+
   font-size: 18px;
   font-weight: 600;
 }

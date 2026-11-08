@@ -187,7 +187,7 @@ onMounted(loadDrafts)
 }
 
 .entry-drafts__hero::after {
-  
+
 }
 
 .entry-drafts__hero-copy {
@@ -211,7 +211,7 @@ onMounted(loadDrafts)
   height: 7px;
   border-radius: 50%;
   background: transparent;
-  
+
 }
 
 .entry-drafts__hero h1 {
