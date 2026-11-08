@@ -2,7 +2,6 @@
   <div class="mobile-shell entry-drafts" data-testid="entry-drafts-page">
     <div class="entry-drafts__hero mobile-top">
       <div class="entry-drafts__hero-copy">
-        <span class="entry-drafts__eyebrow">草稿恢复</span>
         <h1>草稿箱</h1>
         <p>本机暂存 · 恢复后继续提交</p>
       </div>
@@ -21,7 +20,7 @@
 
     <section class="entry-drafts__panel panel mobile-card">
       <div v-if="!drafts.length" class="entry-drafts__empty template-empty">
-        <span class="entry-drafts__empty-ring" aria-hidden="true"></span>
+        <XtCoilMark />
         <strong>暂无草稿</strong>
         <small>本机没有待恢复记录</small>
       </div>
@@ -65,6 +64,7 @@
 </template>
 
 <script setup>
+import XtCoilMark from '../../components/xt/XtCoilMark.vue'
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -156,9 +156,7 @@ onMounted(loadDrafts)
   z-index: 0;
   width: min(100%, 600px);
   pointer-events: none;
-  background:
-    radial-gradient(circle at 18% 4%, rgba(0, 242, 255, 0.16), transparent 34%),
-    linear-gradient(120deg, transparent 0 44%, rgba(0, 242, 255, 0.08) 48%, transparent 52% 100%);
+  background: transparent;
   opacity: 0.65;
   transform: translateX(-50%);
 }
@@ -173,7 +171,7 @@ onMounted(loadDrafts)
   overflow: hidden;
   gap: 16px;
   padding: 18px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .entry-drafts__hero::after,
@@ -183,13 +181,13 @@ onMounted(loadDrafts)
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent 0 42%, rgba(0, 242, 255, 0.14) 50%, transparent 58% 100%);
+  background: transparent;
   opacity: 0;
   transform: translateX(-70%);
 }
 
 .entry-drafts__hero::after {
-  animation: entryDraftScan 5.6s ease-in-out infinite;
+
 }
 
 .entry-drafts__hero-copy {
@@ -201,9 +199,9 @@ onMounted(loadDrafts)
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
-  color: rgba(0, 242, 255, 0.86);
+  color: var(--xt-primary);
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
@@ -212,8 +210,8 @@ onMounted(loadDrafts)
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #00f2ff;
-  box-shadow: 0 0 16px rgba(0, 242, 255, 0.76);
+  background: transparent;
+
 }
 
 .entry-drafts__hero h1 {
@@ -237,27 +235,27 @@ onMounted(loadDrafts)
 .entry-drafts__readout {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid rgba(0, 242, 255, 0.18);
-  border-radius: 14px;
-  background: rgba(2, 10, 22, 0.38);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .entry-drafts__readout span,
 .entry-drafts__meta dt,
 .entry-drafts__seq {
   display: block;
-  color: rgba(185, 218, 235, 0.66);
+  color: var(--xt-text-secondary);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
 .entry-drafts__readout strong {
   display: block;
   margin-top: 4px;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 20px;
-  font-weight: 950;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -275,7 +273,7 @@ onMounted(loadDrafts)
   position: absolute;
   inset: -1px;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.26), transparent);
+  background: transparent;
   opacity: 0;
   transform: translateX(-100%);
 }
@@ -284,7 +282,7 @@ onMounted(loadDrafts)
   position: relative;
   overflow: hidden;
   padding: 12px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .entry-drafts__empty {
@@ -301,22 +299,19 @@ onMounted(loadDrafts)
   width: 76px;
   height: 76px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 242, 255, 0.34);
-  background:
-    radial-gradient(circle, rgba(0, 242, 255, 0.2) 0 24%, transparent 25%),
-    conic-gradient(from 120deg, rgba(0, 242, 255, 0.78), transparent 32%, rgba(255, 171, 0, 0.44), transparent 72%, rgba(0, 242, 255, 0.78));
-  box-shadow: 0 0 38px rgba(0, 242, 255, 0.14);
-  animation: entryDraftRing 5s linear infinite;
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
 }
 
 .entry-drafts__empty strong {
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 20px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .entry-drafts__empty small {
-  color: rgba(185, 218, 235, 0.68);
+  color: var(--xt-text-secondary);
   font-size: 12px;
 }
 
@@ -328,7 +323,7 @@ onMounted(loadDrafts)
   position: relative;
   overflow: hidden;
   padding: 14px;
-  border-radius: 16px;
+  border-radius: 4px;
   animation: entryDraftCardIn 420ms ease both;
   animation-delay: calc(var(--draft-index) * 70ms);
 }
@@ -345,9 +340,9 @@ onMounted(loadDrafts)
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #ffca63;
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -355,9 +350,8 @@ onMounted(loadDrafts)
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #ffab00;
-  box-shadow: 0 0 0 4px rgba(255, 171, 0, 0.12), 0 0 18px rgba(255, 171, 0, 0.7);
-  animation: entryDraftLed 1.8s ease-in-out infinite;
+  background: transparent;
+
 }
 
 .entry-drafts__seq {
@@ -366,16 +360,16 @@ onMounted(loadDrafts)
 
 .entry-drafts__title {
   font-size: 24px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .entry-drafts__meta-line {
   margin-top: 4px;
-  color: rgba(185, 218, 235, 0.74);
+  color: var(--xt-text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .entry-drafts__meta {
@@ -390,16 +384,16 @@ onMounted(loadDrafts)
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: 12px;
-  background: rgba(1, 10, 22, 0.34);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .entry-drafts__meta dd {
   margin: 0;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   word-break: break-all;
 }
 
@@ -414,20 +408,20 @@ onMounted(loadDrafts)
 .entry-drafts :deep(.entry-drafts__refresh.el-button) {
   position: relative;
   min-height: 44px;
-  border-radius: 12px;
-  font-weight: 900;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
 .entry-drafts :deep(.entry-drafts__continue.el-button) {
-  border-color: rgba(0, 242, 255, 0.42);
-  background: rgba(0, 242, 255, 0.12);
-  color: #e8fdff;
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .entry-drafts :deep(.entry-drafts__delete.el-button) {
-  border-color: rgba(255, 92, 53, 0.34);
-  background: rgba(255, 92, 53, 0.08);
-  color: #ffb49e;
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 @media (hover: hover) {
@@ -438,7 +432,7 @@ onMounted(loadDrafts)
   }
 
   .entry-drafts__card:hover {
-    border-color: rgba(0, 242, 255, 0.32);
+    border-color: var(--xt-border);
   }
 }
 
@@ -508,7 +502,7 @@ onMounted(loadDrafts)
   .entry-drafts__hero,
   .entry-drafts__panel,
   .entry-drafts__card {
-    border-radius: 14px;
+    border-radius: 4px;
   }
 
   .entry-drafts__hero h1 {
