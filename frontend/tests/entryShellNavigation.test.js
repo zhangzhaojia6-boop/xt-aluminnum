@@ -16,9 +16,9 @@ test('EntryShell bottom navigation points operators to active fill and all-day h
   assert.doesNotMatch(src, /path: '\/entry\/profile', label: '我的'/)
 })
 
-test('EntryShell applies the stable industrial mobile visual shell without changing routes', () => {
-  assert.match(src, /--entry-cyan:\s*#00f2ff/)
-  assert.match(src, /radial-gradient\(circle at 18% 0%/)
+test('EntryShell applies the paper mobile shell without changing routes', () => {
+  assert.doesNotMatch(src, /#00f2ff|radial-gradient/)
+  assert.match(src, /var\(--xt-bg-page\)/)
   assert.match(src, /\.xt-entry :deep\(\.mobile-shell\)/)
   assert.match(src, /\.xt-entry :deep\(\.mobile-history-item\)/)
   assert.match(src, /\.xt-entry :deep\(\.mobile-attendance-card\)/)
@@ -44,8 +44,8 @@ test('mobile entry and unified form keep real controls with a stable industrial 
   assert.match(unifiedEntrySrc, /data-visual-pass="stitch-image2-second-pass-mobile"/)
   assert.match(unifiedEntrySrc, /fetchEntryFields/)
   assert.match(unifiedEntrySrc, /Array\.isArray\(coils\)\s*\?\s*coils\s*:\s*\[\]/)
-  assert.match(unifiedEntrySrc, /--ue-surface:/)
-  assert.match(unifiedEntrySrc, /\.ue-group__title::before/)
+  assert.match(unifiedEntrySrc, /requiredProgress/)
+  assert.match(unifiedEntrySrc, /role="progressbar"/)
   assert.doesNotMatch(unifiedEntrySrc, /animation:\s*[^;{}]*(infinite|linear infinite|ease-in-out infinite)/)
   assert.doesNotMatch(unifiedEntrySrc, /ue(ScanSweep|HeaderPulse|SubmitSweep)/)
   assert.match(unifiedEntrySrc, /overflow-wrap:\s*anywhere/)
@@ -57,13 +57,13 @@ test('unified entry form keeps backend fields while adding responsive field layo
   assert.match(unifiedEntrySrc, /:data-testid="`field-\$\{field\.name\}`"/)
   assert.match(unifiedEntrySrc, /function isWideField\(field\)/)
   assert.match(unifiedEntrySrc, /field\.type === 'textarea' \|\| field\.type === 'spec'/)
-  assert.match(unifiedEntrySrc, /\.ue-fields\s*\{[\s\S]*display:\s*grid[\s\S]*grid-template-columns:\s*1fr/)
+  assert.match(unifiedEntrySrc, /\.ue-fields\s*\{\s*display:\s*grid/)
   assert.match(unifiedEntrySrc, /@media \(min-width: 760px\)[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/)
-  assert.match(unifiedEntrySrc, /\.ue-field--wide,[\s\S]*\.ue-field--spec\s*\{[\s\S]*grid-column:\s*1 \/ -1/)
-  assert.match(unifiedEntrySrc, /\.ue-actions\s*\{[\s\S]*position:\s*sticky/)
+  assert.match(unifiedEntrySrc, /\.ue-field--wide \{ grid-column: 1 \/ -1; \}/)
+  assert.match(unifiedEntrySrc, /\.ue-field--spec \{ grid-column: 1 \/ -1; \}/)
+  assert.match(unifiedEntrySrc, /\.ue-actions\s*\{\s*position:\s*fixed/)
   assert.match(unifiedEntrySrc, /data-testid="unified-entry-submit"/)
-  assert.match(unifiedEntrySrc, /padding-bottom:\s*calc\(var\(--xt-tabbar-height,\s*64px\) \+ 128px \+ env\(safe-area-inset-bottom,\s*0px\)\)/)
-  assert.match(unifiedEntrySrc, /@media \(max-width: 480px\)/)
+  assert.match(unifiedEntrySrc, /calc\(var\(--xt-tabbar-height,\s*64px\) \+ 112px \+ env\(safe-area-inset-bottom,\s*0px\)\)/)
   assert.match(unifiedEntrySrc, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(unifiedEntrySrc, /v-if="quality\.has_issue"/)
 })
@@ -88,8 +88,7 @@ test('desktop admin accounts are not treated as mobile fill users', () => {
 
 test('EntryShell lets desktop fill pages use the responsive form width without changing mobile routes', () => {
   assert.match(src, /@media \(min-width: 900px\)[\s\S]*\.xt-entry\s*\{[\s\S]*max-width:\s*980px/)
-  assert.match(src, /\.xt-entry::before,[\s\S]*\.xt-entry::after,[\s\S]*\.xt-entry__tabbar\s*\{[\s\S]*width:\s*min\(100%, 980px\)/)
-  assert.match(src, /@media \(max-width: 600px\)[\s\S]*border-right:\s*0/)
+  assert.match(src, /\.xt-entry__tabbar\s*\{\s*width:\s*min\(100%, 980px\)/)
 })
 
 test('mobile auxiliary role pages keep APIs while sharing the industrial entry shell', () => {
@@ -99,5 +98,5 @@ test('mobile auxiliary role pages keep APIs while sharing the industrial entry s
   assert.match(attendanceSrc, /现场负责人/)
   assert.match(consumableSrc, /fetchConsumableWorkshops/)
   assert.match(consumableSrc, /upsertDailyConsumableLog/)
-  assert.match(consumableSrc, /rgba\(0,\s*242,\s*255,\s*0\.08\)/)
+  assert.doesNotMatch(consumableSrc, /rgba\(0,\s*242,\s*255/)
 })

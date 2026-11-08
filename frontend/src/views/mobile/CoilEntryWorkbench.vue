@@ -841,10 +841,10 @@ onMounted(loadData)
   justify-content: space-between;
   gap: 12px;
   padding: var(--xt-space-4);
-  border-radius: var(--xt-radius-xl);
-  background: var(--xt-bg-ink);
-  border-left: 3px solid var(--role-color, var(--xt-primary));
-  box-shadow: var(--xt-shadow-md);
+  border-radius: 4px;
+  background: transparent;
+  border-left: 0;
+
 }
 
 .coil-identity__main {
@@ -853,16 +853,16 @@ onMounted(loadData)
 }
 
 .coil-identity__main strong {
-  color: rgba(255, 255, 255, 0.92);
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-xl);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
 .coil-identity__main span,
 .coil-identity__shift span {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
 }
 
@@ -873,10 +873,10 @@ onMounted(loadData)
 }
 
 .coil-identity__shift span:first-child {
-  color: rgba(255, 255, 255, 0.82);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-lg);
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -888,7 +888,7 @@ onMounted(loadData)
 }
 
 .coil-operator label {
-  font-weight: 850;
+  font-weight: 600;
   font-size: var(--xt-text-lg);
   white-space: nowrap;
 }
@@ -898,10 +898,8 @@ onMounted(loadData)
   gap: 12px;
   padding: 14px;
   overflow: hidden;
-  border: 1px solid rgba(0, 197, 255, 0.18);
-  background:
-    linear-gradient(135deg, rgba(0, 119, 255, 0.14), rgba(4, 16, 30, 0.92)),
-    radial-gradient(circle at 0% 0%, rgba(0, 197, 255, 0.14), transparent 48%);
+  border: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 .coil-mes-pending__head,
@@ -927,27 +925,27 @@ onMounted(loadData)
 .coil-mes-pending__head span,
 .coil-mes-pending__head small,
 .coil-mes-pending__foot {
-  color: rgba(171, 213, 235, 0.72);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
 }
 
 .coil-mes-pending__head small {
-  color: rgba(133, 223, 255, 0.78);
+  color: var(--xt-text);
 }
 
 .coil-mes-pending__head strong {
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: var(--xt-text-xl);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .coil-mes-pending__state {
   padding: 14px;
-  border: 1px dashed rgba(133, 223, 255, 0.2);
-  border-radius: var(--xt-radius-lg);
+  border: 1px dashed var(--xt-border);
+  border-radius: 4px;
   color: var(--xt-text-secondary);
-  background: rgba(2, 13, 25, 0.48);
+  background: transparent;
   text-align: center;
 }
 
@@ -966,9 +964,9 @@ onMounted(loadData)
   gap: 8px 10px;
   align-items: center;
   padding: 12px;
-  border: 1px solid rgba(133, 223, 255, 0.16);
-  border-radius: var(--xt-radius-lg);
-  background: rgba(2, 13, 25, 0.68);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .coil-mes-card__main {
@@ -986,9 +984,9 @@ onMounted(loadData)
 
 .coil-mes-card__main strong {
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-lg);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .coil-mes-card__main span {
@@ -1014,8 +1012,8 @@ onMounted(loadData)
   gap: 8px;
   min-width: 0;
   padding: 8px 0;
-  border-top: 1px solid rgba(133, 223, 255, 0.1);
-  border-bottom: 1px solid rgba(133, 223, 255, 0.1);
+  border-top: 1px solid var(--xt-border);
+  border-bottom: 1px solid var(--xt-border);
 }
 
 .coil-mes-card__route span,
@@ -1027,20 +1025,20 @@ onMounted(loadData)
 
 .coil-mes-card__route span {
   min-width: 0;
-  color: rgba(211, 237, 249, 0.9);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .coil-mes-card__route strong {
   flex: 0 0 auto;
   padding: 3px 7px;
-  border: 1px solid rgba(88, 255, 185, 0.2);
-  border-radius: 6px;
-  background: rgba(33, 211, 146, 0.1);
-  color: rgba(132, 255, 210, 0.94);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .coil-mes-card__facts {
@@ -1055,24 +1053,24 @@ onMounted(loadData)
   gap: 3px;
   min-width: 0;
   padding: 9px 10px;
-  border: 1px solid rgba(0, 197, 255, 0.13);
-  border-radius: 8px;
-  background: rgba(4, 22, 40, 0.72);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .coil-mes-card__facts em {
-  color: rgba(185, 202, 203, 0.72);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .coil-mes-card__facts strong {
   overflow: hidden;
-  color: rgba(225, 253, 255, 0.94);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-sm);
-  font-weight: 950;
+  font-weight: 600;
   overflow-wrap: anywhere;
   text-overflow: ellipsis;
   white-space: normal;
@@ -1087,21 +1085,21 @@ onMounted(loadData)
 
 .coil-mes-card__badges span {
   padding: 3px 8px;
-  border: 1px solid rgba(93, 234, 255, 0.18);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  color: #8feaff;
-  background: rgba(0, 197, 255, 0.1);
+  color: var(--xt-text);
+  background: transparent;
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .coil-mes-card__metrics span {
   padding: 4px 8px;
-  border: 1px solid rgba(0, 197, 255, 0.16);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  color: rgba(211, 237, 249, 0.86);
-  background: rgba(0, 120, 255, 0.1);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+  background: transparent;
+
   font-size: var(--xt-text-xs);
 }
 
@@ -1110,10 +1108,10 @@ onMounted(loadData)
   min-width: 78px;
   min-height: 48px;
   border: 0;
-  border-radius: 8px;
-  color: #f8fbff;
-  background: #0052d9;
-  font-weight: 900;
+  border-radius: 4px;
+  color: var(--xt-text);
+  background: transparent;
+  font-weight: 600;
 }
 
 .coil-summary {
@@ -1126,10 +1124,10 @@ onMounted(loadData)
   display: grid;
   gap: 2px;
   padding: var(--xt-space-3);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   border: 1px solid var(--xt-border-light);
-  box-shadow: var(--xt-shadow-xs);
+
 }
 
 .coil-summary__item span {
@@ -1139,9 +1137,9 @@ onMounted(loadData)
 
 .coil-summary__item strong {
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-2xl);
-  font-weight: 900;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
@@ -1149,10 +1147,10 @@ onMounted(loadData)
 .coil-list {
   display: grid;
   gap: 1px;
-  background: var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  background: transparent;
+  border-radius: 4px;
   overflow: hidden;
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .coil-list__item {
@@ -1171,9 +1169,9 @@ onMounted(loadData)
 }
 
 .coil-list__left strong {
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-lg);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--xt-text);
 }
 
@@ -1188,7 +1186,7 @@ onMounted(loadData)
 }
 
 .coil-list__right span {
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-sm);
   font-variant-numeric: tabular-nums;
   color: var(--xt-text-secondary);
@@ -1212,18 +1210,15 @@ onMounted(loadData)
   width: auto;
   max-width: 100%;
   padding: 10px;
-  border: 1px solid rgba(0, 197, 255, 0.18);
-  border-radius: var(--xt-radius-xl);
-  background:
-    linear-gradient(180deg, rgba(5, 19, 34, 0.94), rgba(2, 10, 20, 0.98)),
-    radial-gradient(circle at 50% 0%, rgba(0, 197, 255, 0.12), transparent 58%);
-  box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(12px);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .coil-actions__hint {
   margin: 0;
-  color: rgba(171, 213, 235, 0.72);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
   line-height: 1.45;
   text-align: center;
@@ -1234,17 +1229,17 @@ onMounted(loadData)
   justify-self: center;
   width: calc(100% - 2px);
   min-height: 52px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   font-size: var(--xt-text-lg);
-  font-weight: 900;
-  box-shadow: var(--xt-shadow-md);
+  font-weight: 600;
+
 }
 
 .coil-summary-detail {
   display: grid;
   gap: 1px;
-  background: var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  background: transparent;
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -1262,9 +1257,9 @@ onMounted(loadData)
 }
 
 .coil-summary-detail__row strong {
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-2xl);
-  font-weight: 900;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
@@ -1273,10 +1268,10 @@ onMounted(loadData)
 .coil-quality {
   display: grid;
   gap: 10px;
-  border: 1px solid rgba(133, 223, 255, 0.16);
-  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 12px;
-  background: rgba(2, 13, 25, 0.66);
+  background: transparent;
 }
 
 .coil-entry-focus div,
@@ -1299,9 +1294,9 @@ onMounted(loadData)
 .coil-entry-focus strong {
   overflow: hidden;
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+
   font-size: 16px;
-  font-weight: 950;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1314,7 +1309,7 @@ onMounted(loadData)
 .coil-quality header strong {
   color: var(--xt-text);
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .coil-quality header label {
@@ -1337,12 +1332,10 @@ onMounted(loadData)
 .coil-mes-reference {
   display: grid;
   gap: 10px;
-  border: 1px solid rgba(0, 197, 255, 0.22);
-  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 12px;
-  background:
-    linear-gradient(135deg, rgba(0, 197, 255, 0.1), rgba(3, 15, 28, 0.9)),
-    radial-gradient(circle at 10% 0%, rgba(0, 197, 255, 0.12), transparent 44%);
+  background: transparent;
 }
 
 .coil-mes-reference header {
@@ -1355,13 +1348,13 @@ onMounted(loadData)
 .coil-mes-reference header strong {
   color: var(--xt-text);
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .coil-mes-reference header span {
   color: var(--xt-primary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .coil-mes-reference__grid {
@@ -1374,10 +1367,10 @@ onMounted(loadData)
   display: grid;
   gap: 4px;
   min-width: 0;
-  border: 1px solid rgba(133, 223, 255, 0.14);
-  border-radius: 12px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 10px;
-  background: rgba(2, 13, 25, 0.66);
+  background: transparent;
 }
 
 .coil-mes-reference__grid span,
@@ -1439,7 +1432,7 @@ onMounted(loadData)
 
 .mobile-spec-sep {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--xt-text-muted);
   flex-shrink: 0;
 }

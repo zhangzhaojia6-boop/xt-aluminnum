@@ -2,7 +2,6 @@
   <div class="mobile-shell ocr-vision" data-testid="mobile-ocr-capture">
     <div class="ocr-vision__hero mobile-top">
       <div class="ocr-vision__hero-copy">
-        <span class="ocr-vision__eyebrow">OCR 识别</span>
         <h1>拍照识别</h1>
       </div>
       <div class="ocr-vision__hero-status">
@@ -14,13 +13,12 @@
     <section class="ocr-vision__panel panel mobile-card">
       <header class="ocr-vision__panel-head">
         <div>
-          <span class="ocr-vision__eyebrow">班次状态</span>
           <strong>当前班次</strong>
         </div>
         <span class="ocr-vision__chip">{{ currentShiftLabel }}</span>
       </header>
       <div v-if="loading" class="ocr-vision__state mobile-placeholder">
-        <span class="ocr-vision__orbit" aria-hidden="true"></span>
+        <XtCoilMark />
         <strong>正在加载固定字段...</strong>
       </div>
       <div v-else-if="!currentShift.workshop_type" class="ocr-vision__state mobile-placeholder">
@@ -46,7 +44,6 @@
     <section class="ocr-vision__panel ocr-vision__capture panel mobile-card">
       <header class="ocr-vision__panel-head">
         <div>
-          <span class="ocr-vision__eyebrow">扫码采集</span>
           <strong>纸单拍照</strong>
         </div>
         <span class="ocr-vision__chip">{{ previewUrl ? '已取景' : '等待取景' }}</span>
@@ -101,7 +98,6 @@
     <section v-if="extractResult" class="ocr-vision__panel ocr-vision__result panel mobile-card">
       <header class="ocr-vision__panel-head">
         <div>
-          <span class="ocr-vision__eyebrow">识别结果</span>
           <strong>识别结果预览</strong>
         </div>
         <span class="ocr-vision__chip">{{ extractedFieldItems.length }} 项</span>
@@ -147,6 +143,7 @@
 </template>
 
 <script setup>
+import XtCoilMark from '../../components/xt/XtCoilMark.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
@@ -415,11 +412,7 @@ onBeforeUnmount(() => {
   z-index: 0;
   width: min(100%, 600px);
   pointer-events: none;
-  background:
-    radial-gradient(circle at 18% 0%, rgba(0, 242, 255, 0.16), transparent 34%),
-    linear-gradient(120deg, transparent 0 44%, rgba(0, 242, 255, 0.08) 48%, transparent 54% 100%),
-    repeating-linear-gradient(90deg, rgba(0, 242, 255, 0.034) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(0deg, transparent 0 18px, rgba(0, 242, 255, 0.034) 19px 20px);
+  background: transparent;
   opacity: 0.76;
   transform: translateX(-50%);
 }
@@ -444,7 +437,7 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: 14px;
   padding: 18px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .ocr-vision__hero::after,
@@ -454,24 +447,24 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent 0 40%, rgba(0, 242, 255, 0.12) 50%, transparent 60% 100%);
+  background: transparent;
   opacity: 0;
   transform: translateX(-76%);
 }
 
 .ocr-vision__hero::after {
-  animation: ocrVisionSweep 6.4s ease-in-out infinite;
+
 }
 
 .ocr-vision__hero-copy h1 {
   margin: 0;
-  color: #e8fdff;
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: 30px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.05;
-  text-shadow: 0 0 24px rgba(0, 242, 255, 0.18);
+
 }
 
 .ocr-vision__eyebrow {
@@ -479,9 +472,9 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 7px;
   margin-bottom: 8px;
-  color: rgba(0, 242, 255, 0.86);
+  color: var(--xt-primary);
   font-size: 10px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -492,8 +485,8 @@ onBeforeUnmount(() => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #00f2ff;
-  box-shadow: 0 0 16px rgba(0, 242, 255, 0.72);
+  background: transparent;
+
 }
 
 .ocr-vision__hero-status {
@@ -503,38 +496,36 @@ onBeforeUnmount(() => {
   gap: 8px;
   min-width: 84px;
   padding: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.18);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
-    rgba(2, 10, 22, 0.44);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .ocr-vision__hero-status strong {
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 13px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .ocr-vision__led {
   display: inline-block;
-  animation: ocrVisionLed 1.8s ease-in-out infinite;
+
 }
 
 .ocr-vision__led.is-warn {
-  background: #ffab00;
-  box-shadow: 0 0 16px rgba(255, 171, 0, 0.64);
+  background: transparent;
+
 }
 
 .ocr-vision__led.is-danger {
-  background: #ff3d00;
-  box-shadow: 0 0 16px rgba(255, 61, 0, 0.64);
+  background: transparent;
+
 }
 
 .ocr-vision__panel {
   padding: 14px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .ocr-vision__panel-head {
@@ -547,19 +538,19 @@ onBeforeUnmount(() => {
 
 .ocr-vision__panel-head strong {
   display: block;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .ocr-vision__chip {
   padding: 4px 8px;
-  border: 1px solid rgba(0, 242, 255, 0.18);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(0, 242, 255, 0.08);
-  color: rgba(216, 249, 255, 0.86);
+  background: transparent;
+  color: var(--xt-text);
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.1em;
   white-space: nowrap;
 }
@@ -573,7 +564,7 @@ onBeforeUnmount(() => {
 }
 
 .ocr-vision__state strong {
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 15px;
 }
 
@@ -582,20 +573,17 @@ onBeforeUnmount(() => {
   width: 66px;
   height: 66px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 242, 255, 0.34);
-  background:
-    radial-gradient(circle, rgba(0, 242, 255, 0.22) 0 18%, transparent 19%),
-    conic-gradient(from 90deg, rgba(0, 242, 255, 0.82), transparent 38%, rgba(255, 171, 0, 0.36), transparent 76%, rgba(0, 242, 255, 0.82));
-  box-shadow: 0 0 38px rgba(0, 242, 255, 0.13);
-  animation: ocrVisionOrbit 5s linear infinite;
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
 }
 
 .ocr-vision__orbit.is-warning {
-  border-color: rgba(255, 171, 0, 0.38);
+  border-color: var(--xt-border);
 }
 
 .ocr-vision__orbit.is-muted {
-  filter: grayscale(0.8);
+
   opacity: 0.66;
 }
 
@@ -608,7 +596,7 @@ onBeforeUnmount(() => {
 }
 
 .ocr-vision__capture {
-  border-color: rgba(0, 242, 255, 0.26);
+  border-color: var(--xt-border);
 }
 
 .ocr-vision__result {
@@ -632,13 +620,10 @@ onBeforeUnmount(() => {
   min-height: 220px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(0, 242, 255, 0.24);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 50% 38%, rgba(0, 242, 255, 0.14), transparent 34%),
-    linear-gradient(180deg, rgba(0, 242, 255, 0.06), rgba(3, 12, 24, 0.7)),
-    repeating-linear-gradient(0deg, transparent 0 14px, rgba(0, 242, 255, 0.04) 15px 16px);
-  box-shadow: inset 0 0 42px rgba(0, 242, 255, 0.08), 0 16px 36px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .ocr-vision__viewfinder.has-preview {
@@ -649,8 +634,8 @@ onBeforeUnmount(() => {
   position: absolute;
   width: 32px;
   height: 32px;
-  border-color: rgba(0, 242, 255, 0.72);
-  filter: drop-shadow(0 0 8px rgba(0, 242, 255, 0.4));
+  border-color: var(--xt-border);
+
 }
 
 .ocr-vision__corner.is-top-left {
@@ -687,9 +672,8 @@ onBeforeUnmount(() => {
   right: 18px;
   top: 22%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #00f2ff, transparent);
-  box-shadow: 0 0 18px rgba(0, 242, 255, 0.76);
-  animation: ocrVisionScanline 3.2s ease-in-out infinite;
+  background: transparent;
+
 }
 
 .ocr-vision__lens {
@@ -697,14 +681,14 @@ onBeforeUnmount(() => {
   justify-items: center;
   gap: 10px;
   color: var(--xt-text-secondary);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .ocr-vision__preview {
-  border: 1px solid rgba(0, 242, 255, 0.2);
-  border-radius: 16px;
-  background: rgba(3, 12, 24, 0.7);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
   overflow: hidden;
 }
 
@@ -729,7 +713,7 @@ onBeforeUnmount(() => {
 .ocr-vision__primary-action {
   position: relative;
   overflow: hidden;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
@@ -738,7 +722,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: -1px;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  background: transparent;
   opacity: 0;
   transform: translateX(-110%);
 }
@@ -754,19 +738,19 @@ onBeforeUnmount(() => {
   min-height: 30px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 12px;
-  background: rgba(2, 10, 22, 0.5);
-  color: #e8fdff;
-  font-family: var(--xt-font-number);
-  font-weight: 950;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .ocr-vision__confidence span::before {
   margin-right: 4px;
   color: var(--xt-text-secondary);
-  font-family: var(--xt-font-body);
+
   font-size: 10px;
   letter-spacing: 0.08em;
 }
@@ -782,21 +766,19 @@ onBeforeUnmount(() => {
 
 .ocr-vision__field {
   padding: 13px;
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
-    rgba(2, 10, 22, 0.44);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
   animation: ocrVisionCardIn 420ms ease both;
   animation-delay: calc(var(--ocr-index) * 60ms);
 }
 
 .ocr-vision__field.is-warn {
-  border-color: rgba(255, 171, 0, 0.28);
+  border-color: var(--xt-border);
 }
 
 .ocr-vision__field.is-danger {
-  border-color: rgba(255, 61, 0, 0.32);
+  border-color: var(--xt-border);
 }
 
 .ocr-vision__field-top {
@@ -807,7 +789,7 @@ onBeforeUnmount(() => {
 }
 
 .ocr-vision__field-top strong {
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 15px;
 }
 
@@ -815,31 +797,31 @@ onBeforeUnmount(() => {
   min-width: 58px;
   padding: 4px 8px;
   border-radius: 999px;
-  color: #06101f;
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 600;
   text-align: center;
 }
 
 .ocr-vision__badge.is-good {
-  background: #00f2ff;
+  background: transparent;
 }
 
 .ocr-vision__badge.is-warn {
-  background: #ffab00;
+  background: transparent;
 }
 
 .ocr-vision__badge.is-danger {
-  background: #ff3d00;
-  color: #fff4ef;
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .ocr-vision__field-value {
   margin-top: 8px;
   color: var(--xt-text-secondary);
-  font-family: var(--xt-font-number);
+
   font-size: 18px;
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .ocr-vision__raw {
@@ -847,9 +829,9 @@ onBeforeUnmount(() => {
 }
 
 .ocr-vision__raw-title {
-  color: rgba(0, 242, 255, 0.84);
+  color: var(--xt-primary);
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
@@ -857,10 +839,10 @@ onBeforeUnmount(() => {
   max-height: 160px;
   margin: 8px 0 0;
   padding: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  border-radius: 14px;
-  background: rgba(2, 10, 22, 0.62);
-  color: rgba(216, 249, 255, 0.86);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: 12px;
   white-space: pre-wrap;
   overflow: auto;
@@ -877,13 +859,10 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.2);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(0, 242, 255, 0.08), rgba(3, 12, 24, 0.94)),
-    rgba(3, 12, 24, 0.88);
-  box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(16px);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 @media (hover: hover) {
@@ -893,7 +872,7 @@ onBeforeUnmount(() => {
 
   .ocr-vision__field:hover,
   .ocr-vision__viewfinder:hover {
-    border-color: rgba(0, 242, 255, 0.34);
+    border-color: var(--xt-border);
   }
 }
 

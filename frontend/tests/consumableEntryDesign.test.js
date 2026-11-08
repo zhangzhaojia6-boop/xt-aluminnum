@@ -26,16 +26,13 @@ test('ConsumableEntry preserves workshop date dynamic fields and save payload', 
   assert.match(src, /payload/)
 })
 
-test('ConsumableEntry uses industrial blue command styling without purple drift', () => {
+test('ConsumableEntry uses the paper theme', () => {
   for (const token of [
     'data-testid="consumable-entry"',
     'consumable-hub',
     '辅材填报',
-    '填报控制',
-    '车间状态',
     'consumableSeq(index)',
     'saveStatusLabel',
-    '#00f2ff',
     'consumableHubScan',
     'consumableHubLed',
     'consumableHubCardIn',
@@ -45,5 +42,5 @@ test('ConsumableEntry uses industrial blue command styling without purple drift'
   ]) {
     assert.match(src, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
-  assert.doesNotMatch(src, /purple|violet|lavender/i)
+  assert.doesNotMatch(src, /purple|violet|lavender|#00f2ff/i)
 })
