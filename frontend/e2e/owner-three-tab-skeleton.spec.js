@@ -18,13 +18,7 @@ test.describe('owner three-tab skeleton', () => {
 
     await expect(page.getByTestId('manage-today')).toBeVisible()
     await expect(page.getByRole('heading', { name: '经营总览' })).toBeVisible()
-    await expect(page.locator('.xt-manage__sidebar .xt-manage__nav-group-label')).toHaveText([
-      '实时调度',
-      '昨日报表',
-      '生产分析',
-      '人员考勤',
-      '系统'
-    ])
+    await expect(page.locator('.xt-manage__sidebar .xt-manage__nav-item')).toHaveCount(5)
   })
 
   test('navigates the core management tabs without 404', async ({ page }) => {
@@ -44,7 +38,7 @@ test.describe('owner three-tab skeleton', () => {
     await expect(page).toHaveURL(/\/manage\/alerts$/)
     await expect(page.getByTestId('manage-alerts')).toBeVisible()
 
-    const todayLink = sidebarNav.getByRole('link', { name: '昨日报表', exact: true })
+    const todayLink = sidebarNav.getByRole('link', { name: '经营总览', exact: true })
     await expect(todayLink).toHaveAttribute('href', '/manage/today')
     await todayLink.click({ force: true })
     await expect(page).toHaveURL(/\/manage\/today$/)

@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: 'visual-*.spec.js',
+  testMatch: process.env.VISUAL_MATCH ? process.env.VISUAL_MATCH.split(',') : 'visual-*.spec.js',
   timeout: 45000,
   workers: 1,
   reporter: 'line',

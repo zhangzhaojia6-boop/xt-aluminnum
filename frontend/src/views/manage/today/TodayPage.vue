@@ -96,7 +96,7 @@
       <aside class="xt-today__event-rail" data-testid="today-event-rail">
         <header class="xt-today__rail-head">
           <h2>异常与待办</h2>
-          <RouterLink class="xt-today__quick-link" to="/manage/alerts">全部异常</RouterLink>
+          <RouterLink v-if="!compactClient" class="xt-today__quick-link" to="/manage/alerts">全部异常</RouterLink>
         </header>
 
         <article
@@ -770,7 +770,7 @@ onBeforeUnmount(() => {
 
 .xt-today__below-fold { display: grid; gap: 48px; min-height: 240px; }
 .xt-today__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; }
-.xt-today__row > :deep(*) { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.xt-today__row > :deep(*) { padding: 0; border: 0; border-radius: 0; background: var(--xt-bg-page); box-shadow: none; }
 .xt-today__row > :deep(*)::before, .xt-today__row > :deep(*)::after { display: none; }
 
 .xt-today__sources { padding-top: 16px; border-top: 1px solid var(--xt-border); }

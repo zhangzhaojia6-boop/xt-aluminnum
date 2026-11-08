@@ -10,8 +10,8 @@ test.describe('ManageShell layout', () => {
     await expect(page).toHaveURL(/\/manage\/today$/)
     await expect(page.locator('.xt-manage__sidebar')).toBeVisible()
     const activeNav = page.locator('.xt-manage__nav-item.router-link-active')
-    await expect(activeNav).toContainText('日报')
-    await expect(activeNav).toHaveAttribute('data-nav-title', '昨日报表')
+    await expect(activeNav).toContainText('总览')
+    await expect(activeNav).toHaveAttribute('data-nav-title', '经营总览')
   })
 
   test('sidebar collapses and remembers state', async ({ page }) => {
@@ -55,7 +55,7 @@ test.describe('ManageShell layout', () => {
     const drawer = page.locator('.xt-manage__drawer')
     const mobileNav = page.getByRole('navigation', { name: '移动端管理导航' })
     await expect(mobileNav).toBeVisible()
-    const liveLink = mobileNav.getByRole('link', { name: '实时调度墙' })
+    const liveLink = mobileNav.getByRole('link', { name: '实时调度' })
     await expect(liveLink).toHaveAttribute('href', '/manage/live')
     await liveLink.click({ force: true })
 

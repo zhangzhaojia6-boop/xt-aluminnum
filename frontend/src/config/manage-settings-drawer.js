@@ -31,7 +31,7 @@ export const SETTINGS_GROUPS = [
     items: [
       { title: '归档报表', path: '/manage/reports', access: 'review' },
       { title: 'AI', path: '/manage/ai-assistant', access: 'review' },
-      { title: '知识库', path: '/manage/rag', access: 'admin' },
+      { title: '知识库资料', path: '/manage/rag', access: 'admin' },
       { title: '输出skill对齐', path: '/manage/mapping-reconciliation', access: 'admin' }
     ]
   },
