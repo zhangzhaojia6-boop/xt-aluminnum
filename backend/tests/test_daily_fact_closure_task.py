@@ -13,6 +13,7 @@ from app.models.reports import (
     DailyFactBundleRun,
     DailyFactBundleSnapshot,
     DailyFactCorrection,
+    DailyReport,
 )
 from app.models.system import User
 from app.tasks import daily_fact_closure as task_module
@@ -110,6 +111,7 @@ def test_daily_fact_closure_uses_last_completed_business_date(
         "business_date": "2026-07-07",
         "trace_id": "daily-fact-closure:2026-07-07",
         "status": "blocked",
+        "open_gaps": 0,
         "release_ready": False,
     }
     assert db_session.query(DailyFactBundleRun).count() == 1
@@ -709,3 +711,134 @@ def test_release_ready_still_blocks_on_source_errors(
     conflicts = [{"field": "total_output_daily", "type": "source_error"}]
 
     assert _closure_release_ready(monkeypatch, db_session, conflicts) is False
+
+
+def _report_session(monkeypatch: pytest.MonkeyPatch, **report_fields) -> tuple[sessionmaker, int]:
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine, tables=[cast(Table, DailyReport.__table__)])
+    SessionLocal = sessionmaker(bind=engine, future=True, expire_on_commit=False)
+    monkeypatch.setattr(task_module, "get_sessionmaker", lambda: SessionLocal)
+    monkeypatch.setattr(
+        task_module,
+        "generate_daily_reports",
+        lambda **_kwargs: pytest.fail("a blocked refresh must not generate or deliver the report"),
+    )
+    with SessionLocal() as session:
+        report = DailyReport(
+            report_date=date(2026, 11, 5),
+            report_type="production",
+            generated_scope="auto_confirmed",
+            output_mode="both",
+            status="draft",
+            report_data={
+                "template_daily_report": {"status": "blocked", "missing_fields": ["a"] * 97},
+                "daily_report_product": {"status": "blocked", "missing_fields": ["a"] * 97},
+                "scheduled_daily_report_delivery": {"status": "blocked_incomplete"},
+            },
+            **report_fields,
+        )
+        session.add(report)
+        session.commit()
+        return SessionLocal, report.id
+
+
+def _stub_report_apply(monkeypatch: pytest.MonkeyPatch, *, status: str = "blocked") -> list[date]:
+    applied: list[date] = []
+
+    def fake_apply(_db, *, report, target_date, **kwargs):
+        applied.append(target_date)
+        assert kwargs == {"allow_datahub_final_reference": False, "use_fact_bundle": True}
+        payload = {"status": status, "text": "正文", "missing_fields": ["a"] * 89}
+        report.report_data = {
+            **report.report_data,
+            "template_daily_report": {"status": status, "missing_fields": ["a"] * 89},
+        }
+        return payload
+
+    monkeypatch.setattr(task_module, "apply_template_daily_report_to_report", fake_apply)
+    return applied
+
+
+BLOCKED_REFRESH = {
+    "business_date": "2026-11-05",
+    "status": "blocked",
+    "release_ready": False,
+    "open_gaps": 89,
+}
+AFTER_CUTOFF = datetime(2026, 11, 6, 10, 30, tzinfo=SHANGHAI)
+
+
+def test_late_fact_rewrites_blocked_report_row_without_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    SessionLocal, report_id = _report_session(monkeypatch)
+    applied = _stub_report_apply(monkeypatch)
+
+    task_module._release_daily_report_if_ready(BLOCKED_REFRESH, checked_at=AFTER_CUTOFF)
+
+    assert applied == [date(2026, 11, 5)]
+    with SessionLocal() as session:
+        report = session.get(DailyReport, report_id)
+        assert len(report.report_data["template_daily_report"]["missing_fields"]) == 89
+        assert len(report.report_data["daily_report_product"]["missing_fields"]) == 89
+        assert report.report_data["scheduled_daily_report_delivery"] == {"status": "blocked_incomplete"}
+        assert report.status == "draft"
+        assert report.delivery_ready is not True
+
+
+def test_blocked_report_row_is_rebuilt_once_per_gap_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _report_session(monkeypatch)
+    applied = _stub_report_apply(monkeypatch)
+
+    task_module._release_daily_report_if_ready(BLOCKED_REFRESH, checked_at=AFTER_CUTOFF)
+    task_module._release_daily_report_if_ready(BLOCKED_REFRESH, checked_at=AFTER_CUTOFF)
+    task_module._release_daily_report_if_ready(
+        {**BLOCKED_REFRESH, "open_gaps": 88},
+        checked_at=AFTER_CUTOFF,
+    )
+
+    assert len(applied) == 2
+
+
+def test_blocked_report_row_is_left_alone_before_cutoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _report_session(monkeypatch)
+    applied = _stub_report_apply(monkeypatch)
+
+    task_module._release_daily_report_if_ready(
+        BLOCKED_REFRESH,
+        checked_at=datetime(2026, 11, 6, 9, 59, tzinfo=SHANGHAI),
+    )
+
+    assert applied == []
+
+
+def test_ready_payload_on_blocked_refresh_does_not_touch_report_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    SessionLocal, report_id = _report_session(monkeypatch)
+    _stub_report_apply(monkeypatch, status="ready")
+
+    task_module._release_daily_report_if_ready(BLOCKED_REFRESH, checked_at=AFTER_CUTOFF)
+
+    with SessionLocal() as session:
+        report = session.get(DailyReport, report_id)
+        assert len(report.report_data["template_daily_report"]["missing_fields"]) == 97
+
+
+def test_released_report_row_is_not_rewritten_by_blocked_refresh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _report_session(monkeypatch, delivery_ready=True)
+    applied = _stub_report_apply(monkeypatch)
+
+    task_module._release_daily_report_if_ready(BLOCKED_REFRESH, checked_at=AFTER_CUTOFF)
+
+    assert applied == []
