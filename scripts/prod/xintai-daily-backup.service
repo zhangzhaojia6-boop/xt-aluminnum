@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily backup of the data hub database and uploads
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/sbin/xintai-daily-backup
