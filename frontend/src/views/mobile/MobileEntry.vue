@@ -14,7 +14,7 @@
       <div v-else>下拉刷新</div>
     </div>
 
-    <section class="mobile-entry-stage panel" :style="{ transform: `translateY(${pullDistance}px)` }">
+    <section class="mobile-entry-stage" :style="{ transform: `translateY(${pullDistance}px)` }">
       <div class="mobile-entry-stage__top">
         <div>
           <div v-if="false" class="mobile-kicker">03 独立填报端</div>
@@ -109,28 +109,19 @@
         </div>
       </div>
       <div v-else class="mobile-entry-stage__hero" data-testid="mobile-current-shift">
-        <div class="mobile-entry-stage__identity" :style="{ '--role-color': roleColor }">
-          <div class="mobile-entry-stage__identity-main">
-            <strong>{{ roleBucketMeta.title }}</strong>
-            <span>{{ current.workshop_name || bootstrap.workshop_name || '-' }}</span>
-          </div>
-          <div class="mobile-entry-stage__identity-shift">
-            <span>{{ currentShiftLabel }}</span>
-            <span>{{ current.business_date || '-' }}</span>
-          </div>
-        </div>
+        <ol v-if="!isOwnerDailyEntry" class="mobile-shift-track" aria-label="班次">
+          <li v-for="shift in SHIFT_TRACK" :key="shift" :class="{ 'is-current': currentShiftLabel.includes(shift) }">
+            <i />
+            <span>{{ shift }}</span>
+          </li>
+        </ol>
 
-        <div v-if="isMachineBound" class="mobile-entry-stage__machine">
-          <strong>{{ current.machine_name || bootstrap.machine_name || '-' }}</strong>
-          <span>{{ auth.user?.username || '-' }}</span>
-        </div>
-
-        <div class="mobile-entry-stage__facts">
-          <article v-for="fact in currentFacts" :key="fact.label" class="mobile-entry-stage__fact">
-            <span>{{ fact.label }}</span>
-            <strong>{{ fact.value }}</strong>
-          </article>
-        </div>
+        <dl class="mobile-entry-stage__facts">
+          <div v-for="fact in currentFacts" :key="fact.label" class="mobile-entry-stage__fact">
+            <dt>{{ fact.label }}</dt>
+            <dd>{{ fact.value }}</dd>
+          </div>
+        </dl>
 
         <section v-if="largeTypeMode" class="mobile-entry-stage__screen-summary" data-testid="mobile-screen-summary">
           <header>
@@ -149,14 +140,7 @@
           <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goReport">
             开始填报
           </el-button>
-          <div class="mobile-entry-stage__status">
-            <span>状态</span>
-            <strong>{{ formatStatusLabel(current.report_status) }}</strong>
-          </div>
-        </div>
-
-        <div class="mobile-entry-stage__quick-grid">
-          <el-button plain @click="goReportHistory">历史记录</el-button>
+          <el-button plain size="large" @click="goReportHistory">历史记录</el-button>
         </div>
       </div>
     </section>
@@ -191,22 +175,7 @@ import ReminderList from './ReminderList.vue'
 // Performance monitoring
 usePerformance('MobileEntry')
 
-const ROLE_COLOR_MAP = {
-  machine_operator: 'var(--m-role-operator)',
-  energy_stat: 'var(--m-role-energy)',
-  consumable_stat: 'var(--m-role-consumable)',
-  qc: 'var(--m-role-qc)',
-  utility_manager: 'var(--m-role-utility)',
-  inventory_keeper: 'var(--m-role-inventory)',
-  contracts: 'var(--m-role-contracts)',
-  quality_owner: 'var(--m-role-qc)',
-  planning_owner: 'var(--m-role-contracts)',
-  energy_chief: 'var(--m-role-energy)',
-  storage_owner: 'var(--m-role-inventory)',
-  shipment_outflow_owner: 'var(--m-role-utility)',
-  recovery_owner: 'var(--m-role-consumable)',
-  overhaul_owner: 'var(--m-role-utility)',
-}
+const SHIFT_TRACK = ['长白班', '小夜班', '大夜班']
 
 const route = useRoute()
 const router = useRouter()
@@ -245,7 +214,6 @@ const isOwnerDailyEntry = computed(() => OWNER_DAILY_BUCKETS.has(transitionMappi
 const roleBucketMeta = computed(() => describeTransitionRoleBucket(transitionMapping.value.role_bucket))
 const pageTitle = computed(() => roleBucketMeta.value.title)
 const pageSubtitle = computed(() => roleBucketMeta.value.subtitle)
-const roleColor = computed(() => ROLE_COLOR_MAP[bootstrap.value?.user_role || auth.role] || 'var(--m-role-operator)')
 const showReminderPanel = computed(() => Boolean(current.value?.can_submit || (current.value?.active_reminders || []).length))
 const currentShiftLabel = computed(() => (
   isOwnerDailyEntry.value
@@ -275,6 +243,7 @@ const shiftHint = computed(() => {
   return `按 07:50 起算，当前是 ${wall.code} ${wall.name}（${wall.businessDate}）。`
 })
 const currentFacts = computed(() => [
+  { label: '车间', value: current.value?.workshop_name || bootstrap.value?.workshop_name || '-' },
   { label: '日期', value: current.value?.business_date || '-' },
   { label: isMachineBound.value ? '机台' : '班组', value: isMachineBound.value ? (current.value?.machine_name || bootstrap.value?.machine_name || '-') : (current.value?.team_name || '-') },
   { label: '状态', value: formatStatusLabel(current.value?.report_status) }
@@ -567,460 +536,214 @@ onUnmounted(() => {
 
 <style scoped>
 .mobile-shell--entry {
-  overflow-x: hidden;
   overflow-wrap: anywhere;
-  word-break: break-word;
+  display: grid;
+  gap: 32px;
+  padding: 32px 20px 40px;
 }
 
 .mobile-pull-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  color: var(--xt-primary);
-  font-size: 13px;
-  font-weight: 800;
-  transition: height 0.1s ease;
-  text-shadow: 0 0 14px rgba(0, 242, 255, 0.28);
-}
-
-.mobile-entry-stage,
-.mobile-entry-stage__top,
-.mobile-entry-stage__hero,
-.mobile-entry-stage__facts,
-.mobile-entry-stage__cta {
   display: grid;
-  gap: 12px;
+  place-items: center;
+  overflow: hidden;
+  color: var(--xt-text-muted);
+  font-size: 12px;
 }
 
 .mobile-entry-stage {
-  position: relative;
-  overflow: hidden;
-  padding: var(--xt-space-3);
-  background:
-    linear-gradient(145deg, rgba(9, 27, 50, 0.94), rgba(3, 12, 24, 0.84)),
-    radial-gradient(circle at 18% 0%, rgba(0, 242, 255, 0.16), transparent 42%);
-  border-color: rgba(0, 242, 255, 0.18);
-  border-radius: var(--xt-radius-2xl);
-  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  transition: transform 0.1s ease;
-}
-
-.mobile-entry-stage::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(115deg, transparent 0 34%, rgba(0, 242, 255, 0.12) 48%, transparent 62% 100%);
-  opacity: 0.18;
-  transform: translateX(-75%);
+  display: grid;
+  gap: 32px;
 }
 
 .mobile-entry-stage__top {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 6px;
-}
-
-.mobile-logout-btn {
-  font-size: 12px;
-  color: var(--xt-text-muted);
-  margin-top: 6px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .mobile-entry-stage__top h1 {
-  margin: 4px 0 0;
-  font-size: var(--xt-text-2xl);
-  font-family: var(--xt-font-display);
-  font-weight: 950;
-  line-height: 1.22;
-  color: var(--xt-text);
-  text-shadow: 0 0 22px rgba(0, 242, 255, 0.2);
-}
-
-.mobile-entry-stage__mode-toggle {
-  position: relative;
-  z-index: 1;
-  min-height: 38px;
-  border: 1px solid rgba(0, 242, 255, 0.28);
-  border-radius: var(--xt-radius-pill);
-  padding: 0 12px;
-  background: rgba(3, 12, 24, 0.54);
-  color: rgba(225, 253, 255, 0.9);
-  font-size: var(--xt-text-sm);
-  font-weight: 900;
-  touch-action: manipulation;
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .mobile-entry-stage__top p {
-  max-width: 30ch;
-  font-size: var(--xt-text-lg);
-  line-height: 1.4;
+  margin: 4px 0 0;
+  color: var(--xt-text-secondary);
 }
 
-.mobile-entry-stage__top p,
-.mobile-entry-stage__empty,
-.mobile-entry-stage__fact span,
-.mobile-entry-stage__machine span,
-.mobile-entry-stage__status span {
-  margin: 0;
-  color: var(--app-muted);
-}
-
-.mobile-entry-stage__identity {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: var(--xt-space-4);
-  border-radius: var(--xt-radius-xl);
-  background: linear-gradient(135deg, rgba(0, 242, 255, 0.12), rgba(4, 16, 31, 0.88));
-  border: 1px solid rgba(0, 242, 255, 0.2);
-  border-left: 3px solid var(--role-color, var(--xt-primary));
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.mobile-entry-stage__identity::after {
-  content: '';
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--xt-primary);
-  box-shadow: 0 0 0 4px rgba(0, 242, 255, 0.1), 0 0 18px rgba(0, 242, 255, 0.7);
-}
-
-.mobile-entry-stage__identity-main {
-  display: grid;
-  gap: 2px;
-}
-
-.mobile-entry-stage__identity-main strong {
-  color: rgba(255, 255, 255, 0.92);
-  font-family: var(--xt-font-display);
-  font-size: var(--xt-text-xl);
-  font-weight: 850;
-  letter-spacing: -0.012em;
-  line-height: 1.18;
-}
-
-.mobile-entry-stage__identity-main span {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: var(--xt-text-sm);
-}
-
-.mobile-entry-stage__identity-shift {
-  display: grid;
-  gap: 2px;
-  text-align: right;
-}
-
-.mobile-entry-stage__identity-shift span {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: var(--xt-text-sm);
-}
-
-.mobile-entry-stage__identity-shift span:first-child {
-  color: rgba(255, 255, 255, 0.82);
-  font-family: var(--xt-font-number);
-  font-size: var(--xt-text-lg);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+.mobile-entry-stage__mode-toggle {
+  flex: none;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--xt-primary);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .mobile-entry-stage__empty {
   display: grid;
-  gap: var(--xt-space-2);
-  padding: var(--xt-space-4);
-  border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
-  background: var(--xt-bg-panel-soft);
+  gap: 8px;
+  color: var(--xt-text-secondary);
 }
 
-.mobile-entry-stage__empty p + p {
-  font-size: var(--xt-text-sm);
+.mobile-entry-stage__empty p {
+  margin: 0;
 }
 
 .mobile-entry-stage__action-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .mobile-entry-stage__action-row .el-button {
-  border-radius: var(--xt-radius-lg);
-  min-height: 48px;
-  min-width: 122px;
-  touch-action: manipulation;
+  width: 100%;
+  margin: 0;
 }
 
-.mobile-entry-stage__machine {
+.mobile-entry-stage__hero {
   display: grid;
-  gap: var(--xt-space-1);
-  padding: var(--xt-space-3);
-  border-radius: var(--xt-radius-lg);
-  background: rgba(0, 242, 255, 0.07);
-  border: 1px solid rgba(0, 242, 255, 0.14);
+  gap: 32px;
 }
 
-.mobile-entry-stage__machine strong {
-  color: var(--app-text);
+.mobile-shift-track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mobile-shift-track li {
+  display: grid;
+  gap: 8px;
+  color: var(--xt-text-muted);
+  font-size: 14px;
+}
+
+.mobile-shift-track i {
+  display: block;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--xt-bg-depth);
+}
+
+.mobile-shift-track .is-current {
+  color: var(--xt-primary);
+  font-weight: 600;
+}
+
+.mobile-shift-track .is-current i {
+  background: var(--xt-primary);
+  transform-origin: left;
+  animation: mobile-shift-grow 700ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 .mobile-entry-stage__facts {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: grid;
+  margin: 0;
 }
 
 .mobile-entry-stage__fact {
-  display: grid;
-  gap: var(--xt-space-1);
-  padding: var(--xt-space-3);
-  border-radius: var(--xt-radius-lg);
-  background: rgba(3, 12, 24, 0.54);
-  border: 1px solid rgba(0, 242, 255, 0.12);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--xt-border);
 }
 
-.mobile-entry-stage__fact strong {
-  color: var(--app-text);
-  font-family: var(--xt-font-number);
+.mobile-entry-stage__fact dt {
+  color: var(--xt-text-secondary);
+}
+
+.mobile-entry-stage__fact dd {
+  margin: 0;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 16px rgba(0, 242, 255, 0.14);
+  text-align: right;
 }
 
 .mobile-entry-stage__screen-summary {
   display: grid;
-  gap: 10px;
-  padding: var(--xt-space-3);
-  border: 1px solid rgba(0, 242, 255, 0.18);
-  border-radius: var(--xt-radius-xl);
-  background:
-    linear-gradient(135deg, rgba(0, 197, 255, 0.1), rgba(3, 12, 24, 0.72)),
-    radial-gradient(circle at 12% 0%, rgba(0, 242, 255, 0.12), transparent 46%);
+  gap: 16px;
+  padding: 24px 20px;
+  border-radius: 4px;
+  background: var(--xt-primary);
+  color: #fff;
 }
 
 .mobile-entry-stage__screen-summary header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.mobile-entry-stage__screen-summary header span {
-  color: var(--app-muted);
-  font-size: var(--xt-text-sm);
-  font-weight: 800;
+  display: grid;
+  gap: 4px;
 }
 
 .mobile-entry-stage__screen-summary header strong {
-  color: var(--app-text);
-  font-size: var(--xt-text-lg);
-  font-weight: 950;
+  font-size: 24px;
+  font-weight: 600;
 }
 
 .mobile-entry-stage__screen-summary > div {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
 }
 
 .mobile-entry-stage__screen-summary article {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: var(--xt-space-3);
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: var(--xt-radius-lg);
-  background: rgba(3, 12, 24, 0.56);
-}
-
-.mobile-entry-stage__screen-summary article span {
-  color: var(--app-muted);
-  font-size: var(--xt-text-sm);
-  font-weight: 800;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .mobile-entry-stage__screen-summary article strong {
-  overflow: hidden;
-  color: var(--app-text);
-  font-size: var(--xt-text-lg);
-  font-weight: 950;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .mobile-entry-stage__cta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  gap: 12px;
 }
 
 .mobile-entry-stage__cta .el-button {
-  position: relative;
-  overflow: hidden;
-  min-height: 52px;
-  min-width: 156px;
-  border-radius: var(--xt-radius-lg);
-  font-size: var(--xt-text-lg);
-  font-weight: 900;
-  touch-action: manipulation;
+  width: 100%;
+  min-height: 56px;
+  margin: 0;
+  font-size: 18px;
 }
 
-.mobile-entry-stage__cta .el-button::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.32), transparent);
-  transform: translateX(-110%);
-  opacity: 0.16;
-}
-
-.mobile-entry-stage__status {
-  position: relative;
-  display: grid;
-  gap: var(--xt-space-1);
-  padding: var(--xt-space-3) var(--xt-space-3) var(--xt-space-3) 28px;
-  border-radius: var(--xt-radius-lg);
-  background: rgba(3, 12, 24, 0.54);
-  border: 1px solid rgba(0, 242, 255, 0.12);
-}
-
-.mobile-entry-stage__status::before {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--xt-primary);
-  box-shadow: 0 0 14px rgba(0, 242, 255, 0.68);
-  transform: translateY(-50%);
-}
-
-.mobile-entry-stage__status strong {
-  color: var(--app-text);
-}
-
-.mobile-entry-stage__quick-grid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.mobile-entry-stage__quick-grid .el-button {
-  min-height: 48px;
-  border-radius: var(--xt-radius-lg);
-  font-size: var(--xt-text-lg);
-  touch-action: manipulation;
-}
-
-.mobile-shell--large-type .mobile-entry-stage {
-  min-height: min(720px, calc(100dvh - 24px));
+.mobile-shell--large-type {
+  font-size: 18px;
 }
 
 .mobile-shell--large-type .mobile-entry-stage__top h1 {
-  font-size: clamp(32px, 9vw, 54px);
-  line-height: 1.08;
+  font-size: 40px;
 }
 
-.mobile-shell--large-type .mobile-entry-stage__top p {
-  font-size: clamp(18px, 4.5vw, 26px);
+.mobile-shell--large-type .mobile-entry-stage__fact dd {
+  font-size: 22px;
 }
 
-.mobile-shell--large-type .mobile-entry-stage__identity {
-  align-items: stretch;
+.mobile-shell--large-type .mobile-entry-stage__cta .el-button {
+  min-height: 72px;
+  font-size: 24px;
 }
 
-.mobile-shell--large-type .mobile-entry-stage__identity-main strong {
-  font-size: clamp(28px, 7vw, 44px);
-}
-
-.mobile-shell--large-type .mobile-entry-stage__identity-main span,
-.mobile-shell--large-type .mobile-entry-stage__identity-shift span {
-  font-size: clamp(16px, 4vw, 22px);
-}
-
-.mobile-shell--large-type .mobile-entry-stage__identity-shift span:first-child {
-  font-size: clamp(24px, 6vw, 36px);
-}
-
-.mobile-shell--large-type .mobile-entry-stage__machine strong,
-.mobile-shell--large-type .mobile-entry-stage__fact strong,
-.mobile-shell--large-type .mobile-entry-stage__status strong {
-  font-size: clamp(24px, 6.5vw, 38px);
-  line-height: 1.08;
-}
-
-.mobile-shell--large-type .mobile-entry-stage__fact span,
-.mobile-shell--large-type .mobile-entry-stage__machine span,
-.mobile-shell--large-type .mobile-entry-stage__status span {
-  font-size: clamp(15px, 4vw, 21px);
-}
-
-.mobile-shell--large-type .mobile-entry-stage__facts {
-  grid-template-columns: 1fr;
-}
-
-.mobile-shell--large-type .mobile-entry-stage__screen-summary > div {
-  grid-template-columns: 1fr;
-}
-
-.mobile-shell--large-type .mobile-entry-stage__screen-summary header strong,
-.mobile-shell--large-type .mobile-entry-stage__screen-summary article strong {
-  font-size: clamp(22px, 5.6vw, 34px);
-}
-
-.mobile-shell--large-type .mobile-entry-stage__screen-summary header span,
-.mobile-shell--large-type .mobile-entry-stage__screen-summary article span {
-  font-size: clamp(15px, 4vw, 21px);
-}
-
-.mobile-shell--large-type .mobile-entry-stage__cta {
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-.mobile-shell--large-type .mobile-entry-stage__cta .el-button,
-.mobile-shell--large-type .mobile-entry-stage__quick-grid .el-button {
-  width: 100%;
-  min-height: 68px;
-  font-size: clamp(20px, 5.5vw, 30px);
-}
-
-.mobile-entry-stage__action-row :deep(.el-button--primary.is-plain),
-.mobile-entry-stage__quick-grid :deep(.el-button--primary.is-plain) {
-  border-color: var(--xt-primary-border);
-  background: var(--xt-bg-panel);
-  color: var(--xt-primary);
-}
-
-.mobile-entry-stage__action-row :deep(.el-button--primary.is-plain:hover),
-.mobile-entry-stage__quick-grid :deep(.el-button--primary.is-plain:hover) {
-  background: var(--xt-primary-light);
-}
-
-@media (max-width: 720px) {
-  .mobile-entry-stage__top,
-  .mobile-entry-stage__cta {
-    grid-template-columns: 1fr;
-    display: grid;
+@keyframes mobile-shift-grow {
+  from {
+    transform: scaleX(0);
   }
+}
 
-  .mobile-entry-stage__action-row {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .mobile-entry-stage__facts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .mobile-entry-stage__quick-grid {
-    grid-template-columns: 1fr;
+@media (prefers-reduced-motion: reduce) {
+  .mobile-shift-track .is-current i {
+    animation: none;
   }
 }
 </style>

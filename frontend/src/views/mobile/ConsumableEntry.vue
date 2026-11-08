@@ -2,7 +2,6 @@
   <div class="mobile-shell mobile-shell--entry consumable-hub" data-testid="consumable-entry">
     <section class="consumable-hub__hero panel">
       <div class="consumable-hub__hero-copy">
-        <span class="consumable-hub__eyebrow">辅材填报</span>
         <h1>辅材填报</h1>
         <p>每日一录 · 车间辅材</p>
       </div>
@@ -30,7 +29,6 @@
     <section class="consumable-hub__panel panel">
       <header class="consumable-hub__panel-head">
         <div>
-          <span class="consumable-hub__eyebrow">填报控制</span>
           <strong>确认范围</strong>
         </div>
         <span class="consumable-hub__chip">{{ businessDate }}</span>
@@ -70,7 +68,6 @@
     <section v-if="selectedWorkshop" class="consumable-hub__panel consumable-hub__panel--active panel">
       <header class="consumable-hub__panel-head">
         <div>
-          <span class="consumable-hub__eyebrow">车间状态</span>
           <strong>{{ selectedWorkshopTitle }}</strong>
         </div>
         <span class="consumable-hub__status">
@@ -129,7 +126,7 @@
     </section>
 
     <section v-else-if="!loadingWorkshops" class="consumable-hub__empty panel">
-      <span class="consumable-hub__empty-node" aria-hidden="true"></span>
+      <XtCoilMark />
       <strong>选择车间后开始填报</strong>
     </section>
 
@@ -152,6 +149,7 @@
 </template>
 
 <script setup>
+import XtCoilMark from '../../components/xt/XtCoilMark.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
@@ -295,11 +293,7 @@ onMounted(loadWorkshops)
   z-index: 0;
   width: min(100%, 600px);
   pointer-events: none;
-  background:
-    radial-gradient(circle at 14% 2%, rgba(0, 242, 255, 0.16), transparent 32%),
-    radial-gradient(circle at 100% 24%, rgba(255, 171, 0, 0.1), transparent 24%),
-    repeating-linear-gradient(90deg, rgba(0, 242, 255, 0.032) 0 1px, transparent 1px 26px),
-    repeating-linear-gradient(0deg, transparent 0 18px, rgba(0, 242, 255, 0.035) 19px 20px);
+  background: transparent;
   opacity: 0.72;
   transform: translateX(-50%);
 }
@@ -322,7 +316,7 @@ onMounted(loadWorkshops)
   display: grid;
   gap: 14px;
   padding: 18px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .consumable-hub__hero::after,
@@ -332,13 +326,13 @@ onMounted(loadWorkshops)
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent 0 38%, rgba(0, 242, 255, 0.12) 49%, transparent 60% 100%);
+  background: transparent;
   opacity: 0;
   transform: translateX(-76%);
 }
 
 .consumable-hub__hero::after {
-  animation: consumableHubScan 6.5s ease-in-out infinite;
+  
 }
 
 .consumable-hub__hero-copy h1,
@@ -349,12 +343,12 @@ onMounted(loadWorkshops)
 .consumable-hub__hero-copy h1 {
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+  
   font-size: 30px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.05;
-  text-shadow: 0 0 22px rgba(0, 242, 255, 0.18);
+  
 }
 
 .consumable-hub__hero-copy p {
@@ -372,32 +366,30 @@ onMounted(loadWorkshops)
 .consumable-hub__hero-readouts article,
 .consumable-hub__signal,
 .consumable-hub__field-card {
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
-    rgba(2, 10, 22, 0.42);
+  border: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 .consumable-hub__hero-readouts article {
   display: grid;
   gap: 4px;
   padding: 12px;
-  border-radius: 14px;
+  border-radius: 4px;
 }
 
 .consumable-hub__hero-readouts span,
 .consumable-hub__field-top span,
 .consumable-hub__saved,
 .consumable-hub__chip {
-  color: rgba(185, 218, 235, 0.68);
+  color: var(--xt-text-secondary);
   font-size: 10px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
 .consumable-hub__hero-readouts strong {
-  color: #e8fdff;
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+  
   font-size: 24px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -408,9 +400,9 @@ onMounted(loadWorkshops)
   align-items: center;
   gap: 7px;
   margin-bottom: 8px;
-  color: rgba(0, 242, 255, 0.86);
+  color: var(--xt-primary);
   font-size: 10px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
@@ -420,17 +412,17 @@ onMounted(loadWorkshops)
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #00f2ff;
-  box-shadow: 0 0 16px rgba(0, 242, 255, 0.72);
+  background: transparent;
+  
 }
 
 .consumable-hub__panel {
   padding: 12px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .consumable-hub__panel--active {
-  border-color: rgba(0, 242, 255, 0.24);
+  border-color: var(--xt-border);
 }
 
 .consumable-hub__panel-head {
@@ -443,9 +435,9 @@ onMounted(loadWorkshops)
 
 .consumable-hub__panel-head strong {
   display: block;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .consumable-hub__chip {
@@ -474,18 +466,18 @@ onMounted(loadWorkshops)
   justify-content: space-between;
   gap: 12px;
   padding: 12px;
-  border-radius: 14px;
+  border-radius: 4px;
 }
 
 .consumable-hub__signal span {
   color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .consumable-hub__signal strong {
-  color: #e8fdff;
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+  
   font-size: 20px;
   font-variant-numeric: tabular-nums;
 }
@@ -494,14 +486,14 @@ onMounted(loadWorkshops)
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #dffbff;
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .consumable-hub__status i {
-  animation: consumableHubLed 1.8s ease-in-out infinite;
+  
 }
 
 .consumable-hub__field-grid {
@@ -513,7 +505,7 @@ onMounted(loadWorkshops)
   display: grid;
   gap: 12px;
   padding: 13px;
-  border-radius: 16px;
+  border-radius: 4px;
   animation: consumableHubCardIn 420ms ease both;
   animation-delay: calc(var(--consumable-index) * 60ms);
 }
@@ -528,21 +520,21 @@ onMounted(loadWorkshops)
 .consumable-hub__field-top strong {
   display: block;
   margin-top: 4px;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 17px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .consumable-hub__field-top em {
   min-width: 38px;
   padding: 4px 8px;
-  border: 1px solid rgba(0, 242, 255, 0.2);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(0, 242, 255, 0.08);
-  color: #00f2ff;
+  background: transparent;
+  color: var(--xt-primary);
   font-style: normal;
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-align: center;
 }
@@ -556,7 +548,7 @@ onMounted(loadWorkshops)
 .consumable-hub__notes label {
   color: var(--xt-text-secondary);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .consumable-hub__empty {
@@ -564,12 +556,12 @@ onMounted(loadWorkshops)
   place-items: center;
   gap: 10px;
   min-height: 190px;
-  border-radius: 18px;
+  border-radius: 4px;
   text-align: center;
 }
 
 .consumable-hub__empty strong {
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 16px;
 }
 
@@ -577,12 +569,9 @@ onMounted(loadWorkshops)
   width: 70px;
   height: 70px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 242, 255, 0.32);
-  background:
-    radial-gradient(circle, rgba(0, 242, 255, 0.22) 0 20%, transparent 21%),
-    conic-gradient(from 90deg, rgba(0, 242, 255, 0.78), transparent 38%, rgba(255, 171, 0, 0.38), transparent 76%, rgba(0, 242, 255, 0.78));
-  box-shadow: 0 0 38px rgba(0, 242, 255, 0.13);
-  animation: consumableHubOrbit 5s linear infinite;
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
 }
 
 .consumable-hub__dock {
@@ -596,20 +585,17 @@ onMounted(loadWorkshops)
   align-items: center;
   gap: 10px;
   padding: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.2);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(0, 242, 255, 0.08), rgba(3, 12, 24, 0.94)),
-    rgba(3, 12, 24, 0.88);
-  box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(16px);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .consumable-hub__save {
   position: relative;
   min-height: 44px;
   overflow: hidden;
-  box-shadow: 0 0 22px rgba(0, 242, 255, 0.16);
+  
 }
 
 .consumable-hub__save::after {
@@ -617,14 +603,14 @@ onMounted(loadWorkshops)
   position: absolute;
   inset: -1px;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  background: transparent;
   opacity: 0;
   transform: translateX(-100%);
 }
 
 .consumable-hub__saved {
   min-width: 0;
-  color: rgba(185, 218, 235, 0.72);
+  color: var(--xt-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -632,25 +618,25 @@ onMounted(loadWorkshops)
 
 .consumable-form :deep(.el-form-item__label) {
   color: var(--xt-text-secondary);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .consumable-hub :deep(.el-select__wrapper),
 .consumable-hub :deep(.el-input__wrapper),
 .consumable-hub :deep(.el-textarea__inner) {
-  border-color: rgba(0, 242, 255, 0.16);
-  background: rgba(4, 14, 26, 0.74);
+  border-color: var(--xt-border);
+  background: transparent;
 }
 
 .consumable-hub :deep(.el-input__wrapper.is-focus),
 .consumable-hub :deep(.el-select__wrapper.is-focused),
 .consumable-hub :deep(.el-textarea__inner:focus) {
-  box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.32), 0 0 18px rgba(0, 242, 255, 0.08);
+  
 }
 
 .consumable-form :deep(.el-input-number .el-input__inner) {
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+  
   font-variant-numeric: tabular-nums;
 }
 
@@ -660,7 +646,7 @@ onMounted(loadWorkshops)
   }
 
   .consumable-hub__field-card:hover {
-    border-color: rgba(0, 242, 255, 0.32);
+    border-color: var(--xt-border);
   }
 }
 

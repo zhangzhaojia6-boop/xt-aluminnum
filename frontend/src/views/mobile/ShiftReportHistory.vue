@@ -2,7 +2,6 @@
   <div class="mobile-shell history-log" data-testid="entry-history-page" data-visual-pass="stitch-image2-second-pass-mobile">
     <div class="history-log__hero mobile-top">
       <div class="history-log__hero-copy">
-        <span class="history-log__eyebrow">整日记录</span>
         <h1>历史填报</h1>
         <p>按整日查看有权限的录入记录 · 可恢复查看</p>
       </div>
@@ -32,7 +31,7 @@
     </div>
 
     <div v-if="loading" class="history-log__state mobile-inline-state panel">
-      <span class="history-log__state-orbit" aria-hidden="true"></span>
+      <XtCoilMark />
       <p>正在加载历史记录…</p>
       <small>扫描整日录入链路</small>
       <el-button
@@ -48,7 +47,7 @@
     </div>
 
     <div v-else-if="pageError" class="history-log__state history-log__state--error mobile-inline-state panel">
-      <span class="history-log__state-orbit" aria-hidden="true"></span>
+      <XtCoilMark />
       <p>{{ pageError }}</p>
       <el-button
         type="primary"
@@ -64,14 +63,13 @@
     <section v-else class="history-log__panel panel mobile-card">
       <header class="history-log__panel-head">
         <div>
-          <span class="history-log__eyebrow">记录时间线</span>
           <strong>最近记录</strong>
         </div>
         <span class="history-log__panel-count">{{ visibleCountLabel }}</span>
       </header>
 
       <div v-if="!items.length" class="history-log__empty mobile-placeholder">
-        <span class="history-log__empty-node" aria-hidden="true"></span>
+        <XtCoilMark />
         <strong>暂无历史填报记录。</strong>
       </div>
       <div v-else class="history-log__list mobile-history-list">
@@ -133,6 +131,7 @@
 </template>
 
 <script setup>
+import XtCoilMark from '../../components/xt/XtCoilMark.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -299,10 +298,7 @@ onMounted(load)
   z-index: 0;
   width: min(100%, 600px);
   pointer-events: none;
-  background:
-    radial-gradient(circle at 80% 2%, rgba(0, 242, 255, 0.14), transparent 34%),
-    linear-gradient(120deg, transparent 0 42%, rgba(0, 242, 255, 0.07) 47%, transparent 52% 100%),
-    repeating-linear-gradient(0deg, transparent 0 17px, rgba(0, 242, 255, 0.035) 18px 19px);
+  background: transparent;
   opacity: 0.72;
   transform: translateX(-50%);
 }
@@ -328,7 +324,7 @@ onMounted(load)
 .history-log__hero {
   gap: 16px;
   padding: 18px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .history-log__hero::after,
@@ -338,7 +334,7 @@ onMounted(load)
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent 0 40%, rgba(0, 242, 255, 0.12) 50%, transparent 60% 100%);
+  background: transparent;
   opacity: 0;
   transform: translateX(-72%);
 }
@@ -362,9 +358,9 @@ onMounted(load)
   align-items: center;
   gap: 7px;
   margin-bottom: 8px;
-  color: rgba(0, 242, 255, 0.86);
+  color: var(--xt-primary);
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
@@ -373,8 +369,8 @@ onMounted(load)
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #00f2ff;
-  box-shadow: 0 0 16px rgba(0, 242, 255, 0.72);
+  background: transparent;
+  
 }
 
 .mobile-top h1,
@@ -402,27 +398,27 @@ onMounted(load)
 .history-log__readout {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid rgba(0, 242, 255, 0.18);
-  border-radius: 14px;
-  background: rgba(2, 10, 22, 0.4);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .history-log__readout span,
 .history-log__seq,
 .history-log__panel-count {
   display: block;
-  color: rgba(185, 218, 235, 0.66);
+  color: var(--xt-text-secondary);
   font-size: 10px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
 .history-log__readout strong {
   display: block;
   margin-top: 4px;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 20px;
-  font-weight: 950;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -463,14 +459,14 @@ onMounted(load)
   position: absolute;
   inset: -1px;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  background: transparent;
   opacity: 0;
   transform: translateX(-100%);
 }
 
 .history-log__panel {
   padding: 12px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .history-log__panel-head {
@@ -483,9 +479,9 @@ onMounted(load)
 
 .history-log__panel-head strong {
   display: block;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .history-log__panel-count {
@@ -507,31 +503,27 @@ onMounted(load)
   width: 74px;
   height: 74px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 242, 255, 0.34);
-  background:
-    radial-gradient(circle, rgba(0, 242, 255, 0.2) 0 22%, transparent 23%),
-    conic-gradient(from 120deg, rgba(0, 242, 255, 0.78), transparent 32%, rgba(255, 171, 0, 0.42), transparent 72%, rgba(0, 242, 255, 0.78));
-  box-shadow: 0 0 38px rgba(0, 242, 255, 0.14);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+  
 }
 
 .history-log__empty strong,
 .history-log__state p {
   margin: 0;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .history-log__state small {
-  color: rgba(185, 218, 235, 0.68);
+  color: var(--xt-text-secondary);
   font-size: 12px;
 }
 
 .history-log__state--error .history-log__state-orbit {
-  border-color: rgba(255, 92, 53, 0.42);
-  background:
-    radial-gradient(circle, rgba(255, 92, 53, 0.2) 0 22%, transparent 23%),
-    conic-gradient(from 120deg, rgba(255, 92, 53, 0.78), transparent 38%, rgba(0, 242, 255, 0.46), transparent 76%, rgba(255, 92, 53, 0.78));
+  border-color: var(--xt-border);
+  background: transparent;
 }
 
 .history-log__list {
@@ -540,7 +532,7 @@ onMounted(load)
 
 .history-log__record {
   padding: 14px;
-  border-radius: 16px;
+  border-radius: 4px;
   animation: historyLogCardIn 420ms ease both;
   animation-delay: calc(var(--history-index) * 70ms);
 }
@@ -557,9 +549,9 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #dffbff;
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -567,19 +559,19 @@ onMounted(load)
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #00f2ff;
-  box-shadow: 0 0 0 4px rgba(0, 242, 255, 0.12), 0 0 18px rgba(0, 242, 255, 0.72);
+  background: transparent;
+  
 }
 
 .history-log__status.is-warning i,
 .history-log__status.is-owner i {
-  background: #ffab00;
-  box-shadow: 0 0 0 4px rgba(255, 171, 0, 0.12), 0 0 18px rgba(255, 171, 0, 0.68);
+  background: transparent;
+  
 }
 
 .history-log__status.is-danger i {
-  background: #ff5c35;
-  box-shadow: 0 0 0 4px rgba(255, 92, 53, 0.12), 0 0 18px rgba(255, 92, 53, 0.7);
+  background: transparent;
+  
 }
 
 .history-log__seq {
@@ -588,14 +580,14 @@ onMounted(load)
 
 .history-log__title {
   font-size: 22px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .history-log__meta {
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .history-log__action {
@@ -603,7 +595,7 @@ onMounted(load)
   overflow: hidden;
   min-height: 44px;
   padding-inline: 12px;
-  border-radius: 12px;
+  border-radius: 4px;
 }
 
 @media (hover: hover) {
@@ -613,7 +605,7 @@ onMounted(load)
   }
 
   .history-log__record:hover {
-    border-color: rgba(0, 242, 255, 0.32);
+    border-color: var(--xt-border);
   }
 }
 

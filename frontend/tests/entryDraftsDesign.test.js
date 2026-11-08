@@ -15,16 +15,16 @@ test('EntryDrafts keeps local draft storage and restore route behavior', () => {
   assert.doesNotMatch(src, /from ['"].*api/)
 })
 
-test('EntryDrafts uses the industrial draft recovery visual system', () => {
-  assert.match(src, /草稿恢复/)
+test('EntryDrafts uses the paper theme', () => {
+  assert.match(src, /草稿箱/)
   assert.match(src, /entry-drafts__hero/)
   assert.match(src, /entry-drafts__readout/)
   assert.match(src, /entry-drafts__status/)
-  assert.match(src, /entry-drafts__empty-ring/)
+  assert.match(src, /<XtCoilMark \/>/)
   assert.match(src, /--draft-index/)
   assert.match(src, /@keyframes entryDraftScan/)
   assert.match(src, /@keyframes entryDraftCardIn/)
   assert.match(src, /@keyframes entryDraftLed/)
-  assert.match(src, /#00f2ff/)
+  assert.doesNotMatch(src, /#00f2ff/)
   assert.doesNotMatch(src, /purple|lavender|violet/i)
 })

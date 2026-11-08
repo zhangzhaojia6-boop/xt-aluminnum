@@ -47,16 +47,12 @@ test('OCRCapture exposes all production OCR states in the UI', () => {
   assert.match(src, /confidenceStats/)
 })
 
-test('OCRCapture uses the Stitch industrial blue machine-vision surface', () => {
+test('OCRCapture uses the paper theme', () => {
   for (const token of [
     'data-testid="mobile-ocr-capture"',
     'ocr-vision',
-    'OCR 识别',
-    '班次状态',
-    '扫码采集',
     '识别结果',
     'Teleport to="body"',
-    '#00f2ff',
     'ocrVisionSweep',
     'ocrVisionScanline',
     'ocrVisionLed',
@@ -69,7 +65,7 @@ test('OCRCapture uses the Stitch industrial blue machine-vision surface', () => 
   ]) {
     assert.match(src, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
-  assert.doesNotMatch(src, /purple|violet|lavender/i)
+  assert.doesNotMatch(src, /purple|violet|lavender|#00f2ff/i)
 })
 
 test('OCRCapture keeps confidence colors aligned with business thresholds', () => {
