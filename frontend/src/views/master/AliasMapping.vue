@@ -509,10 +509,7 @@ onMounted(load)
   --el-bg-color: transparent;
   --el-fill-color-blank: transparent;
   --el-table-bg-color: transparent;
-  --el-table-header-bg-color: rgba(0, 242, 255, 0.08);
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.1);
   --el-table-text-color: var(--alias-text);
-  --el-table-header-text-color: rgba(185, 223, 235, 0.78);
   border-radius: 4px;
   background: transparent;
   color: var(--xt-text);

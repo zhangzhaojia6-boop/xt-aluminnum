@@ -7,9 +7,6 @@
       :class="[item.status ? `is-${item.status}` : '', item.tone ? `tone-${item.tone}` : '']"
       data-testid="kpi-card"
     >
-      <span class="xt-kpi-bar__icon" :class="`metric-${item.key}`" aria-hidden="true">
-        <i />
-      </span>
       <div class="xt-kpi-bar__content">
         <div class="xt-kpi-bar__top">
           <div class="xt-kpi-bar__label">{{ item.label }}</div>
@@ -41,8 +38,6 @@ defineProps({ items: { type: Array, default: () => [] } })
 </script>
 
 <style scoped>
-.xt-kpi-bar__icon { display: none; }
-
 .xt-kpi-bar {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

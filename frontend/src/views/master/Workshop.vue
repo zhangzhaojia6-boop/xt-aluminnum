@@ -561,14 +561,9 @@ onMounted(load)
 
 .workshop-master :deep(.workshop-master__table.el-table) {
   --el-bg-color: transparent;
-  --el-border-color-lighter: rgba(0, 242, 255, 0.14);
   --el-fill-color-blank: transparent;
   --el-table-bg-color: transparent;
-  --el-table-border-color: rgba(0, 242, 255, 0.14);
-  --el-table-header-bg-color: rgba(0, 242, 255, 0.08);
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.1);
   --el-table-text-color: var(--workshop-text);
-  --el-table-header-text-color: rgba(185, 223, 235, 0.78);
   border: 1px solid var(--xt-border);
   border-radius: 4px;
   background: transparent;

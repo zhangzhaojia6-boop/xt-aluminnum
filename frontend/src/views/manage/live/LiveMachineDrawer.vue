@@ -172,13 +172,6 @@ defineEmits(['close'])
 }
 
 :deep(.live-machine-drawer .el-table) {
-  --el-table-bg-color: rgba(1, 16, 31, 0.82);
-  --el-table-tr-bg-color: rgba(1, 16, 31, 0.82);
-  --el-table-header-bg-color: rgba(7, 38, 66, 0.88);
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.08);
-  --el-table-border-color: rgba(0, 242, 255, 0.12);
-  --el-table-text-color: rgba(225, 253, 255, 0.86);
-  --el-table-header-text-color: rgba(116, 245, 255, 0.82);
   border: 1px solid var(--xt-border);
   border-radius: 4px;
   overflow: hidden;

@@ -1069,3 +1069,8 @@ svg {
     transition-duration: 1ms !important;
   }
 }
+
+.el-table .el-table-fixed-column--left,
+.el-table .el-table-fixed-column--right {
+  background: var(--xt-bg-page);
+}

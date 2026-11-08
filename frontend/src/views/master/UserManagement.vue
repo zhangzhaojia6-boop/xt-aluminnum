@@ -822,15 +822,6 @@ onMounted(async () => {
 }
 
 .admin-users-center :deep(.admin-users-center__table) {
-  --el-table-bg-color: rgba(2, 12, 25, 0.72);
-  --el-table-tr-bg-color: rgba(2, 12, 25, 0.72);
-  --el-table-row-stripe-bg-color: rgba(0, 242, 255, 0.045);
-  --el-table-header-bg-color: rgba(6, 31, 55, 0.94);
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.08);
-  --el-table-border-color: rgba(0, 242, 255, 0.12);
-  --el-table-text-color: rgba(225, 253, 255, 0.9);
-  --el-text-color-primary: rgba(225, 253, 255, 0.92);
-  --el-text-color-regular: rgba(225, 253, 255, 0.78);
   border: 1px solid var(--xt-border);
   border-radius: 4px;
   overflow: hidden;

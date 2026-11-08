@@ -566,17 +566,8 @@ onMounted(async () => {
 }
 
 .rule-table {
-  --el-bg-color: rgba(2, 14, 29, 0.94);
-  --el-fill-color-blank: rgba(2, 14, 29, 0.94);
   --el-table-bg-color: transparent;
-  --el-table-border-color: rgba(0, 242, 255, 0.1);
-  --el-table-current-row-bg-color: rgba(0, 242, 255, 0.08);
   --el-table-expanded-cell-bg-color: transparent;
-  --el-table-header-bg-color: rgba(2, 14, 29, 0.94);
-  --el-table-header-text-color: rgba(116, 245, 255, 0.82);
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.07);
-  --el-table-tr-bg-color: rgba(1, 16, 31, 0.58);
-  --el-table-text-color: rgba(225, 253, 255, 0.86);
   width: 100%;
   background: transparent;
 }

@@ -429,12 +429,7 @@ onMounted(load)
 }
 
 .attendance-command__table :deep(.el-table) {
-  --el-table-header-bg-color: rgba(0, 242, 255, 0.08);
   --el-table-tr-bg-color: transparent;
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.08);
-  --el-table-border-color: rgba(0, 242, 255, 0.14);
-  --el-table-header-text-color: #74f5ff;
-  --el-table-text-color: #dfe2eb;
   overflow: hidden;
   border: 1px solid var(--xt-border);
   border-radius: 4px;
