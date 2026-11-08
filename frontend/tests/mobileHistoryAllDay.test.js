@@ -30,15 +30,14 @@ test('ShiftReportHistory renders machine operator all-day coil entries', () => {
 test('ShiftReportHistory keeps the all-day record contract visible in the UI', () => {
   assert.match(src, /data-testid="entry-history-page"/)
   assert.match(src, /data-testid="entry-history-record"/)
-  assert.match(src, /整日记录/)
-  assert.match(src, /记录时间线/)
+  assert.match(src, /按整日查看/)
   assert.match(src, /visibleCountLabel/)
   assert.match(src, /historySeq\(index\)/)
   assert.match(src, /historyToneClass\(item\)/)
 })
 
-test('ShiftReportHistory uses the stable industrial blue mobile surface', () => {
-  assert.match(src, /#00f2ff/)
+test('ShiftReportHistory uses the paper mobile surface', () => {
+  assert.doesNotMatch(src, /#00f2ff/)
   assert.match(src, /data-visual-pass="stitch-image2-second-pass-mobile"/)
   assert.doesNotMatch(src, /animation:\s*[^;{}]*(infinite|linear infinite|ease-in-out infinite)/)
   assert.doesNotMatch(src, /historyLog(Scan|Orbit|Led)/)

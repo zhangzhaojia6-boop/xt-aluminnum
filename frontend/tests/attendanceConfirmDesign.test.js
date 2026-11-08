@@ -26,18 +26,14 @@ test('AttendanceConfirm keeps the mobile role flow and removes canceled foreman 
   assert.doesNotMatch(src, /班长/)
 })
 
-test('AttendanceConfirm uses industrial blue motion without changing business fields', () => {
+test('AttendanceConfirm uses the paper theme without changing business fields', () => {
   for (const token of [
     'attendance-radar',
     '考勤确认',
-    '班次状态',
-    '确认控制',
-    '人员记录',
     'attendanceStateTone',
     'anomalyCount',
     'attendanceSeq(index)',
     'attendanceToneClass(row)',
-    '#00f2ff',
     'attendanceRadarScan',
     'attendanceRadarLed',
     'attendanceRadarCardIn',
@@ -45,5 +41,5 @@ test('AttendanceConfirm uses industrial blue motion without changing business fi
   ]) {
     assert.match(src, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
-  assert.doesNotMatch(src, /purple|violet|lavender/i)
+  assert.doesNotMatch(src, /purple|violet|lavender|#00f2ff/i)
 })

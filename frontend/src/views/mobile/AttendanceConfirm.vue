@@ -2,7 +2,6 @@
   <div class="mobile-shell attendance-radar" data-testid="attendance-confirm">
     <div class="attendance-radar__hero mobile-top">
       <div class="attendance-radar__hero-copy">
-        <span class="attendance-radar__eyebrow">考勤确认</span>
         <h1>考勤确认</h1>
         <p>钉钉打卡 · 现场确认 · 人事复核</p>
       </div>
@@ -28,13 +27,12 @@
     <section class="attendance-radar__panel panel mobile-card">
       <header class="attendance-radar__panel-head">
         <div>
-          <span class="attendance-radar__eyebrow">班次状态</span>
           <strong>当前班次</strong>
         </div>
         <span class="attendance-radar__panel-chip">{{ currentShift.shift_id ? '在线' : '待载入' }}</span>
       </header>
       <div v-if="pageLoading" class="attendance-radar__state mobile-placeholder">
-        <span class="attendance-radar__orbit" aria-hidden="true"></span>
+        <XtCoilMark />
         <strong>正在加载当前班次与机台...</strong>
       </div>
       <div v-else-if="!currentShift.shift_id" class="attendance-radar__state mobile-placeholder">
@@ -72,7 +70,6 @@
     <section v-if="currentShift.shift_id" class="attendance-radar__panel attendance-radar__panel--control panel mobile-card">
       <header class="attendance-radar__panel-head">
         <div>
-          <span class="attendance-radar__eyebrow">确认控制</span>
           <strong>确认范围</strong>
         </div>
         <span class="attendance-radar__panel-chip">{{ selectedMachineName || '选择机台' }}</span>
@@ -119,7 +116,6 @@
       <header class="attendance-radar__panel-head">
         <div class="mobile-attendance-header">
           <div>
-            <span class="attendance-radar__eyebrow">人员记录</span>
             <strong>{{ selectedMachineName || '机台' }}</strong>
             <span>{{ currentShiftLabel }}</span>
             <span>{{ currentShift.business_date }}</span>
@@ -131,7 +127,7 @@
       </header>
 
       <div v-if="draftLoading" class="attendance-radar__state mobile-placeholder">
-        <span class="attendance-radar__orbit" aria-hidden="true"></span>
+        <XtCoilMark />
         <strong>正在加载钉钉打卡与班组名单...</strong>
       </div>
       <el-empty
@@ -235,6 +231,7 @@
 </template>
 
 <script setup>
+import XtCoilMark from '../../components/xt/XtCoilMark.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
@@ -506,11 +503,7 @@ onBeforeUnmount(() => {
   z-index: 0;
   width: min(100%, 600px);
   pointer-events: none;
-  background:
-    radial-gradient(circle at 16% 0%, rgba(0, 242, 255, 0.14), transparent 32%),
-    radial-gradient(circle at 92% 18%, rgba(255, 171, 0, 0.1), transparent 24%),
-    repeating-linear-gradient(90deg, rgba(0, 242, 255, 0.035) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(0deg, transparent 0 18px, rgba(0, 242, 255, 0.035) 19px 20px);
+  background: transparent;
   opacity: 0.72;
   transform: translateX(-50%);
 }
@@ -532,7 +525,7 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   padding: 18px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .attendance-radar__hero::after,
@@ -542,13 +535,13 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent 0 38%, rgba(0, 242, 255, 0.12) 49%, transparent 60% 100%);
+  background: transparent;
   opacity: 0;
   transform: translateX(-76%);
 }
 
 .attendance-radar__hero::after {
-  animation: attendanceRadarScan 6.4s ease-in-out infinite;
+  
 }
 
 .attendance-radar__hero-copy {
@@ -565,9 +558,9 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 7px;
   margin-bottom: 8px;
-  color: rgba(0, 242, 255, 0.86);
+  color: var(--xt-primary);
   font-size: 10px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
@@ -576,8 +569,8 @@ onBeforeUnmount(() => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #00f2ff;
-  box-shadow: 0 0 16px rgba(0, 242, 255, 0.72);
+  background: transparent;
+  
 }
 
 .mobile-top h1,
@@ -602,11 +595,11 @@ onBeforeUnmount(() => {
 
 .attendance-radar__panel {
   padding: 12px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .attendance-radar__panel--control {
-  border-color: rgba(0, 242, 255, 0.22);
+  border-color: var(--xt-border);
 }
 
 .attendance-radar__panel-head {
@@ -619,17 +612,17 @@ onBeforeUnmount(() => {
 
 .attendance-radar__panel-head strong {
   display: block;
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .attendance-radar__panel-chip,
 .attendance-radar__seq {
   display: block;
-  color: rgba(185, 218, 235, 0.68);
+  color: var(--xt-text-secondary);
   font-size: 10px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-align: right;
 }
@@ -640,14 +633,12 @@ onBeforeUnmount(() => {
 
 .attendance-radar__readout {
   min-width: 0;
-  border-color: rgba(0, 242, 255, 0.16);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
-    rgba(2, 10, 22, 0.4);
+  border-color: var(--xt-border);
+  background: transparent;
 }
 
 .attendance-radar__readout strong {
-  color: #e8fdff;
+  color: var(--xt-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -660,7 +651,7 @@ onBeforeUnmount(() => {
 }
 
 .attendance-radar__state strong {
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 16px;
 }
 
@@ -668,12 +659,9 @@ onBeforeUnmount(() => {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 242, 255, 0.34);
-  background:
-    radial-gradient(circle, rgba(0, 242, 255, 0.2) 0 22%, transparent 23%),
-    conic-gradient(from 120deg, rgba(0, 242, 255, 0.78), transparent 34%, rgba(255, 171, 0, 0.42), transparent 72%, rgba(0, 242, 255, 0.78));
-  box-shadow: 0 0 38px rgba(0, 242, 255, 0.14);
-  animation: attendanceRadarOrbit 5s linear infinite;
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
 }
 
 .attendance-radar__orbit.is-muted {
@@ -681,8 +669,8 @@ onBeforeUnmount(() => {
 }
 
 .attendance-radar__alert {
-  border-color: rgba(255, 171, 0, 0.24);
-  background: rgba(28, 18, 4, 0.38);
+  border-color: var(--xt-border);
+  background: transparent;
 }
 
 .mobile-attendance-header {
@@ -691,9 +679,9 @@ onBeforeUnmount(() => {
 }
 
 .mobile-attendance-header strong {
-  color: #e8fdff;
+  color: var(--xt-text);
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .attendance-radar__tag {
@@ -702,18 +690,18 @@ onBeforeUnmount(() => {
 
 .attendance-radar__person {
   padding: 14px;
-  border-radius: 16px;
+  border-radius: 4px;
   animation: attendanceRadarCardIn 420ms ease both;
   animation-delay: calc(var(--attendance-index) * 62ms);
 }
 
 .attendance-radar__person.is-danger {
-  border-color: rgba(255, 92, 53, 0.32);
-  box-shadow: inset 3px 0 0 rgba(255, 92, 53, 0.7), 0 0 24px rgba(255, 92, 53, 0.08);
+  border-color: var(--xt-border);
+  
 }
 
 .attendance-radar__person.is-warning {
-  border-color: rgba(255, 171, 0, 0.3);
+  border-color: var(--xt-border);
 }
 
 .attendance-radar__person-head {
@@ -728,9 +716,9 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #dffbff;
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -738,24 +726,23 @@ onBeforeUnmount(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #00f2ff;
-  box-shadow: 0 0 0 4px rgba(0, 242, 255, 0.12), 0 0 18px rgba(0, 242, 255, 0.72);
-  animation: attendanceRadarLed 1.8s ease-in-out infinite;
+  background: transparent;
+
 }
 
 .attendance-radar__status.is-warning i {
-  background: #ffab00;
-  box-shadow: 0 0 0 4px rgba(255, 171, 0, 0.12), 0 0 18px rgba(255, 171, 0, 0.68);
+  background: transparent;
+  
 }
 
 .attendance-radar__status.is-danger i {
-  background: #ff5c35;
-  box-shadow: 0 0 0 4px rgba(255, 92, 53, 0.12), 0 0 18px rgba(255, 92, 53, 0.7);
+  background: transparent;
+  
 }
 
 .mobile-attendance-card__name {
   font-size: 20px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
@@ -765,11 +752,9 @@ onBeforeUnmount(() => {
 }
 
 .attendance-radar__dock {
-  border: 1px solid rgba(0, 242, 255, 0.2);
-  background:
-    linear-gradient(180deg, rgba(0, 242, 255, 0.08), rgba(3, 12, 24, 0.94)),
-    rgba(3, 12, 24, 0.84);
-  box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+  
 }
 
 .attendance-radar__button,
@@ -785,24 +770,24 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: -1px;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  background: transparent;
   opacity: 0;
   transform: translateX(-100%);
 }
 
 .attendance-radar__submit {
-  box-shadow: 0 0 22px rgba(0, 242, 255, 0.16);
+  
 }
 
 .attendance-radar :deep(.el-select__wrapper),
 .attendance-radar :deep(.el-textarea__inner) {
-  border-color: rgba(0, 242, 255, 0.16);
-  background: rgba(4, 14, 26, 0.74);
+  border-color: var(--xt-border);
+  background: transparent;
 }
 
 .attendance-radar :deep(.el-select__wrapper.is-focused),
 .attendance-radar :deep(.el-textarea__inner:focus) {
-  box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.32), 0 0 18px rgba(0, 242, 255, 0.08);
+  
 }
 
 @media (hover: hover) {
@@ -812,7 +797,7 @@ onBeforeUnmount(() => {
   }
 
   .attendance-radar__person:hover {
-    border-color: rgba(0, 242, 255, 0.32);
+    border-color: var(--xt-border);
   }
 }
 

@@ -810,9 +810,9 @@ onMounted(async () => {
   margin: var(--xt-space-2) 0 var(--xt-space-3);
   padding: var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+  
 }
 
 .entry-flow-steps span {
@@ -821,7 +821,7 @@ onMounted(async () => {
   gap: var(--xt-space-2);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
-  font-weight: 800;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -831,7 +831,7 @@ onMounted(async () => {
   width: 32px;
   height: 32px;
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   color: var(--xt-text-secondary);
   background: var(--xt-bg-panel);
 }
@@ -866,7 +866,7 @@ onMounted(async () => {
   min-width: 0;
   padding: var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-primary-light);
 }
 
@@ -880,20 +880,20 @@ onMounted(async () => {
 
 .entry-calc-strip strong {
   color: var(--xt-primary);
-  font-family: var(--xt-font-number);
+  
   font-size: var(--xt-text-2xl);
   line-height: 1;
 }
 
 .entry-calc-source {
   margin-left: 6px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .mobile-shell--flow :deep(.mobile-field .el-input__wrapper),
 .mobile-shell--flow :deep(.mobile-field .el-textarea__inner) {
   min-height: 48px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions) {
@@ -901,18 +901,18 @@ onMounted(async () => {
   bottom: calc(var(--xt-tabbar-height) + var(--xt-space-3) + env(safe-area-inset-bottom, 0px));
   z-index: 12;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-2xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-md);
+  
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary) {
-  box-shadow: var(--xt-shadow-sm);
+  
   transition: box-shadow var(--xt-motion-fast) var(--xt-ease);
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary:hover) {
-  box-shadow: var(--xt-shadow-md);
+  
 }
 
 @media (max-width: 900px) {
@@ -943,8 +943,8 @@ onMounted(async () => {
 }
 
 .mobile-energy-machine-row {
-  border: 1px solid var(--el-border-color-lighter, #ebeef5);
-  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter, var(--xt-border));
+  border-radius: 4px;
   padding: 10px 12px;
 }
 
@@ -952,7 +952,7 @@ onMounted(async () => {
   font-weight: 600;
   font-size: 14px;
   margin-bottom: 8px;
-  color: var(--el-text-color-primary);
+  color: var(--xt-text);
 }
 
 .mobile-energy-total {
@@ -961,8 +961,8 @@ onMounted(async () => {
   padding: 10px 4px 0;
   font-size: 13px;
   font-weight: 600;
-  color: var(--el-color-primary);
-  border-top: 1px solid var(--el-border-color-lighter, #ebeef5);
+  color: var(--xt-text);
+  border-top: 1px solid var(--el-border-color-lighter, var(--xt-border));
   margin-top: 4px;
 }
 </style>
