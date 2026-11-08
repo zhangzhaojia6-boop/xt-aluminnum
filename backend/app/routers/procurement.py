@@ -16,6 +16,7 @@ from app.models.procurement import ProcurementDocument, ProcurementRequest
 from app.models.system import User
 from app.services import procurement_admin_service as admin_service
 from app.services import procurement_service as service
+from app.services.audit_service import log_action
 
 router = APIRouter(tags=['procurement'])
 
@@ -277,6 +278,10 @@ def update_assignment(body: AssignmentBody, db: Session = Depends(get_db), curre
     _require_admin(current_user)
     try:
         service.set_assignment(db, actor=current_user, user_id=body.user_id, role=body.role, enabled=body.enabled)
+        log_action(
+            db, user_id=current_user.id, user_name=current_user.name, action='procurement_assignment', module='procurement',
+            table_name='procurement_assignments', record_id=body.user_id, new_value={'role': body.role, 'enabled': body.enabled}, auto_commit=False,
+        )
         db.commit()
     except service.ProcurementError as exc:
         db.rollback()

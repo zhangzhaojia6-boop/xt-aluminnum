@@ -59,6 +59,7 @@ const ROLE_LABELS = {
   qc: '质检内勤',
   energy_stat: '车间电工',
   consumable_stat: '生产内勤',
+  procurement_staff: '采购办理人',
   contracts: '计划内勤(兼容)',
   inventory_keeper: '成品库内勤(兼容)',
   utility_manager: '全厂总电工(兼容)',

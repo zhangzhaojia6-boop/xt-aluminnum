@@ -203,3 +203,48 @@ def test_board_extras_report_amounts_and_step_hours(db, client):
     assert board['top_suppliers'] == [{'supplier': '甲', 'amount': '100.00'}]
     assert board['emergency_backfill_overdue'] == 0
     assert {row['step'] for row in board['step_hours']} >= {'workshop_approval', 'stock_review'}
+
+
+def test_spacing_variant_of_a_supplier_counts_as_one_quote(db):
+    request = new_request(db, quantity='100', price='100')
+    to_quotation(db, request)
+    with pytest.raises(service.ProcurementError, match='只算一家'):
+        quote(db, request, '甲公司', '甲 公司')
+
+
+def test_supplier_blacklisted_after_selection_cannot_get_a_contract(db):
+    request = new_request(db, quantity='1', price='100')
+    to_quotation(db, request)
+    quote(db, request, '后来出事公司')
+    act(db, request, ROLES['division_lead'], 'approve')
+    supplier = db.query(ProcurementSupplier).one()
+    supplier.status = flow.SUPPLIER_BLACKLISTED
+    db.flush()
+    with pytest.raises(service.ProcurementError, match='黑名单'):
+        act(db, request, ROLES['purchasing'], 'submit_contract', doc_kind='order', contract_no='D1', amount='100')
+    assert request.current_step == 'contract_draft'
+
+
+def test_too_long_supplier_name_is_rejected_not_a_server_error(db):
+    request = new_request(db, quantity='1', price='100')
+    to_quotation(db, request)
+    with pytest.raises(service.ProcurementError, match='不能超过'):
+        quote(db, request, '长' * 129)
+    with pytest.raises(service.ProcurementError, match='不能超过'):
+        admin_service.save_supplier(db, user=person(db, 4), data={'name': '长' * 129})
+
+
+def test_stock_closed_requests_do_not_count_as_spend(db, client):
+    closed = new_request(db)
+    closed.status = flow.STATUS_CLOSED_STOCK
+    db.commit()
+    audit = person(db, ROLES['audit'])
+    assert admin_service.ledger(db, user=audit, filters={})['total_amount'] == '0'
+    assert admin_service.board_extras(db)['month_by_category'] == []
+
+
+def test_assignment_change_is_audited(db, client):
+    as_user(db, 4)
+    assert client.post('/api/v1/procurement/assignments', json={'user_id': 1, 'role': 'gate'}).status_code == 200
+    log = db.query(AuditLog).filter(AuditLog.action == 'procurement_assignment').one()
+    assert log.new_value == {'role': 'gate', 'enabled': True}

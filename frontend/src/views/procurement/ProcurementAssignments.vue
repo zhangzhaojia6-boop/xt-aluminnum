@@ -28,7 +28,7 @@
         </select>
         <select v-model="pickUser" aria-label="账号" required data-testid="pc-assign-user">
           <option value="" disabled>账号</option>
-          <option v-for="user in users" :key="user.id" :value="user.id">{{ user.name }}{{ user.username && user.username !== user.name ? ` ${user.username}` : '' }}</option>
+          <option v-for="user in users" :key="user.id" :value="user.id">{{ user.name }}{{ user.username && user.username !== user.name && !user.username.startsWith('pc-') ? ` ${user.username}` : '' }}</option>
         </select>
         <button type="submit" :disabled="busy" data-testid="pc-assign-add">指派</button>
       </form>
@@ -63,7 +63,7 @@ async function load() {
   try {
     const [nextRows, page] = await Promise.all([fetchProcurementAssignments(), fetchUsersPage({ limit: 500 })])
     rows.value = nextRows
-    users.value = page.items
+    users.value = page.items.filter((user) => user.is_active !== false)
   } catch {
     failed.value = true
   }

@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, reactive, ref } from 'vue'
+import { computed, inject, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { formatApiErrorMessage } from '../../api/index.js'
@@ -128,8 +128,9 @@ async function load(page = 1) {
 }
 
 function apply() {
-  router.replace({ query: params() })
-  load(1)
+  const next = params()
+  if (JSON.stringify(next) === JSON.stringify(route.query)) load(1)
+  else router.replace({ query: next })
 }
 
 function reset() {
@@ -154,10 +155,13 @@ async function exportCsv() {
   }
 }
 
-onMounted(() => {
+function syncFromRoute() {
   readQuery()
   load(1)
-})
+}
+
+watch(() => route.query, () => { if (route.name === 'procurement-ledger') syncFromRoute() })
+onMounted(syncFromRoute)
 </script>
 
 <style scoped>

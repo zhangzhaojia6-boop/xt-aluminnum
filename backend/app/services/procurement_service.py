@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -28,6 +29,7 @@ from app.models.procurement import (
 from app.models.system import User
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+SUPPLIER_NAME_LIMIT = 128
 NOTIFY_AGENT = 'factory_dispatch_zzj'
 NOTIFY_CHANNEL_TYPE = 'dingtalk_work_notice'
 logger = logging.getLogger(__name__)
@@ -96,10 +98,16 @@ def normalize_supplier(name: str) -> str:
 def _ensure_supplier_allowed(db: Session, name: str) -> None:
     """黑名单不再合作；第一次出现的供应商记为待评价。"""
     key = normalize_supplier(name)
+    clean_name = ' '.join(name.split())
+    if len(clean_name) > SUPPLIER_NAME_LIMIT or len(key) > SUPPLIER_NAME_LIMIT:
+        raise _reject(f'供应商名称不能超过 {SUPPLIER_NAME_LIMIT} 个字')
     supplier = db.query(ProcurementSupplier).filter(ProcurementSupplier.normalized_name == key).first()
     if supplier is None:
-        db.add(ProcurementSupplier(name=' '.join(name.split()), normalized_name=key, status=flow.SUPPLIER_PENDING))
-        db.flush()
+        try:
+            with db.begin_nested():
+                db.add(ProcurementSupplier(name=clean_name, normalized_name=key, status=flow.SUPPLIER_PENDING))
+        except IntegrityError:
+            logger.info('procurement_supplier_created_concurrently name=%s', clean_name)
     elif supplier.status == flow.SUPPLIER_BLACKLISTED:
         raise _reject(f'{supplier.name} 在黑名单里，不能合作')
 
@@ -253,7 +261,7 @@ def _submit_quotes(db, request, user, payload, now):
         raise _reject('请选定一家供应商')
     purchase_quantity = Decimal(request.purchase_quantity if request.purchase_quantity is not None else request.quantity)
     parsed = [(_text(item, 'supplier', '供应商'), _decimal(item.get('unit_price'), '报价'), item.get('remark')) for item in quotes]
-    if len({supplier for supplier, _price, _remark in parsed}) != len(parsed):
+    if len({normalize_supplier(supplier) for supplier, _price, _remark in parsed}) != len(parsed):
         raise _reject('同一家供应商只算一家报价')
     amount = (purchase_quantity * parsed[selected][1]).quantize(Decimal('0.01'))
     # 按选定金额和申请预估金额中较大的算，防止压低选定价绕开询价
@@ -297,6 +305,8 @@ def _approve_purchase(db, request, user, payload, now):
 
 
 def _submit_contract(db, request, user, payload, now):
+    if request.supplier:
+        _ensure_supplier_allowed(db, request.supplier)
     doc_kind = payload.get('doc_kind')
     amount = _decimal(payload.get('amount'), '合同金额')
     if doc_kind == 'order':

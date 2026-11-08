@@ -19,6 +19,8 @@ from app.services import procurement_service as service
 from app.services.audit_service import log_action
 
 MAX_PAGE_SIZE = 100
+# 撤销和库存够用的单子没有花钱，不算进金额
+NOT_PURCHASED = {flow.STATUS_CANCELLED, flow.STATUS_CLOSED_STOCK}
 SUPPLIER_STATUSES = {flow.SUPPLIER_PENDING, flow.SUPPLIER_QUALIFIED, flow.SUPPLIER_BLACKLISTED}
 CSV_COLUMNS = (
     ('request_no', '单号'), ('created_on', '提报日期'), ('workshop_name', '车间'), ('requester_name', '提报人'),
@@ -70,14 +72,13 @@ def _in_range(row: ProcurementRequest, date_from: date | None, date_to: date | N
 
 def _ledger_items(db: Session, *, user: User, roles: set[str], filters: dict[str, Any], now: datetime | None) -> list[dict]:
     rows = _filtered_rows(db, filters)
-    users = {row.id: row.name for row in db.query(User.id, User.name).filter(User.id.in_({row.requester_id for row in rows})).all()} if rows else {}
-    workshops = {row.id: row.name for row in db.query(Workshop.id, Workshop.name).all()}
-    workshop_ids = {row.id: row.workshop_id for row in rows}
+    users = dict(db.query(User.id, User.name).filter(User.id.in_({row.requester_id for row in rows})).all()) if rows else {}
+    workshops = dict(db.query(Workshop.id, Workshop.name).all())
     items = []
     for row in rows:
         item = service.serialize_request(db, row, user=user, roles=roles, now=now)
         item['requester_name'] = users.get(row.requester_id)
-        item['workshop_name'] = workshops.get(workshop_ids[row.id])
+        item['workshop_name'] = workshops.get(row.workshop_id)
         items.append(item)
     if filters.get('overdue') is not None:
         items = [item for item in items if item['is_overdue'] is bool(filters['overdue'])]
@@ -95,7 +96,7 @@ def ledger(db: Session, *, user: User, filters: dict[str, Any], page: int = 1, p
         'total': len(items),
         'page': page,
         'page_size': page_size,
-        'total_amount': str(sum((Decimal(item['amount']) for item in items if item['status'] != flow.STATUS_CANCELLED), Decimal('0'))),
+        'total_amount': str(sum((Decimal(item['amount']) for item in items if item['status'] not in NOT_PURCHASED), Decimal('0'))),
     }
 
 
@@ -180,6 +181,8 @@ def save_supplier(db: Session, *, user: User, data: dict, supplier_id: int | Non
     if not name:
         raise service.ProcurementError(422, '请填写供应商名称')
     normalized = service.normalize_supplier(name)
+    if len(name) > service.SUPPLIER_NAME_LIMIT or len(normalized) > service.SUPPLIER_NAME_LIMIT:
+        raise service.ProcurementError(422, f'供应商名称不能超过 {service.SUPPLIER_NAME_LIMIT} 个字')
     duplicate = db.query(ProcurementSupplier).filter(ProcurementSupplier.normalized_name == normalized).first()
     if supplier_id is None:
         if duplicate is not None:
@@ -211,7 +214,7 @@ def save_supplier(db: Session, *, user: User, data: dict, supplier_id: int | Non
 def board_extras(db: Session, *, now: datetime | None = None) -> dict:
     """总览里的金额分布和环节耗时。"""
     current = local_now(now)
-    rows = db.query(ProcurementRequest).filter(ProcurementRequest.status != flow.STATUS_CANCELLED).all()
+    rows = db.query(ProcurementRequest).filter(ProcurementRequest.status.notin_(NOT_PURCHASED)).all()
     month = current.strftime('%Y-%m')
     by_category: dict[str, Decimal] = defaultdict(lambda: Decimal('0'))
     by_supplier: dict[str, Decimal] = defaultdict(lambda: Decimal('0'))

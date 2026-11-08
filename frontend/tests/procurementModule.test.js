@@ -50,6 +50,11 @@ test('settings drawer links to procurement for reviewers', () => {
   assert.ok(paths.includes('/manage/procurement'))
 })
 
+test('ledger reloads when navigation changes its filters', () => {
+  const ledger = source('../src/views/procurement/ProcurementLedger.vue')
+  assert.match(ledger, /watch\(\(\) => route\.query/)
+})
+
 test('field home links to procurement', () => {
   assert.match(source('../src/views/mobile/MobileEntry.vue'), /to="\/procurement"/)
 })
