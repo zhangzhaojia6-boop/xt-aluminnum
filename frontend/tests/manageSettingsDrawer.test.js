@@ -19,6 +19,14 @@ const adminAuth = {
 }
 
 const requiredPaths = [
+  '/manage/admin/agents',
+  '/manage/attendance',
+  '/manage/channels',
+  '/manage/energy',
+  '/manage/fill-details',
+  '/manage/mapping-reconciliation',
+  '/manage/rag',
+  '/manage/workshop-dashboard',
   '/manage/master',
   '/manage/alias',
   '/manage/admin/settings',

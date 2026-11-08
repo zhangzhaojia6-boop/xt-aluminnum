@@ -79,7 +79,7 @@ test('system settings exposes the thirteen-workshop and MES mapping cockpit in t
   assert.doesNotMatch(systemSettings, /MASTER_DATA|ALIAS_SYNC|RULE_ENGINE|USER_RBAC|QR_SERVICE|AI_ASSIST/)
 })
 
-test('second pass visual system exposes shared industrial blue surface tokens', () => {
+test('dark command surface tokens stay removed after the paper redesign', () => {
   for (const token of [
     '--xt-command-blue-canvas',
     '--xt-command-blue-panel',
@@ -88,7 +88,7 @@ test('second pass visual system exposes shared industrial blue surface tokens', 
     '--xt-command-blue-green',
     '--xt-command-blue-amber',
   ]) {
-    assert.match(tokens, new RegExp(`${token}:`), `missing ${token}`)
+    assert.doesNotMatch(tokens, new RegExp(`${token}:`), `unexpected ${token}`)
   }
 
   assert.match(hud, /--xt-hud-source-strip-bg:/)

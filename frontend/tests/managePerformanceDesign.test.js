@@ -71,7 +71,7 @@ test('critical management surfaces keep industrial structure after light-effect 
   assert.match(today, /data-testid="today-production-flow"/)
   assert.match(today, /data-testid="today-event-rail"/)
   assert.match(today, /:data-stitch-screen-id="stitchSurface\.stitch\.screenId"/)
-  assert.match(today, /IndustrialProcessIcon/)
+  assert.match(today, /TodayProcessFlow/)
   assert.match(stitch, /d9646f7499664e2b988ff67670cc6214/)
   assert.match(stitch, /707c0acd1b3e4873a38973141ee5ff89/)
   assert.match(stitch, /3a7288d183ed48609f2f851097ded0cb/)

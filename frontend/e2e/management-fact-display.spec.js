@@ -6,16 +6,23 @@ test('yield comparison shows a percentage rather than inbound tonnage', async ({
   let yieldRate = 95.3
   await page.route('**/api/v1/dashboard/daily-production**', route => route.fulfill({ json: {
     plant_output: { finished_inbound_output: 238.26, factory_feeding_daily_input: 250, yield_rate: yieldRate },
+    fact_closure: { critical_fields: [{
+      field: 'daily_yield_rate',
+      value: yieldRate,
+      unit: '%',
+      status: yieldRate === null ? 'missing' : 'confirmed',
+      source: 'dingtalk_supplement',
+    }] },
   } }))
   await page.goto('/manage/today?target_date=2026-09-13')
-  const card = page.locator('.xt-today__compare-card').filter({ hasText: '全厂成品率' }).first()
-  await expect(card.locator('strong')).toHaveText('95.3 %')
+  const card = page.getByTestId('kpi-card').filter({ hasText: '全厂成品率' })
+  await expect(card.locator('.xt-metric__value')).toHaveText('95.3%')
   yieldRate = null
   await page.reload()
-  await expect(card.locator('strong')).toHaveText('暂无可信数据')
+  await expect(card.locator('.xt-metric__empty')).toHaveText('暂无可信数据')
   yieldRate = 0
   await page.reload()
-  await expect(card.locator('strong')).toHaveText('0 %')
+  await expect(card.locator('.xt-metric__value')).toHaveText('0%')
 })
 
 test('daily report refreshes automatically without reloading heavy summaries', async ({ page }) => {
@@ -31,7 +38,7 @@ test('daily report refreshes automatically without reloading heavy summaries', a
     workshop_output: [{ workshop_id: 1, workshop: '精整', daily_output: dailyCalls === 1 ? 42 : 53 }],
   } }))
   await page.goto('/manage/today?target_date=2026-09-13')
-  const kpis = page.getByTestId('today-command-wall').locator('table').first()
+  const kpis = page.getByTestId('today-command-wall').locator('.xt-bars')
   await expect(kpis).toContainText('42')
   await page.clock.runFor(31000)
   await expect(kpis).toContainText('53')
@@ -68,7 +75,6 @@ test('history charts match the light workspace and selected date on desktop and 
   const charts = page.locator('[aria-label="历史趋势"]')
   await charts.scrollIntoViewIfNeeded()
   await expect(page.getByTestId('manage-cost-line')).toContainText('2026-09-13 估算成本')
-  await expect(page.getByTestId('manage-workshop-bar')).toContainText('2026-09-13')
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 960 })
     await expect(charts.locator('canvas').first()).toBeVisible()
@@ -79,7 +85,7 @@ test('history charts match the light workspace and selected date on desktop and 
       ctx.fillRect(0, 0, 1, 1)
       return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3)
     }))
-    expect(backgrounds).toHaveLength(3)
+    expect(backgrounds).toHaveLength(2)
     for (const rgb of backgrounds) expect(Math.min(...rgb)).toBeGreaterThan(220)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     // Canvas animation is independent of Playwright's CSS animation handling.

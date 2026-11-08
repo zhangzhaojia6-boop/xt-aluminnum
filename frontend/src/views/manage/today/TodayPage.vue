@@ -8,21 +8,9 @@
   >
     <header class="xt-today__topbar">
       <div class="xt-today__identity">
-        <span>鑫泰铝业 数据中枢</span>
         <h1>经营总览</h1>
-        <p>统计周期：{{ businessDateLabel }}</p>
+        <p>{{ businessDateLabel }}</p>
       </div>
-
-      <nav class="xt-today__quick-nav" aria-label="核心入口">
-        <RouterLink
-          v-for="link in quickLinks"
-          :key="link.path"
-          class="xt-today__quick-link"
-          :to="link.path"
-        >
-          {{ link.label }}
-        </RouterLink>
-      </nav>
 
       <div class="xt-today__top-actions">
         <button
@@ -33,12 +21,8 @@
           @click="rosterOpen = !rosterOpen"
           :aria-expanded="rosterOpen"
         >
-          <span class="xt-today__filer-dot" />
-          <span class="xt-today__filer-text">
-            填报 <b>{{ rosterCounts.reported }}</b>/{{ rosterCounts.total }} 车间
-            <span v-if="rosterCounts.unreported > 0" class="xt-today__filer-pending">· 未报 {{ rosterCounts.unreported }}</span>
-          </span>
-          <span class="xt-today__filer-chev" :class="{ 'is-open': rosterOpen }" aria-hidden="true">›</span>
+          填报 <b>{{ rosterCounts.reported }}</b>/{{ rosterCounts.total }} 车间
+          <span v-if="rosterCounts.unreported > 0" class="xt-today__filer-pending">未报 {{ rosterCounts.unreported }}</span>
         </button>
         <DateSwitcher
           :model-value="snapshot.targetDate.value"
@@ -51,10 +35,109 @@
       </div>
     </header>
 
+    <TodayFactBand
+      v-if="factActionSummary.openCount"
+      :open="factActionSummary.openCount"
+      :manual="factActionSummary.actionableCount"
+      :recheck="factActionSummary.sourceRecheckCount"
+      :dependency="factActionSummary.dependencyCount"
+      :to="factActionRoute"
+      :link-label="compactClient ? '查看日报事实' : '打开事实待办'"
+    />
+
     <div :aria-busy="snapshot.pending.value.daily" class="xt-today__kpis">
-      <KpiBar :items="kpiItems" />
+      <ul class="xt-today__kpi-grid" data-testid="manage-kpi-bar">
+        <li v-for="item in kpiItems" :key="item.key" :class="`is-${item.size}`">
+          <XtMetric
+            :label="item.label"
+            :value="item.value"
+            :unit="item.unit"
+            :state="item.state"
+            :sub="item.sub"
+            :size="item.size"
+          />
+          <XtSparkArea
+            v-if="item.size === 'xl' && outputTrend.length"
+            class="xt-today__kpi-trend"
+            :points="outputTrend"
+            label="近 14 天包装产量走势"
+          />
+        </li>
+      </ul>
       <span v-if="snapshot.pending.value.daily" class="xt-today__loading" role="status">正在读取日报</span>
     </div>
+
+    <article class="xt-today__flow" data-testid="today-production-flow">
+      <h2>生产流转</h2>
+      <TodayProcessFlow :stages="productionFlowStages" />
+    </article>
+
+    <section id="daily-report" class="xt-today__command-wall" data-testid="today-command-wall">
+      <div class="xt-today__command-main">
+        <article class="xt-today__panel xt-today__workshop">
+          <header class="xt-today__panel-head">
+            <h2>车间产量</h2>
+            <span>过站下机参考</span>
+          </header>
+          <TodayWorkshopBars v-if="workshopRows.length" :rows="workshopRows" />
+          <div v-else class="xt-today__empty">暂无车间过站数据</div>
+        </article>
+
+        <article class="xt-today__panel xt-today__wip">
+          <header class="xt-today__panel-head">
+            <h2>在制料</h2>
+            <span>{{ wipRows.length }} 个位置</span>
+          </header>
+          <TodayWipDonut v-if="wipRows.length" :rows="wipRows" :total-text="wipTotalText" />
+          <div v-else class="xt-today__empty">暂无在制料数据</div>
+        </article>
+      </div>
+
+      <aside class="xt-today__event-rail" data-testid="today-event-rail">
+        <header class="xt-today__rail-head">
+          <h2>异常与待办</h2>
+          <RouterLink v-if="!compactClient" class="xt-today__quick-link" to="/manage/alerts">全部异常</RouterLink>
+        </header>
+
+        <article
+          v-for="item in eventRailItems"
+          :key="item.key"
+          class="xt-today__event-card"
+          :class="`tone-${item.tone}`"
+        >
+          <span class="xt-today__event-dot" aria-hidden="true" />
+          <div>
+            <strong>{{ item.title }}</strong>
+            <p v-if="item.body">{{ item.body }}</p>
+          </div>
+        </article>
+
+        <RouterLink class="xt-today__live-link" to="/manage/live">
+          <span>当天生产动态</span>
+          <el-icon><ArrowRight /></el-icon>
+        </RouterLink>
+
+        <section class="xt-today__shift-card">
+          <h3>三班填报</h3>
+          <div class="xt-today__shift-list">
+            <div v-for="shift in shiftTiles" :key="shift.key" class="xt-today__shift-row">
+              <span>{{ shift.name }}</span>
+              <b>{{ shift.reported }}</b>
+            </div>
+          </div>
+        </section>
+
+        <MissingReportPanel title="缺报明细" :rows="missingRows" :loading="liveLoading" compact />
+      </aside>
+    </section>
+
+    <section class="xt-today__month" aria-label="本月累计">
+      <div v-for="item in highlightMetrics" :key="item.key" class="xt-today__month-item">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <small>{{ item.subText }}</small>
+      </div>
+    </section>
 
     <details class="xt-today__sources">
       <summary>事实来源与业务时间 <span>{{ factClosureSurface.criticalFields.length }} 项关键事实</span></summary>
@@ -80,199 +163,6 @@
       </button>
     </section>
     </details>
-
-    <section
-      v-if="factActionSummary.openCount"
-      class="xt-today__fact-actions"
-      data-testid="today-fact-actions"
-      aria-label="事实行动摘要"
-    >
-      <div class="xt-today__fact-action-lead">
-        <span>事实待办</span>
-        <strong>{{ factActionSummary.openCount }}</strong>
-      </div>
-      <div>
-        <span>可人工补录</span>
-        <strong>{{ factActionSummary.actionableCount }}</strong>
-      </div>
-      <div>
-        <span>入口已发送</span>
-        <strong>{{ factActionSummary.notifiedCount }}</strong>
-      </div>
-      <div>
-        <span>来源复查</span>
-        <strong>{{ factActionSummary.sourceRecheckCount }}</strong>
-      </div>
-      <div>
-        <span>依赖补齐</span>
-        <strong>{{ factActionSummary.dependencyCount }}</strong>
-      </div>
-      <RouterLink
-        class="xt-today__fact-action-link"
-        :to="factActionRoute"
-        :aria-label="compactClient ? '查看日报事实' : '打开事实待办'"
-      >
-        <el-icon><ArrowRight /></el-icon>
-      </RouterLink>
-    </section>
-
-    <section
-      id="daily-report"
-      class="xt-today__command-wall"
-      data-testid="today-command-wall"
-    >
-      <div class="xt-today__command-main">
-        <article class="xt-today__panel xt-today__flow" data-testid="today-production-flow">
-          <header class="xt-today__panel-head">
-            <h2>生产流转总览</h2>
-            <span>算法主口径 · 填报数据作对照</span>
-          </header>
-
-          <ol class="xt-today__flow-steps">
-            <li
-              v-for="stage in productionFlowStages"
-              :key="stage.key"
-              class="xt-today__flow-step"
-              :class="`stage-${stage.key}`"
-            >
-              <IndustrialProcessIcon class="xt-today__flow-icon" :stage="stage.key" />
-              <div class="xt-today__flow-title">{{ stage.label }}</div>
-              <div class="xt-today__flow-metric">
-                <span>{{ stage.primaryLabel }}</span>
-                <b>{{ stage.primaryValue }}</b>
-              </div>
-              <div class="xt-today__flow-metric is-muted">
-                <span>{{ stage.secondaryLabel }}</span>
-                <b>{{ stage.secondaryValue }}</b>
-              </div>
-              <ul v-if="stage.subItems.length" class="xt-today__flow-sub">
-                <li v-for="sub in stage.subItems" :key="sub.label">
-                  <span>{{ sub.label }}</span>
-                  <b>{{ sub.value }}</b>
-                </li>
-              </ul>
-            </li>
-          </ol>
-        </article>
-
-        <div class="xt-today__lower-grid">
-          <article class="xt-today__panel xt-today__workshop">
-            <header class="xt-today__panel-head">
-              <h2>车间产量概览</h2>
-              <span>过站下机参考，不计入全厂最终产量</span>
-            </header>
-            <table v-if="workshopRows.length" class="xt-today__table">
-              <thead>
-                <tr>
-                  <th>车间 / 工序</th>
-                  <th class="is-num">日产</th>
-                  <th class="is-num">月累计</th>
-                  <th class="is-num">比昨日</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in workshopRows" :key="row.key">
-                  <td>{{ row.workshop }}</td>
-                  <td class="is-num">{{ row.dailyOutputText }}</td>
-                  <td class="is-num">{{ row.monthlyOutputText }}</td>
-                  <td class="is-num">{{ row.deltaText }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div v-else class="xt-today__empty">暂无车间过站数据</div>
-          </article>
-
-          <article class="xt-today__panel xt-today__wip">
-            <header class="xt-today__panel-head">
-              <h2>在制料分布</h2>
-              <span>{{ wipRows.length }} 个位置 · {{ wipTotalText }}</span>
-            </header>
-            <div v-if="wipRows.length" class="xt-today__wip-grid">
-              <div v-for="row in wipRows" :key="row.key" class="xt-today__wip-card">
-                <span>{{ row.title }}</span>
-                <b>{{ row.weightText }}</b>
-                <small>{{ row.detailText }}</small>
-              </div>
-            </div>
-            <div v-else class="xt-today__empty">暂无在制料数据</div>
-          </article>
-        </div>
-
-        <div class="xt-today__metric-grid">
-          <article
-            v-for="item in comparisonCards"
-            :key="item.key"
-            class="xt-today__compare-card"
-            :class="`tone-${item.tone}`"
-          >
-            <span>{{ item.title }}</span>
-            <strong>{{ item.value ?? item.primaryValue }}</strong>
-            <small>{{ item.compareLabel }}：{{ item.compareValue }}</small>
-          </article>
-          <article
-            v-for="item in highlightMetrics"
-            :key="item.key"
-            class="xt-today__compare-card"
-            :class="`tone-${item.tone}`"
-          >
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.subText }}</small>
-          </article>
-        </div>
-      </div>
-
-      <aside class="xt-today__event-rail" data-testid="today-event-rail">
-        <header class="xt-today__rail-head">
-          <h2>异常与待办</h2>
-          <span>{{ eventRailItems.length }} 条</span>
-        </header>
-
-        <RouterLink class="xt-today__live-link" to="/manage/live">
-          <span><strong>当天生产动态</strong><small>{{ currentBusinessDate }} · 生产业务日</small></span>
-          <el-icon><ArrowRight /></el-icon>
-        </RouterLink>
-
-        <section class="xt-today__shift-card">
-          <header class="xt-today__panel-head">
-            <h3>三班填报</h3>
-            <span>长白班-小夜班-大夜班</span>
-          </header>
-          <div class="xt-today__shift-list">
-            <div
-              v-for="shift in shiftTiles"
-              :key="shift.key"
-              class="xt-today__shift-row"
-            >
-              <span>{{ shift.name }}</span>
-              <b>{{ shift.reported }}</b>
-              <small>{{ shift.timeRange }}</small>
-            </div>
-          </div>
-        </section>
-
-        <article
-          v-for="item in eventRailItems"
-          :key="item.key"
-          class="xt-today__event-card"
-          :class="`tone-${item.tone}`"
-        >
-          <div class="xt-today__event-top">
-            <span>{{ item.label }}</span>
-            <time>{{ item.time }}</time>
-          </div>
-          <strong>{{ item.title }}</strong>
-          <p>{{ item.body }}</p>
-        </article>
-
-        <MissingReportPanel
-          title="缺报明细"
-          :rows="missingRows"
-          :loading="liveLoading"
-          compact
-        />
-      </aside>
-    </section>
 
     <footer class="xt-today__bottom-status" data-testid="stitch-bottom-status" aria-label="系统状态">
       <span
@@ -300,7 +190,6 @@
         />
       </div>
 
-      <WorkshopBarChart :rows="snapshot.productionLane.value" :target-date="snapshot.targetDate.value" />
       </template>
     </section>
 
@@ -321,22 +210,23 @@ import { ArrowRight } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
-import KpiBar from '../../../components/manage/KpiBar.vue'
-const WorkshopBarChart = defineAsyncComponent(() => import('../../../components/manage/WorkshopBarChart.vue'))
+import XtMetric from '../../../components/xt/XtMetric.vue'
+import XtSparkArea from '../../../components/xt/XtSparkArea.vue'
+import TodayFactBand from './TodayFactBand.vue'
+import TodayProcessFlow from './TodayProcessFlow.vue'
+import TodayWorkshopBars from './TodayWorkshopBars.vue'
+import TodayWipDonut from './TodayWipDonut.vue'
+import { shapeTrendSeries } from '../../../components/manage/_outputTrend.js'
 const CostLine = defineAsyncComponent(() => import('../../../components/manage/CostLine.vue'))
 const OutputTrendLine = defineAsyncComponent(() => import('../../../components/manage/OutputTrendLine.vue'))
 const FilerRoster = defineAsyncComponent(() => import('../../../components/manage/FilerRoster.vue'))
-import IndustrialProcessIcon from '../../../components/manage/IndustrialProcessIcon.vue'
 import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
 import { rosterStats, buildFilerRoster } from '../../../components/manage/_filerRoster.js'
-import { shapeTrendSeries } from '../../../components/manage/_outputTrend.js'
-import { shapeEnergyTrend } from '../../../components/manage/_costPanel.js'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
 import { fetchTimeseries } from '../../../api/dashboard.js'
 import { fetchLiveAggregation } from '../../../api/realtime.js'
 import { fetchUsersPage } from '../../../api/users.js'
-import { useAuthStore } from '../../../stores/auth.js'
 import { isCompactClient } from '../../../router/guardRules.js'
 import { buildTodayStitchSurface } from '../../../utils/stitchManageSurface.js'
 import {
@@ -348,7 +238,6 @@ import {
   sumWipWeight,
 } from '../../../utils/manageDailyReportSurface.js'
 
-const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const snapshot = useDashboardSnapshot()
@@ -438,7 +327,7 @@ watch([snapshot.targetDate, () => snapshot.pending.value.daily], ([next, pending
 }, { immediate: true })
 watch(rosterOpen, (open) => { if (open) void loadUsers() })
 watch(snapshot.targetDate, (next) => {
-  if (chartsVisible.value) void loadTrend(next)
+  void loadTrend(next)
   liveRequest++
   liveAggregation.value = {}
   liveLoadError.value = ''
@@ -449,7 +338,7 @@ function refreshAll() {
   currentBusinessDate.value = inferBusinessDate()
   liveDate = ''
   void snapshot.load()
-  if (chartsVisible.value) void loadTrend(snapshot.targetDate.value)
+  void loadTrend(snapshot.targetDate.value)
 }
 watch(snapshot.targetDate, (next) => {
   if (normalizeRouteDate(route.query.target_date) === next) return
@@ -487,15 +376,6 @@ const fmt = (v, digits = 2) =>
       maximumFractionDigits: digits,
     })
 
-const outputTonsSpark = computed(() => {
-  const points = shapeTrendSeries(trendSeries.value, 7).map(row => row.output)
-  return points.every(Number.isFinite) ? points : []
-})
-const energyPerTonSpark = computed(() => {
-  const points = shapeEnergyTrend(trendSeries.value, 7).map(row => row.energyPerTon)
-  return points.every(Number.isFinite) ? points : []
-})
-
 const stitchSurface = computed(() => buildTodayStitchSurface({
   snapshotData: snapshot.data.value,
   targetDate: snapshot.targetDate.value,
@@ -508,7 +388,6 @@ const stitchSurface = computed(() => buildTodayStitchSurface({
   },
 }))
 const settlementCards = computed(() => stitchSurface.value.kpiStrip)
-const comparisonCards = computed(() => stitchSurface.value.comparisonRail)
 const workshopRows = computed(() => stitchSurface.value.workshopTable)
 const wipRows = computed(() => stitchSurface.value.wipDistribution)
 const wipTotalText = computed(() => {
@@ -569,16 +448,33 @@ function openTrace(traceId) {
   return openFactTrace(router, traceId)
 }
 
+const outputTrend = computed(() => {
+  const points = shapeTrendSeries(trendSeries.value, 14).map((row) => row.output)
+  return points.some((value) => value !== null) ? points : []
+})
+
+const KPI_ORDER = ['plant-output', 'finished-inbound', 'yield-rate', 'feeding-input', 'contract-tonnage', 'energy-per-ton', 'process-throughput']
+const KPI_SIZES = { 'plant-output': 'xl', 'finished-inbound': 'lg', 'yield-rate': 'lg' }
+const KPI_EMPTY_VALUES = new Set(['', '--', '—', MISSING_DAILY_VALUE])
+const KPI_STATES = { confirmed: 'confirmed', needs_evidence: 'candidate', mismatch: 'conflict' }
+
 const kpiItems = computed(() => {
-  return settlementCards.value.map((item) => ({
-    ...item,
-    value: item.value === '暂无可信数据' ? '--' : item.value,
-    hint: item.value === '暂无可信数据' ? item.value : item.hint,
-    spark: item.key === 'plant-output' && item.status === 'confirmed'
-      ? outputTonsSpark.value
-      : (item.key === 'energy-per-ton' ? energyPerTonSpark.value : null),
-    sparkTone: item.key === 'energy-per-ton' ? 'warning' : 'primary',
-  }))
+  const rank = (item) => {
+    const index = KPI_ORDER.indexOf(item.key)
+    return index === -1 ? KPI_ORDER.length : index
+  }
+  return [...settlementCards.value].sort((a, b) => rank(a) - rank(b)).map((item) => {
+    const value = KPI_EMPTY_VALUES.has(String(item.value ?? '')) ? null : item.value
+    return {
+      key: item.key,
+      label: item.label,
+      value,
+      unit: value === null ? '' : item.unit,
+      state: KPI_STATES[item.status] || '',
+      sub: value === null ? '' : (item.deltaText || item.hint || item.sourceLabel || ''),
+      size: KPI_SIZES[item.key] || 'md',
+    }
+  })
 })
 
 const summaryText = computed(() => snapshot.leaderSummary.value.summary_text || '')
@@ -621,8 +517,9 @@ function toFinite(value) {
   return Number.isFinite(number) ? number : null
 }
 
-function sumField(rows, field) {
-  return rows.reduce((sum, row) => sum + (toFinite(row?.[field]) || 0), 0)
+function sumKnownField(rows, field) {
+  const values = rows.map((row) => (row?.[field] == null ? null : toFinite(row[field]))).filter((value) => value !== null)
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null
 }
 
 function rowsByName(matchers) {
@@ -634,8 +531,8 @@ function rowsByName(matchers) {
 
 function buildWorkshopStage(key, label, matchers) {
   const rows = rowsByName(matchers)
-  const daily = rows.length ? sumField(rows, 'daily_output') : null
-  const monthly = rows.length ? sumField(rows, 'monthly_output') : null
+  const daily = sumKnownField(rows, 'daily_output')
+  const monthly = sumKnownField(rows, 'monthly_output')
   return {
     key,
     label,
@@ -739,17 +636,6 @@ const eventRailItems = computed(() => {
       time: nowText,
     })
   }
-  if (comparisonCards.value.length) {
-    const energy = comparisonCards.value[0]
-    items.push({
-      key: 'energy-compare',
-      label: '对照',
-      title: energy.title || '算法与填报对照',
-      body: `${energy.primaryLabel} ${energy.primaryValue}，${energy.compareLabel} ${energy.compareValue}`,
-      tone: energy.tone || 'primary',
-      time: nowText,
-    })
-  }
   const me = snapshot.managementEstimate.value
   const marginText = me.estimate_ready && me.estimated_margin != null
     ? `${fmt(Number(me.estimated_margin) / 10000, 1)} 万元`
@@ -786,37 +672,15 @@ const eventRailItems = computed(() => {
   }
   return items.slice(0, 5)
 })
-const quickLinks = computed(() => {
-  const links = [
-    { label: '实时', path: '/manage/live' },
-    { label: '日报', path: '/manage/today?section=daily-report' },
-  ]
-  if (compactClient.value) return links
-  links.push(
-    { label: '生产', path: '/manage/production' },
-    { label: '填报明细', path: '/manage/fill-details' },
-    { label: '异常', path: '/manage/alerts' },
-    { label: '能耗', path: '/manage/energy' },
-  )
-  if (auth.adminSurface) {
-    links.push(
-      { label: '主数据', path: '/manage/master' },
-      { label: '用户', path: '/manage/admin/users' },
-      { label: '规则', path: '/manage/admin/rules' },
-      { label: '设置', path: '/manage/admin/settings' },
-    )
-  }
-  return links
-})
 
 onMounted(() => {
   syncCompactClient()
+  void loadTrend(snapshot.targetDate.value)
   dailyRefreshTimer = window.setInterval(() => {
     if (document.visibilityState === 'visible') void snapshot.refreshDaily()
   }, 30000)
   const showCharts = () => {
     chartsVisible.value = true
-    void loadTrend(snapshot.targetDate.value)
     chartObserver?.disconnect()
   }
   if (typeof IntersectionObserver === 'undefined') showCharts()
@@ -839,179 +703,140 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .xt-today {
-  --xt-primary: #236958;
-  --xt-primary-hover: #195342;
-  --xt-text: #252a30;
-  --xt-text-secondary: #616b75;
-  --xt-text-muted: #737d86;
-  --xt-text-soft: #56616a;
-  --xt-bg-page: #fafafa;
-  --xt-bg-panel: #fff;
-  --xt-bg-panel-soft: #f6f7f7;
-  --xt-bg-panel-muted: #f0f3f2;
-  --xt-border: #dfe4e3;
-  --xt-border-light: #eaeded;
-  --xt-success: #21745c;
-  --xt-danger: #b64646;
-  --xt-warning: #926919;
-  --xt-font-display: var(--xt-font-body);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 64px;
   min-width: 0;
   color: var(--xt-text);
-  font-size: 13px;
-  letter-spacing: 0;
+  font-size: 14px;
+  line-height: 1.6;
 }
-.xt-today__topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
-.xt-today__identity { flex: 1; min-width: 160px; }
-.xt-today__identity > span { font-size: 11px; color: #6c737a; }
-.xt-today__identity h1 { margin: 6px 0; font-size: 27px; font-weight: 650; line-height: 1.25; letter-spacing: 0; }
-.xt-today__identity p { margin: 0; font-size: 12px; color: #6b737c; }
-.xt-today__top-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
-.xt-today__quick-nav { order: 3; flex: 1 0 100%; display: flex; gap: 24px; border-bottom: 1px solid #e0e5e3; overflow-x: auto; }
-.xt-today__quick-link { display: block; padding: 10px 0 13px; color: #6b747d; font-size: 12px; white-space: nowrap; }
-.xt-today__quick-link:hover { color: #236958; }
-.xt-today__quick-link[href*="section=daily-report"] { color: #236958; border-bottom: 2px solid #236958; font-weight: 600; }
-.xt-today__filer-badge { display: inline-flex; gap: 7px; align-items: center; padding: 8px 0; border: 0; background: transparent; color: #69736e; font: inherit; font-size: 11px; cursor: pointer; }
-.xt-today__filer-dot { width: 6px; height: 6px; border-radius: 50%; background: #2e8064; }
-.xt-today__filer-badge.tone-danger .xt-today__filer-dot { background: #b36b28; }
-.xt-today__filer-pending { color: #a36429; }
-.xt-today__filer-chev { font-size: 18px; transform: rotate(90deg); }
-.xt-today__filer-chev.is-open { transform: rotate(-90deg); }
+.xt-today > * { animation: xt-today-rise 600ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.xt-today > :nth-child(2) { animation-delay: 60ms; }
+.xt-today > :nth-child(3) { animation-delay: 120ms; }
+.xt-today > :nth-child(4) { animation-delay: 180ms; }
+.xt-today > :nth-child(n + 5) { animation-delay: 240ms; }
+@keyframes xt-today-rise { from { opacity: 0; transform: translateY(12px); } }
+
+.xt-today__topbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; margin-bottom: -32px; }
+.xt-today__identity h1 { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.25; }
+.xt-today__identity p { margin: 4px 0 0; color: var(--xt-text-muted); }
+.xt-today__top-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.xt-today__filer-badge { padding: 8px 0; border: 0; background: transparent; color: var(--xt-text-secondary); font: inherit; cursor: pointer; }
+.xt-today__filer-badge b { color: var(--xt-text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.xt-today__filer-pending { margin-left: 8px; color: var(--xt-warning); }
+
 .xt-today__kpis { position: relative; }
-.xt-today__loading { display: block; height: 20px; margin-top: 6px; color: #64716a; font-size: 11px; }
-.xt-today__kpis:has(.xt-today__loading) { margin-bottom: -26px; padding-bottom: 26px; }
-:deep(.xt-kpi-bar) { gap: 0; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid #e3e7e5; }
-:deep(.xt-kpi-bar__card) { display: block; min-height: 140px; padding: 14px 18px; border: 0; border-right: 1px solid #e3e7e5; border-radius: 0; background: transparent; box-shadow: none; min-width: 0; }
-:deep(.xt-kpi-bar__card:last-child) { border-right: 0; }
-:deep(.xt-kpi-bar__card::before), :deep(.xt-kpi-bar__card::after), :deep(.xt-kpi-bar__icon) { display: none; }
-:deep(.xt-kpi-bar__top) { display: flex; flex-wrap: wrap; gap: 4px; min-height: 18px; }
-:deep(.xt-kpi-bar__label) { color: #5c6670; font-size: 12px; font-weight: 500; }
-:deep(.xt-kpi-bar__value) { margin: 12px 0 6px; font-family: 'Segoe UI', sans-serif; font-size: 28px; font-weight: 600; letter-spacing: 0; flex-wrap: wrap; gap: 5px; }
-:deep(.xt-kpi-bar__value span) { color: #242d31; }
-:deep(.xt-kpi-bar__value small) { color: #697379; font-size: 11px; font-weight: 400; }
-:deep(.xt-kpi-bar__source), :deep(.xt-kpi-bar__hint) { color: #6a746d; font-size: 10px; font-weight: 400; overflow-wrap: anywhere; }
-:deep(.xt-kpi-bar__hint--placeholder) { height: 0; }
-:deep(.xt-kpi-bar__delta) { font-size: 10px; color: #297359; }
-.xt-today__sources { border-bottom: 1px solid #e6e9e7; padding-bottom: 12px; }
-.xt-today__sources summary { cursor: pointer; color: #4e5d55; font-size: 12px; }
-.xt-today__sources summary span { margin-left: 14px; color: #6c746f; font-size: 11px; }
-.xt-today__fact-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding-top: 12px; }
-.xt-today__fact-item { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #e3e7e4; border-radius: 6px; background: #fff; color: #59655e; text-align: left; font: inherit; cursor: pointer; min-width: 0; overflow-wrap: anywhere; }
-.xt-today__fact-item:disabled { cursor: default; }
-.xt-today__fact-item strong { color: #273e32; font-size: 18px; font-variant-numeric: tabular-nums; }
-.xt-today__fact-item small, .xt-today__fact-source, .xt-today__fact-window { font-size: 10px; font-weight: 400; }
-.xt-today__fact-status { font-size: 11px; }
-.xt-today__fact-item.is-missing .xt-today__fact-status, .xt-today__fact-item.is-mismatch .xt-today__fact-status { color: #aa4842; }
-.xt-today__fact-actions { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; padding: 14px 18px; background: #f1f5f2; border-left: 3px solid #81a794; }
-.xt-today__fact-actions > div { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #657168; }
-.xt-today__fact-actions strong { font-size: 16px; color: #315740; font-variant-numeric: tabular-nums; }
-.xt-today__fact-action-link { margin-left: auto; display: grid; place-items: center; width: 32px; height: 32px; color: #236958; }
-.xt-today__command-wall { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 28px; align-items: start; }
-.xt-today__command-main { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
-.xt-today__lower-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; order: 1; }
+.xt-today__loading { display: block; margin-top: 8px; color: var(--xt-text-muted); font-size: 12px; }
+.xt-today__kpi-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 48px 40px; margin: 0; padding: 0; list-style: none; }
+.xt-today__kpi-grid > li { grid-column: span 3; min-width: 0; }
+.xt-today__kpi-grid > li.is-xl { display: grid; grid-column: span 6; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: 32px; }
+.xt-today__kpi-trend { align-self: end; margin-bottom: 24px; }
+
+.xt-today__flow { padding: 40px; border-radius: 4px; background: var(--xt-bg-panel-soft); }
+.xt-today__flow :deep(.xt-flow__node) { background: var(--xt-bg-panel-soft); }
+.xt-today__flow > h2 { margin: 0 0 32px; font-size: 20px; font-weight: 600; }
+
+.xt-today__command-wall { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 64px; align-items: start; }
+.xt-today__command-main { display: grid; gap: 64px; min-width: 0; }
 .xt-today__panel { min-width: 0; }
-.xt-today__panel-head, .xt-today__rail-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-.xt-today__panel-head h2, .xt-today__rail-head h2 { margin: 0; font-size: 15px; font-weight: 600; color: #2c3530; }
-.xt-today__panel-head h3 { margin: 0; font-size: 12px; font-weight: 600; }
-.xt-today__panel-head > span, .xt-today__rail-head > span { color: #6c736e; font-size: 10px; }
-.xt-today__table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.xt-today__table th { color: #6e736c; font-weight: 400; font-size: 10px; padding: 10px 6px; text-align: left; border-bottom: 1px solid #e2e7e3; }
-.xt-today__table td { padding: 14px 6px; border-bottom: 1px solid #ecefed; color: #525f56; }
-.xt-today__table .is-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.xt-today__table tbody tr:hover { background: #f2f5f3; }
-.xt-today__wip-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
-.xt-today__wip-card { display: grid; gap: 5px; padding: 12px 0; border-bottom: 1px solid #e5eae6; min-width: 0; }
-.xt-today__wip-card > span { color: #6a756b; font-size: 11px; }
-.xt-today__wip-card b { color: #344c3d; font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.xt-today__wip-card small { color: #6c746d; font-size: 10px; overflow-wrap: anywhere; }
-.xt-today__flow { order: 2; border-top: 1px solid #e3e8e4; padding-top: 20px; }
-.xt-today__flow-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 20px; list-style: none; padding: 0; margin: 0; }
-.xt-today__flow-step { display: grid; align-content: start; gap: 6px; min-width: 0; padding: 0 0 12px; border-bottom: 1px solid #e8ece8; }
-.xt-today__flow-icon { width: 34px; height: 34px; color: #59796b; }
-.xt-today__flow-title { font-size: 12px; font-weight: 600; }
-.xt-today__flow-metric { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; }
-.xt-today__flow-metric span { color: #6b746c; }
-.xt-today__flow-metric b { font-weight: 500; font-variant-numeric: tabular-nums; }
-.xt-today__flow-metric.is-muted { color: #6a756a; font-size: 10px; }
-.xt-today__flow-sub { list-style: none; margin: 4px 0 0; padding: 0; }
-.xt-today__flow-sub li { display: flex; justify-content: space-between; gap: 5px; padding: 3px 0; font-size: 10px; color: #69756c; }
-.xt-today__flow-sub b { font-weight: 400; white-space: nowrap; }
-.xt-today__metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; order: 3; }
-.xt-today__compare-card { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 12px 0; border-top: 1px solid #e3e8e4; }
-.xt-today__compare-card > span { color: #6b746c; font-size: 11px; }
-.xt-today__compare-card strong { color: #354b3a; font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.xt-today__compare-card small { color: #6a746c; font-size: 10px; }
-.xt-today__event-rail { min-width: 0; border-left: 1px solid #e1e7e2; padding-left: 24px; }
-.xt-today__live-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #306a50; padding: 14px 0 18px; border-bottom: 1px solid #e2e8e3; margin-bottom: 18px; }
-.xt-today__live-link span { display: flex; flex-direction: column; gap: 4px; }
-.xt-today__live-link strong { font-size: 12px; font-weight: 600; }
-.xt-today__live-link small { color: #6b746b; font-size: 10px; }
-.xt-today__shift-card { margin-bottom: 18px; }
-.xt-today__shift-list { display: grid; gap: 9px; }
-.xt-today__shift-row { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 8px; font-size: 11px; color: #627363; }
-.xt-today__shift-row b { text-align: center; font-weight: 500; }
-.xt-today__shift-row small { text-align: right; font-size: 10px; color: #6c746c; }
-.xt-today__event-card { padding: 14px 0; border-top: 1px solid #e4e9e5; overflow-wrap: anywhere; }
-.xt-today__event-top { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; margin-bottom: 7px; color: #3c765b; }
-.xt-today__event-top time { color: #6d746e; }
-.xt-today__event-card.tone-warning .xt-today__event-top { color: #996824; }
-.xt-today__event-card.tone-danger .xt-today__event-top { color: #b24a45; }
-.xt-today__event-card > strong { font-size: 12px; font-weight: 500; line-height: 1.6; }
-.xt-today__event-card p { font-size: 11px; line-height: 1.8; margin: 6px 0 0; color: #6a746a; }
-.xt-today__empty { padding: 28px 0; font-size: 12px; color: #6b746d; }
-.xt-today__bottom-status { display: flex; flex-wrap: wrap; gap: 20px; border-top: 1px solid #e2e7e3; padding-top: 12px; }
-.xt-today__status-pill { display: inline-flex; align-items: center; gap: 6px; color: #6c746d; font-size: 10px; }
+.xt-today__panel-head, .xt-today__rail-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 24px; }
+.xt-today__panel-head h2, .xt-today__rail-head h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.xt-today__panel-head > span { color: var(--xt-text-muted); }
+.xt-today__quick-link { color: var(--xt-primary); text-decoration: none; }
+
+.xt-today__event-rail { display: grid; gap: 20px; min-width: 0; }
+.xt-today__rail-head { margin-bottom: 4px; }
+.xt-today__event-card { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 12px; overflow-wrap: anywhere; }
+.xt-today__event-dot { width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--xt-primary); }
+.xt-today__event-card.tone-warning .xt-today__event-dot { background: var(--xt-warning); }
+.xt-today__event-card.tone-danger .xt-today__event-dot { background: var(--xt-danger); }
+.xt-today__event-card.tone-success .xt-today__event-dot { background: var(--xt-success); }
+.xt-today__event-card.tone-muted .xt-today__event-dot { background: var(--xt-border); }
+.xt-today__event-card strong { font-weight: 400; }
+.xt-today__event-card p { display: -webkit-box; margin: 2px 0 0; overflow: hidden; color: var(--xt-text-muted); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.xt-today__live-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-block: 1px solid var(--xt-border); color: var(--xt-primary); text-decoration: none; }
+.xt-today__shift-card h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+.xt-today__shift-list { display: grid; gap: 4px; }
+.xt-today__shift-row { display: flex; justify-content: space-between; gap: 8px; color: var(--xt-text-secondary); font-variant-numeric: tabular-nums; }
+.xt-today__shift-row b { font-weight: 400; }
+.xt-today__empty { padding: 24px 0; color: var(--xt-text-muted); }
+
+.xt-today__month { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px; padding-top: 32px; border-top: 1px solid var(--xt-border); }
+.xt-today__month-item { display: grid; gap: 4px; min-width: 0; }
+.xt-today__month-item span { color: var(--xt-text-secondary); }
+.xt-today__month-item strong { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.xt-today__month-item small { color: var(--xt-text-muted); font-size: 12px; }
+
+.xt-today__below-fold { display: grid; gap: 48px; min-height: 240px; }
+.xt-today__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; }
+.xt-today__row > :deep(*) { padding: 0; border: 0; border-radius: 0; background: var(--xt-bg-page); box-shadow: none; }
+.xt-today__row > :deep(*)::before, .xt-today__row > :deep(*)::after { display: none; }
+
+.xt-today__sources { padding-top: 16px; border-top: 1px solid var(--xt-border); }
+.xt-today__sources summary { color: var(--xt-text-secondary); cursor: pointer; }
+.xt-today__sources summary span { margin-left: 12px; color: var(--xt-text-muted); }
+.xt-today__fact-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; padding-top: 24px; }
+.xt-today__fact-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--xt-text-muted); font: inherit; font-size: 12px; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.xt-today__fact-item:disabled { cursor: default; }
+.xt-today__fact-label { color: var(--xt-text-secondary); font-size: 14px; }
+.xt-today__fact-item strong { color: var(--xt-text); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.xt-today__fact-item small { font-size: 12px; font-weight: 400; }
+.xt-today__fact-item.is-confirmed .xt-today__fact-status { color: var(--xt-success); }
+.xt-today__fact-item.is-needs_evidence .xt-today__fact-status { color: var(--xt-primary); }
+.xt-today__fact-item.is-mismatch .xt-today__fact-status { color: var(--xt-warning); }
+
+.xt-today__bottom-status { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: -40px; color: var(--xt-text-muted); font-size: 12px; }
+.xt-today__status-pill { display: inline-flex; align-items: center; gap: 6px; }
 .xt-today__status-pill b, .xt-today__status-pill strong { font-weight: 400; }
-.xt-today__status-pill i { width: 5px; height: 5px; border-radius: 50%; background: #729d82; }
-.xt-today__status-pill.tone-warning i { background: #b48c50; }
-.xt-today__status-pill.tone-danger i { background: #b7625b; }
-.xt-today__below-fold { min-height: 240px; display: grid; gap: 24px; padding-top: 12px; }
-.xt-today__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-:deep(.xt-date-switcher button) { color: #56645b; background: #fff; border-color: #dce4df; box-shadow: none; font-weight: 500; }
-:deep(.xt-cal-pop) { background: #fff; border-color: #dce4df; box-shadow: 0 8px 24px #152f201a; left: auto; right: 0; max-width: calc(100vw - 32px); }
-:deep(.xt-cal-pop__title), :deep(.xt-cal-pop__weekdays) { color: #516659; }
-:deep(.xt-cal-pop__cell.is-selected) { background: #236958; color: #fff; }
-:deep(.xt-cal-pop__cell.is-out), :deep(.xt-cal-pop__cell.is-future) { color: #6b746e; }
-:deep(.xt-date-switcher button:hover:not(:disabled)) { background: #edf4ef; color: #236958; }
-:deep(.xt-date-switcher__label) { font-family: inherit; font-size: 12px; }
-:deep(.xt-missing-report) { background: #f1f5f2; color: #546b5d; box-shadow: none; border-color: #dce5de; border-radius: 6px; padding: 12px; }
-:deep(.xt-missing-report__head h2), :deep(.xt-missing-report__head strong), :deep(.xt-missing-report__stats b) { color: #466251; }
-:deep(.xt-missing-report__head small), :deep(.xt-missing-report__chip) { color: #657669; }
-:deep(.xt-missing-report__chip.is-muted) { color: #657669; }
-button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid #397b69; outline-offset: 3px; }
+.xt-today__status-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--xt-success); }
+.xt-today__status-pill.tone-warning i { background: var(--xt-warning); }
+.xt-today__status-pill.tone-danger i { background: var(--xt-danger); }
+
+:deep(.xt-date-switcher button) { border-color: var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); box-shadow: none; color: var(--xt-text); font-weight: 400; }
+:deep(.xt-date-switcher button:hover:not(:disabled)) { background: var(--xt-primary-soft); color: var(--xt-primary); }
+:deep(.xt-date-switcher__label) { font-family: inherit; font-size: 14px; }
+:deep(.xt-cal-pop) { right: 0; left: auto; max-width: calc(100vw - 32px); border-color: var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); box-shadow: var(--xt-shadow-md); }
+:deep(.xt-cal-pop__cell.is-selected) { background: var(--xt-primary); color: #fff; }
+:deep(.xt-missing-report) { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--xt-text-secondary); }
+:deep(.xt-missing-report)::before, :deep(.xt-missing-report)::after { display: none; }
+:deep(.xt-missing-report__head span) { display: none; }
+:deep(.xt-missing-report__head h2) { color: var(--xt-text); font-size: 14px; font-weight: 600; }
+:deep(.xt-missing-report__head strong), :deep(.xt-missing-report__stats b) { color: var(--xt-text-secondary); font-size: 12px; font-weight: 400; }
+:deep(.xt-missing-report__head small), :deep(.xt-missing-report__chip), :deep(.xt-missing-report__chip.is-muted) { color: var(--xt-text-muted); font-size: 12px; }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--xt-primary); outline-offset: 3px; }
+
 @media (max-width: 1280px) {
-  .xt-today__command-wall { grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; }
-  .xt-today__lower-grid { grid-template-columns: 1fr; }
-  .xt-today__event-rail { padding-left: 18px; }
-  :deep(.xt-kpi-bar__card) { padding: 12px; }
-  :deep(.xt-kpi-bar__value) { font-size: 24px; }
-  :deep(.xt-kpi-bar) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .xt-today__command-wall { grid-template-columns: minmax(0, 1fr) 240px; gap: 40px; }
+  .xt-today__kpi-grid > li.is-xl { grid-column: span 12; }
+  .xt-today__kpi-grid > li.is-lg { grid-column: span 6; }
 }
 @media (max-width: 960px) {
-  :deep(.xt-kpi-bar) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  :deep(.xt-kpi-bar__card) { border-bottom: 1px solid #e3e7e5; }
-  .xt-today__top-actions { justify-content: flex-start; }
   .xt-today__fact-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .xt-today__month { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
-  .xt-today { gap: 18px; }
-  .xt-today__identity h1 { font-size: 24px; }
-  .xt-today__top-actions { width: 100%; gap: 4px; }
-  .xt-today__filer-badge { flex: 1 0 100%; }
-  .xt-today__command-wall { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  .xt-today__event-rail { grid-row: 1; padding: 0; border-left: 0; }
-  .xt-today__flow-steps, .xt-today__metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .xt-today__quick-nav { gap: 20px; }
-  .xt-today__row { grid-template-columns: 1fr; }
-  .xt-today__fact-actions { gap: 12px; padding: 12px; }
+  .xt-today { gap: 40px; }
+  .xt-today__topbar { margin-bottom: -16px; }
+  .xt-today__top-actions { width: 100%; }
+  .xt-today__kpi-grid { gap: 32px 16px; }
+  .xt-today__kpi-grid > li { grid-column: span 6; }
+  .xt-today__kpi-grid > li.is-xl { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .xt-today__kpi-trend { margin-bottom: 0; }
+  .xt-today__flow { padding: 24px 20px; }
+  .xt-today__command-wall { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .xt-today__command-main { gap: 40px; }
+  .xt-today__event-rail { grid-row: 1; }
+  .xt-today__row { grid-template-columns: minmax(0, 1fr); }
+  .xt-today__bottom-status { margin-top: -16px; }
 }
 @media (max-width: 480px) {
-  :deep(.xt-kpi-bar) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  :deep(.xt-kpi-bar__card) { min-height: 120px; }
-  .xt-today__fact-strip { grid-template-columns: 1fr; }
+  .xt-today__fact-strip { grid-template-columns: minmax(0, 1fr); }
+  .xt-today__kpi-grid > li.is-lg { grid-column: span 12; }
   :deep(.xt-date-switcher) { gap: 5px; max-width: 100%; }
-  :deep(.xt-date-switcher button) { padding-inline: 9px; min-height: 40px; }
+  :deep(.xt-date-switcher button) { min-height: 40px; padding-inline: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xt-today > * { animation: none; }
 }
 </style>

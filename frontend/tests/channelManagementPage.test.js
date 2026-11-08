@@ -8,7 +8,7 @@ function source(path) {
 
 test('communication channels page has a manage route and navigation entry', () => {
   const router = source('../src/router/index.js')
-  const navigation = source('../src/config/manage-navigation.js')
+  const navigation = source('../src/config/manage-settings-drawer.js')
 
   assert.match(router, /const CommunicationChannelsPage = \(\) => import\('\.\.\/views\/manage\/channels\/CommunicationChannelsPage\.vue'\)/)
   assert.match(router, /path: 'channels'/)

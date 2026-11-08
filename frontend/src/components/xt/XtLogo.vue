@@ -67,7 +67,6 @@ defineProps({
   fill: var(--xt-bg-panel);
   stroke: currentColor;
   stroke-width: 2.2;
-  filter: drop-shadow(0 6px 10px var(--xt-primary-border));
 }
 
 .xt-logo__shadow {
@@ -83,7 +82,7 @@ defineProps({
 }
 
 .xt-logo__face--right {
-  fill: color-mix(in srgb, var(--xt-accent) 7%, var(--xt-bg-panel));
+  fill: color-mix(in srgb, var(--xt-primary) 14%, var(--xt-bg-panel));
 }
 
 .xt-logo__edge,
