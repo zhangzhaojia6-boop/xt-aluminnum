@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from hashlib import sha256
 from io import BytesIO
 
@@ -21,6 +21,7 @@ from app.services.dingtalk_verified_fact_extractor import (
 REGISTERED_FILE_MODE = 'registered_file'
 REGISTERED_MESSAGE_MODE = 'registered_message'
 REGISTERED_ENERGY_FILE_MODE = 'registered_energy_file'
+MORNING_LATE_REPORT_UNTIL = time(12, 0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +149,21 @@ def adopt_registered_file_evidence(
     return rule.rule_key
 
 
+def _registered_message_business_date(db: Session, *, rule_key: str, message_time: datetime) -> date:
+    """上午补发的消息，前一天还没报过时算前一天。"""
+    business_date = resolve_production_business_date(message_time)
+    local = local_now(message_time)
+    if business_date != local.date() or local.time() >= MORNING_LATE_REPORT_UNTIL:
+        return business_date
+    previous = (business_date - timedelta(days=1)).isoformat()
+    already_reported = any(
+        (other.payload or {}).get('sampling_rule_key') == rule_key
+        and (other.payload or {}).get('business_date') == previous
+        for other in db.query(MultimodalEvidence).filter(MultimodalEvidence.confirmation_status == 'specialist_sampled').all()
+    )
+    return business_date if already_reported else business_date - timedelta(days=1)
+
+
 def adopt_registered_message_evidence(db: Session, *, evidence_id: int) -> str | None:
     evidence = db.get(MultimodalEvidence, int(evidence_id))
     if evidence is None or evidence.confirmation_status != 'machine_only':
@@ -169,7 +185,7 @@ def adopt_registered_message_evidence(db: Session, *, evidence_id: int) -> str |
     message_time = _event_time(payload)
     if message_time is None:
         return None
-    business_date = resolve_production_business_date(message_time)
+    business_date = _registered_message_business_date(db, rule_key=rule.rule_key, message_time=message_time)
     fact_updates = extract_verified_text_fact_updates(
         text=text,
         business_date=business_date,
