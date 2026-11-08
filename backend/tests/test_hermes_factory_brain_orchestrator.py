@@ -41,10 +41,12 @@ def test_orchestrator_persists_inbox_and_agent_run() -> None:
     db.commit()
 
     assert result.trace_id == 'trace-factory-brain-001'
-    assert result.status == 'replied'
+    assert result.status == 'evidence_pending'
     assert db.query(ChatInboxMessage).one().text == '产量出来了吗'
     run = db.query(AgentRun).one()
     assert run.result_payload['factory_brain']['state_trace'][-1] == 'reply_to_dingtalk'
+    assert run.status == 'evidence_pending'
+    assert run.status_color == 'yellow'
 
 
 def test_orchestrator_persists_closed_loop_payload() -> None:

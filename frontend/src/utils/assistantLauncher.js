@@ -11,3 +11,9 @@ export function openAiAssistant({ question = '', scope = null, freshness = null 
     })
   )
 }
+
+export function buildAssistantScope({ path = '', query = {} } = {}, scope = null) {
+  const base = scope || { type: 'route', key: path || '/manage/today' }
+  const businessDate = typeof query?.target_date === 'string' ? query.target_date : ''
+  return businessDate && !base.business_date ? { ...base, business_date: businessDate } : base
+}

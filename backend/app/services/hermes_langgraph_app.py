@@ -181,6 +181,12 @@ def _generate_response(state: FactoryBrainState) -> FactoryBrainState:
     gap = state.get('evidence_gap')
     if not references and gap:
         response = f'{_HERMES_PUBLIC_NAME}暂时还不能确认结果。{gap}'
+    elif not _has_fetched_value(references):
+        metrics = '、'.join(_metric_label(reference.get('metric')) for reference in references)
+        sources = '、'.join(sorted({_source_label(reference.get('source')) for reference in references}))
+        response = f'{_HERMES_PUBLIC_NAME}暂时还不能确认结果：{metrics}需要实时取数，尚未取到。计划来源：{sources}。'
+        if gap:
+            response = f'{response}\n{gap}'
     else:
         metrics = '、'.join(_metric_label(reference.get('metric')) for reference in references)
         sources = '、'.join(sorted({_source_label(reference.get('source')) for reference in references}))
@@ -188,6 +194,10 @@ def _generate_response(state: FactoryBrainState) -> FactoryBrainState:
         if gap:
             response = f'{response}\n{gap}'
     return _advance(state, 'generate_response', response_text=response)
+
+
+def _has_fetched_value(references: list) -> bool:
+    return any(reference.get('value') is not None for reference in references)
 
 
 def _metric_label(value: object) -> str:
@@ -205,4 +215,5 @@ def _persist_memory_and_audit(state: FactoryBrainState) -> FactoryBrainState:
 
 
 def _reply_to_dingtalk(state: FactoryBrainState) -> FactoryBrainState:
-    return _advance(state, 'reply_to_dingtalk', status='replied')
+    status = 'replied' if _has_fetched_value(list(state.get('data_references') or [])) else 'evidence_pending'
+    return _advance(state, 'reply_to_dingtalk', status=status)
