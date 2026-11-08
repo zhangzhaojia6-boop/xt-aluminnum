@@ -24,6 +24,8 @@ for (const [label, width, height] of SIZES) {
     await page.goto('/manage/today?target_date=2026-11-07')
     await page.waitForTimeout(3000)
     await page.screenshot({ path: `${OUT}/today-${label}.png` })
+    await page.mouse.wheel(0, 4000)
+    await page.waitForTimeout(2500)
     await page.screenshot({ path: `${OUT}/today-${label}-full.png`, fullPage: true })
   })
 }

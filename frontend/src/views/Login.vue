@@ -6,7 +6,10 @@
     </header>
 
     <main class="login-stage" data-testid="login-page">
-      <h1 class="login-stage__title">数据中枢</h1>
+      <div class="login-stage__brand">
+        <h1 class="login-stage__title">数据中枢</h1>
+        <XtRollingLine class="login-stage__art" />
+      </div>
 
       <div class="login-form">
         <h2>管理员登录</h2>
@@ -95,6 +98,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { XtLogo } from '../components/xt'
+import XtRollingLine from '../components/xt/XtRollingLine.vue'
 import { formatApiErrorMessage } from '../api/index.js'
 import { useAuthStore } from '../stores/auth.js'
 
@@ -293,6 +297,15 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
+.login-stage__brand {
+  display: grid;
+  gap: 48px;
+}
+
+.login-stage__art {
+  max-width: 560px;
+}
+
 .login-stage__title {
   margin: 0;
   color: var(--xt-primary);
@@ -363,6 +376,10 @@ onMounted(async () => {
 
   .login-stage__title {
     font-size: 48px;
+  }
+
+  .login-stage__brand {
+    gap: 24px;
   }
 
   .login-form {

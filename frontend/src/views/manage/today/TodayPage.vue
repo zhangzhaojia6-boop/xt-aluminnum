@@ -35,41 +35,109 @@
       </div>
     </header>
 
-    <section
+    <TodayFactBand
       v-if="factActionSummary.openCount"
-      class="xt-today__fact-actions"
-      data-testid="today-fact-actions"
-      aria-label="事实行动摘要"
-    >
-      <strong>还缺 {{ factActionSummary.openCount }} 项事实，日报暂不发送</strong>
-      <span>人工补录 {{ factActionSummary.actionableCount }}</span>
-      <span>来源复查 {{ factActionSummary.sourceRecheckCount }}</span>
-      <span>依赖补齐 {{ factActionSummary.dependencyCount }}</span>
-      <span>入口已发送 {{ factActionSummary.notifiedCount }}</span>
-      <RouterLink
-        class="xt-today__fact-action-link"
-        :to="factActionRoute"
-        :aria-label="compactClient ? '查看日报事实' : '打开事实待办'"
-      >
-        查看 <el-icon><ArrowRight /></el-icon>
-      </RouterLink>
-    </section>
+      :open="factActionSummary.openCount"
+      :manual="factActionSummary.actionableCount"
+      :recheck="factActionSummary.sourceRecheckCount"
+      :dependency="factActionSummary.dependencyCount"
+      :to="factActionRoute"
+      :link-label="compactClient ? '查看日报事实' : '打开事实待办'"
+    />
 
     <div :aria-busy="snapshot.pending.value.daily" class="xt-today__kpis">
       <ul class="xt-today__kpi-grid" data-testid="manage-kpi-bar">
-        <li v-for="item in kpiItems" :key="item.key" :class="{ 'is-hero': item.hero }">
+        <li v-for="item in kpiItems" :key="item.key" :class="`is-${item.size}`">
           <XtMetric
             :label="item.label"
             :value="item.value"
             :unit="item.unit"
             :state="item.state"
             :sub="item.sub"
-            :size="item.hero ? 'lg' : 'md'"
+            :size="item.size"
+          />
+          <XtSparkArea
+            v-if="item.size === 'xl' && outputTrend.length"
+            class="xt-today__kpi-trend"
+            :points="outputTrend"
+            label="近 14 天包装产量走势"
           />
         </li>
       </ul>
       <span v-if="snapshot.pending.value.daily" class="xt-today__loading" role="status">正在读取日报</span>
     </div>
+
+    <article class="xt-today__flow" data-testid="today-production-flow">
+      <h2>生产流转</h2>
+      <TodayProcessFlow :stages="productionFlowStages" />
+    </article>
+
+    <section id="daily-report" class="xt-today__command-wall" data-testid="today-command-wall">
+      <div class="xt-today__command-main">
+        <article class="xt-today__panel xt-today__workshop">
+          <header class="xt-today__panel-head">
+            <h2>车间产量</h2>
+            <span>过站下机参考</span>
+          </header>
+          <TodayWorkshopBars v-if="workshopRows.length" :rows="workshopRows" />
+          <div v-else class="xt-today__empty">暂无车间过站数据</div>
+        </article>
+
+        <article class="xt-today__panel xt-today__wip">
+          <header class="xt-today__panel-head">
+            <h2>在制料</h2>
+            <span>{{ wipRows.length }} 个位置</span>
+          </header>
+          <TodayWipDonut v-if="wipRows.length" :rows="wipRows" :total-text="wipTotalText" />
+          <div v-else class="xt-today__empty">暂无在制料数据</div>
+        </article>
+      </div>
+
+      <aside class="xt-today__event-rail" data-testid="today-event-rail">
+        <header class="xt-today__rail-head">
+          <h2>异常与待办</h2>
+          <RouterLink class="xt-today__quick-link" to="/manage/alerts">全部异常</RouterLink>
+        </header>
+
+        <article
+          v-for="item in eventRailItems"
+          :key="item.key"
+          class="xt-today__event-card"
+          :class="`tone-${item.tone}`"
+        >
+          <span class="xt-today__event-dot" aria-hidden="true" />
+          <div>
+            <strong>{{ item.title }}</strong>
+            <p v-if="item.body">{{ item.body }}</p>
+          </div>
+        </article>
+
+        <RouterLink class="xt-today__live-link" to="/manage/live">
+          <span>当天生产动态</span>
+          <el-icon><ArrowRight /></el-icon>
+        </RouterLink>
+
+        <section class="xt-today__shift-card">
+          <h3>三班填报</h3>
+          <div class="xt-today__shift-list">
+            <div v-for="shift in shiftTiles" :key="shift.key" class="xt-today__shift-row">
+              <span>{{ shift.name }}</span>
+              <b>{{ shift.reported }}</b>
+            </div>
+          </div>
+        </section>
+
+        <MissingReportPanel title="缺报明细" :rows="missingRows" :loading="liveLoading" compact />
+      </aside>
+    </section>
+
+    <section class="xt-today__month" aria-label="本月累计">
+      <div v-for="item in highlightMetrics" :key="item.key" class="xt-today__month-item">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <small>{{ item.subText }}</small>
+      </div>
+    </section>
 
     <details class="xt-today__sources">
       <summary>事实来源与业务时间 <span>{{ factClosureSurface.criticalFields.length }} 项关键事实</span></summary>
@@ -95,163 +163,6 @@
       </button>
     </section>
     </details>
-
-    <section
-      id="daily-report"
-      class="xt-today__command-wall"
-      data-testid="today-command-wall"
-    >
-      <div class="xt-today__command-main">
-        <article class="xt-today__panel xt-today__flow" data-testid="today-production-flow">
-          <header class="xt-today__panel-head">
-            <h2>生产流转总览</h2>
-            <span>算法主口径 · 填报数据作对照</span>
-          </header>
-
-          <ol class="xt-today__flow-steps">
-            <li
-              v-for="stage in productionFlowStages"
-              :key="stage.key"
-              class="xt-today__flow-step"
-              :class="`stage-${stage.key}`"
-            >
-              <div class="xt-today__flow-title">{{ stage.label }}</div>
-              <div class="xt-today__flow-metric">
-                <span>{{ stage.primaryLabel }}</span>
-                <b>{{ stage.primaryValue }}</b>
-              </div>
-              <div class="xt-today__flow-metric is-muted">
-                <span>{{ stage.secondaryLabel }}</span>
-                <b>{{ stage.secondaryValue }}</b>
-              </div>
-              <ul v-if="stage.subItems.length" class="xt-today__flow-sub">
-                <li v-for="sub in stage.subItems" :key="sub.label">
-                  <span>{{ sub.label }}</span>
-                  <b>{{ sub.value }}</b>
-                </li>
-              </ul>
-            </li>
-          </ol>
-        </article>
-
-        <div class="xt-today__lower-grid">
-          <article class="xt-today__panel xt-today__workshop">
-            <header class="xt-today__panel-head">
-              <h2>车间产量概览</h2>
-              <span>过站下机参考，不计入全厂最终产量</span>
-            </header>
-            <table v-if="workshopRows.length" class="xt-today__table">
-              <thead>
-                <tr>
-                  <th>车间 / 工序</th>
-                  <th class="is-num">日产</th>
-                  <th class="is-num">月累计</th>
-                  <th class="is-num">比昨日</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in workshopRows" :key="row.key">
-                  <td>{{ row.workshop }}</td>
-                  <td class="is-num">{{ row.dailyOutputText }}</td>
-                  <td class="is-num">{{ row.monthlyOutputText }}</td>
-                  <td class="is-num">{{ row.deltaText }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div v-else class="xt-today__empty">暂无车间过站数据</div>
-          </article>
-
-          <article class="xt-today__panel xt-today__wip">
-            <header class="xt-today__panel-head">
-              <h2>在制料分布</h2>
-              <span>{{ wipRows.length }} 个位置 · {{ wipTotalText }}</span>
-            </header>
-            <div v-if="wipRows.length" class="xt-today__wip-grid">
-              <div v-for="row in wipRows" :key="row.key" class="xt-today__wip-card">
-                <span>{{ row.title }}</span>
-                <b>{{ row.weightText }}</b>
-                <small>{{ row.detailText }}</small>
-              </div>
-            </div>
-            <div v-else class="xt-today__empty">暂无在制料数据</div>
-          </article>
-        </div>
-
-        <div class="xt-today__metric-grid">
-          <article
-            v-for="item in comparisonCards"
-            :key="item.key"
-            class="xt-today__compare-card"
-            :class="`tone-${item.tone}`"
-          >
-            <span>{{ item.title }}</span>
-            <strong>{{ item.value ?? item.primaryValue }}</strong>
-            <small>{{ item.compareLabel }}：{{ item.compareValue }}</small>
-          </article>
-          <article
-            v-for="item in highlightMetrics"
-            :key="item.key"
-            class="xt-today__compare-card"
-            :class="`tone-${item.tone}`"
-          >
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.subText }}</small>
-          </article>
-        </div>
-      </div>
-
-      <aside class="xt-today__event-rail" data-testid="today-event-rail">
-        <header class="xt-today__rail-head">
-          <h2>异常与待办</h2>
-          <RouterLink class="xt-today__quick-link" to="/manage/alerts">全部异常</RouterLink>
-        </header>
-
-        <RouterLink class="xt-today__live-link" to="/manage/live">
-          <span><strong>当天生产动态</strong><small>{{ currentBusinessDate }} · 生产业务日</small></span>
-          <el-icon><ArrowRight /></el-icon>
-        </RouterLink>
-
-        <section class="xt-today__shift-card">
-          <header class="xt-today__panel-head">
-            <h3>三班填报</h3>
-            <span>长白班-小夜班-大夜班</span>
-          </header>
-          <div class="xt-today__shift-list">
-            <div
-              v-for="shift in shiftTiles"
-              :key="shift.key"
-              class="xt-today__shift-row"
-            >
-              <span>{{ shift.name }}</span>
-              <b>{{ shift.reported }}</b>
-              <small>{{ shift.timeRange }}</small>
-            </div>
-          </div>
-        </section>
-
-        <article
-          v-for="item in eventRailItems"
-          :key="item.key"
-          class="xt-today__event-card"
-          :class="`tone-${item.tone}`"
-        >
-          <div class="xt-today__event-top">
-            <span>{{ item.label }}</span>
-            <time>{{ item.time }}</time>
-          </div>
-          <strong>{{ item.title }}</strong>
-          <p>{{ item.body }}</p>
-        </article>
-
-        <MissingReportPanel
-          title="缺报明细"
-          :rows="missingRows"
-          :loading="liveLoading"
-          compact
-        />
-      </aside>
-    </section>
 
     <footer class="xt-today__bottom-status" data-testid="stitch-bottom-status" aria-label="系统状态">
       <span
@@ -279,7 +190,6 @@
         />
       </div>
 
-      <WorkshopBarChart :rows="snapshot.productionLane.value" :target-date="snapshot.targetDate.value" />
       </template>
     </section>
 
@@ -301,7 +211,12 @@ import dayjs from 'dayjs'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import XtMetric from '../../../components/xt/XtMetric.vue'
-const WorkshopBarChart = defineAsyncComponent(() => import('../../../components/manage/WorkshopBarChart.vue'))
+import XtSparkArea from '../../../components/xt/XtSparkArea.vue'
+import TodayFactBand from './TodayFactBand.vue'
+import TodayProcessFlow from './TodayProcessFlow.vue'
+import TodayWorkshopBars from './TodayWorkshopBars.vue'
+import TodayWipDonut from './TodayWipDonut.vue'
+import { shapeTrendSeries } from '../../../components/manage/_outputTrend.js'
 const CostLine = defineAsyncComponent(() => import('../../../components/manage/CostLine.vue'))
 const OutputTrendLine = defineAsyncComponent(() => import('../../../components/manage/OutputTrendLine.vue'))
 const FilerRoster = defineAsyncComponent(() => import('../../../components/manage/FilerRoster.vue'))
@@ -412,7 +327,7 @@ watch([snapshot.targetDate, () => snapshot.pending.value.daily], ([next, pending
 }, { immediate: true })
 watch(rosterOpen, (open) => { if (open) void loadUsers() })
 watch(snapshot.targetDate, (next) => {
-  if (chartsVisible.value) void loadTrend(next)
+  void loadTrend(next)
   liveRequest++
   liveAggregation.value = {}
   liveLoadError.value = ''
@@ -423,7 +338,7 @@ function refreshAll() {
   currentBusinessDate.value = inferBusinessDate()
   liveDate = ''
   void snapshot.load()
-  if (chartsVisible.value) void loadTrend(snapshot.targetDate.value)
+  void loadTrend(snapshot.targetDate.value)
 }
 watch(snapshot.targetDate, (next) => {
   if (normalizeRouteDate(route.query.target_date) === next) return
@@ -473,7 +388,6 @@ const stitchSurface = computed(() => buildTodayStitchSurface({
   },
 }))
 const settlementCards = computed(() => stitchSurface.value.kpiStrip)
-const comparisonCards = computed(() => stitchSurface.value.comparisonRail)
 const workshopRows = computed(() => stitchSurface.value.workshopTable)
 const wipRows = computed(() => stitchSurface.value.wipDistribution)
 const wipTotalText = computed(() => {
@@ -534,8 +448,13 @@ function openTrace(traceId) {
   return openFactTrace(router, traceId)
 }
 
+const outputTrend = computed(() => {
+  const points = shapeTrendSeries(trendSeries.value, 14).map((row) => row.output)
+  return points.some((value) => value !== null) ? points : []
+})
+
 const KPI_ORDER = ['plant-output', 'finished-inbound', 'yield-rate', 'feeding-input', 'contract-tonnage', 'energy-per-ton', 'process-throughput']
-const KPI_HERO_KEYS = new Set(['plant-output', 'finished-inbound', 'yield-rate'])
+const KPI_SIZES = { 'plant-output': 'xl', 'finished-inbound': 'lg', 'yield-rate': 'lg' }
 const KPI_EMPTY_VALUES = new Set(['', '--', '—', MISSING_DAILY_VALUE])
 const KPI_STATES = { confirmed: 'confirmed', needs_evidence: 'candidate', mismatch: 'conflict' }
 
@@ -553,7 +472,7 @@ const kpiItems = computed(() => {
       unit: value === null ? '' : item.unit,
       state: KPI_STATES[item.status] || '',
       sub: value === null ? '' : (item.deltaText || item.hint || item.sourceLabel || ''),
-      hero: KPI_HERO_KEYS.has(item.key),
+      size: KPI_SIZES[item.key] || 'md',
     }
   })
 })
@@ -717,17 +636,6 @@ const eventRailItems = computed(() => {
       time: nowText,
     })
   }
-  if (comparisonCards.value.length) {
-    const energy = comparisonCards.value[0]
-    items.push({
-      key: 'energy-compare',
-      label: '对照',
-      title: energy.title || '算法与填报对照',
-      body: `${energy.primaryLabel} ${energy.primaryValue}，${energy.compareLabel} ${energy.compareValue}`,
-      tone: energy.tone || 'primary',
-      time: nowText,
-    })
-  }
   const me = snapshot.managementEstimate.value
   const marginText = me.estimate_ready && me.estimated_margin != null
     ? `${fmt(Number(me.estimated_margin) / 10000, 1)} 万元`
@@ -767,12 +675,12 @@ const eventRailItems = computed(() => {
 
 onMounted(() => {
   syncCompactClient()
+  void loadTrend(snapshot.targetDate.value)
   dailyRefreshTimer = window.setInterval(() => {
     if (document.visibilityState === 'visible') void snapshot.refreshDaily()
   }, 30000)
   const showCharts = () => {
     chartsVisible.value = true
-    void loadTrend(snapshot.targetDate.value)
     chartObserver?.disconnect()
   }
   if (typeof IntersectionObserver === 'undefined') showCharts()
@@ -797,33 +705,78 @@ onBeforeUnmount(() => {
 .xt-today {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 64px;
   min-width: 0;
   color: var(--xt-text);
   font-size: 14px;
+  line-height: 1.6;
 }
-.xt-today__topbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+.xt-today > * { animation: xt-today-rise 600ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.xt-today > :nth-child(2) { animation-delay: 60ms; }
+.xt-today > :nth-child(3) { animation-delay: 120ms; }
+.xt-today > :nth-child(4) { animation-delay: 180ms; }
+.xt-today > :nth-child(n + 5) { animation-delay: 240ms; }
+@keyframes xt-today-rise { from { opacity: 0; transform: translateY(12px); } }
+
+.xt-today__topbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; margin-bottom: -32px; }
 .xt-today__identity h1 { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.25; }
-.xt-today__identity p { margin: 4px 0 0; color: var(--xt-text-muted); font-size: 14px; }
+.xt-today__identity p { margin: 4px 0 0; color: var(--xt-text-muted); }
 .xt-today__top-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
-.xt-today__filer-badge { padding: 8px 0; border: 0; background: transparent; color: var(--xt-text-secondary); font: inherit; font-size: 14px; cursor: pointer; }
+.xt-today__filer-badge { padding: 8px 0; border: 0; background: transparent; color: var(--xt-text-secondary); font: inherit; cursor: pointer; }
 .xt-today__filer-badge b { color: var(--xt-text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .xt-today__filer-pending { margin-left: 8px; color: var(--xt-warning); }
 
-.xt-today__fact-actions { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; margin-top: -16px; padding: 16px 0; border-block: 1px solid var(--xt-border); color: var(--xt-text-secondary); font-variant-numeric: tabular-nums; }
-.xt-today__fact-actions strong { color: var(--xt-text); font-size: 16px; font-weight: 600; }
-.xt-today__fact-action-link { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--xt-primary); text-decoration: none; }
-
 .xt-today__kpis { position: relative; }
 .xt-today__loading { display: block; margin-top: 8px; color: var(--xt-text-muted); font-size: 12px; }
-.xt-today__kpi-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 40px 32px; margin: 0; padding: 0; list-style: none; }
+.xt-today__kpi-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 48px 40px; margin: 0; padding: 0; list-style: none; }
 .xt-today__kpi-grid > li { grid-column: span 3; min-width: 0; }
-.xt-today__kpi-grid > li.is-hero { grid-column: span 4; }
+.xt-today__kpi-grid > li.is-xl { display: grid; grid-column: span 6; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: 32px; }
+.xt-today__kpi-trend { align-self: end; margin-bottom: 24px; }
+
+.xt-today__flow { padding: 40px; border-radius: 4px; background: var(--xt-bg-panel-soft); }
+.xt-today__flow :deep(.xt-flow__node) { background: var(--xt-bg-panel-soft); }
+.xt-today__flow > h2 { margin: 0 0 32px; font-size: 20px; font-weight: 600; }
+
+.xt-today__command-wall { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 64px; align-items: start; }
+.xt-today__command-main { display: grid; gap: 64px; min-width: 0; }
+.xt-today__panel { min-width: 0; }
+.xt-today__panel-head, .xt-today__rail-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 24px; }
+.xt-today__panel-head h2, .xt-today__rail-head h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.xt-today__panel-head > span { color: var(--xt-text-muted); }
+.xt-today__quick-link { color: var(--xt-primary); text-decoration: none; }
+
+.xt-today__event-rail { display: grid; gap: 20px; min-width: 0; }
+.xt-today__rail-head { margin-bottom: 4px; }
+.xt-today__event-card { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 12px; overflow-wrap: anywhere; }
+.xt-today__event-dot { width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--xt-primary); }
+.xt-today__event-card.tone-warning .xt-today__event-dot { background: var(--xt-warning); }
+.xt-today__event-card.tone-danger .xt-today__event-dot { background: var(--xt-danger); }
+.xt-today__event-card.tone-success .xt-today__event-dot { background: var(--xt-success); }
+.xt-today__event-card.tone-muted .xt-today__event-dot { background: var(--xt-border); }
+.xt-today__event-card strong { font-weight: 400; }
+.xt-today__event-card p { display: -webkit-box; margin: 2px 0 0; overflow: hidden; color: var(--xt-text-muted); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.xt-today__live-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-block: 1px solid var(--xt-border); color: var(--xt-primary); text-decoration: none; }
+.xt-today__shift-card h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+.xt-today__shift-list { display: grid; gap: 4px; }
+.xt-today__shift-row { display: flex; justify-content: space-between; gap: 8px; color: var(--xt-text-secondary); font-variant-numeric: tabular-nums; }
+.xt-today__shift-row b { font-weight: 400; }
+.xt-today__empty { padding: 24px 0; color: var(--xt-text-muted); }
+
+.xt-today__month { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px; padding-top: 32px; border-top: 1px solid var(--xt-border); }
+.xt-today__month-item { display: grid; gap: 4px; min-width: 0; }
+.xt-today__month-item span { color: var(--xt-text-secondary); }
+.xt-today__month-item strong { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.xt-today__month-item small { color: var(--xt-text-muted); font-size: 12px; }
+
+.xt-today__below-fold { display: grid; gap: 48px; min-height: 240px; }
+.xt-today__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; }
+.xt-today__row > :deep(*) { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.xt-today__row > :deep(*)::before, .xt-today__row > :deep(*)::after { display: none; }
 
 .xt-today__sources { padding-top: 16px; border-top: 1px solid var(--xt-border); }
 .xt-today__sources summary { color: var(--xt-text-secondary); cursor: pointer; }
-.xt-today__sources summary span { margin-left: 12px; color: var(--xt-text-muted); font-size: 12px; }
-.xt-today__fact-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; padding-top: 16px; }
+.xt-today__sources summary span { margin-left: 12px; color: var(--xt-text-muted); }
+.xt-today__fact-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; padding-top: 24px; }
 .xt-today__fact-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--xt-text-muted); font: inherit; font-size: 12px; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
 .xt-today__fact-item:disabled { cursor: default; }
 .xt-today__fact-label { color: var(--xt-text-secondary); font-size: 14px; }
@@ -833,108 +786,57 @@ onBeforeUnmount(() => {
 .xt-today__fact-item.is-needs_evidence .xt-today__fact-status { color: var(--xt-primary); }
 .xt-today__fact-item.is-mismatch .xt-today__fact-status { color: var(--xt-warning); }
 
-.xt-today__command-wall { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 56px; align-items: start; }
-.xt-today__command-main { display: flex; flex-direction: column; gap: 40px; min-width: 0; }
-.xt-today__lower-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; }
-.xt-today__panel { min-width: 0; }
-.xt-today__panel-head, .xt-today__rail-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
-.xt-today__panel-head h2, .xt-today__rail-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
-.xt-today__panel-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
-.xt-today__panel-head > span { color: var(--xt-text-muted); font-size: 12px; }
-.xt-today__quick-link { color: var(--xt-primary); font-size: 14px; text-decoration: none; }
-
-.xt-today__table { width: 100%; border-collapse: collapse; }
-.xt-today__table th { padding: 8px 0; border-bottom: 1px solid var(--xt-border); color: var(--xt-text-muted); font-size: 12px; font-weight: 400; text-align: left; }
-.xt-today__table td { padding: 12px 0; border-bottom: 1px solid var(--xt-border); }
-.xt-today__table .is-num { padding-left: 16px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.xt-today__wip-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
-.xt-today__wip-card { display: grid; gap: 4px; min-width: 0; padding: 12px 0; border-bottom: 1px solid var(--xt-border); }
-.xt-today__wip-card > span { color: var(--xt-text-secondary); }
-.xt-today__wip-card b { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.xt-today__wip-card small { color: var(--xt-text-muted); font-size: 12px; overflow-wrap: anywhere; }
-
-.xt-today__flow-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 32px; margin: 0; padding: 0; list-style: none; }
-.xt-today__flow-step { display: grid; align-content: start; gap: 8px; min-width: 0; padding-top: 12px; border-top: 1px solid var(--xt-border); }
-.xt-today__flow-title { font-weight: 600; }
-.xt-today__flow-metric, .xt-today__flow-sub li { display: flex; justify-content: space-between; gap: 8px; color: var(--xt-text-secondary); }
-.xt-today__flow-metric b { color: var(--xt-text); font-weight: 400; font-variant-numeric: tabular-nums; }
-.xt-today__flow-metric.is-muted, .xt-today__flow-metric.is-muted b { color: var(--xt-text-muted); }
-.xt-today__flow-sub { margin: 0; padding: 0; list-style: none; font-size: 12px; }
-.xt-today__flow-sub li { color: var(--xt-text-muted); padding: 2px 0; }
-.xt-today__flow-sub b { font-weight: 400; white-space: nowrap; font-variant-numeric: tabular-nums; }
-
-.xt-today__metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 32px; }
-.xt-today__compare-card { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-top: 12px; border-top: 1px solid var(--xt-border); }
-.xt-today__compare-card > span { color: var(--xt-text-secondary); }
-.xt-today__compare-card strong { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.xt-today__compare-card small { color: var(--xt-text-muted); font-size: 12px; }
-
-.xt-today__event-rail { min-width: 0; }
-.xt-today__live-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-block: 1px solid var(--xt-border); color: var(--xt-primary); text-decoration: none; }
-.xt-today__live-link span { display: flex; flex-direction: column; gap: 2px; }
-.xt-today__live-link strong { font-weight: 400; }
-.xt-today__live-link small { color: var(--xt-text-muted); font-size: 12px; }
-.xt-today__shift-card { padding: 16px 0; border-bottom: 1px solid var(--xt-border); }
-.xt-today__shift-card .xt-today__panel-head { margin-bottom: 8px; }
-.xt-today__shift-list { display: grid; gap: 4px; }
-.xt-today__shift-row { display: grid; grid-template-columns: 1fr auto 96px; gap: 8px; color: var(--xt-text-secondary); font-variant-numeric: tabular-nums; }
-.xt-today__shift-row b { font-weight: 400; }
-.xt-today__shift-row small { color: var(--xt-text-muted); font-size: 12px; text-align: right; }
-.xt-today__event-card { padding: 16px 0; border-bottom: 1px solid var(--xt-border); overflow-wrap: anywhere; }
-.xt-today__event-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; color: var(--xt-text-muted); font-size: 12px; }
-.xt-today__event-card.tone-warning .xt-today__event-top span { color: var(--xt-warning); }
-.xt-today__event-card.tone-danger .xt-today__event-top span { color: var(--xt-danger); }
-.xt-today__event-card > strong { font-weight: 600; }
-.xt-today__event-card p { margin: 4px 0 0; color: var(--xt-text-secondary); line-height: 1.6; }
-.xt-today__empty { padding: 24px 0; color: var(--xt-text-muted); }
-
-.xt-today__bottom-status { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-top: 16px; border-top: 1px solid var(--xt-border); color: var(--xt-text-muted); font-size: 12px; }
+.xt-today__bottom-status { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: -40px; color: var(--xt-text-muted); font-size: 12px; }
 .xt-today__status-pill { display: inline-flex; align-items: center; gap: 6px; }
 .xt-today__status-pill b, .xt-today__status-pill strong { font-weight: 400; }
 .xt-today__status-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--xt-success); }
 .xt-today__status-pill.tone-warning i { background: var(--xt-warning); }
 .xt-today__status-pill.tone-danger i { background: var(--xt-danger); }
-.xt-today__below-fold { display: grid; gap: 40px; min-height: 240px; }
-.xt-today__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
 
 :deep(.xt-date-switcher button) { border-color: var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); box-shadow: none; color: var(--xt-text); font-weight: 400; }
 :deep(.xt-date-switcher button:hover:not(:disabled)) { background: var(--xt-primary-soft); color: var(--xt-primary); }
 :deep(.xt-date-switcher__label) { font-family: inherit; font-size: 14px; }
 :deep(.xt-cal-pop) { right: 0; left: auto; max-width: calc(100vw - 32px); border-color: var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); box-shadow: var(--xt-shadow-md); }
 :deep(.xt-cal-pop__cell.is-selected) { background: var(--xt-primary); color: #fff; }
+:deep(.xt-missing-report) { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--xt-text-secondary); }
 :deep(.xt-missing-report)::before, :deep(.xt-missing-report)::after { display: none; }
 :deep(.xt-missing-report__head span) { display: none; }
-:deep(.xt-missing-report__head h2) { font-size: 14px; font-weight: 600; }
-:deep(.xt-missing-report__stats b) { font-size: 12px; font-weight: 400; }
-:deep(.xt-missing-report__chip) { font-size: 12px; }
-:deep(.xt-missing-report) { margin-top: 16px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--xt-text-secondary); }
-:deep(.xt-missing-report__head h2), :deep(.xt-missing-report__head strong), :deep(.xt-missing-report__stats b) { color: var(--xt-text); }
-:deep(.xt-missing-report__head small), :deep(.xt-missing-report__chip), :deep(.xt-missing-report__chip.is-muted) { color: var(--xt-text-muted); }
+:deep(.xt-missing-report__head h2) { color: var(--xt-text); font-size: 14px; font-weight: 600; }
+:deep(.xt-missing-report__head strong), :deep(.xt-missing-report__stats b) { color: var(--xt-text-secondary); font-size: 12px; font-weight: 400; }
+:deep(.xt-missing-report__head small), :deep(.xt-missing-report__chip), :deep(.xt-missing-report__chip.is-muted) { color: var(--xt-text-muted); font-size: 12px; }
 button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--xt-primary); outline-offset: 3px; }
 
 @media (max-width: 1280px) {
-  .xt-today__command-wall { grid-template-columns: minmax(0, 1fr) 260px; gap: 32px; }
-  .xt-today__lower-grid { grid-template-columns: minmax(0, 1fr); }
+  .xt-today__command-wall { grid-template-columns: minmax(0, 1fr) 240px; gap: 40px; }
+  .xt-today__kpi-grid > li.is-xl { grid-column: span 12; }
+  .xt-today__kpi-grid > li.is-lg { grid-column: span 6; }
 }
 @media (max-width: 960px) {
   .xt-today__fact-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .xt-today__month { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
-  .xt-today { gap: 32px; }
+  .xt-today { gap: 40px; }
+  .xt-today__topbar { margin-bottom: -16px; }
   .xt-today__top-actions { width: 100%; }
-  .xt-today__fact-actions { margin-top: -8px; }
-  .xt-today__fact-action-link { margin-left: 0; }
-  .xt-today__kpi-grid { gap: 28px 16px; }
+  .xt-today__kpi-grid { gap: 32px 16px; }
   .xt-today__kpi-grid > li { grid-column: span 6; }
-  .xt-today__kpi-grid > li.is-hero { grid-column: span 12; }
-  .xt-today__command-wall { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .xt-today__kpi-grid > li.is-xl { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .xt-today__kpi-trend { margin-bottom: 0; }
+  .xt-today__flow { padding: 24px 20px; }
+  .xt-today__command-wall { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .xt-today__command-main { gap: 40px; }
   .xt-today__event-rail { grid-row: 1; }
-  .xt-today__flow-steps, .xt-today__metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .xt-today__row { grid-template-columns: minmax(0, 1fr); }
+  .xt-today__bottom-status { margin-top: -16px; }
 }
 @media (max-width: 480px) {
   .xt-today__fact-strip { grid-template-columns: minmax(0, 1fr); }
+  .xt-today__kpi-grid > li.is-lg { grid-column: span 12; }
   :deep(.xt-date-switcher) { gap: 5px; max-width: 100%; }
   :deep(.xt-date-switcher button) { min-height: 40px; padding-inline: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xt-today > * { animation: none; }
 }
 </style>
