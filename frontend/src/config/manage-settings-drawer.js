@@ -1,5 +1,14 @@
 export const SETTINGS_GROUPS = [
   {
+    label: '业务',
+    items: [
+      { title: '各车间看板', path: '/manage/workshop-dashboard', access: 'review' },
+      { title: '填报明细', path: '/manage/fill-details', access: 'review' },
+      { title: '能耗中心', path: '/manage/energy', access: 'review' },
+      { title: '考勤', path: '/manage/attendance', access: 'review' }
+    ]
+  },
+  {
     label: '配置',
     items: [
       { title: '主数据', path: '/manage/master', access: 'admin' },
@@ -12,14 +21,18 @@ export const SETTINGS_GROUPS = [
     label: '权限',
     items: [
       { title: '用户', path: '/manage/admin/users', access: 'admin' },
-      { title: '治理', path: '/manage/admin/governance', access: 'admin' }
+      { title: '治理', path: '/manage/admin/governance', access: 'admin' },
+      { title: '通讯治理', path: '/manage/admin/agents', access: 'admin' },
+      { title: '通讯通道', path: '/manage/channels', access: 'admin' }
     ]
   },
   {
     label: '工具',
     items: [
       { title: '归档报表', path: '/manage/reports', access: 'review' },
-      { title: 'AI', path: '/manage/ai-assistant', access: 'review' }
+      { title: 'AI', path: '/manage/ai-assistant', access: 'review' },
+      { title: '知识库', path: '/manage/rag', access: 'admin' },
+      { title: '输出skill对齐', path: '/manage/mapping-reconciliation', access: 'admin' }
     ]
   },
   {

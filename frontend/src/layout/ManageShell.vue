@@ -20,7 +20,7 @@
 
       <nav class="xt-manage__nav" aria-label="管理端导航">
         <section v-for="group in navGroups" :key="group.label" class="xt-manage__nav-group">
-          <div v-if="!collapsed || isAutoRail" class="xt-manage__nav-group-label">{{ group.label }}</div>
+          <div v-if="group.label && (!collapsed || isAutoRail)" class="xt-manage__nav-group-label">{{ group.label }}</div>
           <RouterLink
             v-for="item in group.items"
             :key="item.path"
@@ -109,7 +109,7 @@
           </div>
           <nav class="xt-manage__drawer-nav" aria-label="移动端管理导航">
             <template v-for="group in navGroups" :key="group.label">
-              <div class="xt-manage__nav-group-label">{{ group.label }}</div>
+              <div v-if="group.label" class="xt-manage__nav-group-label">{{ group.label }}</div>
               <RouterLink
                 v-for="item in group.items"
                 :key="item.path"
@@ -168,6 +168,7 @@ const AiAssistantDrawer = defineAsyncComponent(() => import('../components/ai/Ai
 const SettingsDrawer = defineAsyncComponent(() => import('../components/manage/SettingsDrawer.vue'))
 import { XtLogo } from '../components/xt'
 import { manageNavGroups } from '../config/manage-navigation'
+import { settingsDrawerGroups } from '../config/manage-settings-drawer'
 import { useAuthStore } from '../stores/auth'
 import { AI_ASSISTANT_OPEN_EVENT, buildAssistantScope } from '../utils/assistantLauncher'
 import { useHudTheme } from '../composables/useHudTheme.js'
@@ -207,7 +208,7 @@ const navMode = computed(() => {
   if (isAutoRail.value) return 'auto-rail'
   return collapsed.value ? 'rail' : 'full'
 })
-const searchItems = computed(() => navGroups.value.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))))
+const searchItems = computed(() => [...navGroups.value, ...settingsDrawerGroups(auth)].flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))))
 const filteredSearchItems = computed(() => {
   const value = keyword.value.trim().toLowerCase()
   if (!value) return searchItems.value
@@ -308,12 +309,12 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .xt-manage {
-  --manage-sidebar-expanded: 216px;
+  --manage-sidebar-expanded: 184px;
   --manage-sidebar-rail: 64px;
   min-height: 100dvh;
-  background: #fafafa;
-  color: #24272c;
-  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--xt-bg-page);
+  color: var(--xt-text);
+  font-family: var(--el-font-family);
   letter-spacing: 0;
 }
 .xt-manage__sidebar {
@@ -323,49 +324,50 @@ onBeforeUnmount(() => {
   width: var(--manage-sidebar-expanded);
   display: flex;
   flex-direction: column;
-  background: #f3f4f4;
-  border-right: 1px solid #e4e6e7;
+  background: var(--xt-bg-page);
+  border-right: 1px solid var(--xt-border);
 }
 .xt-manage__brand, .xt-manage__drawer-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 68px;
+  min-height: 64px;
   padding: 0 20px;
-  color: #24272c;
+  color: var(--xt-text);
 }
 .xt-manage__brand :deep(.xt-logo__en) { display: none; }
-.xt-manage__brand-text { font-size: 12px; color: #747b83; white-space: nowrap; }
-.xt-manage__nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 10px; }
+.xt-manage__brand-text { color: var(--xt-text-secondary); font-size: 14px; white-space: nowrap; }
+.xt-manage__nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 12px; }
 .xt-manage__nav-group { margin-bottom: 20px; }
-.xt-manage__nav-group-label { padding: 0 12px 8px; color: #7b8087; font-size: 11px; font-weight: 600; }
+.xt-manage__nav-group-label { padding: 0 12px 8px; color: var(--xt-text-muted); font-size: 12px; }
 .xt-manage__nav-item {
   display: flex;
   align-items: center;
   gap: 11px;
-  min-height: 40px;
-  margin-bottom: 3px;
-  padding: 9px 12px;
-  border-radius: 6px;
-  color: #586069;
-  font-size: 13px;
+  min-height: 44px;
+  margin-bottom: 4px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  color: var(--xt-text-secondary);
+  font-size: 14px;
+  text-decoration: none;
   line-height: 1.4;
 }
 .xt-manage__nav-item .el-icon { flex-shrink: 0; font-size: 17px; }
-.xt-manage__nav-item:hover { background: #e9ecec; color: #24272c; }
-.xt-manage__nav-item.is-active { color: #176557; background: #e1ece8; font-weight: 600; }
+.xt-manage__nav-item:hover { background: var(--xt-bg-panel-soft); color: var(--xt-text); }
+.xt-manage__nav-item.is-active { background: var(--xt-primary-light); color: var(--xt-primary); font-weight: 600; }
 .xt-manage__nav-label { display: flex; flex-direction: column; min-width: 0; }
-.xt-manage__nav-label small { font-size: 10px; font-weight: 400; color: #787f84; }
+.xt-manage__nav-label small { font-size: 12px; font-weight: 400; color: var(--xt-text-muted); }
 .xt-manage__collapse-btn {
   display: grid;
   place-items: center;
   width: 36px;
   height: 36px;
   margin: 12px;
-  border: 1px solid #dce0e1;
-  border-radius: 6px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: transparent;
-  color: #616971;
+  color: var(--xt-text-secondary);
   cursor: pointer;
 }
 .xt-manage__main { min-width: 0; min-height: 100dvh; margin-left: var(--manage-sidebar-expanded); }
@@ -376,7 +378,7 @@ onBeforeUnmount(() => {
 .xt-manage--collapsed .xt-manage__nav-group-label,
 .xt-manage--collapsed .xt-manage__nav-label,
 .xt-manage--collapsed .xt-manage__brand-text { display: none; }
-.xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) { width: var(--manage-sidebar-expanded); box-shadow: 6px 0 18px #0000000a; }
+.xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) { width: var(--manage-sidebar-expanded); box-shadow: var(--xt-shadow-md); }
 .xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) .xt-manage__nav-group-label,
 .xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) .xt-manage__nav-label,
 .xt-manage--auto-rail .xt-manage__sidebar:is(:hover, :focus-within) .xt-manage__brand-text { display: block; }
@@ -386,10 +388,10 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 60px;
-  padding: 0 28px;
-  border-bottom: 1px solid #e9ebed;
-  background: #fff;
+  height: 64px;
+  padding: 0 40px;
+  border-bottom: 1px solid var(--xt-border);
+  background: var(--xt-bg-page);
 }
 .xt-manage__topbar-right { display: flex; align-items: center; gap: 12px; }
 .xt-manage__topbar button {
@@ -400,40 +402,40 @@ onBeforeUnmount(() => {
   height: 34px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
-  color: #606870;
+  color: var(--xt-text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
 }
-.xt-manage__topbar button:hover { background: #f2f4f4; }
-.xt-manage__search-trigger kbd { margin-left: 36px; padding: 1px 5px; border: 1px solid #e1e4e6; border-radius: 4px; color: #888f95; font-size: 10px; }
-.xt-manage__topbar .xt-manage__assistant-trigger { border-color: #dce5e1; color: #176557; }
-.xt-manage__user :deep(.el-avatar) { background: #e6ece9; color: #426458; font-size: 12px; }
+.xt-manage__topbar button:hover { background: var(--xt-bg-panel-soft); }
+.xt-manage__search-trigger kbd { margin-left: 36px; padding: 1px 5px; border: 1px solid var(--xt-border); border-radius: 4px; color: var(--xt-text-muted); font-size: 12px; }
+.xt-manage__topbar .xt-manage__assistant-trigger { color: var(--xt-primary); }
+.xt-manage__user :deep(.el-avatar) { background: var(--xt-primary-light); color: var(--xt-primary); font-size: 12px; }
 .xt-manage__topbar .xt-manage__hamburger { display: none; width: 36px; padding: 0; }
-.xt-manage__content { padding: 28px; }
+.xt-manage__content { padding: 40px; background: var(--xt-bg-page); }
 .xt-manage__content::before, .xt-manage__content::after { content: none; }
-.xt-manage__container { max-width: 1680px; margin: 0 auto; min-width: 0; }
+.xt-manage__container { max-width: 1440px; margin: 0 auto; min-width: 0; }
 .xt-manage__drawer-overlay { position: fixed; inset: 0; z-index: 2200; background: #171b244d; }
-.xt-manage__drawer { height: 100dvh; max-width: 88vw; overflow-y: auto; background: #f7f8f8; box-shadow: 8px 0 24px #00000014; }
-.xt-manage__drawer-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e1e5e6; }
-.xt-manage__drawer-close { display: grid; place-items: center; width: 36px; height: 36px; margin-right: 12px; background: transparent; border: 0; color: #414952; cursor: pointer; }
+.xt-manage__drawer { height: 100dvh; max-width: 88vw; overflow-y: auto; background: var(--xt-bg-page); box-shadow: var(--xt-shadow-md); }
+.xt-manage__drawer-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--xt-border); }
+.xt-manage__drawer-close { display: grid; place-items: center; width: 36px; height: 36px; margin-right: 12px; background: transparent; border: 0; color: var(--xt-text-secondary); cursor: pointer; }
 .xt-manage__drawer-nav { padding: 18px 12px; }
 .xt-manage__drawer-nav .xt-manage__nav-label { display: flex; }
 .xt-manage__drawer-nav .xt-manage__nav-group-label { display: block; margin-top: 12px; }
 .xt-manage__search-list { display: grid; gap: 4px; padding-top: 12px; max-height: 60vh; overflow-y: auto; }
-.xt-manage__search-item { display: flex; justify-content: space-between; gap: 12px; padding: 12px; color: #37434c; border-radius: 4px; }
-.xt-manage__search-item:hover { background: #edf3f0; }
-.xt-manage__search-item small { color: #737e86; }
-button:focus-visible, a:focus-visible { outline: 2px solid #397b69; outline-offset: 3px; }
+.xt-manage__search-item { display: flex; justify-content: space-between; gap: 12px; padding: 12px; color: var(--xt-text); border-radius: 4px; text-decoration: none; }
+.xt-manage__search-item:hover { background: var(--xt-bg-panel-soft); }
+.xt-manage__search-item small { color: var(--xt-text-muted); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--xt-primary); outline-offset: 3px; }
 @media (max-width: 900px) {
   .xt-manage__sidebar { display: none; }
   .xt-manage__main, .xt-manage--collapsed .xt-manage__main { margin-left: 0; }
   .xt-manage__topbar { padding: 0 16px; }
   .xt-manage__topbar .xt-manage__hamburger { display: inline-flex; }
   .xt-manage__search-trigger { margin-right: auto; }
-  .xt-manage__content { padding: 20px; }
+  .xt-manage__content { padding: 24px 20px; }
 }
 @media (max-width: 640px) {
   .xt-manage__topbar { padding: 0 12px; gap: 4px; }
