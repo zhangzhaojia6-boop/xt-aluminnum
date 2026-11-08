@@ -68,6 +68,7 @@ export const useAuthStore = defineStore('auth', {
     displayName: (state) => state.user?.name || state.user?.username || '系统用户',
     isAdmin: (state) => state.user?.role === 'admin',
     isWorkshopDirector: (state) => state.user?.role === 'workshop_director',
+    isProcurementOnly: (state) => state.user?.role === 'procurement_staff',
     isMachineBound: (state) => Boolean(state.machineContext?.machine_id),
     boundMachineId: (state) => state.machineContext?.machine_id || null,
     isMobileUser() {

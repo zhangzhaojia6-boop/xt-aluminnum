@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.business_time import local_now
 from app.domain import procurement_flow as flow
+from app.services.agent_communication_service import AgentCommunicationError, queue_bound_message
 from app.models.procurement import (
     ProcurementAssignment,
     ProcurementDocument,
@@ -23,6 +25,9 @@ from app.models.procurement import (
 from app.models.system import User
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+NOTIFY_AGENT = 'factory_dispatch_zzj'
+NOTIFY_CHANNEL_TYPE = 'dingtalk_work_notice'
+logger = logging.getLogger(__name__)
 ALLOWED_SUFFIXES = {'.pdf', '.jpg', '.jpeg', '.png', '.webp'}
 
 
@@ -470,7 +475,46 @@ def apply_action(
         comment=clean_comment, payload=data,
     )
     db.flush()
+    if request.status == flow.STATUS_OPEN and request.current_step != from_step:
+        _notify_step_owners(db, request)
     return request
+
+
+def channel_key_for(user_id: int) -> str:
+    return f'procurement-user-{user_id}'
+
+
+def _step_owner_ids(db: Session, request: ProcurementRequest) -> list[int]:
+    role = step_role(request)
+    if role == flow.ROLE_REQUESTER:
+        return [request.requester_id]
+    if role == flow.ROLE_WORKSHOP_DIRECTOR:
+        rows = db.query(User.id).filter(User.role == role, User.workshop_id == request.workshop_id, User.is_active.is_(True)).all()
+    else:
+        rows = db.query(User.id).join(ProcurementAssignment, ProcurementAssignment.user_id == User.id).filter(ProcurementAssignment.role == role, User.is_active.is_(True)).all()
+    return [row[0] for row in rows]
+
+
+def _notify_step_owners(db: Session, request: ProcurementRequest) -> None:
+    """发给下一环节办理人。通道默认演练，没开通道的人跳过，不影响走单。"""
+    step = flow.STEP_BY_CODE[request.current_step]
+    content = f'{request.request_no} {request.material_name}，金额 {effective_amount(request)} 元，请办理：{step.label}\n\n/procurement/{request.id}'
+    for user_id in _step_owner_ids(db, request):
+        try:
+            queue_bound_message(
+                db,
+                agent_code=NOTIFY_AGENT,
+                channel_key=channel_key_for(user_id),
+                channel_type=NOTIFY_CHANNEL_TYPE,
+                title=f'采购待办：{step.label}',
+                content=content,
+                source_summary='物资采购',
+                trace_id=request.trace_id,
+                dedupe_key=f'procurement:{request.id}:{request.current_step}:{user_id}',
+                commit=False,
+            )
+        except AgentCommunicationError as exc:
+            logger.info('procurement_notify_skipped request=%s user=%s reason=%s', request.id, user_id, exc)
 
 
 def save_document(
