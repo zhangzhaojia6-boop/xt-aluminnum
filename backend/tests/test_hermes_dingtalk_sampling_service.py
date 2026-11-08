@@ -292,7 +292,7 @@ def test_registered_message_before_production_day_start_belongs_to_previous_day(
 def test_later_registered_message_in_same_business_day_supersedes_earlier_one() -> None:
     db = _db()
     db.add(_registered_contract_rule())
-    earlier = _machine_only_message_evidence(event_time='2026-10-25 09:00:00', trace_id='msg-plan-early')
+    earlier = _machine_only_message_evidence(event_time='2026-10-25 14:00:00', trace_id='msg-plan-early')
     later = _machine_only_message_evidence(
         event_time='2026-10-25 16:17:48',
         text=CONTRACT_MESSAGE.replace('当天合同875吨', '当天合同900吨'),
@@ -315,7 +315,7 @@ def test_later_registered_message_in_same_business_day_supersedes_earlier_one() 
 def test_earlier_registered_message_processed_after_later_one_is_not_adopted() -> None:
     db = _db()
     db.add(_registered_contract_rule())
-    earlier = _machine_only_message_evidence(event_time='2026-10-25 09:00:00', trace_id='msg-plan-early')
+    earlier = _machine_only_message_evidence(event_time='2026-10-25 14:00:00', trace_id='msg-plan-early')
     later = _machine_only_message_evidence(event_time='2026-10-25 16:17:48', trace_id='msg-plan-late')
     db.add_all([earlier, later])
     db.flush()
@@ -437,3 +437,54 @@ def test_second_registered_energy_file_for_same_day_keeps_first_and_records_reas
     second = db.get(MultimodalEvidence, second.id)
     assert second.payload['energy_promotion']['status'] == 'blocked'
     assert second.payload['energy_promotion']['blocking_issues'] == ['duplicate_daily_energy_record']
+
+
+def test_morning_message_fills_previous_day_when_that_day_has_no_message() -> None:
+    db = _db()
+    db.add(_registered_contract_rule())
+    evidence = _machine_only_message_evidence(event_time='2026-11-08 08:08:00')
+    db.add(evidence)
+    db.flush()
+
+    adopt_registered_message_evidence(db, evidence_id=evidence.id)
+
+    assert evidence.payload['business_date'] == '2026-11-07'
+
+
+def test_morning_message_stays_on_its_day_when_previous_day_already_reported() -> None:
+    db = _db()
+    db.add(_registered_contract_rule())
+    previous = _machine_only_message_evidence(event_time='2026-11-07 17:20:00', trace_id='msg-plan-a')
+    morning = _machine_only_message_evidence(event_time='2026-11-08 08:08:00', trace_id='msg-plan-b')
+    db.add_all([previous, morning])
+    db.flush()
+
+    adopt_registered_message_evidence(db, evidence_id=previous.id)
+    adopt_registered_message_evidence(db, evidence_id=morning.id)
+
+    assert previous.payload['business_date'] == '2026-11-07'
+    assert morning.payload['business_date'] == '2026-11-08'
+
+
+def test_message_before_day_start_moves_back_only_one_day() -> None:
+    db = _db()
+    db.add(_registered_contract_rule())
+    evidence = _machine_only_message_evidence(event_time='2026-11-01 07:48:00')
+    db.add(evidence)
+    db.flush()
+
+    adopt_registered_message_evidence(db, evidence_id=evidence.id)
+
+    assert evidence.payload['business_date'] == '2026-10-31'
+
+
+def test_afternoon_message_stays_on_its_day_even_when_previous_day_is_missing() -> None:
+    db = _db()
+    db.add(_registered_contract_rule())
+    evidence = _machine_only_message_evidence(event_time='2026-11-08 17:18:00')
+    db.add(evidence)
+    db.flush()
+
+    adopt_registered_message_evidence(db, evidence_id=evidence.id)
+
+    assert evidence.payload['business_date'] == '2026-11-08'
