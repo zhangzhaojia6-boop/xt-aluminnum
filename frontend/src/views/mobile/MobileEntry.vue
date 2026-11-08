@@ -141,6 +141,7 @@
             开始填报
           </el-button>
           <el-button plain size="large" @click="goReportHistory">历史记录</el-button>
+          <RouterLink v-if="procurementOn" class="mobile-entry-stage__link" to="/procurement">物资采购</RouterLink>
         </div>
       </div>
     </section>
@@ -157,9 +158,10 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { fetchCurrentShift, fetchMobileBootstrap } from '../../api/mobile.js'
+import { fetchProcurementMeta } from '../../api/procurement.js'
 import { useAuthStore } from '../../stores/auth.js'
 import { usePullRefresh } from '../../composables/usePullRefresh.js'
 import { usePerformance } from '../../composables/usePerformance.js'
@@ -221,6 +223,7 @@ const currentShiftLabel = computed(() => (
     : formatShiftLabel(current.value?.shift_name || current.value?.shift_code, '-')
 ))
 const inferredShift = ref(describeInferredShift())
+const procurementOn = ref(false)
 const shiftClockTimer = ref(null)
 const shiftMismatch = computed(() => {
   if (isOwnerDailyEntry.value) {
@@ -521,6 +524,7 @@ async function refreshShiftClock() {
 
 onMounted(() => {
   load()
+  fetchProcurementMeta().then(() => { procurementOn.value = true }).catch(() => {})
   shiftClockTimer.value = setInterval(() => {
     refreshShiftClock()
   }, 60 * 1000)
@@ -716,6 +720,15 @@ onUnmounted(() => {
   min-height: 56px;
   margin: 0;
   font-size: 18px;
+}
+
+.mobile-entry-stage__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  color: var(--xt-primary);
+  text-decoration: none;
 }
 
 .mobile-shell--large-type {

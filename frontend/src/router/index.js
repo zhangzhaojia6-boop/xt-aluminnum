@@ -54,6 +54,12 @@ const MappingReconciliationPage = () => import('../views/manage/mapping-reconcil
 const RagKnowledgePage = () => import('../views/manage/rag/RagKnowledgePage.vue')
 const CommunicationChannelsPage = () => import('../views/manage/channels/CommunicationChannelsPage.vue')
 
+const ProcurementShell = () => import('../layout/ProcurementShell.vue')
+const ProcurementList = () => import('../views/procurement/ProcurementList.vue')
+const ProcurementNew = () => import('../views/procurement/ProcurementNew.vue')
+const ProcurementDetail = () => import('../views/procurement/ProcurementDetail.vue')
+const ProcurementBoard = () => import('../views/procurement/ProcurementBoard.vue')
+
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
 function withMeta(route) {
@@ -75,6 +81,7 @@ function preserveRouteState(path, query = {}) {
 const entryMeta = { requiresAuth: true, zone: 'entry', access: 'entry' }
 const reviewMeta = { requiresAuth: true, zone: 'manage', access: 'review' }
 const adminMeta = { requiresAuth: true, zone: 'manage', access: 'admin' }
+const procurementMeta = { requiresAuth: true, zone: 'procurement', access: 'procurement' }
 
 const rawRoutes = [
   {
@@ -106,6 +113,18 @@ const rawRoutes = [
     ]
   },
   {
+    path: '/procurement',
+    component: ProcurementShell,
+    meta: procurementMeta,
+    children: [
+      { path: '', name: 'procurement-todo', component: ProcurementList, props: { scope: 'todo' }, meta: { ...procurementMeta, title: '待我办理' } },
+      { path: 'mine', name: 'procurement-mine', component: ProcurementList, props: { scope: 'mine' }, meta: { ...procurementMeta, title: '我提报的' } },
+      { path: 'new', name: 'procurement-new', component: ProcurementNew, meta: { ...procurementMeta, title: '提报需求' } },
+      { path: 'board', name: 'procurement-board', component: ProcurementBoard, meta: { ...procurementMeta, title: '采购台账' } },
+      { path: ':id', name: 'procurement-detail', component: ProcurementDetail, meta: { ...procurementMeta, title: '采购单' } }
+    ]
+  },
+  {
     path: '/team-lead',
     redirect: (to) => ({ path: '/entry', query: to.query, hash: to.hash })
   },
@@ -130,6 +149,7 @@ const rawRoutes = [
       { path: 'fill-details', name: 'manage-fill-details', component: FillDetailsPage, meta: { ...reviewMeta, title: '填报明细', canonical: '/manage/fill-details' } },
       { path: 'energy', name: 'energy-center', component: EnergyCenter, meta: { ...reviewMeta, title: '能源中心', canonical: '/manage/energy' } },
       { path: 'attendance', name: 'attendance-overview', component: AttendanceOverview, meta: { ...reviewMeta, title: '考勤总览', canonical: '/manage/attendance' } },
+      { path: 'procurement', name: 'manage-procurement', redirect: '/procurement' },
       { path: 'alerts', name: 'manage-alerts', component: AlertsPage, meta: { ...reviewMeta, title: '异常', canonical: '/manage/alerts' } },
       { path: 'anomalies', redirect: preserveRouteState('/manage/alerts', { surface: 'anomaly' }), meta: { ...reviewMeta, title: '异常处理', canonical: '/manage/alerts' } },
       { path: 'factory/destinations', name: 'factory-command-destinations', component: DestinationScreen, meta: { ...reviewMeta, title: '库存去向', centerNo: '05', canonical: '/manage/factory/destinations' } },

@@ -26,6 +26,13 @@ from app.models.agent_communication import (
     ExternalMessageLog,
     MultimodalEvidence,
 )
+from app.models.procurement import (
+    ProcurementAssignment,
+    ProcurementDocument,
+    ProcurementQuote,
+    ProcurementRequest,
+    ProcurementStepLog,
+)
 from app.models.executive import (
     AluminumPriceDaily,
     CostDailyResult,

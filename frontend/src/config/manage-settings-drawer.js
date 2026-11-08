@@ -5,7 +5,8 @@ export const SETTINGS_GROUPS = [
       { title: '各车间看板', path: '/manage/workshop-dashboard', access: 'review' },
       { title: '填报明细', path: '/manage/fill-details', access: 'review' },
       { title: '能耗中心', path: '/manage/energy', access: 'review' },
-      { title: '考勤', path: '/manage/attendance', access: 'review' }
+      { title: '考勤', path: '/manage/attendance', access: 'review' },
+      { title: '物资采购', path: '/manage/procurement', access: 'review' }
     ]
   },
   {
