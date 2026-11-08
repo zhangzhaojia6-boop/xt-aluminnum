@@ -5,7 +5,7 @@
         <XtLogo variant="icon" />
         <span>物资采购</span>
       </RouterLink>
-      <RouterLink class="pc-shell__back" :to="homePath">返回</RouterLink>
+      <RouterLink v-if="!auth.isProcurementOnly" class="pc-shell__back" :to="homePath">返回</RouterLink>
     </header>
 
     <nav v-if="enabled" class="pc-shell__tabs" aria-label="采购导航">

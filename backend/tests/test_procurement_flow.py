@@ -17,6 +17,7 @@ from app.database import Base
 from app.domain import procurement_flow as flow
 from app.main import app
 from app.models.master import Workshop
+from app.models.agent_communication import AgentChannelBinding, AgentOutboxMessage, AgentProfile, CommunicationChannel
 from app.models.procurement import (
     ProcurementAssignment,
     ProcurementDocument,
@@ -31,6 +32,7 @@ SHANGHAI = ZoneInfo('Asia/Shanghai')
 TABLES = [
     Workshop.__table__, User.__table__, ProcurementAssignment.__table__, ProcurementRequest.__table__,
     ProcurementQuote.__table__, ProcurementDocument.__table__, ProcurementStepLog.__table__,
+    AgentProfile.__table__, CommunicationChannel.__table__, AgentChannelBinding.__table__, AgentOutboxMessage.__table__,
 ]
 ROLES = {
     flow.ROLE_EQUIPMENT: 11, flow.ROLE_WAREHOUSE: 12, flow.ROLE_PURCHASING: 13, flow.ROLE_PURCHASING_LEAD: 14,
@@ -392,6 +394,31 @@ def client(db) -> Iterator[TestClient]:
 
 def as_user(db, user_id):
     app.dependency_overrides[get_current_user] = lambda: person(db, user_id)
+
+
+def test_step_change_queues_dry_run_notice_for_the_next_owner(db):
+    agent = AgentProfile(code=service.NOTIFY_AGENT, name='调度', agent_type='guard', is_active=True)
+    channel = CommunicationChannel(channel_type=service.NOTIFY_CHANNEL_TYPE, channel_key=service.channel_key_for(2), name='主任', target_type='user', target_key='dt-2', dry_run=True, is_active=True)
+    db.add_all([agent, channel])
+    db.flush()
+    db.add(AgentChannelBinding(agent_profile_id=agent.id, channel_id=channel.id, is_active=True))
+    db.flush()
+
+    request = new_request(db)
+    act(db, request, 1, 'submit')
+
+    messages = db.query(AgentOutboxMessage).all()
+    assert len(messages) == 1
+    assert messages[0].status == 'pending'
+    assert messages[0].channel_id == channel.id
+    assert messages[0].title == '采购待办：车间审批'
+    assert db.get(CommunicationChannel, channel.id).dry_run is True
+
+
+def test_owner_without_channel_does_not_block_the_step(db):
+    request = new_request(db)
+    act(db, request, 1, 'submit')
+    assert request.current_step == 'workshop_approval'
 
 
 def test_api_is_hidden_until_enabled(db, client, monkeypatch):

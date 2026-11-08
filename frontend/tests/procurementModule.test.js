@@ -22,6 +22,16 @@ test('every role reaches the procurement zone once logged in', () => {
   }
 })
 
+test('procurement-only accounts land on procurement and cannot leave it', () => {
+  const auth = { token: 't', isProcurementOnly: true }
+  const manage = { name: 'manage-today', meta: { requiresAuth: true, zone: 'manage', access: 'review' }, query: {}, matched: [] }
+  const entry = { name: 'mobile-entry', meta: { requiresAuth: true, zone: 'entry', access: 'fill' }, query: {}, matched: [] }
+  assert.equal(resolveGuardDecision({ to: manage, auth }).name, 'procurement-todo')
+  assert.equal(resolveGuardDecision({ to: entry, auth }).name, 'procurement-todo')
+  assert.equal(resolveGuardDecision({ to: { name: 'login', meta: {}, query: {}, matched: [] }, auth }).name, 'procurement-todo')
+  assert.equal(resolveGuardDecision({ to: procurementRoute, auth }), true)
+})
+
 test('procurement still requires login', () => {
   const decision = resolveGuardDecision({ to: { ...procurementRoute, fullPath: '/procurement' }, auth: { token: '' } })
   assert.equal(decision.name, 'login')

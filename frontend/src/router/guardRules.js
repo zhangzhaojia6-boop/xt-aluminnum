@@ -42,6 +42,7 @@ function adminLanding(authStore) {
 }
 
 function defaultLanding(authStore, compactClient) {
+  if (authStore.isProcurementOnly) return { name: 'procurement-todo' }
   if (compactClient && authStore.isWorkshopDirector && authStore.canAccessWorkshopDashboard) return { name: 'manage-workshop-dashboard' }
   if (compactClient && authStore.canAccessReviewSurface) return { name: 'manage-today' }
   if (compactClient && authStore.canAccessFillSurface && !authStore.adminSurface) return { name: 'mobile-entry' }
@@ -116,6 +117,10 @@ export function resolveGuardDecision({
   // 采购各环节由不同岗位办理，审批权在后端按岗位判断
   if (to.meta.zone === 'procurement') {
     return true
+  }
+
+  if (auth.isProcurementOnly) {
+    return { name: 'procurement-todo' }
   }
 
   if (auth.isFillOnlyRole && to.meta.zone !== 'entry' && to.name !== 'login') {
