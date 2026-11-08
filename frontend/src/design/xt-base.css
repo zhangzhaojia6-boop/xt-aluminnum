@@ -1070,7 +1070,12 @@ svg {
   }
 }
 
-.el-table .el-table-fixed-column--left,
-.el-table .el-table-fixed-column--right {
-  background: var(--xt-bg-page);
+.el-table .el-table__cell.el-table-fixed-column--left,
+.el-table .el-table__cell.el-table-fixed-column--right {
+  background: var(--xt-bg-page) !important;
+}
+
+.el-table th.el-table__cell.el-table-fixed-column--left,
+.el-table th.el-table__cell.el-table-fixed-column--right {
+  background: var(--xt-bg-panel-soft) !important;
 }
