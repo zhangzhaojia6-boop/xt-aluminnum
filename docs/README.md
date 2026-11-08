@@ -53,6 +53,8 @@ Hermes 和智能体要在 NousResearch Hermes 基础上增强，负责理解、�
 
 ## 当前执行规格
 
+- [数据中枢总计划（2026-11-08，以此为准）](./superpowers/plans/2026-11-08-master-plan.md)
+- [数据中枢整体改造设计](./superpowers/specs/2026-11-08-system-overhaul-design.md)
 - [去统计流与 Hermes 自成长运行 SPEC](./superpowers/specs/2026-08-14-statistics-free-operations-spec.md)
 - [去统计流与 Hermes 自成长实施计划](./superpowers/plans/2026-08-14-statistics-free-operations-implementation-plan.md)
 - [Hermes 钉钉私聊与群聊权限设计](./superpowers/specs/2026-08-20-hermes-dingtalk-dm-group-access-design.md)

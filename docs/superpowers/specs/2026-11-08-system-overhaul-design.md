@@ -107,6 +107,8 @@
 
 ### 子项目 3：管理端收口
 
+> 2026-11-08 负责人追加要求：所有前端页面都重新设计，简约大气。范围和顺序以 `docs/superpowers/plans/2026-11-08-master-plan.md` 为准，前端不再排在恢复使用之后；后端减量和删除页面仍要等访问数据。
+
 目标：管理者打开 `/manage/today` 就能看完全局、来源状态和异常。
 
 - 一级入口收到 5 个：`/manage/today`（大仪表盘）、`/manage/live`、`/manage/production`、`/manage/coils`、`/manage/alerts`。
