@@ -1,6 +1,5 @@
 <template>
   <section class="pc-assign" data-testid="procurement-assignments">
-    <h2>办理人</h2>
     <p v-if="failed">读取失败 <button type="button" class="pc-assign__text" @click="load">重试</button></p>
 
     <template v-else>
@@ -29,7 +28,7 @@
         </select>
         <select v-model="pickUser" aria-label="账号" required data-testid="pc-assign-user">
           <option value="" disabled>账号</option>
-          <option v-for="user in users" :key="user.id" :value="user.id">{{ user.name }}</option>
+          <option v-for="user in users" :key="user.id" :value="user.id">{{ user.name }}{{ user.username && user.username !== user.name && !user.username.startsWith('pc-') ? ` ${user.username}` : '' }}</option>
         </select>
         <button type="submit" :disabled="busy" data-testid="pc-assign-add">指派</button>
       </form>
@@ -62,9 +61,9 @@ function peopleOf(role) {
 async function load() {
   failed.value = false
   try {
-    const [nextRows, page] = await Promise.all([fetchProcurementAssignments(), fetchUsersPage({ limit: 200 })])
+    const [nextRows, page] = await Promise.all([fetchProcurementAssignments(), fetchUsersPage({ limit: 500 })])
     rows.value = nextRows
-    users.value = page.items
+    users.value = page.items.filter((user) => user.is_active !== false)
   } catch {
     failed.value = true
   }
@@ -92,7 +91,6 @@ onMounted(load)
 </script>
 
 <style scoped>
-.pc-assign h2 { margin: 0 0 16px; font-size: 20px; font-weight: 600; }
 .pc-assign__roles { margin: 0 0 16px; padding: 0; list-style: none; }
 .pc-assign__roles li { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--xt-border); }
 .pc-assign__role { color: var(--xt-text-secondary); }

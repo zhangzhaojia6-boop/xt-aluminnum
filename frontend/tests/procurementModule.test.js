@@ -41,13 +41,18 @@ test('router mounts the procurement pages with new before the id route', () => {
   const router = source('../src/router/index.js')
   assert.match(router, /path: '\/procurement'/)
   assert.ok(router.indexOf("path: 'new'") < router.indexOf("path: ':id'"))
-  assert.match(router, /path: 'board'/)
+  for (const page of ['board', 'ledger', 'suppliers', 'staff']) assert.match(router, new RegExp(`path: '${page}'`))
 })
 
 test('settings drawer links to procurement for reviewers', () => {
   const groups = settingsDrawerGroups({ reviewSurface: true })
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
   assert.ok(paths.includes('/manage/procurement'))
+})
+
+test('ledger reloads when navigation changes its filters', () => {
+  const ledger = source('../src/views/procurement/ProcurementLedger.vue')
+  assert.match(ledger, /watch\(\(\) => route\.query/)
 })
 
 test('field home links to procurement', () => {

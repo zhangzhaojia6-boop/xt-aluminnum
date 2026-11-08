@@ -79,6 +79,15 @@ STEPS = (
 )
 STEP_BY_CODE = {step.code: step for step in STEPS}
 
+# 能看全部台账和金额的岗位；门岗、仓库、质检、设备部、会计只看自己经手的单
+VIEW_ALL_ROLES = frozenset({
+    ROLE_AUDIT, ROLE_FINANCE, ROLE_GENERAL_MANAGER, ROLE_DIVISION_LEAD,
+    ROLE_PURCHASING_LEAD, ROLE_PURCHASING, ROLE_LEGAL,
+})
+SUPPLIER_PENDING = 'pending'
+SUPPLIER_QUALIFIED = 'qualified'
+SUPPLIER_BLACKLISTED = 'blacklisted'
+
 STATUS_OPEN = 'open'
 STATUS_ARCHIVED = 'archived'
 STATUS_CLOSED_STOCK = 'closed_stock'

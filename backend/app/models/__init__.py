@@ -31,7 +31,7 @@ from app.models.procurement import (
     ProcurementDocument,
     ProcurementQuote,
     ProcurementRequest,
-    ProcurementStepLog,
+    ProcurementStepLog, ProcurementSupplier,
 )
 from app.models.executive import (
     AluminumPriceDaily,

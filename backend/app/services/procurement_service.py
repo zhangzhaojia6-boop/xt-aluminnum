@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
+import unicodedata
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -21,10 +24,12 @@ from app.models.procurement import (
     ProcurementQuote,
     ProcurementRequest,
     ProcurementStepLog,
+    ProcurementSupplier,
 )
 from app.models.system import User
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+SUPPLIER_NAME_LIMIT = 128
 NOTIFY_AGENT = 'factory_dispatch_zzj'
 NOTIFY_CHANNEL_TYPE = 'dingtalk_work_notice'
 logger = logging.getLogger(__name__)
@@ -68,7 +73,43 @@ def user_roles(db: Session, user: User) -> set[str]:
 
 
 def can_view_all(user: User, roles: set[str]) -> bool:
-    return user.role == 'admin' or bool(roles - {flow.ROLE_WORKSHOP_DIRECTOR})
+    return user.role == 'admin' or bool(roles & flow.VIEW_ALL_ROLES)
+
+
+def can_void(user: User, roles: set[str]) -> bool:
+    return user.role == 'admin' or flow.ROLE_PURCHASING_LEAD in roles
+
+
+def can_edit_suppliers(user: User, roles: set[str]) -> bool:
+    return user.role == 'admin' or flow.ROLE_PURCHASING_LEAD in roles
+
+
+def can_open(db: Session, user: User, roles: set[str], request: ProcurementRequest) -> bool:
+    """当前办理人和办过这张单的人也能打开。"""
+    if can_view(user, roles, request) or can_act(user, roles, request):
+        return True
+    return db.query(ProcurementStepLog.id).filter(ProcurementStepLog.request_id == request.id, ProcurementStepLog.actor_id == user.id).first() is not None
+
+
+def normalize_supplier(name: str) -> str:
+    return re.sub(r'\s+', '', unicodedata.normalize('NFKC', name or '')).casefold()
+
+
+def _ensure_supplier_allowed(db: Session, name: str) -> None:
+    """黑名单不再合作；第一次出现的供应商记为待评价。"""
+    key = normalize_supplier(name)
+    clean_name = ' '.join(name.split())
+    if len(clean_name) > SUPPLIER_NAME_LIMIT or len(key) > SUPPLIER_NAME_LIMIT:
+        raise _reject(f'供应商名称不能超过 {SUPPLIER_NAME_LIMIT} 个字')
+    supplier = db.query(ProcurementSupplier).filter(ProcurementSupplier.normalized_name == key).first()
+    if supplier is None:
+        try:
+            with db.begin_nested():
+                db.add(ProcurementSupplier(name=clean_name, normalized_name=key, status=flow.SUPPLIER_PENDING))
+        except IntegrityError:
+            logger.info('procurement_supplier_created_concurrently name=%s', clean_name)
+    elif supplier.status == flow.SUPPLIER_BLACKLISTED:
+        raise _reject(f'{supplier.name} 在黑名单里，不能合作')
 
 
 def effective_amount(request: ProcurementRequest) -> Decimal:
@@ -220,7 +261,7 @@ def _submit_quotes(db, request, user, payload, now):
         raise _reject('请选定一家供应商')
     purchase_quantity = Decimal(request.purchase_quantity if request.purchase_quantity is not None else request.quantity)
     parsed = [(_text(item, 'supplier', '供应商'), _decimal(item.get('unit_price'), '报价'), item.get('remark')) for item in quotes]
-    if len({supplier for supplier, _price, _remark in parsed}) != len(parsed):
+    if len({normalize_supplier(supplier) for supplier, _price, _remark in parsed}) != len(parsed):
         raise _reject('同一家供应商只算一家报价')
     amount = (purchase_quantity * parsed[selected][1]).quantize(Decimal('0.01'))
     # 按选定金额和申请预估金额中较大的算，防止压低选定价绕开询价
@@ -228,6 +269,8 @@ def _submit_quotes(db, request, user, payload, now):
     required = flow.required_quote_count(max(amount, estimated))
     if len(parsed) < required:
         raise _reject(f'本次金额需要不少于 {required} 家有效报价，当前 {len(parsed)} 家', required=required, actual=len(parsed))
+    for supplier, _price, _remark in parsed:
+        _ensure_supplier_allowed(db, supplier)
     round_no = 1 + db.query(ProcurementQuote).filter(ProcurementQuote.request_id == request.id).count()
     for index, (supplier, price, remark) in enumerate(parsed):
         db.add(ProcurementQuote(
@@ -247,6 +290,7 @@ def _request_exemption(db, request, user, payload, now):
     purchase_quantity = Decimal(request.purchase_quantity if request.purchase_quantity is not None else request.quantity)
     price = _decimal(payload.get('unit_price'), '单价')
     request.supplier = _text(payload, 'supplier', '供应商')
+    _ensure_supplier_allowed(db, request.supplier)
     request.approved_amount = (purchase_quantity * price).quantize(Decimal('0.01'))
     _details(request, 'comparison', {'kind': 'exemption', 'reason': reason})
     _move(request, 'exemption_approval', now)
@@ -261,6 +305,8 @@ def _approve_purchase(db, request, user, payload, now):
 
 
 def _submit_contract(db, request, user, payload, now):
+    if request.supplier:
+        _ensure_supplier_allowed(db, request.supplier)
     doc_kind = payload.get('doc_kind')
     amount = _decimal(payload.get('amount'), '合同金额')
     if doc_kind == 'order':
@@ -615,6 +661,7 @@ def serialize_request(db: Session, request: ProcurementRequest, *, user: User, r
         needed_by=request.needed_by.isoformat() if request.needed_by else None,
         details=request.details or {},
         actions=sorted(ACTIONS.get(request.current_step, {})) if data['can_act'] else [],
+        can_void=can_void(user, roles) and request.status == flow.STATUS_OPEN and request.current_step != 'payment_booking',
         document_checklist=[
             {'code': code, 'label': label, 'present': code in present}
             for code, label, _kind in flow.DOCUMENT_TYPES if code in needed

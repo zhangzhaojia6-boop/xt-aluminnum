@@ -12,14 +12,14 @@ from app.main import app
 from app.models.agent_communication import AgentChannelBinding, AgentOutboxMessage, AgentProfile, CommunicationChannel
 from app.models.base import Base
 from app.models.master import Team, Workshop
-from app.models.procurement import ProcurementAssignment, ProcurementDocument, ProcurementQuote, ProcurementRequest, ProcurementStepLog
+from app.models.procurement import ProcurementAssignment, ProcurementDocument, ProcurementQuote, ProcurementRequest, ProcurementStepLog, ProcurementSupplier
 from app.models.system import AuditLog, User
 from app.services import procurement_service as service
 from scripts.sync_procurement_accounts import sync_accounts
 
 TABLES = [model.__table__ for model in (
     Workshop, Team, User, AuditLog, AgentProfile, CommunicationChannel, AgentChannelBinding, AgentOutboxMessage,
-    ProcurementAssignment, ProcurementRequest, ProcurementQuote, ProcurementDocument, ProcurementStepLog,
+    ProcurementAssignment, ProcurementRequest, ProcurementQuote, ProcurementDocument, ProcurementStepLog, ProcurementSupplier,
 )]
 
 

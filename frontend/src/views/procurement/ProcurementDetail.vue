@@ -51,10 +51,11 @@
           <template v-if="!exemption">
             <div v-for="(quote, index) in quotes" :key="index" class="pc-quote">
               <label class="pc-quote__pick"><input v-model="selected" type="radio" :value="index" :aria-label="`选定第 ${index + 1} 家`" />选定</label>
-              <input v-model.trim="quote.supplier" placeholder="供应商" aria-label="供应商" />
+              <input v-model.trim="quote.supplier" placeholder="供应商" aria-label="供应商" list="pc-supplier-options" />
               <input v-model="quote.unit_price" type="number" inputmode="decimal" step="any" min="0" placeholder="单价" aria-label="单价" />
               <button v-if="quotes.length > 1" type="button" aria-label="删除这家" @click="removeQuote(index)">×</button>
             </div>
+            <datalist id="pc-supplier-options"><option v-for="name in supplierOptions" :key="name" :value="name" /></datalist>
             <button class="pc-plain" type="button" @click="quotes.push({ supplier: '', unit_price: '' })">再加一家</button>
             <button class="pc-go" type="button" :disabled="busy" data-testid="pc-quotes" @click="run('submit_quotes', { quotes, selected_index: selected })">提交比价</button>
           </template>
@@ -148,6 +149,12 @@
         <p v-if="error" class="pc-error" role="alert" data-testid="pc-error">{{ error }}</p>
       </form>
 
+      <details v-if="item.can_void" class="pc-void" data-testid="procurement-void">
+        <summary>作废这张单</summary>
+        <label class="pc-field">作废理由<textarea v-model.trim="voidReason" rows="2" data-testid="pc-void-reason" /></label>
+        <button class="pc-plain" type="button" :disabled="busy || !voidReason" data-testid="pc-void-submit" @click="voidIt">确认作废</button>
+      </details>
+
       <section class="pc-block">
         <h2>申请内容</h2>
         <dl class="pc-facts">
@@ -208,7 +215,9 @@ import { useRoute } from 'vue-router'
 import { formatApiErrorMessage } from '../../api/index.js'
 import {
   actOnProcurementRequest,
+  voidProcurementRequest,
   fetchProcurementRequest,
+  fetchProcurementSuppliers,
   openProcurementDocument,
   uploadProcurementDocument,
 } from '../../api/procurement.js'
@@ -217,7 +226,7 @@ import DocUpload from './ProcurementDocUpload.vue'
 const ACTION_LABELS = {
   create: '建单', submit: '提交', cancel: '撤销', approve: '同意', reject: '驳回', confirm_stock: '确认库存',
   submit_quotes: '提交比价', request_exemption: '申请豁免', submit_contract: '提交合同', sign: '确认签订',
-  register: '进厂登记', accept: '验收合格', refuse: '拒收', submit_payment: '发起付款', book: '付款入账', upload: '上传单据',
+  void: '作废', register: '进厂登记', accept: '验收合格', refuse: '拒收', submit_payment: '发起付款', book: '付款入账', upload: '上传单据',
 }
 const FINAL_STATUS = { archived: '已付款归档', closed_stock: '库存充足，已驳回，由车间直接领用', cancelled: '已撤销' }
 
@@ -228,6 +237,8 @@ const loadError = ref('')
 const busy = ref(false)
 const error = ref('')
 const exemption = ref(false)
+const voidReason = ref('')
+const supplierOptions = ref([])
 const selected = ref(0)
 const quotes = ref([{ supplier: '', unit_price: '' }])
 const form = reactive({ doc_kind: 'contract', reason: '独家供应' })
@@ -302,6 +313,28 @@ async function run(action, payload = {}) {
   }
 }
 
+async function voidIt() {
+  busy.value = true
+  error.value = ''
+  try {
+    item.value = await voidProcurementRequest(item.value.id, voidReason.value)
+    voidReason.value = ''
+  } catch (err) {
+    error.value = formatApiErrorMessage(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function loadSupplierOptions() {
+  try {
+    const rows = await fetchProcurementSuppliers()
+    supplierOptions.value = rows.filter((row) => row.status !== 'blacklisted').map((row) => row.name)
+  } catch {
+    supplierOptions.value = []
+  }
+}
+
 async function upload(docType, file) {
   busy.value = true
   error.value = ''
@@ -316,6 +349,7 @@ async function upload(docType, file) {
 }
 
 watch(() => route.params.id, (id) => { if (id) load() })
+watch(() => (item.value?.can_act ? step.value : null), (value) => { if (value === 'quotation') loadSupplierOptions() })
 onMounted(load)
 </script>
 
@@ -360,6 +394,8 @@ onMounted(load)
 .pc-more { display: grid; gap: 12px; }
 .pc-error { margin: 0; color: var(--xt-danger); }
 
+.pc-void { display: grid; gap: 12px; }
+.pc-void summary { min-height: 44px; color: var(--xt-danger); cursor: pointer; }
 .pc-block { display: grid; gap: 16px; }
 .pc-facts { display: grid; margin: 0; }
 .pc-facts div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--xt-border); }
