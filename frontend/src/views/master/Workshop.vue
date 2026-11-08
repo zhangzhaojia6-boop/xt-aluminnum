@@ -317,7 +317,7 @@ onMounted(load)
   position: relative;
   isolation: isolate;
   overflow-x: clip;
-  color: var(--workshop-text);
+  color: var(--xt-text);
 }
 
 .workshop-master::before {
@@ -325,10 +325,7 @@ onMounted(load)
   inset: -24px;
   z-index: -1;
   opacity: 0.38;
-  background:
-    linear-gradient(rgba(0, 242, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.06) 1px, transparent 1px),
-    radial-gradient(circle at 78% 5%, rgba(0, 242, 255, 0.16), transparent 32%);
+  background: transparent;
   background-size: 34px 34px, 34px 34px, auto;
   content: "";
   pointer-events: none;
@@ -339,14 +336,10 @@ onMounted(load)
 .workshop-master__matrix {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--workshop-line);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(7, 36, 66, 0.84), rgba(1, 16, 31, 0.88)),
-    var(--workshop-bg);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 24px 62px rgba(0, 18, 42, 0.22);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .workshop-master__hero::after,
@@ -354,10 +347,10 @@ onMounted(load)
 .workshop-master__matrix::after {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.1), transparent);
+  background: transparent;
   opacity: 0.5;
   transform: translateX(-65%);
-  animation: workshopMasterSweep 7s linear infinite;
+
   content: "";
   pointer-events: none;
 }
@@ -380,21 +373,21 @@ onMounted(load)
 .workshop-master__matrix-head span,
 .workshop-master__stat span,
 .workshop-master__node-index {
-  color: #74f5ff;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
 .workshop-master h1 {
   margin: 0;
-  color: #e1fdff;
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: clamp(30px, 4vw, 52px);
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 0.96;
-  text-shadow: 0 0 26px rgba(0, 242, 255, 0.18);
+
 }
 
 .workshop-master__stats {
@@ -408,43 +401,41 @@ onMounted(load)
   display: grid;
   gap: var(--xt-space-2);
   padding: var(--xt-space-4);
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  border-radius: 14px;
-  background: rgba(1, 12, 24, 0.76);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .workshop-master__stat strong {
-  color: #e1fdff;
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: clamp(24px, 3vw, 34px);
-  font-weight: 950;
+  font-weight: 600;
   line-height: 1;
 }
 
 .workshop-master__stat.is-cyan strong {
-  color: var(--workshop-cyan);
+  color: var(--xt-primary);
 }
 
 .workshop-master__stat.is-amber strong {
-  color: var(--workshop-amber);
+  color: var(--xt-warning);
 }
 
 .workshop-master__primary-action {
   position: relative;
   overflow: hidden;
-  border-color: rgba(0, 242, 255, 0.52);
-  background:
-    linear-gradient(180deg, rgba(0, 242, 255, 0.94), rgba(0, 151, 178, 0.92)),
-    var(--workshop-cyan);
-  color: #00282d;
-  font-weight: 900;
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
   touch-action: manipulation;
 }
 
 .workshop-master__primary-action::after {
   position: absolute;
   inset: 0;
-  background: linear-gradient(110deg, transparent 22%, rgba(255, 255, 255, 0.42) 50%, transparent 76%);
+  background: transparent;
   transform: translateX(-120%);
   transition: transform 360ms var(--xt-ease);
   content: "";
@@ -472,18 +463,18 @@ onMounted(load)
   gap: var(--xt-space-3);
   padding: var(--xt-space-3);
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 14px;
-  background: rgba(1, 10, 20, 0.72);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .workshop-master__node::before {
   position: absolute;
   inset: auto 10px 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.72), transparent);
+  background: transparent;
   content: "";
-  animation: workshopMasterSweep 5.4s linear infinite;
+
 }
 
 .workshop-master__node.is-muted {
@@ -501,19 +492,19 @@ onMounted(load)
 }
 
 .workshop-master__node-main span {
-  color: var(--workshop-amber);
-  font-family: var(--xt-font-number);
+  color: var(--xt-warning);
+
   font-size: var(--xt-text-xs);
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .workshop-master__node-main strong,
 .workshop-master__mobile-card strong {
   min-width: 0;
   overflow: hidden;
-  color: #e1fdff;
+  color: var(--xt-text);
   font-size: var(--xt-text-base);
-  font-weight: 900;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -538,14 +529,14 @@ onMounted(load)
 }
 
 .workshop-master__matrix-head strong {
-  color: #e1fdff;
+  color: var(--xt-text);
   font-size: var(--xt-text-xl);
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .workshop-master__matrix-head small {
-  color: var(--workshop-muted);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text-secondary);
+
   font-size: var(--xt-text-sm);
 }
 
@@ -554,7 +545,7 @@ onMounted(load)
   z-index: 1;
   max-width: 100%;
   overflow-x: hidden;
-  border-radius: 12px;
+  border-radius: 4px;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 242, 255, 0.42) transparent;
@@ -570,18 +561,13 @@ onMounted(load)
 
 .workshop-master :deep(.workshop-master__table.el-table) {
   --el-bg-color: transparent;
-  --el-border-color-lighter: rgba(0, 242, 255, 0.14);
   --el-fill-color-blank: transparent;
   --el-table-bg-color: transparent;
-  --el-table-border-color: rgba(0, 242, 255, 0.14);
-  --el-table-header-bg-color: rgba(0, 242, 255, 0.08);
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.1);
   --el-table-text-color: var(--workshop-text);
-  --el-table-header-text-color: rgba(185, 223, 235, 0.78);
-  border: 1px solid var(--workshop-line);
-  border-radius: 12px;
-  background: rgba(1, 10, 20, 0.78);
-  color: var(--workshop-text);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
@@ -593,12 +579,12 @@ onMounted(load)
 }
 
 .workshop-master :deep(.workshop-master__table.el-table .el-table__inner-wrapper::before) {
-  background: var(--workshop-line);
+  background: transparent;
 }
 
 .workshop-master :deep(.workshop-master__table.el-table .el-table__inner-wrapper::after),
 .workshop-master :deep(.workshop-master__table.el-table .el-table__border-left-patch) {
-  background: var(--workshop-line);
+  background: transparent;
 }
 
 .workshop-master :deep(.workshop-master__table.el-table th.el-table__cell),
@@ -608,20 +594,20 @@ onMounted(load)
 }
 
 .workshop-master :deep(.workshop-master__table.el-table th.el-table__cell) {
-  border-bottom: 1px solid var(--workshop-line);
-  color: rgba(116, 245, 255, 0.82);
+  border-bottom: 1px solid var(--xt-border);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .workshop-master :deep(.workshop-master__table.el-table td.el-table__cell) {
-  border-bottom: 1px solid rgba(0, 242, 255, 0.08);
+  border-bottom: 1px solid var(--xt-border);
 }
 
 .workshop-master :deep(.workshop-master__table.el-table .el-table__body tr:hover > td.el-table__cell) {
-  background: rgba(0, 242, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(0, 242, 255, 0.05);
+  background: transparent;
+
 }
 
 .workshop-master__status {
@@ -629,27 +615,27 @@ onMounted(load)
   align-items: center;
   gap: 6px;
   min-height: 24px;
-  color: #e1fdff;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .workshop-master__status i {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--workshop-cyan);
-  box-shadow: 0 0 12px rgba(0, 242, 255, 0.82);
-  animation: workshopMasterLed 1.8s ease-in-out infinite;
+  background: transparent;
+
+
 }
 
 .workshop-master__status.is-off {
-  color: rgba(185, 223, 235, 0.54);
+  color: var(--xt-text-secondary);
 }
 
 .workshop-master__status.is-off i {
-  background: #526679;
-  box-shadow: none;
+  background: transparent;
+
   animation: none;
 }
 
@@ -663,9 +649,9 @@ onMounted(load)
   display: grid;
   gap: var(--xt-space-3);
   padding: var(--xt-space-3);
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  border-radius: 12px;
-  background: rgba(1, 10, 20, 0.78);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .workshop-master__mobile-card header,
@@ -678,10 +664,10 @@ onMounted(load)
 }
 
 .workshop-master__mobile-card header {
-  color: rgba(185, 223, 235, 0.7);
+  color: var(--xt-text-secondary);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .workshop-master__mobile-card dl {
@@ -693,8 +679,8 @@ onMounted(load)
 .workshop-master__mobile-card dl div {
   min-height: 32px;
   padding: 0 var(--xt-space-2);
-  border-radius: 8px;
-  background: rgba(0, 242, 255, 0.05);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .workshop-master__mobile-card dt,
@@ -703,21 +689,21 @@ onMounted(load)
 }
 
 .workshop-master__mobile-card dt {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .workshop-master__mobile-card dd {
-  color: var(--workshop-text);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .workshop-master__mobile-card footer {
   justify-content: flex-end;
-  border-top: 1px solid rgba(0, 242, 255, 0.08);
+  border-top: 1px solid var(--xt-border);
   padding-top: var(--xt-space-2);
 }
 
@@ -732,17 +718,15 @@ onMounted(load)
 }
 
 :deep(.workshop-master__dialog .el-dialog) {
-  border: 1px solid var(--workshop-line, rgba(0, 242, 255, 0.18));
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(7, 36, 66, 0.96), rgba(2, 12, 25, 0.98)),
-    #06101f;
-  color: var(--workshop-text, rgba(225, 253, 255, 0.94));
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
 }
 
 :deep(.workshop-master__dialog .el-dialog__title),
 :deep(.workshop-master__dialog .el-form-item__label) {
-  color: var(--workshop-text, rgba(225, 253, 255, 0.94));
+  color: var(--xt-text);
 }
 
 @keyframes workshopMasterSweep {
@@ -771,7 +755,7 @@ onMounted(load)
   .workshop-master__hero,
   .workshop-master__nodes,
   .workshop-master__matrix {
-    border-radius: 14px;
+    border-radius: 4px;
   }
 
   .workshop-master__hero {

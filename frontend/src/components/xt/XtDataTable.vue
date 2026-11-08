@@ -74,7 +74,7 @@ defineProps({
 <style scoped>
 .xt-data-table {
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   overflow: hidden;
 }
@@ -100,7 +100,7 @@ defineProps({
   padding: var(--xt-space-3) var(--xt-space-4);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid var(--xt-border-light);
@@ -120,11 +120,11 @@ defineProps({
 }
 
 .xt-data-table--striped .xt-data-table__row:nth-child(even) {
-  background: var(--xt-bg-subtle);
+  background: transparent;
 }
 
 .xt-data-table__row:hover {
-  background: var(--xt-bg-hover);
+  background: transparent;
 }
 
 .xt-data-table__empty-text {

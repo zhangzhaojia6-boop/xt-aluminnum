@@ -239,7 +239,7 @@ onMounted(load)
   --inventory-panel: rgba(12, 25, 42, 0.72);
   --inventory-line: rgba(0, 242, 255, 0.18);
   --inventory-muted: rgba(223, 226, 235, 0.66);
-  color: #dfe2eb;
+  color: var(--xt-text);
 }
 
 .inventory-command::before {
@@ -248,12 +248,7 @@ onMounted(load)
   z-index: -1;
   pointer-events: none;
   content: '';
-  background:
-    radial-gradient(circle at 14% 8%, rgba(0, 242, 255, 0.12), transparent 30%),
-    radial-gradient(circle at 82% 10%, rgba(255, 171, 0, 0.08), transparent 24%),
-    linear-gradient(rgba(0, 242, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(135deg, #0a0e14, var(--inventory-bg));
+  background: transparent;
   background-size: auto, auto, 32px 32px, 32px 32px, auto;
 }
 
@@ -263,10 +258,10 @@ onMounted(load)
 .inventory-command__mobile-list article {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--inventory-line);
-  background: linear-gradient(180deg, rgba(38, 42, 49, 0.54), var(--inventory-panel));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 20px 54px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
+
 }
 
 .inventory-command__hero::after,
@@ -276,9 +271,9 @@ onMounted(load)
   inset: 0;
   pointer-events: none;
   content: '';
-  background: linear-gradient(115deg, transparent 0%, rgba(0, 242, 255, 0.14) 42%, transparent 62%);
+  background: transparent;
   transform: translateX(-120%);
-  animation: inventorySweep 7s ease-in-out infinite;
+
 }
 
 .inventory-command__hero {
@@ -288,7 +283,7 @@ onMounted(load)
   gap: 20px;
   min-height: 156px;
   padding: 28px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .inventory-command__hero-copy,
@@ -304,9 +299,9 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--inventory-cyan);
+  color: var(--xt-primary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
@@ -315,15 +310,15 @@ onMounted(load)
   height: 8px;
   content: '';
   border-radius: 999px;
-  background: var(--inventory-cyan);
-  box-shadow: 0 0 18px var(--inventory-cyan);
+  background: transparent;
+
 }
 
 .inventory-command h1,
 .inventory-command h2 {
   margin: 0;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   letter-spacing: -0.03em;
 }
 
@@ -332,7 +327,7 @@ onMounted(load)
   font-size: clamp(34px, 5vw, 58px);
   line-height: 1;
   white-space: nowrap;
-  text-shadow: 0 0 28px rgba(0, 242, 255, 0.22);
+
 }
 
 .inventory-command h2 {
@@ -347,9 +342,9 @@ onMounted(load)
   flex-wrap: wrap;
   gap: 12px;
   padding: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 16px;
-  background: rgba(1, 16, 31, 0.58);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .inventory-command__date {
@@ -363,11 +358,9 @@ onMounted(load)
 .inventory-command__actions :deep(.el-input__wrapper),
 .inventory-command__actions :deep(.el-select__wrapper) {
   min-height: 38px;
-  border-radius: 10px;
-  background: rgba(1, 16, 31, 0.72);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 242, 255, 0.3),
-    inset 0 0 0 1px rgba(0, 242, 255, 0.14);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .inventory-command__actions :deep(.el-input__inner),
@@ -375,21 +368,21 @@ onMounted(load)
 .inventory-command__actions :deep(.el-range-separator),
 .inventory-command__actions :deep(.el-select__placeholder),
 .inventory-command__actions :deep(.el-select__selected-item) {
-  color: #e1fdff;
+  color: var(--xt-text);
 }
 
 .inventory-command__button {
   min-width: 92px;
-  border: 1px solid rgba(0, 242, 255, 0.32);
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(0, 242, 255, 0.22), rgba(0, 118, 255, 0.32));
-  color: #e1fdff;
-  font-weight: 800;
-  box-shadow: 0 0 26px rgba(0, 242, 255, 0.16);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
+
 }
 
 .inventory-command__button--ghost {
-  background: rgba(1, 16, 31, 0.68);
+  background: transparent;
 }
 
 .inventory-command__stats {
@@ -401,7 +394,7 @@ onMounted(load)
 .inventory-command__stat {
   min-height: 136px;
   padding: 18px;
-  border-radius: 16px;
+  border-radius: 4px;
 }
 
 .inventory-command__stat-top {
@@ -410,9 +403,9 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--inventory-muted);
+  color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -420,9 +413,9 @@ onMounted(load)
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--inventory-cyan);
-  box-shadow: 0 0 18px var(--inventory-cyan);
-  animation: inventoryPulse 2.2s ease-in-out infinite;
+  background: transparent;
+
+
 }
 
 .inventory-command__stat strong {
@@ -430,11 +423,11 @@ onMounted(load)
   z-index: 1;
   display: block;
   margin-top: 18px;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   font-size: clamp(30px, 4vw, 46px);
   line-height: 0.95;
-  text-shadow: 0 0 24px rgba(0, 242, 255, 0.22);
+
 }
 
 .inventory-command__stat small,
@@ -443,29 +436,29 @@ onMounted(load)
   z-index: 1;
   display: block;
   margin-top: 8px;
-  color: var(--inventory-muted);
+  color: var(--xt-text-secondary);
   font-style: normal;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .inventory-command__stat--amber .inventory-command__led {
-  background: var(--inventory-amber);
-  box-shadow: 0 0 18px var(--inventory-amber);
+  background: transparent;
+
 }
 
 .inventory-command__stat--blue .inventory-command__led {
-  background: var(--inventory-blue);
-  box-shadow: 0 0 18px var(--inventory-blue);
+  background: transparent;
+
 }
 
 .inventory-command__stat--danger .inventory-command__led {
-  background: var(--inventory-danger);
-  box-shadow: 0 0 18px var(--inventory-danger);
+  background: transparent;
+
 }
 
 .inventory-command__panel {
   padding: 22px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .inventory-command__panel--chart {
@@ -481,44 +474,44 @@ onMounted(load)
 }
 
 .inventory-command__panel-chip {
-  border: 1px solid rgba(0, 242, 255, 0.16);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
   padding: 6px 10px;
-  color: var(--inventory-muted);
-  background: rgba(1, 16, 31, 0.62);
+  color: var(--xt-text-secondary);
+  background: transparent;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .inventory-command__table {
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: 14px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
 }
 
 .inventory-command__table :deep(.xt-data-table),
 .inventory-command__table :deep(.xt-data-table__table),
 .inventory-command__table :deep(.xt-data-table__row) {
-  border-color: rgba(0, 242, 255, 0.12);
+  border-color: var(--xt-border);
   background: transparent;
 }
 
 .inventory-command__table :deep(.xt-data-table__th) {
-  color: rgba(225, 253, 255, 0.82);
-  border-color: rgba(0, 242, 255, 0.12);
+  color: var(--xt-text);
+  border-color: var(--xt-border);
 }
 
 .inventory-command__table :deep(.xt-data-table__td) {
-  color: #dfe2eb;
-  border-color: rgba(0, 242, 255, 0.1);
+  color: var(--xt-text);
+  border-color: var(--xt-border);
 }
 
 .inventory-command__table :deep(.xt-data-table--striped .xt-data-table__row:nth-child(even)) {
-  background: rgba(0, 242, 255, 0.035);
+  background: transparent;
 }
 
 .inventory-command__table :deep(.xt-data-table__row:hover) {
-  background: rgba(0, 242, 255, 0.08);
+  background: transparent;
 }
 
 .inventory-command__direction {
@@ -528,22 +521,22 @@ onMounted(load)
   min-width: 52px;
   border-radius: 999px;
   padding: 4px 9px;
-  background: rgba(0, 242, 255, 0.14);
-  color: #a7fff8;
+  background: transparent;
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 0 14px rgba(0, 242, 255, 0.12);
+  font-weight: 600;
+
 }
 
 .inventory-command__direction[data-direction='inbound'] {
-  background: rgba(116, 245, 255, 0.16);
-  color: #d8ffff;
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .inventory-command__direction[data-direction='outbound'] {
-  background: rgba(255, 171, 0, 0.16);
-  color: #ffe6aa;
-  box-shadow: 0 0 16px rgba(255, 171, 0, 0.16);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .inventory-command__mobile-list {
@@ -551,7 +544,7 @@ onMounted(load)
 }
 
 .inventory-command__mobile-list article {
-  border-radius: 16px;
+  border-radius: 4px;
   padding: 16px;
 }
 
@@ -560,10 +553,10 @@ onMounted(load)
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .inventory-command__mobile-grid {
@@ -574,11 +567,11 @@ onMounted(load)
 }
 
 .inventory-command__mobile-grid span {
-  color: var(--inventory-muted);
+  color: var(--xt-text-secondary);
 }
 
 .inventory-command__mobile-grid strong {
-  color: #f6fbff;
+  color: var(--xt-text);
   text-align: right;
 }
 

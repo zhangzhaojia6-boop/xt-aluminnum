@@ -113,10 +113,10 @@ const option = computed(() => {
   flex-direction: column;
   gap: var(--xt-space-2);
   padding: var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 24%, var(--xt-border));
-  border-radius: var(--xt-radius-xl);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
   overflow: hidden;
 }
 
@@ -125,7 +125,7 @@ const option = computed(() => {
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--xt-primary), transparent);
+  background: transparent;
   opacity: 0.85;
 }
 
@@ -140,7 +140,7 @@ const option = computed(() => {
 .xt-output-trend__title {
   color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-output-trend__meta {

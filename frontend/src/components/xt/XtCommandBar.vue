@@ -69,7 +69,7 @@ function onDateChange(val) {
   justify-content: space-between;
   gap: var(--xt-space-4);
   padding: var(--xt-space-3) var(--xt-space-4);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   border: 1px solid var(--xt-border-light);
 }
@@ -84,7 +84,7 @@ function onDateChange(val) {
 .xt-command-bar__export {
   padding: var(--xt-space-1) var(--xt-space-3);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   color: var(--xt-text-primary);
   font-size: var(--xt-text-sm);
@@ -93,6 +93,6 @@ function onDateChange(val) {
 }
 
 .xt-command-bar__export:hover {
-  background: var(--xt-bg-panel-hover);
+  background: transparent;
 }
 </style>

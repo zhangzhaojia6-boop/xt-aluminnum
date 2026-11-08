@@ -275,10 +275,7 @@ watch(timeline.targetDate, (next) => {
   z-index: -1;
   pointer-events: none;
   content: '';
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent 30%),
-    linear-gradient(color-mix(in srgb, var(--xt-primary) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--xt-primary) 5%, transparent) 1px, transparent 1px);
+  background: transparent;
   background-size: auto, var(--xt-space-8) var(--xt-space-8), var(--xt-space-8) var(--xt-space-8);
 }
 
@@ -289,11 +286,9 @@ watch(timeline.targetDate, (next) => {
 .xt-alerts__timeline-shell {
   position: relative;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 22%, var(--xt-border));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--xt-primary) 8%, transparent), transparent),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 88%, var(--xt-bg-panel));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
 }
 
 .xt-alerts__hero::after,
@@ -307,7 +302,7 @@ watch(timeline.targetDate, (next) => {
   height: 1px;
   pointer-events: none;
   content: '';
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 16%, transparent), transparent);
+  background: transparent;
 }
 
 .xt-alerts__hero {
@@ -317,7 +312,7 @@ watch(timeline.targetDate, (next) => {
   gap: var(--xt-space-4);
   min-height: 148px;
   padding: var(--xt-space-6);
-  border-radius: var(--xt-radius-2xl);
+  border-radius: 4px;
 }
 
 .xt-alerts__title-block,
@@ -336,7 +331,7 @@ watch(timeline.targetDate, (next) => {
   gap: var(--xt-space-2);
   color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
@@ -346,35 +341,35 @@ watch(timeline.targetDate, (next) => {
   content: '';
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-primary) 20%, transparent);
+
 }
 
 .xt-alerts h1,
 .xt-alerts h2 {
   margin: 0;
-  color: var(--xt-text-inverse);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   letter-spacing: -0.04em;
 }
 
 .xt-alerts h1 {
   margin-top: var(--xt-space-3);
   font-size: clamp(var(--xt-text-3xl), 5vw, calc(var(--xt-text-3xl) * 1.8));
-  font-weight: 950;
+  font-weight: 600;
   line-height: 1;
 }
 
 .xt-alerts h2 {
   margin-top: var(--xt-space-2);
   font-size: var(--xt-text-xl);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-alerts__date-dock {
   padding: var(--xt-space-2);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
-  border-radius: var(--xt-radius-xl);
-  background: color-mix(in srgb, var(--xt-bg-ink) 72%, transparent);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-alerts__capability-status {
@@ -383,21 +378,21 @@ watch(timeline.targetDate, (next) => {
   gap: var(--xt-space-3);
   min-height: 38px;
   padding: var(--xt-space-2) var(--xt-space-4);
-  border-block: 1px solid color-mix(in srgb, var(--xt-warning) 24%, var(--xt-border));
-  color: color-mix(in srgb, var(--xt-text-inverse) 68%, transparent);
+  border-block: 1px solid var(--xt-border);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
 }
 
 .xt-alerts__capability-status span {
   flex: 0 0 auto;
   color: var(--xt-warning);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-alerts__capability-status strong {
   min-width: 0;
   overflow: hidden;
-  font-weight: 800;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -411,16 +406,16 @@ watch(timeline.targetDate, (next) => {
 .xt-alerts__stat {
   min-height: 132px;
   padding: var(--xt-space-5);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
 }
 
 .xt-alerts__stat-label {
   display: flex;
   align-items: center;
   gap: var(--xt-space-2);
-  color: color-mix(in srgb, var(--xt-text-inverse) 68%, var(--xt-primary));
+  color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
@@ -429,43 +424,43 @@ watch(timeline.targetDate, (next) => {
   height: var(--xt-space-2);
   border-radius: var(--xt-radius-pill);
   background: currentColor;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+
 }
 
 .xt-alerts__stat strong {
   display: block;
   margin-top: var(--xt-space-5);
   color: var(--xt-primary);
-  font-family: var(--xt-font-number);
+
   font-size: clamp(var(--xt-text-3xl), 4vw, calc(var(--xt-text-3xl) * 1.45));
   line-height: 1;
 }
 
 .xt-alerts__stat--alert strong,
 .xt-alerts__stat--alert .xt-alerts__stat-label i {
-  color: color-mix(in srgb, var(--xt-danger) 72%, var(--xt-text-inverse));
+  color: var(--xt-danger);
 }
 
 .xt-alerts__stat--blue strong,
 .xt-alerts__stat--blue .xt-alerts__stat-label i {
-  color: color-mix(in srgb, var(--xt-info) 72%, var(--xt-text-inverse));
+  color: var(--xt-text);
 }
 
 .xt-alerts__stat--amber strong,
 .xt-alerts__stat--amber .xt-alerts__stat-label i {
-  color: color-mix(in srgb, var(--xt-warning) 72%, var(--xt-text-inverse));
+  color: var(--xt-warning);
 }
 
 .xt-alerts__filters {
   padding: var(--xt-space-3);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
 }
 
 .xt-alerts__queues {
   display: grid;
   gap: var(--xt-space-4);
   padding: var(--xt-space-5);
-  border-radius: var(--xt-radius-2xl);
+  border-radius: 4px;
 }
 
 .xt-alerts__queue-head {
@@ -478,9 +473,9 @@ watch(timeline.targetDate, (next) => {
 
 .xt-alerts__queue-head p {
   margin: 0;
-  color: color-mix(in srgb, var(--xt-text-inverse) 64%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-alerts__queue-grid {
@@ -494,9 +489,9 @@ watch(timeline.targetDate, (next) => {
   gap: var(--xt-space-3);
   min-height: 148px;
   padding: var(--xt-space-4);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
-  border-radius: var(--xt-radius-xl);
-  background: color-mix(in srgb, var(--xt-bg-ink) 64%, transparent);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-alerts__queue header {
@@ -507,9 +502,9 @@ watch(timeline.targetDate, (next) => {
 }
 
 .xt-alerts__queue header span {
-  color: color-mix(in srgb, var(--xt-text-inverse) 72%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-alerts__queue header strong {
@@ -517,24 +512,24 @@ watch(timeline.targetDate, (next) => {
   justify-items: end;
   gap: var(--xt-space-1);
   color: var(--xt-primary);
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-2xl);
   line-height: 1;
 }
 
 .xt-alerts__queue header strong small {
-  color: color-mix(in srgb, currentColor 72%, var(--xt-text-inverse));
-  font-family: var(--xt-font-ui);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-alerts__queue.tone-danger header strong {
-  color: color-mix(in srgb, var(--xt-danger) 76%, var(--xt-text-inverse));
+  color: var(--xt-danger);
 }
 
 .xt-alerts__queue.tone-warning header strong {
-  color: color-mix(in srgb, var(--xt-warning) 76%, var(--xt-text-inverse));
+  color: var(--xt-warning);
 }
 
 .xt-alerts__queue-items {
@@ -550,11 +545,11 @@ watch(timeline.targetDate, (next) => {
   min-width: 0;
   overflow: hidden;
   padding: var(--xt-space-2);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 12%, var(--xt-border));
-  border-radius: var(--xt-radius-md);
-  color: color-mix(in srgb, var(--xt-text-inverse) 82%, var(--xt-primary));
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -574,46 +569,46 @@ watch(timeline.targetDate, (next) => {
   overflow: hidden;
   color: inherit;
   font-size: inherit;
-  font-weight: 850;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .xt-alerts__queue-item-copy small {
   overflow: hidden;
-  color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
-  font-weight: 720;
+  color: var(--xt-text);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .xt-alerts__queue-items a > small {
   flex: 0 0 auto;
-  color: color-mix(in srgb, var(--xt-warning) 78%, var(--xt-text-inverse));
+  color: var(--xt-warning);
   font-size: var(--xt-text-xs);
 }
 
 .xt-alerts__queue p {
   margin: 0;
-  color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
 }
 
 .xt-alerts__filters :deep(.xt-domain-chip) {
   height: 34px;
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
-  background: color-mix(in srgb, var(--xt-bg-ink-panel) 78%, transparent);
+  border: 1px solid var(--xt-border);
+  background: transparent;
   color: var(--xt-text-secondary);
 }
 
 .xt-alerts__filters :deep(.xt-domain-chip.is-active) {
   background: color-mix(in srgb, var(--xt-primary) 24%, var(--xt-bg-ink-panel));
   color: var(--xt-text-inverse);
-  box-shadow: inset 0 0 var(--xt-space-4) color-mix(in srgb, var(--xt-primary) 12%, transparent);
+
 }
 
 .xt-alerts__timeline-shell {
-  border-radius: var(--xt-radius-2xl);
+  border-radius: 4px;
 }
 
 .xt-alerts__timeline-head {
@@ -622,7 +617,7 @@ watch(timeline.targetDate, (next) => {
   justify-content: space-between;
   gap: var(--xt-space-4);
   padding: var(--xt-space-5) var(--xt-space-6);
-  border-bottom: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
+  border-bottom: 1px solid var(--xt-border);
   background: color-mix(in srgb, var(--xt-primary) 5%, transparent);
 }
 
@@ -636,41 +631,41 @@ watch(timeline.targetDate, (next) => {
 .xt-alerts__timeline-meta span {
   min-height: 28px;
   padding: var(--xt-space-1) var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
+  border: 1px solid var(--xt-border);
   border-radius: var(--xt-radius-pill);
   background: color-mix(in srgb, var(--xt-primary) 8%, transparent);
   color: var(--xt-text-inverse);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-timeline) {
   border: 0;
-  border-radius: 0;
+  border-radius: 4px;
   background: transparent;
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-timeline__summary) {
-  border-bottom-color: color-mix(in srgb, var(--xt-primary) 16%, var(--xt-border));
+  border-bottom-color: var(--xt-border);
   background: color-mix(in srgb, var(--xt-primary) 4%, transparent);
   color: color-mix(in srgb, var(--xt-text-inverse) 72%, transparent);
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-timeline__row) {
-  border-bottom-color: color-mix(in srgb, var(--xt-primary) 14%, var(--xt-border));
+  border-bottom-color: var(--xt-border);
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-timeline__empty) {
-  color: color-mix(in srgb, var(--xt-text-inverse) 72%, transparent);
+  color: var(--xt-text);
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-card__time),
 .xt-alerts__timeline-shell :deep(.xt-event-card__arrow) {
-  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  color: var(--xt-text);
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-card__summary) {
-  color: color-mix(in srgb, var(--xt-text-inverse) 82%, var(--xt-primary));
+  color: var(--xt-primary);
 }
 
 @media (max-width: 1080px) {

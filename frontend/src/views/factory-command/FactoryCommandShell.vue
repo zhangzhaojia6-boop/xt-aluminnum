@@ -63,9 +63,9 @@ const tabs = [
   gap: 0;
   min-height: 100vh;
   padding: 12px;
-  background: var(--fc-bg);
-  color: var(--fc-text);
-  font-family: var(--xt-font-body);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .fc-shell__grid {
@@ -73,9 +73,7 @@ const tabs = [
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    linear-gradient(90deg, oklch(22% 0.04 255 / 0.12) 1px, transparent 1px),
-    linear-gradient(oklch(22% 0.04 255 / 0.08) 1px, transparent 1px);
+  background: transparent;
   background-size: 48px 48px;
   mask-image: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 70%);
 }
@@ -87,9 +85,9 @@ const tabs = [
   align-items: center;
   gap: 24px;
   padding: 14px 20px;
-  background: var(--fc-surface);
-  border: 1px solid var(--fc-line);
-  border-radius: 12px;
+  background: transparent;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   margin-bottom: 12px;
 }
 
@@ -99,18 +97,18 @@ const tabs = [
 
 .fc-shell__system {
   display: block;
-  color: var(--fc-blue);
+  color: var(--xt-text);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .fc-shell h1 {
   margin: 2px 0 0;
-  color: var(--fc-text);
+  color: var(--xt-text);
   font-size: 20px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
@@ -118,9 +116,9 @@ const tabs = [
   display: flex;
   gap: 2px;
   padding: 3px;
-  background: oklch(16% 0.018 252);
-  border: 1px solid var(--fc-line);
-  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
 }
 
 .fc-shell__tabs a {
@@ -128,10 +126,10 @@ const tabs = [
   display: inline-flex;
   align-items: center;
   padding: 0 14px;
-  border-radius: 6px;
-  color: var(--fc-text-dim);
+  border-radius: 4px;
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
   transition:
@@ -147,15 +145,15 @@ const tabs = [
 
 @media (hover: hover) {
   .fc-shell__tabs a:not(.is-active):hover {
-    color: var(--fc-text);
-    background: oklch(24% 0.03 255);
+    color: var(--xt-text);
+    background: transparent;
   }
 }
 
 .fc-shell__tabs a.is-active {
-  background: var(--fc-blue);
-  color: oklch(100% 0 0);
-  box-shadow: 0 0 12px oklch(62% 0.18 255 / 0.4);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .fc-shell__sync {
@@ -164,8 +162,8 @@ const tabs = [
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  font-weight: 700;
-  color: var(--fc-text-dim);
+  font-weight: 600;
+  color: var(--xt-text);
 }
 
 .fc-shell__sync span,
@@ -174,18 +172,18 @@ const tabs = [
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
-  border: 1px solid var(--fc-line);
-  border-radius: 5px;
-  background: oklch(16% 0.015 252);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
-.fc-shell__sync strong.is-fresh { color: var(--fc-green); }
-.fc-shell__sync strong.is-stale { color: var(--fc-amber); }
+.fc-shell__sync strong.is-fresh { color: var(--xt-text); }
+.fc-shell__sync strong.is-stale { color: var(--xt-warning); }
 .fc-shell__sync strong.is-unconfigured,
-.fc-shell__sync strong.is-idle { color: var(--fc-text-dim); }
+.fc-shell__sync strong.is-idle { color: var(--xt-text); }
 .fc-shell__sync strong.is-migration_missing,
 .fc-shell__sync strong.is-failed,
-.fc-shell__sync strong.is-offline_or_blocked { color: var(--fc-red); }
+.fc-shell__sync strong.is-offline_or_blocked { color: var(--xt-text); }
 
 .fc-shell__body {
   position: relative;

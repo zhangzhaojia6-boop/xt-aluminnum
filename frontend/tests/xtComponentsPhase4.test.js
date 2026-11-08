@@ -121,7 +121,7 @@ test('XtErrorPanel displays error message with retry button', () => {
 
 test('XtErrorPanel has danger styling', () => {
   const src = source('../src/components/xt/XtErrorPanel.vue')
-  assert.match(src, /xt-bg-danger/)
+  assert.match(src, /--xt-danger/)
   assert.match(src, /xt-border-danger/)
 })
 

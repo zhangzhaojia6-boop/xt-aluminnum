@@ -57,7 +57,7 @@ const icon = computed(() => {
   gap: var(--xt-space-3);
   padding: var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
 }
 
@@ -66,14 +66,14 @@ const icon = computed(() => {
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-primary-light);
   color: var(--xt-primary);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-ai-action-card.is-running .xt-ai-action-card__icon {
-  animation: xt-execution-pulse 1.8s var(--xt-ease) infinite;
+
 }
 
 .xt-ai-action-card.is-done .xt-ai-action-card__icon {
@@ -112,11 +112,11 @@ const icon = computed(() => {
   min-height: 32px;
   padding: 0 var(--xt-space-3);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
     border-color var(--xt-motion-fast) var(--xt-ease),

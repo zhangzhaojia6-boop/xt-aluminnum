@@ -93,9 +93,9 @@ const resolvedAlerts = computed(() => props.alerts || [])
   padding: var(--xt-space-4);
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-2xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-md);
+
 }
 
 .xt-factory-map--compact {
@@ -107,11 +107,8 @@ const resolvedAlerts = computed(() => props.alerts || [])
   min-height: 270px;
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
-  background:
-    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
-    linear-gradient(rgba(15, 23, 42, 0.028) 1px, transparent 1px),
-    var(--xt-bg-panel-soft);
+  border-radius: 4px;
+  background: transparent;
   background-size: 28px 28px;
 }
 
@@ -121,8 +118,8 @@ const resolvedAlerts = computed(() => props.alerts || [])
   left: 8%;
   height: 18px;
   border-radius: var(--xt-radius-pill);
-  background: rgba(11, 99, 246, 0.10);
-  box-shadow: inset 0 0 0 1px rgba(11, 99, 246, 0.08);
+  background: transparent;
+
 }
 
 .xt-factory-map__rail--top {
@@ -147,10 +144,10 @@ const resolvedAlerts = computed(() => props.alerts || [])
   gap: 4px;
   padding: 8px;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   color: var(--xt-text);
-  box-shadow: var(--xt-shadow-sm);
+
   transform: translate(-50%, -50%);
   transition:
     border-color var(--xt-motion-fast) var(--xt-ease),
@@ -164,8 +161,8 @@ const resolvedAlerts = computed(() => props.alerts || [])
 
 @media (hover: hover) {
   .xt-factory-map__node:hover {
-    border-color: rgba(11, 99, 246, 0.24);
-    box-shadow: var(--xt-shadow-md);
+    border-color: var(--xt-border);
+
   }
 }
 
@@ -174,10 +171,10 @@ const resolvedAlerts = computed(() => props.alerts || [])
   height: 32px;
   display: grid;
   place-items: center;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-primary-soft);
   color: var(--xt-primary);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-factory-map__node strong {
@@ -197,8 +194,8 @@ const resolvedAlerts = computed(() => props.alerts || [])
 }
 
 .xt-factory-map__node.is-active {
-  border-color: rgba(11, 99, 246, 0.34);
-  box-shadow: var(--xt-shadow-command);
+  border-color: var(--xt-border);
+
 }
 
 .xt-factory-map__footer {
@@ -216,11 +213,11 @@ const resolvedAlerts = computed(() => props.alerts || [])
   gap: var(--xt-space-2);
   padding: var(--xt-space-2) var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-factory-map__line strong,
@@ -235,12 +232,12 @@ const resolvedAlerts = computed(() => props.alerts || [])
 }
 
 .xt-factory-map__alert.is-danger {
-  border-color: rgba(194, 65, 52, 0.18);
+  border-color: var(--xt-border);
   background: var(--xt-danger-light);
 }
 
 .xt-factory-map__alert.is-warning {
-  border-color: rgba(183, 121, 31, 0.18);
+  border-color: var(--xt-border);
   background: var(--xt-warning-light);
 }
 

@@ -140,9 +140,9 @@ async function toggleWatch(watch) {
   border-radius: var(--xt-radius-pill);
   background: var(--xt-bg-panel-soft);
   color: var(--xt-primary);
-  font-family: var(--xt-font-number);
+
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -151,9 +151,9 @@ async function toggleWatch(watch) {
   grid-template-columns: minmax(92px, 0.7fr) minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 8px;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
-  box-shadow: inset 0 0 0 1px rgba(43, 93, 178, 0.1);
+
 }
 
 .ai-watchlist__form label {
@@ -165,7 +165,7 @@ async function toggleWatch(watch) {
 .ai-watchlist__form label span {
   color: var(--xt-text-muted);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .ai-watchlist__form input,
@@ -173,19 +173,19 @@ async function toggleWatch(watch) {
   min-width: 0;
   min-height: 36px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #fff;
   color: var(--xt-text);
   font: inherit;
   font-size: 13px;
   outline: none;
   padding: 0 9px;
-  box-shadow: inset 0 0 0 1px rgba(43, 93, 178, 0.13);
+
 }
 
 .ai-watchlist__form input:focus,
 .ai-watchlist__form select:focus {
-  box-shadow: var(--app-focus-ring);
+
 }
 
 .ai-watchlist__form button {
@@ -193,10 +193,10 @@ async function toggleWatch(watch) {
   min-height: 36px;
   padding: 0 12px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--xt-primary);
   color: #fff;
-  font-weight: 850;
+  font-weight: 600;
   cursor: pointer;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
@@ -212,11 +212,9 @@ async function toggleWatch(watch) {
   gap: 10px;
   min-height: 58px;
   padding: 9px 10px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: #fff;
-  box-shadow:
-    inset 0 0 0 1px rgba(43, 93, 178, 0.1),
-    0 6px 18px rgba(25, 62, 118, 0.06);
+
 }
 
 .ai-watchlist__item.is-off {
@@ -250,14 +248,14 @@ async function toggleWatch(watch) {
   color: var(--xt-text-muted);
   font-size: 12px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .ai-watchlist__state {
   min-height: 64px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-muted);
   font-size: 13px;

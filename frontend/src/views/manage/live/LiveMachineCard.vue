@@ -53,14 +53,12 @@ const inputText = computed(() => formatNumber(props.machine.input, 2))
   overflow: hidden;
   text-align: left;
   color: inherit;
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(5, 25, 48, 0.9), rgba(1, 12, 24, 0.94)),
-    radial-gradient(circle at 30% 0%, rgba(0, 242, 255, 0.12), transparent 44%);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
   padding: 12px;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
   transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
@@ -87,8 +85,8 @@ const inputText = computed(() => formatNumber(props.machine.input, 2))
 
 .live-machine-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 242, 255, 0.52);
-  box-shadow: 0 8px 18px rgba(0, 29, 68, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: var(--xt-border);
+
 }
 
 .live-machine-card__status,
@@ -106,7 +104,7 @@ const inputText = computed(() => formatNumber(props.machine.input, 2))
   gap: 6px;
   color: currentcolor;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .live-machine-card__status i {
@@ -114,13 +112,13 @@ const inputText = computed(() => formatNumber(props.machine.input, 2))
   height: 7px;
   border-radius: 50%;
   background: currentcolor;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentcolor 18%, transparent);
+
 }
 
 .live-machine-card strong {
   display: block;
   margin-top: 9px;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font-size: 17px;
   line-height: 1.16;
 }
@@ -128,7 +126,7 @@ const inputText = computed(() => formatNumber(props.machine.input, 2))
 .live-machine-card em {
   display: block;
   margin-top: 4px;
-  color: rgba(185, 223, 235, 0.62);
+  color: var(--xt-text-secondary);
   font-style: normal;
   font-size: 12px;
 }
@@ -138,20 +136,20 @@ const inputText = computed(() => formatNumber(props.machine.input, 2))
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 14px 0 11px;
-  color: rgba(225, 253, 255, 0.86);
+  color: var(--xt-text);
 }
 
 .live-machine-card__metrics span {
   min-width: 0;
-  border: 1px solid rgba(0, 242, 255, 0.1);
-  border-radius: 8px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 7px;
-  background: rgba(0, 242, 255, 0.04);
+  background: transparent;
 }
 
 .live-machine-card__metrics em {
   display: block;
-  color: rgba(185, 223, 235, 0.58);
+  color: var(--xt-text-secondary);
   font-style: normal;
   font-size: 12px;
 }
@@ -160,7 +158,7 @@ const inputText = computed(() => formatNumber(props.machine.input, 2))
   display: block;
   overflow: hidden;
   margin-top: 4px;
-  color: #e1fdff;
+  color: var(--xt-text);
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: 13px;
   text-overflow: ellipsis;
@@ -170,38 +168,38 @@ const inputText = computed(() => formatNumber(props.machine.input, 2))
 .live-machine-card__shifts {
   display: grid;
   gap: 5px;
-  color: rgba(185, 223, 235, 0.72);
+  color: var(--xt-text);
   font-size: 12px;
 }
 
 .live-machine-card__shifts span {
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.1);
-  border-radius: 6px;
-  background: rgba(0, 242, 255, 0.05);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
   padding: 4px 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .live-machine-card.is-success {
-  color: #00f2ff;
-  border-color: rgba(0, 242, 255, 0.28);
+  color: var(--xt-primary);
+  border-color: var(--xt-border);
 }
 
 .live-machine-card.is-warning {
-  color: #ffab00;
-  border-color: rgba(255, 171, 0, 0.34);
+  color: var(--xt-warning);
+  border-color: var(--xt-border);
 }
 
 .live-machine-card.is-danger {
-  color: #ff5d4d;
-  border-color: rgba(255, 93, 77, 0.42);
+  color: var(--xt-text);
+  border-color: var(--xt-border);
 }
 
 .live-machine-card.is-pending,
 .live-machine-card.is-muted {
-  color: #7aa2bd;
+  color: var(--xt-text);
 }
 
 @media (prefers-reduced-motion: reduce) {

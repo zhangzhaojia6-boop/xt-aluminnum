@@ -79,22 +79,18 @@ defineEmits(['select'])
 .live-machine-matrix {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.17);
-  border-radius: 18px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 16px;
-  background:
-    linear-gradient(180deg, rgba(10, 35, 62, 0.78), rgba(4, 17, 33, 0.9)),
-    radial-gradient(circle at 50% -10%, rgba(0, 242, 255, 0.16), transparent 42%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: transparent;
+
 }
 
 .live-machine-matrix::before {
   position: absolute;
   inset: 0;
   opacity: 0.24;
-  background:
-    linear-gradient(rgba(0, 242, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.06) 1px, transparent 1px);
+  background: transparent;
   background-size: 28px 28px;
   content: "";
   pointer-events: none;
@@ -118,16 +114,16 @@ defineEmits(['select'])
 }
 
 .live-section-head span {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.14em;
 }
 
 .live-section-head strong {
   display: block;
   margin-top: 3px;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font-size: 19px;
 }
 
@@ -138,7 +134,7 @@ defineEmits(['select'])
 }
 
 .live-machine-matrix__tools em {
-  color: #ffab00;
+  color: var(--xt-warning);
   font-style: normal;
   font-size: 12px;
 }
@@ -154,11 +150,11 @@ defineEmits(['select'])
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  border: 1px solid rgba(0, 242, 255, 0.14);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
   padding: 3px 8px;
-  background: rgba(2, 16, 31, 0.72);
-  color: rgba(185, 223, 235, 0.72);
+  background: transparent;
+  color: var(--xt-text);
   font-size: 11px;
   letter-spacing: 0;
 }
@@ -168,13 +164,13 @@ defineEmits(['select'])
   height: 6px;
   border-radius: 50%;
   background: currentcolor;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentcolor 16%, transparent);
+
   content: "";
 }
 
-.live-machine-matrix__legend .is-success { color: #00f2ff; }
-.live-machine-matrix__legend .is-warning { color: #ffab00; }
-.live-machine-matrix__legend .is-danger { color: #ff5d4d; }
+.live-machine-matrix__legend .is-success { color: var(--xt-primary); }
+.live-machine-matrix__legend .is-warning { color: var(--xt-warning); }
+.live-machine-matrix__legend .is-danger { color: var(--xt-text); }
 
 .live-machine-matrix__workshops {
   display: grid;
@@ -182,12 +178,10 @@ defineEmits(['select'])
 }
 
 .live-machine-workshop {
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 14px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 12px;
-  background:
-    linear-gradient(180deg, rgba(6, 27, 50, 0.84), rgba(3, 15, 28, 0.84)),
-    radial-gradient(circle at 0% 0%, rgba(0, 242, 255, 0.12), transparent 40%);
+  background: transparent;
 }
 
 .live-machine-workshop__head {
@@ -195,7 +189,7 @@ defineEmits(['select'])
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 10px;
-  color: rgba(225, 253, 255, 0.9);
+  color: var(--xt-text);
 }
 
 .live-machine-workshop__head strong {
@@ -210,7 +204,7 @@ defineEmits(['select'])
 }
 
 .live-machine-workshop__totals span {
-  color: #74f5ff;
+  color: var(--xt-text);
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -229,12 +223,12 @@ defineEmits(['select'])
   gap: 8px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid rgba(0, 242, 255, 0.14);
+  border-top: 1px solid var(--xt-border);
 }
 
 .live-machine-matrix__pending > strong {
   grid-column: 1 / -1;
-  color: #ffab00;
+  color: var(--xt-warning);
 }
 
 .live-machine-matrix__pending button {
@@ -242,9 +236,9 @@ defineEmits(['select'])
   gap: 4px;
   text-align: left;
   color: inherit;
-  border: 1px solid rgba(255, 171, 0, 0.24);
-  border-radius: 10px;
-  background: rgba(25, 20, 7, 0.42);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
   padding: 11px;
   cursor: pointer;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -252,13 +246,13 @@ defineEmits(['select'])
 
 .live-machine-matrix__pending button:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 171, 0, 0.54);
-  box-shadow: 0 8px 18px rgba(0, 29, 68, 0.16);
+  border-color: var(--xt-border);
+
 }
 
 .live-machine-matrix__pending b,
 .live-machine-matrix__pending em {
-  color: rgba(225, 253, 255, 0.9);
+  color: var(--xt-text);
   font-style: normal;
 }
 
@@ -268,7 +262,7 @@ defineEmits(['select'])
 }
 
 .live-machine-matrix__pending span {
-  color: rgba(185, 223, 235, 0.62);
+  color: var(--xt-text-secondary);
   font-size: 12px;
 }
 
@@ -280,15 +274,15 @@ defineEmits(['select'])
 
 .live-machine-matrix__skeleton i {
   height: 128px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, rgba(0, 242, 255, 0.06), rgba(0, 242, 255, 0.18), rgba(0, 242, 255, 0.06));
+  border-radius: 4px;
+  background: transparent;
 }
 
 .live-machine-matrix__empty {
   display: grid;
   min-height: 220px;
   place-items: center;
-  color: rgba(185, 223, 235, 0.7);
+  color: var(--xt-text-secondary);
 }
 
 @media (max-width: 720px) {

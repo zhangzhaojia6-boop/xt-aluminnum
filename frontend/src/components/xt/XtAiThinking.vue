@@ -64,9 +64,9 @@ const title = computed(() => {
   gap: var(--xt-space-3);
   padding: var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-ai-thinking.is-error {
@@ -83,8 +83,8 @@ const title = computed(() => {
   gap: 3px;
   align-items: end;
   padding: 9px;
-  border-radius: var(--xt-radius-xl);
-  background: var(--xt-bg-ink);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-ai-thinking__orb span {
@@ -92,11 +92,11 @@ const title = computed(() => {
   min-height: 10px;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  animation: xt-thinking-rise 1.35s var(--xt-ease) infinite;
+
 }
 
 .xt-ai-thinking__orb span:nth-child(2) {
-  background: var(--xt-accent);
+  background: transparent;
   animation-delay: 120ms;
 }
 
@@ -130,7 +130,7 @@ const title = computed(() => {
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
     color var(--xt-motion-fast) var(--xt-ease),

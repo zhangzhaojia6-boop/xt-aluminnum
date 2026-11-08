@@ -173,7 +173,7 @@ onMounted(load)
   max-width: 1280px;
   margin: 0 auto;
   padding: var(--xt-space-6);
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   --qr-accent: #00f2ff;
   --qr-line: rgba(0, 242, 255, 0.16);
   --qr-line-strong: rgba(0, 242, 255, 0.38);
@@ -186,11 +186,8 @@ onMounted(load)
   inset: -22px 0 auto;
   z-index: -1;
   height: 280px;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 18% 10%, rgba(0, 242, 255, 0.18), transparent 30%),
-    radial-gradient(circle at 90% 0%, rgba(0, 118, 255, 0.16), transparent 28%),
-    linear-gradient(180deg, rgba(4, 31, 60, 0.72), transparent);
+  border-radius: 4px;
+  background: transparent;
   content: "";
   pointer-events: none;
 }
@@ -204,43 +201,39 @@ onMounted(load)
   overflow: hidden;
   min-height: 156px;
   padding: 22px;
-  border: 1px solid var(--qr-line);
-  border-radius: 16px;
-  background:
-    linear-gradient(135deg, rgba(7, 29, 51, 0.94), rgba(2, 12, 25, 0.96)),
-    repeating-linear-gradient(90deg, rgba(0, 242, 255, 0.08) 0 1px, transparent 1px 44px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 22px 52px rgba(0, 18, 42, 0.22);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .qr-print-hero::after {
   position: absolute;
   inset: auto 0 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.8), transparent);
-  animation: qrScanline 4.8s linear infinite;
+  background: transparent;
+
   content: "";
 }
 
 .qr-print-hero__copy span,
 .qr-print-stat span,
 .qr-print-group__head span {
-  color: rgba(116, 245, 255, 0.78);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .qr-print-hero__copy h1 {
   margin: 8px 0 0;
-  color: rgba(225, 253, 255, 0.96);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: clamp(30px, 4vw, 48px);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.035em;
-  text-shadow: 0 0 26px rgba(0, 242, 255, 0.18);
+
 }
 
 .qr-print-hero__actions {
@@ -253,21 +246,19 @@ onMounted(load)
   width: 12px;
   height: 12px;
   border-radius: 999px;
-  background: var(--qr-accent);
-  box-shadow: 0 0 0 6px rgba(0, 242, 255, 0.12), 0 0 22px rgba(0, 242, 255, 0.55);
-  animation: qrPulse 1.8s ease-out infinite;
+  background: transparent;
+
+
 }
 
 .qr-print-hero__button {
   min-height: 42px;
   border: 0;
-  border-radius: 9px;
-  background:
-    linear-gradient(180deg, rgba(116, 245, 255, 1), rgba(0, 185, 214, 0.92)),
-    var(--qr-accent);
-  color: #00252b;
-  font-weight: 900;
-  box-shadow: 0 0 24px rgba(0, 242, 255, 0.24);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
+
 }
 
 .qr-print-stats {
@@ -283,12 +274,10 @@ onMounted(load)
   align-content: space-between;
   overflow: hidden;
   padding: 16px;
-  border: 1px solid var(--qr-line);
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(10, 38, 66, 0.84), rgba(3, 14, 27, 0.92)),
-    radial-gradient(circle at 100% 0%, rgba(0, 242, 255, 0.12), transparent 34%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .qr-print-stat::after {
@@ -296,23 +285,23 @@ onMounted(load)
   inset: auto 14px 10px;
   height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(0, 242, 255, 0.82), transparent);
+  background: transparent;
   content: "";
 }
 
 .qr-print-stat strong {
-  color: rgba(225, 253, 255, 0.96);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: clamp(26px, 3vw, 38px);
   line-height: 1;
 }
 
 .qr-print-stat.is-success::after {
-  background: linear-gradient(90deg, rgba(78, 203, 138, 0.9), transparent);
+  background: transparent;
 }
 
 .qr-print-stat.is-warning::after {
-  background: linear-gradient(90deg, rgba(255, 171, 0, 0.9), transparent);
+  background: transparent;
 }
 
 .qr-print-loading,
@@ -321,10 +310,10 @@ onMounted(load)
   display: grid;
   place-items: center;
   gap: 12px;
-  border: 1px solid var(--qr-line);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(7, 29, 51, 0.82), rgba(2, 12, 25, 0.9));
-  color: var(--qr-muted);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text-secondary);
 }
 
 .qr-print-loading {
@@ -334,10 +323,10 @@ onMounted(load)
 .qr-print-loading span {
   width: 38px;
   height: 38px;
-  border: 2px solid rgba(0, 242, 255, 0.18);
-  border-top-color: var(--qr-accent);
+  border: 2px solid var(--xt-border);
+  border-top-color: var(--xt-border);
   border-radius: 999px;
-  animation: qrSpin 0.9s linear infinite;
+
 }
 
 .qr-print-groups {
@@ -349,14 +338,10 @@ onMounted(load)
   position: relative;
   overflow: hidden;
   padding: 16px;
-  border: 1px solid var(--qr-line);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(7, 29, 51, 0.86), rgba(2, 12, 25, 0.94)),
-    var(--qr-panel);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 44px rgba(0, 18, 42, 0.2);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
   animation: qrCardEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -366,13 +351,13 @@ onMounted(load)
   justify-content: space-between;
   gap: 16px;
   padding: 2px 2px 14px;
-  border-bottom: 1px solid rgba(0, 242, 255, 0.12);
+  border-bottom: 1px solid var(--xt-border);
 }
 
 .qr-print-group h2 {
   margin: 0;
-  color: rgba(225, 253, 255, 0.96);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: 22px;
   letter-spacing: -0.02em;
 }
@@ -389,19 +374,17 @@ onMounted(load)
   gap: 10px;
   min-width: 0;
   padding: 14px;
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 13px;
-  background:
-    linear-gradient(180deg, rgba(10, 38, 66, 0.74), rgba(2, 12, 25, 0.9)),
-    rgba(2, 12, 25, 0.82);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
   text-align: center;
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .qr-print-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 242, 255, 0.34);
-  box-shadow: 0 0 24px rgba(0, 242, 255, 0.12);
+  border-color: var(--xt-border);
+
 }
 
 .qr-print-card__qr {
@@ -410,9 +393,9 @@ onMounted(load)
   width: 172px;
   height: 172px;
   margin: 0 auto;
-  border-radius: 10px;
+  border-radius: 4px;
   background: #fff;
-  box-shadow: inset 0 0 0 1px rgba(2, 12, 25, 0.08), 0 0 20px rgba(0, 242, 255, 0.14);
+
 }
 
 .qr-print-card__img {
@@ -422,9 +405,9 @@ onMounted(load)
 
 .qr-print-card strong {
   overflow: hidden;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -432,11 +415,11 @@ onMounted(load)
 .qr-print-card code {
   font-family: var(--xt-font-mono);
   font-size: 13px;
-  color: #74f5ff;
+  color: var(--xt-text);
 }
 
 .qr-print-card__url {
-  color: var(--qr-muted);
+  color: var(--xt-text-secondary);
   font-size: 12px;
   line-height: 1.45;
   word-break: break-all;
@@ -449,8 +432,8 @@ onMounted(load)
 }
 
 @keyframes qrPulse {
-  0% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0.28), 0 0 22px rgba(0, 242, 255, 0.55); }
-  100% { box-shadow: 0 0 0 14px rgba(0, 242, 255, 0), 0 0 22px rgba(0, 242, 255, 0.55); }
+  0% {  }
+  100% {  }
 }
 
 @keyframes qrSpin {
@@ -475,7 +458,7 @@ onMounted(load)
 
   .qr-print-hero,
   .qr-print-group {
-    border-radius: 14px;
+    border-radius: 4px;
   }
 
   .qr-print-hero {
@@ -515,7 +498,7 @@ onMounted(load)
     display: block;
     max-width: none;
     padding: 0;
-    color: #000;
+    color: var(--xt-text);
     background: #fff;
   }
 
@@ -530,10 +513,10 @@ onMounted(load)
   .qr-print-hero,
   .qr-print-group {
     border: 0;
-    border-radius: 0;
+    border-radius: 4px;
     padding: 0;
     background: #fff;
-    box-shadow: none;
+
   }
 
   .qr-print-hero::after {
@@ -541,7 +524,7 @@ onMounted(load)
   }
 
   .qr-print-hero__copy span {
-    color: #000;
+    color: var(--xt-text);
   }
 
   .qr-print-hero__copy h1,
@@ -549,8 +532,8 @@ onMounted(load)
   .qr-print-card strong,
   .qr-print-card code,
   .qr-print-card__url {
-    color: #000;
-    text-shadow: none;
+    color: var(--xt-text);
+
   }
 
   .qr-print-groups {
@@ -563,12 +546,12 @@ onMounted(load)
   }
 
   .qr-print-group__head {
-    border-bottom: 1px solid #000;
+    border-bottom: 1px solid var(--xt-border);
     padding-bottom: 6px;
   }
 
   .qr-print-group__head span {
-    color: #000;
+    color: var(--xt-text);
   }
 
   .qr-print-grid {
@@ -579,17 +562,17 @@ onMounted(load)
 
   .qr-print-card {
     break-inside: avoid;
-    border: 1px solid #000;
-    border-radius: 0;
+    border: 1px solid var(--xt-border);
+    border-radius: 4px;
     padding: 10px;
     background: #fff;
-    box-shadow: none;
+
   }
 
   .qr-print-card__qr {
     width: 150px;
     height: 150px;
-    box-shadow: none;
+
   }
 
   .qr-print-card__img {

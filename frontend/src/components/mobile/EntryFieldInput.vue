@@ -203,7 +203,7 @@ watch(() => [props.field.type, props.field.options_source, props.field.options],
 
 .mobile-spec-sep {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--xt-text-muted);
   flex-shrink: 0;
 }
@@ -217,7 +217,7 @@ watch(() => [props.field.type, props.field.options_source, props.field.options],
   border-radius: 4px;
   min-height: 32px;
   color: var(--xt-text-secondary);
-  font-weight: 700;
+  font-weight: 600;
   pointer-events: none;
 }
 </style>

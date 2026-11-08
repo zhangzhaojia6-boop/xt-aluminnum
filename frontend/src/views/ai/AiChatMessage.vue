@@ -126,7 +126,7 @@ function formatToolCall(toolCall) {
 .ai-message__meta {
   color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ai-message--user .ai-message__meta {
@@ -135,16 +135,16 @@ function formatToolCall(toolCall) {
 
 .ai-message__bubble {
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
   padding: 12px 14px;
 }
 
 .ai-message--user .ai-message__bubble {
   border-color: var(--xt-primary-border);
-  background: var(--app-accent);
-  color: var(--xt-text-inverse);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .ai-message__content {
@@ -174,7 +174,7 @@ function formatToolCall(toolCall) {
   gap: 10px;
   padding: 10px;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
 }
 
@@ -194,7 +194,7 @@ function formatToolCall(toolCall) {
 .ai-message__tool-row strong {
   color: var(--xt-text);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .ai-message__tool-row small {
@@ -206,32 +206,32 @@ function formatToolCall(toolCall) {
   color: var(--xt-text-muted);
   font-size: 12px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .ai-message__tool-dot {
   width: 10px;
   height: 10px;
   border-radius: var(--xt-radius-pill);
-  background: var(--xt-success);
+  background: transparent;
 }
 
 .ai-message__tool-row.is-pending .ai-message__tool-dot {
-  background: var(--xt-warning);
+  background: transparent;
 }
 
 .ai-message__tool-row.is-running .ai-message__tool-dot {
   background: var(--xt-primary);
-  animation: xt-execution-pulse 1.8s var(--xt-ease) infinite;
+
 }
 
 .ai-message__tool-row.is-error .ai-message__tool-dot {
-  background: var(--xt-danger);
+  background: transparent;
 }
 
 .ai-message__tool {
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
   padding: 8px 10px;
 }
@@ -243,7 +243,7 @@ function formatToolCall(toolCall) {
   gap: 12px;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ai-message__tool-status {

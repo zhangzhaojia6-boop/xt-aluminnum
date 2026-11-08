@@ -50,7 +50,7 @@ const timeLabel = computed(() => {
 .xt-event-card:hover { background: var(--xt-bg-panel-soft); }
 .xt-event-card:active { transform: scale(0.995); }
 .xt-event-card.is-fallback {
-  background: color-mix(in srgb, var(--xt-color-warning) 8%, var(--xt-bg-panel));
+  background: transparent;
 }
 .xt-event-card__time { color: var(--xt-text-muted); font-variant-numeric: tabular-nums; font-size: var(--xt-text-sm); }
 .xt-event-card__pill {
@@ -58,11 +58,11 @@ const timeLabel = computed(() => {
   padding: 1px var(--xt-space-2);
   border-radius: var(--xt-radius-pill);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
-.pill-production { color: var(--xt-color-warning); background: color-mix(in srgb, var(--xt-color-warning) 12%, transparent); }
-.pill-quality { color: var(--xt-color-danger); background: color-mix(in srgb, var(--xt-color-danger) 12%, transparent); }
-.pill-reconciliation { color: var(--xt-color-accent); background: color-mix(in srgb, var(--xt-color-accent) 12%, transparent); }
+.pill-production { color: var(--xt-warning); background: transparent; }
+.pill-quality { color: var(--xt-danger); background: transparent; }
+.pill-reconciliation { color: var(--xt-text); background: transparent; }
 .pill-reporting { color: var(--xt-text-muted); background: var(--xt-bg-panel-soft); }
 .xt-event-card__summary {
   color: var(--xt-text);
@@ -79,17 +79,17 @@ const timeLabel = computed(() => {
 .xt-event-card__summary b {
   color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 850;
+  font-weight: 600;
 }
 .xt-event-card__summary small {
   margin-top: 2px;
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
-  font-weight: 650;
+  font-weight: 600;
 }
 .xt-event-card__arrow { color: var(--xt-text-muted); font-size: var(--xt-text-md); }
 .pill-energy,
-.pill-mes { color: var(--xt-color-warning); background: color-mix(in srgb, var(--xt-color-warning) 12%, transparent); }
+.pill-mes { color: var(--xt-warning); background: transparent; }
 @media (max-width: 720px) {
   .xt-event-card { grid-template-columns: 50px 56px 1fr 24px; min-height: 64px; }
 }

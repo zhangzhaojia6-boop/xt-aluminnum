@@ -238,7 +238,7 @@ onMounted(loadMesReadiness)
   gap: var(--xt-space-4);
   min-height: calc(100vh - var(--xt-topbar-height) - var(--xt-space-10));
   overflow-x: hidden;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
 }
 
 .xt-system-settings__backdrop {
@@ -246,10 +246,7 @@ onMounted(loadMesReadiness)
   inset: -24px 0;
   z-index: -1;
   opacity: 0.72;
-  background:
-    linear-gradient(rgba(0, 242, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.04) 1px, transparent 1px),
-    radial-gradient(circle at 78% 12%, rgba(0, 242, 255, 0.16), transparent 28%);
+  background: transparent;
   background-size: 36px 36px, 36px 36px, 100% 100%;
   pointer-events: none;
 }
@@ -268,13 +265,9 @@ onMounted(loadMesReadiness)
 .xt-system-settings__status,
 .xt-system-settings__gauge,
 .xt-system-settings__mes {
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  background:
-    linear-gradient(180deg, rgba(18, 44, 70, 0.54), rgba(4, 14, 26, 0.72)),
-    rgba(4, 18, 32, 0.66);
-  box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.05),
-    0 12px 28px rgba(0, 12, 28, 0.18);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
 }
 
 .xt-system-settings__main {
@@ -282,7 +275,7 @@ onMounted(loadMesReadiness)
   gap: var(--xt-space-4);
   padding: var(--xt-space-4);
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 4px;
 }
 
 .xt-system-settings__header {
@@ -294,14 +287,10 @@ onMounted(loadMesReadiness)
   min-height: 108px;
   padding: var(--xt-space-4);
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.2);
-  border-radius: 12px;
-  background:
-    linear-gradient(135deg, rgba(0, 132, 255, 0.16), rgba(3, 18, 34, 0.38) 56%, rgba(0, 242, 255, 0.08)),
-    rgba(4, 18, 32, 0.46);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 12px 26px rgba(0, 12, 28, 0.16);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-system-settings__header::after,
@@ -311,33 +300,33 @@ onMounted(loadMesReadiness)
   bottom: 0;
   left: var(--xt-space-4);
   height: 1px;
-  background: linear-gradient(180deg, transparent, rgba(0, 242, 255, 0.1), transparent);
+  background: transparent;
   content: "";
   pointer-events: none;
 }
 
 .xt-system-settings__header span {
-  color: rgba(116, 245, 255, 0.86);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .xt-system-settings__header h1 {
   margin: 0;
-  color: rgba(225, 253, 255, 0.98);
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: clamp(32px, 4vw, 52px);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 .xt-system-settings__header strong {
   padding: var(--xt-space-2) var(--xt-space-3);
-  border: 1px solid rgba(0, 242, 255, 0.3);
-  border-radius: 8px;
-  background: rgba(0, 242, 255, 0.09);
-  color: rgba(116, 245, 255, 0.92);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
   letter-spacing: 0.06em;
@@ -355,11 +344,11 @@ onMounted(loadMesReadiness)
 
 .xt-system-settings__group-label {
   padding-left: var(--xt-space-2);
-  border-left: 1px solid rgba(0, 242, 255, 0.42);
-  color: rgba(204, 220, 249, 0.76);
+  border-left: 1px solid var(--xt-border);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
@@ -378,8 +367,8 @@ onMounted(loadMesReadiness)
   gap: var(--xt-space-3);
   padding: var(--xt-space-4);
   overflow: hidden;
-  border-radius: 12px;
-  color: rgba(225, 253, 255, 0.92);
+  border-radius: 4px;
+  color: var(--xt-text);
   text-decoration: none;
   transition:
     border-color var(--xt-motion-fast) var(--xt-ease),
@@ -391,7 +380,7 @@ onMounted(loadMesReadiness)
 .xt-system-settings__scan {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent, rgba(0, 242, 255, 0.13), transparent);
+  background: transparent;
   transform: translateY(-110%);
   transition: transform 560ms var(--xt-ease);
   pointer-events: none;
@@ -403,11 +392,11 @@ onMounted(loadMesReadiness)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(0, 242, 255, 0.22);
-  border-radius: 10px;
-  background: rgba(8, 31, 52, 0.7);
-  color: rgba(116, 245, 255, 0.92);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+
   transition: box-shadow var(--xt-motion-fast) var(--xt-ease);
 }
 
@@ -418,39 +407,37 @@ onMounted(loadMesReadiness)
 
 .xt-system-settings__copy > span {
   font-size: var(--xt-text-xl);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-system-settings__copy small {
   width: fit-content;
   padding: 3px var(--xt-space-2);
-  border: 1px solid rgba(132, 148, 149, 0.28);
-  border-radius: 6px;
-  background: rgba(49, 53, 60, 0.34);
-  color: rgba(185, 202, 203, 0.78);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-system-settings__card.is-ready .xt-system-settings__copy small {
-  border-color: rgba(0, 242, 255, 0.26);
-  background: rgba(0, 242, 255, 0.1);
-  color: rgba(116, 245, 255, 0.9);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-system-settings__card.is-warning .xt-system-settings__copy small {
-  border-color: rgba(255, 171, 0, 0.32);
-  background: rgba(255, 171, 0, 0.11);
-  color: rgba(255, 214, 128, 0.92);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 @media (hover: hover) {
   .xt-system-settings__card:hover {
-    border-color: rgba(0, 242, 255, 0.46);
-    color: rgba(225, 253, 255, 1);
-    box-shadow:
-      inset 1px 1px 0 rgba(255, 255, 255, 0.06),
-      0 8px 18px rgba(0, 12, 28, 0.18);
+    border-color: var(--xt-border);
+    color: var(--xt-text);
+
     transform: translateY(-2px);
   }
 
@@ -459,7 +446,7 @@ onMounted(loadMesReadiness)
   }
 
   .xt-system-settings__card:hover .xt-system-settings__icon {
-    box-shadow: inset 0 0 0 1px rgba(0, 242, 255, 0.28);
+
   }
 }
 
@@ -468,12 +455,12 @@ onMounted(loadMesReadiness)
   align-content: start;
   gap: var(--xt-space-4);
   padding: var(--xt-space-4);
-  border-radius: 14px;
+  border-radius: 4px;
 }
 
 .xt-system-settings__gauge,
 .xt-system-settings__status {
-  border-radius: 12px;
+  border-radius: 4px;
   padding: var(--xt-space-4);
 }
 
@@ -487,9 +474,9 @@ onMounted(loadMesReadiness)
 .xt-system-settings__status h2 {
   width: 100%;
   margin: 0;
-  color: rgba(225, 253, 255, 0.9);
+  color: var(--xt-text);
   font-size: var(--xt-text-base);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-system-settings__ring {
@@ -500,25 +487,21 @@ onMounted(loadMesReadiness)
   align-content: center;
   gap: var(--xt-space-1);
   border-radius: 50%;
-  background:
-    radial-gradient(circle, rgba(4, 14, 26, 0.92) 54%, transparent 56%),
-    conic-gradient(rgba(0, 242, 255, 0.98) 0 333deg, rgba(0, 242, 255, 0.11) 333deg 360deg);
-  box-shadow:
-    0 8px 18px rgba(0, 12, 28, 0.16),
-    inset 0 0 0 1px rgba(0, 242, 255, 0.16);
+  background: transparent;
+
 }
 
 .xt-system-settings__ring b {
-  color: rgba(116, 245, 255, 0.98);
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: 34px;
   line-height: 1;
 }
 
 .xt-system-settings__ring small {
-  color: rgba(0, 242, 255, 0.76);
+  color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-system-settings__status {
@@ -530,12 +513,12 @@ onMounted(loadMesReadiness)
   display: flex;
   justify-content: space-between;
   gap: var(--xt-space-3);
-  color: rgba(185, 202, 203, 0.75);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
 .xt-system-settings__status strong {
-  color: rgba(116, 245, 255, 0.92);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
 }
 
@@ -543,7 +526,7 @@ onMounted(loadMesReadiness)
   display: grid;
   gap: var(--xt-space-3);
   padding: var(--xt-space-4);
-  border-radius: 12px;
+  border-radius: 4px;
 }
 
 .xt-system-settings__mes header {
@@ -554,46 +537,46 @@ onMounted(loadMesReadiness)
 }
 
 .xt-system-settings__mes header span {
-  color: rgba(225, 253, 255, 0.9);
+  color: var(--xt-text);
   font-size: var(--xt-text-base);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-system-settings__mes header strong {
   padding: 3px var(--xt-space-2);
-  border: 1px solid rgba(255, 171, 0, 0.32);
-  border-radius: 7px;
-  background: rgba(255, 171, 0, 0.1);
-  color: rgba(255, 214, 128, 0.92);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
 }
 
 .xt-system-settings__mes header strong.is-ready {
-  border-color: rgba(66, 211, 146, 0.32);
-  background: rgba(66, 211, 146, 0.1);
-  color: rgba(137, 255, 205, 0.94);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-system-settings__mes header strong.is-danger {
-  border-color: rgba(255, 92, 92, 0.32);
-  background: rgba(255, 92, 92, 0.1);
-  color: rgba(255, 168, 168, 0.94);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-system-settings__mes-state {
   min-height: 78px;
   display: grid;
   place-items: center;
-  border: 1px dashed rgba(0, 242, 255, 0.2);
-  border-radius: 10px;
-  color: rgba(185, 202, 203, 0.76);
-  font-weight: 850;
+  border: 1px dashed var(--xt-border);
+  border-radius: 4px;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-system-settings__mes-state.is-warning {
-  border-color: rgba(255, 171, 0, 0.3);
-  color: rgba(255, 214, 128, 0.9);
+  border-color: var(--xt-border);
+  color: var(--xt-text);
 }
 
 .xt-system-settings__mes-grid {
@@ -607,19 +590,19 @@ onMounted(loadMesReadiness)
   gap: 4px;
   min-width: 0;
   padding: var(--xt-space-3);
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 10px;
-  background: rgba(3, 18, 34, 0.46);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-system-settings__mes-grid span {
-  color: rgba(185, 202, 203, 0.72);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-system-settings__mes-grid b {
-  color: rgba(116, 245, 255, 0.96);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xl);
   line-height: 1;
@@ -629,11 +612,9 @@ onMounted(loadMesReadiness)
   display: grid;
   gap: var(--xt-space-2);
   padding: var(--xt-space-3);
-  border: 1px solid rgba(255, 171, 0, 0.22);
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, rgba(255, 171, 0, 0.12), rgba(0, 242, 255, 0.05)),
-    rgba(3, 18, 34, 0.5);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-system-settings__terminal ul {
@@ -649,21 +630,21 @@ onMounted(loadMesReadiness)
   gap: 3px;
   min-width: 0;
   padding-top: var(--xt-space-2);
-  border-top: 1px solid rgba(255, 171, 0, 0.14);
+  border-top: 1px solid var(--xt-border);
 }
 
 .xt-system-settings__terminal li span {
   overflow: hidden;
-  color: rgba(225, 253, 255, 0.86);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .xt-system-settings__terminal li b {
   overflow: hidden;
-  color: rgba(255, 214, 128, 0.94);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
   text-overflow: ellipsis;
@@ -678,23 +659,23 @@ onMounted(loadMesReadiness)
   min-height: 58px;
   padding: 0 var(--xt-space-4);
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 4px;
 }
 
 .xt-system-settings__linkage strong {
   padding-right: var(--xt-space-4);
-  border-right: 1px solid rgba(0, 242, 255, 0.2);
-  color: rgba(116, 245, 255, 0.94);
+  border-right: 1px solid var(--xt-border);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-system-settings__linkage span {
   position: relative;
-  color: rgba(185, 202, 203, 0.72);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
 }
 
@@ -704,8 +685,8 @@ onMounted(loadMesReadiness)
   display: inline-block;
   margin-right: var(--xt-space-2);
   border-radius: 50%;
-  background: rgba(0, 242, 255, 0.92);
-  box-shadow: 0 0 10px rgba(0, 242, 255, 0.62);
+  background: transparent;
+
   content: "";
 }
 

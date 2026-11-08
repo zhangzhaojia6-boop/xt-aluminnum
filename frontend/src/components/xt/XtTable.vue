@@ -133,9 +133,9 @@ function emitSelection() {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-table::before {
@@ -143,8 +143,8 @@ function emitSelection() {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border-radius: inherit;
-  box-shadow: var(--xt-shadow-inset-hairline);
+  border-radius: 4px;
+
 }
 
 .xt-table__header {
@@ -159,9 +159,9 @@ function emitSelection() {
 .xt-table__title {
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: var(--xt-text-lg);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-table__actions {
@@ -195,7 +195,7 @@ function emitSelection() {
   color: var(--xt-text-secondary);
   background: var(--xt-bg-panel-soft);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
   white-space: nowrap;
 }

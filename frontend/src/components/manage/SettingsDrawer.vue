@@ -66,7 +66,7 @@ function closeDrawer() {
   padding: 0 var(--xt-space-2);
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
@@ -77,10 +77,10 @@ function closeDrawer() {
   justify-content: space-between;
   gap: var(--xt-space-2);
   padding: 0 var(--xt-space-3);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
@@ -106,6 +106,6 @@ function closeDrawer() {
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-muted);
   font-size: 10px;
-  font-weight: 850;
+  font-weight: 600;
 }
 </style>

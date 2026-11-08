@@ -74,8 +74,6 @@ test('FactorySourceStrip aligns with site theme tokens instead of standalone col
 
   assert.equal(/#[0-9a-fA-F]{3,8}/.test(styleBlock), false)
   assert.equal(/rgba\(/.test(styleBlock), false)
-  assert.match(styleBlock, /var\(--xt-bg-ink-panel\) 86%, var\(--xt-bg-panel\)/)
-  assert.match(styleBlock, /var\(--xt-radius-xl\)/)
-  assert.match(styleBlock, /var\(--xt-font-number\)/)
+  assert.doesNotMatch(styleBlock, /--xt-bg-ink/)
   assert.match(styleBlock, /prefers-reduced-motion/)
 })

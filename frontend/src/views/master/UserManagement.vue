@@ -597,11 +597,8 @@ onMounted(async () => {
   inset: -22px 0 auto;
   z-index: -1;
   height: 260px;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 14% 18%, rgba(0, 242, 255, 0.2), transparent 26%),
-    radial-gradient(circle at 82% 2%, rgba(0, 118, 255, 0.18), transparent 30%),
-    linear-gradient(180deg, rgba(6, 30, 55, 0.84), transparent);
+  border-radius: 4px;
+  background: transparent;
   content: "";
   pointer-events: none;
 }
@@ -614,22 +611,18 @@ onMounted(async () => {
   gap: 18px;
   overflow: hidden;
   padding: 20px;
-  border: 1px solid var(--users-line);
-  border-radius: 14px;
-  background:
-    linear-gradient(135deg, rgba(7, 29, 51, 0.92), rgba(2, 13, 26, 0.94)),
-    repeating-linear-gradient(90deg, rgba(0, 242, 255, 0.08) 0 1px, transparent 1px 44px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 18px 42px rgba(0, 18, 42, 0.22);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .admin-users-center__hero::after {
   position: absolute;
   inset: auto 0 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.78), transparent);
-  animation: usersScanline 4.8s linear infinite;
+  background: transparent;
+
   content: "";
 }
 
@@ -646,19 +639,19 @@ onMounted(async () => {
 }
 
 .admin-users-center__system {
-  color: rgba(116, 245, 255, 0.78);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
 .admin-users-center__title-copy h1 {
   margin-top: 6px;
-  color: var(--users-text);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: clamp(26px, 3vw, 40px);
   letter-spacing: -0.03em;
-  text-shadow: 0 0 24px rgba(0, 242, 255, 0.16);
+
 }
 
 .admin-users-center__tags {
@@ -668,13 +661,13 @@ onMounted(async () => {
 }
 
 .admin-users-center__tags span {
-  border: 1px solid rgba(0, 242, 255, 0.26);
-  border-radius: 8px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 5px 8px;
-  background: rgba(0, 242, 255, 0.08);
-  color: rgba(225, 253, 255, 0.82);
+  background: transparent;
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 600;
 }
 
 .admin-users-center__actions {
@@ -688,21 +681,19 @@ onMounted(async () => {
 .admin-users-center__actions :deep(.el-button),
 .admin-users-center__action {
   min-height: 38px;
-  border-color: rgba(0, 242, 255, 0.28);
-  border-radius: 8px;
-  background: rgba(1, 16, 31, 0.72);
-  color: var(--users-text);
-  font-weight: 820;
+  border-color: var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .admin-users-center__actions :deep(.el-button--primary),
 .admin-users-center__action--primary {
   border-color: transparent;
-  background:
-    linear-gradient(180deg, rgba(116, 245, 255, 0.98), rgba(0, 185, 214, 0.92)),
-    var(--users-accent);
-  color: #00252b;
-  box-shadow: 0 0 22px rgba(0, 242, 255, 0.22);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .admin-users-center__status {
@@ -718,12 +709,10 @@ onMounted(async () => {
   align-content: space-between;
   overflow: hidden;
   padding: 16px;
-  border: 1px solid var(--users-line);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(10, 38, 66, 0.82), rgba(3, 14, 27, 0.9)),
-    radial-gradient(circle at 100% 0%, rgba(0, 242, 255, 0.12), transparent 34%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .admin-users-center__stat::after {
@@ -731,45 +720,41 @@ onMounted(async () => {
   inset: auto 14px 10px;
   height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(0, 242, 255, 0.82), transparent);
+  background: transparent;
   content: "";
 }
 
 .admin-users-center__stat span,
 .admin-users-center__stat small,
 .admin-users-center__panel-head span {
-  color: var(--users-muted);
+  color: var(--xt-text-secondary);
   font-size: 11px;
-  font-weight: 840;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .admin-users-center__stat strong {
-  color: var(--users-text);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: clamp(26px, 3vw, 38px);
   line-height: 1;
 }
 
 .admin-users-center__stat.is-success::after {
-  background: linear-gradient(90deg, rgba(78, 203, 138, 0.9), transparent);
+  background: transparent;
 }
 
 .admin-users-center__stat.is-warning::after {
-  background: linear-gradient(90deg, rgba(255, 171, 0, 0.9), transparent);
+  background: transparent;
 }
 
 .admin-users-center__panel {
-  border: 1px solid var(--users-line);
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(7, 29, 51, 0.88), rgba(2, 12, 25, 0.94)),
-    var(--users-bg);
-  color: var(--users-text);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 22px 52px rgba(0, 18, 42, 0.24);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .admin-users-center__panel :deep(.el-card__body) {
@@ -784,22 +769,22 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 16px;
   padding: 4px 4px 12px;
-  border-bottom: 1px solid rgba(0, 242, 255, 0.12);
+  border-bottom: 1px solid var(--xt-border);
 }
 
 .admin-users-center__panel-head h2 {
   margin: 4px 0 0;
-  color: var(--users-text);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: 22px;
   letter-spacing: -0.02em;
 }
 
 .admin-users-center__panel-head strong {
-  color: #74f5ff;
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: 18px;
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .admin-users-center__filters {
@@ -807,11 +792,9 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 10px;
   padding: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: 10px;
-  background:
-    linear-gradient(90deg, rgba(0, 242, 255, 0.08), transparent 60%),
-    rgba(1, 16, 31, 0.66);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .admin-users-center__filters :deep(.el-select) {
@@ -821,78 +804,67 @@ onMounted(async () => {
 .admin-users-center__filters :deep(.el-select__wrapper),
 .admin-users-center :deep(.el-input__wrapper) {
   min-height: 38px;
-  border-radius: 8px;
-  background: rgba(1, 16, 31, 0.84);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 242, 255, 0.24),
-    inset 0 0 0 1px rgba(0, 242, 255, 0.16);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .admin-users-center__filters :deep(.el-select__placeholder),
 .admin-users-center__filters :deep(.el-select__selected-item),
 .admin-users-center :deep(.el-input__inner) {
-  color: var(--users-text);
+  color: var(--xt-text);
 }
 
 .admin-users-center :deep(.reference-data-table-shell) {
   width: 100%;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 4px;
 }
 
 .admin-users-center :deep(.admin-users-center__table) {
-  --el-table-bg-color: rgba(2, 12, 25, 0.72);
-  --el-table-tr-bg-color: rgba(2, 12, 25, 0.72);
-  --el-table-row-stripe-bg-color: rgba(0, 242, 255, 0.045);
-  --el-table-header-bg-color: rgba(6, 31, 55, 0.94);
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.08);
-  --el-table-border-color: rgba(0, 242, 255, 0.12);
-  --el-table-text-color: rgba(225, 253, 255, 0.9);
-  --el-text-color-primary: rgba(225, 253, 255, 0.92);
-  --el-text-color-regular: rgba(225, 253, 255, 0.78);
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: 10px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   overflow: hidden;
-  background: rgba(2, 12, 25, 0.72);
+  background: transparent;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-table__header-wrapper th) {
   height: 46px;
-  color: rgba(116, 245, 255, 0.82);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 860;
+  font-weight: 600;
   letter-spacing: 0.06em;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-table__row td) {
   height: 58px;
-  border-bottom-color: rgba(0, 242, 255, 0.1);
-  background: rgba(2, 12, 25, 0.72);
+  border-bottom-color: var(--xt-border);
+  background: transparent;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-table__body tr.el-table__row--striped td.el-table__cell) {
-  background: rgba(0, 242, 255, 0.045);
+  background: transparent;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-table__fixed-right td.el-table__cell),
 .admin-users-center :deep(.admin-users-center__table .el-table__fixed-right th.el-table__cell) {
-  background: #020c19;
+  background: transparent;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-table__fixed-right),
 .admin-users-center :deep(.admin-users-center__table .el-table__fixed-right-patch) {
-  background: #020c19;
+  background: transparent;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-table-fixed-column--right.el-table__cell) {
   z-index: 6;
-  background: #020c19;
-  box-shadow: -14px 0 18px rgba(2, 12, 25, 0.72);
+  background: transparent;
+
 }
 
 .admin-users-center :deep(.admin-users-center__table th.el-table-fixed-column--right.el-table__cell) {
   z-index: 7;
-  background: #061f37;
+  background: transparent;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-table-fixed-column--right .cell) {
@@ -902,23 +874,23 @@ onMounted(async () => {
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 10px;
-  background: #020c19;
+  background: transparent;
 }
 
 .admin-users-center :deep(.admin-users-center__table th.el-table-fixed-column--right .cell) {
-  background: #061f37;
+  background: transparent;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-button.is-text) {
   margin-left: 0;
   min-height: 28px;
   padding-inline: 0;
-  color: #74f5ff;
-  font-weight: 820;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .admin-users-center :deep(.admin-users-center__table .el-button.is-text.el-button--danger) {
-  color: #ff6b78;
+  color: var(--xt-danger);
 }
 
 .admin-users-center :deep(.table-pagination) {
@@ -929,15 +901,15 @@ onMounted(async () => {
 
 .admin-users-center :deep(.el-pagination.is-background .el-pager li),
 .admin-users-center :deep(.el-pagination.is-background button) {
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  border-radius: 7px;
-  background: rgba(1, 16, 31, 0.72);
-  color: var(--users-muted);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text-secondary);
 }
 
 .admin-users-center :deep(.el-pagination.is-background .el-pager li.is-active) {
-  background: var(--users-accent);
-  color: #00252b;
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .machine-option {
@@ -956,55 +928,52 @@ onMounted(async () => {
 }
 
 .machine-option__name {
-  color: var(--users-text, var(--xt-text));
-  font-weight: 820;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .machine-option__owner {
-  color: oklch(50% 0.13 72);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 600;
 }
 
 .machine-option__owner.is-empty {
-  color: var(--users-muted, var(--xt-text-secondary));
+  color: var(--xt-text-secondary);
 }
 
 :global(.admin-users-dialog) {
   --users-accent: #00f2ff;
   --users-line: rgba(0, 242, 255, 0.18);
   --users-text: rgba(225, 253, 255, 0.94);
-  border: 1px solid var(--users-line);
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(7, 29, 51, 0.98), rgba(2, 12, 25, 0.98));
-  color: var(--users-text);
-  box-shadow: 0 24px 62px rgba(0, 12, 28, 0.42);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 :global(.admin-users-dialog .el-dialog__title) {
-  color: var(--users-text);
-  font-family: var(--xt-font-number);
-  font-weight: 850;
+  color: var(--xt-text);
+
+  font-weight: 600;
 }
 
 :global(.admin-users-dialog .el-form-item__label) {
-  color: rgba(185, 223, 235, 0.78);
-  font-weight: 760;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 :global(.admin-users-dialog .el-input__wrapper),
 :global(.admin-users-dialog .el-select__wrapper) {
-  border-radius: 8px;
-  background: rgba(1, 16, 31, 0.84);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 242, 255, 0.24),
-    inset 0 0 0 1px rgba(0, 242, 255, 0.16);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 :global(.admin-users-dialog .el-input__inner),
 :global(.admin-users-dialog .el-select__selected-item) {
-  color: var(--users-text);
+  color: var(--xt-text);
 }
 
 @keyframes usersScanline {

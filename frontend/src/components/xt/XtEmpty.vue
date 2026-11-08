@@ -26,7 +26,7 @@ defineProps({
   gap: var(--xt-space-3);
   min-height: 160px;
   padding: var(--xt-space-8);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-muted);
   text-align: center;
@@ -38,16 +38,16 @@ defineProps({
   height: 44px;
   place-items: center;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xl);
-  box-shadow: var(--xt-shadow-xs);
+
 }
 
 .xt-empty__text {
   font-size: var(--xt-text-sm);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .xt-empty__actions {

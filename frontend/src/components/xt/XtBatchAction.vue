@@ -42,14 +42,14 @@ defineEmits(['action', 'clear'])
   gap: var(--xt-space-3);
   padding: var(--xt-space-3) var(--xt-space-4);
   border: 1px solid var(--xt-primary-border);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   color: var(--xt-primary);
   background: var(--xt-primary-light);
 }
 
 .xt-batch-action__count {
   font-size: var(--xt-text-sm);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .xt-batch-action__items {
@@ -62,7 +62,7 @@ defineEmits(['action', 'clear'])
   height: 30px;
   padding: 0 var(--xt-space-3);
   border: 1px solid transparent;
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   color: var(--xt-text);
   background: var(--xt-bg-panel);
 }

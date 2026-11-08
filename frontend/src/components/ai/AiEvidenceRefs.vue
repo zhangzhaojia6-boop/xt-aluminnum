@@ -51,9 +51,9 @@ const normalizedMissingData = computed(() => props.missingData.filter(Boolean))
   display: grid;
   gap: 8px;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
-  box-shadow: inset 0 0 0 1px rgba(43, 93, 178, 0.1);
+
 }
 
 .ai-evidence__head,
@@ -77,9 +77,9 @@ const normalizedMissingData = computed(() => props.missingData.filter(Boolean))
   border-radius: var(--xt-radius-pill);
   background: #fff;
   color: var(--xt-primary);
-  font-family: var(--xt-font-number);
+
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -94,11 +94,11 @@ const normalizedMissingData = computed(() => props.missingData.filter(Boolean))
   gap: 6px;
   min-height: 28px;
   padding: 0 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #fff;
   color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .ai-evidence__ref em {
@@ -122,7 +122,7 @@ const normalizedMissingData = computed(() => props.missingData.filter(Boolean))
   flex-wrap: wrap;
   gap: 6px;
   padding-top: 8px;
-  border-top: 1px solid rgba(43, 93, 178, 0.1);
+  border-top: 1px solid var(--xt-border);
 }
 
 .ai-evidence__missing strong,
@@ -139,9 +139,9 @@ const normalizedMissingData = computed(() => props.missingData.filter(Boolean))
   display: inline-flex;
   align-items: center;
   padding: 0 7px;
-  border-radius: 6px;
-  background: rgba(255, 247, 237, 0.94);
+  border-radius: 4px;
+  background: transparent;
   color: var(--xt-warning);
-  font-weight: 850;
+  font-weight: 600;
 }
 </style>

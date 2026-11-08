@@ -100,12 +100,10 @@ const compactRoleStats = computed(() => [
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--xt-danger, #ff5d73) 24%, var(--xt-border-ink, rgba(125, 211, 252, 0.2)));
-  border-radius: var(--xt-radius-xl, 18px);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--xt-danger, #ff5d73) 12%, transparent), transparent 48%),
-    color-mix(in srgb, var(--xt-bg-ink-panel, #071b31) 86%, transparent);
-  color: var(--xt-text-inverse, #e5f7ff);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   overflow: hidden;
 }
 
@@ -115,7 +113,7 @@ const compactRoleStats = computed(() => [
   height: 2px;
   pointer-events: none;
   content: '';
-  background: linear-gradient(90deg, transparent, rgba(255, 93, 115, 0.28), transparent);
+  background: transparent;
 }
 
 .xt-missing-report__head,
@@ -134,9 +132,9 @@ const compactRoleStats = computed(() => [
 }
 
 .xt-missing-report__head span {
-  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 62%, transparent);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
@@ -149,7 +147,7 @@ const compactRoleStats = computed(() => [
   display: inline-flex;
   flex-direction: column;
   align-items: flex-end;
-  color: var(--xt-danger, #ff5d73);
+  color: var(--xt-danger);
   font-family: var(--xt-font-display, inherit);
   font-size: 24px;
   line-height: 1;
@@ -157,9 +155,9 @@ const compactRoleStats = computed(() => [
 
 .xt-missing-report__head strong small {
   margin-top: 2px;
-  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 58%, transparent);
+  color: var(--xt-text);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
 }
 
@@ -171,10 +169,10 @@ const compactRoleStats = computed(() => [
 
 .xt-missing-report__stats b {
   padding: 4px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 76%, transparent);
+  background: transparent;
+  color: var(--xt-text);
   font-size: 12px;
 }
 
@@ -193,18 +191,18 @@ const compactRoleStats = computed(() => [
 .xt-missing-report th,
 .xt-missing-report td {
   padding: 7px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--xt-border);
   text-align: left;
   white-space: nowrap;
 }
 
 .xt-missing-report th {
-  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 58%, transparent);
+  color: var(--xt-text);
   font-size: 12px;
 }
 
 .xt-missing-report td {
-  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 84%, transparent);
+  color: var(--xt-text);
   font-size: 12px;
 }
 
@@ -212,9 +210,9 @@ const compactRoleStats = computed(() => [
   display: inline-flex;
   padding: 4px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--xt-danger, #ff5d73) 16%, transparent);
-  color: var(--xt-danger, #ff5d73);
-  font-weight: 800;
+  background: transparent;
+  color: var(--xt-danger);
+  font-weight: 600;
 }
 
 .xt-missing-report--compact {
@@ -222,7 +220,7 @@ const compactRoleStats = computed(() => [
   align-items: center;
   gap: 5px 8px;
   padding: 3px 6px;
-  border-radius: var(--xt-radius-sm, 10px);
+  border-radius: 4px;
 }
 
 .xt-missing-report--compact .xt-missing-report__head {
@@ -281,10 +279,10 @@ const compactRoleStats = computed(() => [
   gap: 4px;
   max-width: 180px;
   padding: 2px 6px;
-  border: 1px solid rgba(255, 93, 115, 0.22);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(255, 93, 115, 0.08);
-  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 84%, transparent);
+  background: transparent;
+  color: var(--xt-text);
   font-size: 9px;
   white-space: nowrap;
 }
@@ -298,8 +296,8 @@ const compactRoleStats = computed(() => [
 }
 
 .xt-missing-report__chip b {
-  color: var(--xt-danger, #ff5d73);
-  font-weight: 900;
+  color: var(--xt-danger);
+  font-weight: 600;
 }
 
 .xt-missing-report__chip em,
@@ -308,14 +306,14 @@ const compactRoleStats = computed(() => [
 }
 
 .xt-missing-report__more {
-  color: var(--xt-danger, #ff5d73);
-  font-weight: 900;
+  color: var(--xt-danger);
+  font-weight: 600;
 }
 
 .xt-missing-report__chip.is-muted {
-  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 62%, transparent);
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--xt-text);
+  border-color: var(--xt-border);
+  background: transparent;
 }
 
 @media (max-width: 760px) {

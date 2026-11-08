@@ -58,13 +58,11 @@ defineProps({
   position: relative;
   z-index: 1;
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.18);
-  border-radius: 18px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 15px;
-  background:
-    linear-gradient(180deg, rgba(8, 38, 68, 0.82), rgba(3, 16, 31, 0.9)),
-    radial-gradient(circle at 18% 0%, rgba(0, 242, 255, 0.14), transparent 36%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  background: transparent;
+
 }
 
 .live-process-flow__head {
@@ -76,24 +74,24 @@ defineProps({
 }
 
 .live-process-flow__head span {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.14em;
 }
 
 .live-process-flow__head strong {
   display: block;
   margin-top: 3px;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font-size: 19px;
 }
 
 .live-process-flow__head em {
-  color: rgba(185, 223, 235, 0.64);
+  color: var(--xt-text-secondary);
   font-size: 12px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .live-process-flow__rail {
@@ -110,12 +108,10 @@ defineProps({
   min-width: 150px;
   display: grid;
   gap: 10px;
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  border-radius: 14px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 12px;
-  background:
-    linear-gradient(180deg, rgba(8, 31, 56, 0.9), rgba(3, 15, 28, 0.86)),
-    radial-gradient(circle at 100% 0%, rgba(0, 242, 255, 0.1), transparent 42%);
+  background: transparent;
   transition: border-color 160ms ease, transform 160ms ease;
 }
 
@@ -125,7 +121,7 @@ defineProps({
   right: -11px;
   width: 12px;
   height: 1px;
-  background: rgba(0, 242, 255, 0.42);
+  background: transparent;
   content: "";
 }
 
@@ -134,7 +130,7 @@ defineProps({
 }
 
 .live-process-flow__node:hover {
-  border-color: rgba(0, 242, 255, 0.38);
+  border-color: var(--xt-border);
   transform: translateY(-1px);
 }
 
@@ -143,9 +139,9 @@ defineProps({
   width: 26px;
   height: 26px;
   place-items: center;
-  border-radius: 8px;
-  background: rgba(0, 242, 255, 0.12);
-  color: #74f5ff;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: 12px;
 }
@@ -157,15 +153,15 @@ defineProps({
 }
 
 .live-process-flow__body span {
-  color: rgba(185, 223, 235, 0.72);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .live-process-flow__body strong {
   margin-top: 7px;
-  color: rgba(225, 253, 255, 0.96);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: clamp(20px, 2vw, 30px);
   line-height: 1;
@@ -173,7 +169,7 @@ defineProps({
 
 .live-process-flow__body small {
   margin-top: 7px;
-  color: rgba(185, 223, 235, 0.58);
+  color: var(--xt-text-secondary);
   font-size: 11px;
 }
 
@@ -187,7 +183,7 @@ defineProps({
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  border-top: 1px solid rgba(0, 242, 255, 0.09);
+  border-top: 1px solid var(--xt-border);
   padding-top: 5px;
 }
 
@@ -198,30 +194,30 @@ defineProps({
 }
 
 .live-process-flow dt {
-  color: rgba(185, 223, 235, 0.52);
+  color: var(--xt-text-secondary);
 }
 
 .live-process-flow dd {
-  color: rgba(225, 253, 255, 0.82);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
 }
 
 .live-process-flow__node.is-warning {
-  border-color: rgba(255, 171, 0, 0.34);
+  border-color: var(--xt-border);
 }
 
 .live-process-flow__node.is-warning b,
 .live-process-flow__node.is-warning .live-process-flow__body strong {
-  color: #ffcf7a;
+  color: var(--xt-text);
 }
 
 .live-process-flow__node.is-muted {
-  border-color: rgba(122, 162, 189, 0.18);
+  border-color: var(--xt-border);
 }
 
 .live-process-flow__node.is-muted b,
 .live-process-flow__node.is-muted .live-process-flow__body strong {
-  color: rgba(185, 223, 235, 0.56);
+  color: var(--xt-text-secondary);
 }
 
 @media (max-width: 1180px) {

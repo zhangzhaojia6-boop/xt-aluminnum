@@ -93,9 +93,9 @@ function statusText(value) {
   padding: var(--xt-space-4);
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
   transition:
     border-color var(--xt-motion-fast) var(--xt-ease),
     box-shadow var(--xt-motion-fast) var(--xt-ease),
@@ -107,13 +107,13 @@ function statusText(value) {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: var(--xt-shadow-inset-hairline);
+
 }
 
 @media (hover: hover) {
   .xt-module-tile:hover {
     border-color: var(--xt-border);
-    box-shadow: var(--xt-shadow-md);
+
     transform: translateY(-1px);
   }
 }
@@ -134,7 +134,7 @@ function statusText(value) {
   background: var(--xt-primary-light);
   color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-module-tile__glyph {
@@ -149,9 +149,9 @@ function statusText(value) {
 .xt-module-tile__body h3 {
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: var(--xt-text-lg);
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.25;
 }
 
@@ -172,7 +172,7 @@ function statusText(value) {
   min-width: 0;
   padding: var(--xt-space-2);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
 }
 
@@ -181,7 +181,7 @@ function statusText(value) {
   overflow: hidden;
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
-  font-weight: 760;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -191,9 +191,9 @@ function statusText(value) {
   margin-top: 2px;
   overflow: hidden;
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-lg);
-  font-weight: 900;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -202,11 +202,11 @@ function statusText(value) {
 .xt-module-tile__action {
   min-height: 38px;
   border: 0;
-  border-radius: var(--xt-radius-md);
-  background: var(--xt-bg-ink);
-  color: var(--xt-text-inverse);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 850;
+  font-weight: 600;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
     transform var(--xt-motion-fast) var(--xt-ease);

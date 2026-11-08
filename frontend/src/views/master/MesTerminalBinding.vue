@@ -301,18 +301,16 @@ onMounted(load)
   --terminal-bg: rgba(2, 15, 29, 0.72);
   --terminal-line: rgba(0, 242, 255, 0.18);
   --terminal-text: rgba(225, 253, 255, 0.94);
-  color: var(--terminal-text);
+  color: var(--xt-text);
 }
 
 .terminal-binding__hero,
 .terminal-binding__filters,
 .terminal-binding__table-card {
-  border: 1px solid var(--terminal-line);
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(18, 44, 70, 0.54), rgba(4, 14, 26, 0.78)),
-    var(--terminal-bg);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .terminal-binding__hero {
@@ -325,16 +323,16 @@ onMounted(load)
 
 .terminal-binding__hero span,
 .terminal-binding__table-card header span {
-  color: rgba(116, 245, 255, 0.86);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
 .terminal-binding__hero h1 {
   margin: var(--xt-space-1) 0 0;
-  font-family: var(--xt-font-display);
+
   font-size: clamp(30px, 4vw, 50px);
   line-height: 1;
 }
@@ -347,21 +345,21 @@ onMounted(load)
 .terminal-binding__stats article {
   min-width: 104px;
   padding: var(--xt-space-3);
-  border: 1px solid rgba(0, 242, 255, 0.18);
-  border-radius: 12px;
-  background: rgba(3, 18, 34, 0.5);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .terminal-binding__stats strong {
   display: block;
   margin-top: var(--xt-space-1);
-  color: var(--terminal-cyan);
-  font-family: var(--xt-font-display);
+  color: var(--xt-primary);
+
   font-size: var(--xt-text-2xl);
 }
 
 .terminal-binding__stats .is-amber strong {
-  color: var(--terminal-amber);
+  color: var(--xt-warning);
 }
 
 .terminal-binding__primary {
@@ -375,8 +373,8 @@ onMounted(load)
 
 .terminal-binding__filters :deep(.el-form-item__label),
 .terminal-binding__dialog :deep(.el-form-item__label) {
-  color: rgba(225, 253, 255, 0.86);
-  font-weight: 850;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .terminal-binding__table-card {
@@ -398,47 +396,47 @@ onMounted(load)
 }
 
 .terminal-binding__table-card header small {
-  color: rgba(185, 202, 203, 0.72);
-  font-weight: 800;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .terminal-binding__status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: rgba(137, 255, 205, 0.94);
-  font-weight: 850;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .terminal-binding__status i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: rgba(66, 211, 146, 0.95);
-  box-shadow: 0 0 10px rgba(66, 211, 146, 0.7);
+  background: transparent;
+
 }
 
 .terminal-binding__status.is-off {
-  color: rgba(185, 202, 203, 0.68);
+  color: var(--xt-text-secondary);
 }
 
 .terminal-binding__status.is-off i {
-  background: rgba(132, 148, 149, 0.7);
-  box-shadow: none;
+  background: transparent;
+
 }
 
 .terminal-binding :deep(.reference-data-table-shell) {
-  border-color: rgba(0, 242, 255, 0.14);
-  background: rgba(3, 18, 34, 0.35);
+  border-color: var(--xt-border);
+  background: transparent;
 }
 
 :deep(.terminal-binding__dialog .el-dialog) {
-  border: 1px solid rgba(0, 242, 255, 0.2);
-  background: rgba(3, 18, 34, 0.96);
+  border: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 :deep(.terminal-binding__dialog .el-dialog__title) {
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
 }
 
 @media (max-width: 900px) {

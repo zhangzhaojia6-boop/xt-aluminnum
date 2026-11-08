@@ -137,14 +137,14 @@ defineProps({
 
 .xt-logo__cn {
   font-size: 15px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
 .xt-logo__en {
   color: var(--xt-text-secondary);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
 }
 </style>

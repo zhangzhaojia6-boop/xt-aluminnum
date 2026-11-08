@@ -60,9 +60,9 @@ defineExpose({ collapsed, toggle })
 <style scoped>
 .xt-section-card {
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-section-card__header {
@@ -88,7 +88,7 @@ defineExpose({ collapsed, toggle })
   margin: 0;
   color: var(--xt-text);
   font-size: var(--xt-text-base);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
@@ -99,11 +99,11 @@ defineExpose({ collapsed, toggle })
   min-width: 20px;
   height: 20px;
   padding: 0 var(--xt-space-2);
-  border-radius: var(--xt-radius-full);
+  border-radius: 4px;
   background: var(--xt-primary-light);
   color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-section-card__toolbar {
@@ -120,7 +120,7 @@ defineExpose({ collapsed, toggle })
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: var(--xt-radius-sm);
+  border-radius: 4px;
   background: transparent;
   color: var(--xt-text-muted);
   cursor: pointer;

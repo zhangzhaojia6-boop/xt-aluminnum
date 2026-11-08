@@ -44,9 +44,9 @@ defineProps({
   min-width: 0;
   padding: var(--xt-space-5);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-kpi::before {
@@ -57,20 +57,20 @@ defineProps({
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--xt-border-strong);
+  background: transparent;
 }
 
 .xt-kpi__label {
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .xt-kpi__value {
   margin-top: var(--xt-space-2);
   color: var(--xt-text);
   font-size: var(--xt-text-3xl);
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1.1;
   letter-spacing: 0;
 }
@@ -78,16 +78,16 @@ defineProps({
 .xt-kpi__unit {
   margin-left: var(--xt-space-1);
   color: var(--xt-text-secondary);
-  font-family: var(--xt-font-body);
+
   font-size: var(--xt-text-sm);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .xt-kpi__trend {
   margin-top: var(--xt-space-2);
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-kpi--primary { border-color: var(--xt-primary-border); }
@@ -96,9 +96,9 @@ defineProps({
 .xt-kpi--danger { border-color: var(--xt-danger-border); }
 .xt-kpi--info { border-color: var(--xt-info-border); }
 
-.xt-kpi--primary::before { background: var(--xt-primary); box-shadow: 0 0 0 4px var(--xt-primary-light); }
-.xt-kpi--success::before { background: var(--xt-success); box-shadow: 0 0 0 4px var(--xt-success-light); }
-.xt-kpi--warning::before { background: var(--xt-warning); box-shadow: 0 0 0 4px var(--xt-warning-light); }
-.xt-kpi--danger::before { background: var(--xt-danger); box-shadow: 0 0 0 4px var(--xt-danger-light); }
-.xt-kpi--info::before { background: var(--xt-info); box-shadow: 0 0 0 4px var(--xt-info-light); }
+.xt-kpi--primary::before { background: var(--xt-primary);  }
+.xt-kpi--success::before { background: transparent;  }
+.xt-kpi--warning::before { background: transparent;  }
+.xt-kpi--danger::before { background: transparent;  }
+.xt-kpi--info::before { background: transparent;  }
 </style>

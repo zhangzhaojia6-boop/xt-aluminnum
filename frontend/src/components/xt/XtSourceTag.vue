@@ -30,8 +30,8 @@ defineProps({
   align-items: center;
   gap: var(--xt-space-1);
   padding: 2px var(--xt-space-2);
-  border-radius: var(--xt-radius-sm);
-  background: var(--xt-bg-subtle);
+  border-radius: 4px;
+  background: transparent;
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
   font-weight: 600;

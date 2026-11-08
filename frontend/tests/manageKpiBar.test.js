@@ -33,12 +33,11 @@ test('KpiBar applies status and tone modifier classes', () => {
   assert.match(src, /\.tone-negative/)
 })
 
-test('KpiBar uses the Stitch industrial blue card surface without heavy effects', () => {
+test('KpiBar uses the paper card surface without heavy effects', () => {
   const src = source('../src/components/manage/KpiBar.vue')
   const styleBlock = src.split('<style')[1] || ''
-  assert.match(styleBlock, /rgba\(70,\s*157,\s*238,\s*0\.26\)/)
-  assert.match(styleBlock, /linear-gradient\(180deg,\s*rgba\(18,\s*57,\s*88,\s*0\.68\)/)
-  assert.match(styleBlock, /var\(--xt-font-number\)/)
+  assert.match(styleBlock, /var\(--xt-border\)/)
+  assert.doesNotMatch(styleBlock, /linear-gradient/)
   assert.doesNotMatch(styleBlock, /animation:\s*[^;{}]*infinite/)
   assert.doesNotMatch(styleBlock, /backdrop-filter|filter:\s*blur/i)
 })

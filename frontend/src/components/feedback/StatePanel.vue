@@ -32,6 +32,6 @@ defineProps({
 
 <style scoped>
 .state-panel {
-  border-radius: 14px;
+  border-radius: 4px;
 }
 </style>

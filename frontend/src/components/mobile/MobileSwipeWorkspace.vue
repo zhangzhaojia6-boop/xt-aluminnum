@@ -210,7 +210,7 @@ onBeforeUnmount(() => {
   background: var(--xt-bg-panel);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .mobile-swipe-workspace__dots {
@@ -235,8 +235,8 @@ onBeforeUnmount(() => {
   content: '';
   position: absolute;
   inset: 10px;
-  border-radius: inherit;
-  background: var(--xt-gray-300);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .mobile-swipe-workspace__dot.is-active {

@@ -9,11 +9,10 @@ test('EventCard renders time, domain pill, summary, arrow', () => {
   }
 })
 
-test('EventCard maps 4 domains to xt color tokens via color-mix', () => {
-  for (const token of ['--xt-color-warning', '--xt-color-danger', '--xt-color-accent', '--xt-text-muted']) {
+test('EventCard maps domains to xt color tokens', () => {
+  for (const token of ['--xt-warning', '--xt-danger', '--xt-text-muted']) {
     assert.match(SRC, new RegExp(token.replace(/-/g, '\\-')))
   }
-  assert.match(SRC, /color-mix/)
 })
 
 test('EventCard uses no hex or rgba color literals', () => {

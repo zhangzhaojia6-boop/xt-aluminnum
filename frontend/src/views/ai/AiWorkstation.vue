@@ -200,15 +200,10 @@ async function send() {
   grid-template-columns: 280px minmax(0, 1fr);
   min-height: calc(100vh - 96px);
   overflow: hidden;
-  border: 1px solid var(--ai-line);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 15% 0%, rgba(0, 242, 255, 0.18), transparent 28%),
-    radial-gradient(circle at 88% 12%, rgba(0, 118, 255, 0.16), transparent 30%),
-    linear-gradient(135deg, rgba(3, 16, 31, 0.96), rgba(1, 7, 15, 0.98));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 22px 60px rgba(0, 18, 42, 0.28);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .ai-workstation__grid {
@@ -216,9 +211,7 @@ async function send() {
   inset: 0;
   z-index: -1;
   opacity: 0.22;
-  background:
-    linear-gradient(rgba(0, 242, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.08) 1px, transparent 1px);
+  background: transparent;
   background-size: 34px 34px;
   mask-image: linear-gradient(180deg, #000, transparent 82%);
   pointer-events: none;
@@ -227,9 +220,9 @@ async function send() {
 .ai-workstation__grid::after {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.18), transparent);
+  background: transparent;
   transform: translateX(-70%);
-  animation: aiSweep 7s linear infinite;
+
   content: "";
 }
 
@@ -247,20 +240,18 @@ async function send() {
   gap: 18px;
   min-height: 92px;
   padding: 18px 22px;
-  border-bottom: 1px solid var(--ai-line);
-  background:
-    linear-gradient(90deg, rgba(6, 29, 51, 0.82), rgba(2, 12, 25, 0.72)),
-    rgba(2, 12, 25, 0.7);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--xt-border);
+  background: transparent;
+
 }
 
 .ai-workstation__eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: rgba(116, 245, 255, 0.82);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.14em;
 }
 
@@ -268,23 +259,23 @@ async function send() {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--ai-accent);
-  box-shadow: 0 0 0 6px rgba(0, 242, 255, 0.1), 0 0 22px rgba(0, 242, 255, 0.52);
-  animation: aiPulse 1.8s ease-out infinite;
+  background: transparent;
+
+
 }
 
 .ai-workstation__bar h1 {
   margin: 5px 0 2px;
-  color: rgba(225, 253, 255, 0.96);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: clamp(24px, 3vw, 36px);
   line-height: 1.08;
   letter-spacing: -0.035em;
-  text-shadow: 0 0 22px rgba(0, 242, 255, 0.18);
+
 }
 
 .ai-workstation__bar span {
-  color: var(--ai-muted);
+  color: var(--xt-text-secondary);
   font-size: 13px;
 }
 
@@ -302,26 +293,22 @@ async function send() {
   min-width: 0;
   min-height: 54px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 171, 0, 0.36);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(68, 42, 8, 0.62), rgba(30, 18, 4, 0.78)),
-    rgba(255, 171, 0, 0.12);
-  color: #ffd36f;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-align: center;
   white-space: nowrap;
 }
 
 .ai-workstation__runtime.is-live {
-  border-color: rgba(0, 242, 255, 0.42);
-  background:
-    linear-gradient(180deg, rgba(10, 64, 88, 0.62), rgba(2, 18, 32, 0.86)),
-    rgba(0, 242, 255, 0.12);
-  color: #7ff8ff;
-  box-shadow: 0 0 24px rgba(0, 242, 255, 0.16);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .ai-workstation__telemetry span {
@@ -329,23 +316,21 @@ async function send() {
   display: grid;
   gap: 5px;
   padding: 10px 12px;
-  border: 1px solid var(--ai-line);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(10, 38, 66, 0.74), rgba(2, 12, 25, 0.88)),
-    rgba(2, 12, 25, 0.76);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .ai-workstation__telemetry small {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
 .ai-workstation__telemetry strong {
-  color: rgba(225, 253, 255, 0.96);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: 22px;
   line-height: 1;
 }
@@ -355,8 +340,8 @@ async function send() {
   gap: 8px;
   padding: 12px 16px;
   overflow-x: auto;
-  border-bottom: 1px solid var(--ai-line);
-  background: rgba(1, 16, 31, 0.62);
+  border-bottom: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 .ai-workstation__tabs button {
@@ -364,12 +349,12 @@ async function send() {
   min-height: 36px;
   padding: 0 14px;
   overflow: hidden;
-  border: 1px solid var(--ai-line);
-  border-radius: 10px;
-  background: rgba(2, 12, 25, 0.6);
-  color: var(--ai-muted);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text-secondary);
   font-size: 13px;
-  font-weight: 850;
+  font-weight: 600;
   cursor: pointer;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
@@ -382,7 +367,7 @@ async function send() {
   inset: auto 10px 6px;
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--ai-accent), transparent);
+  background: transparent;
   opacity: 0;
   transform: scaleX(0.5);
   transition: opacity var(--xt-motion-fast) var(--xt-ease), transform var(--xt-motion-fast) var(--xt-ease);
@@ -394,10 +379,10 @@ async function send() {
 }
 
 .ai-workstation__tabs button.is-active {
-  border-color: var(--ai-line-strong);
-  background: rgba(0, 242, 255, 0.12);
-  color: #e1fdff;
-  box-shadow: 0 0 20px rgba(0, 242, 255, 0.12);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .ai-workstation__tabs button.is-active::after {
@@ -412,11 +397,7 @@ async function send() {
   flex: 1;
   overflow-y: auto;
   padding: 22px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(0, 242, 255, 0.1), transparent 28%),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(rgba(0, 242, 255, 0.028) 1px, transparent 1px),
-    rgba(2, 12, 25, 0.74);
+  background: transparent;
   background-size: 34px 34px;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 242, 255, 0.36) transparent;
@@ -426,7 +407,7 @@ async function send() {
   flex: 1;
   overflow-y: auto;
   padding: 22px;
-  background: rgba(2, 12, 25, 0.72);
+  background: transparent;
 }
 
 .ai-workstation__state {
@@ -435,13 +416,13 @@ async function send() {
   min-width: 160px;
   margin-top: var(--xt-space-5);
   padding: 12px 16px;
-  border: 1px solid var(--ai-line);
-  border-radius: 12px;
-  background: rgba(1, 16, 31, 0.78);
-  color: var(--ai-muted);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text-secondary);
   font-size: 14px;
   text-align: center;
-  box-shadow: 0 0 24px rgba(0, 242, 255, 0.08);
+
 }
 
 .ai-workstation__composer {
@@ -450,10 +431,8 @@ async function send() {
   align-items: flex-end;
   gap: 12px;
   padding: 16px 18px 18px;
-  border-top: 1px solid var(--ai-line);
-  background:
-    linear-gradient(180deg, rgba(6, 29, 51, 0.72), rgba(2, 12, 25, 0.92)),
-    rgba(2, 12, 25, 0.84);
+  border-top: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 .ai-workstation__composer-shell {
@@ -463,10 +442,10 @@ async function send() {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid var(--ai-line);
-  border-radius: 12px;
-  background: rgba(1, 16, 31, 0.78);
-  box-shadow: inset 0 -1px 0 rgba(0, 242, 255, 0.18);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .ai-workstation__composer-mark {
@@ -474,12 +453,12 @@ async function send() {
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(116, 245, 255, 0.96), rgba(0, 185, 214, 0.92));
-  color: #00252b;
-  font-family: var(--xt-font-number);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .ai-workstation__composer textarea {
@@ -489,7 +468,7 @@ async function send() {
   resize: vertical;
   border: 0;
   background: transparent;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font: inherit;
   line-height: 1.6;
   padding: 9px 0;
@@ -497,12 +476,12 @@ async function send() {
 }
 
 .ai-workstation__composer textarea::placeholder {
-  color: rgba(185, 223, 235, 0.45);
+  color: var(--xt-text-secondary);
 }
 
 .ai-workstation__composer-shell:focus-within {
-  border-color: var(--ai-line-strong);
-  box-shadow: 0 0 0 3px rgba(0, 242, 255, 0.08), 0 0 28px rgba(0, 242, 255, 0.12);
+  border-color: var(--xt-border);
+
 }
 
 .ai-workstation__composer-tags {
@@ -515,12 +494,12 @@ async function send() {
   align-items: center;
   min-height: 24px;
   padding: 0 8px;
-  border: 1px solid rgba(0, 242, 255, 0.12);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(0, 242, 255, 0.06);
-  color: rgba(116, 245, 255, 0.78);
+  background: transparent;
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .ai-workstation__composer-actions {
@@ -533,43 +512,41 @@ async function send() {
   position: relative;
   width: 280px;
   min-width: 220px;
-  border-right: 1px solid var(--ai-line);
-  background:
-    linear-gradient(180deg, rgba(6, 29, 51, 0.82), rgba(1, 9, 19, 0.94)),
-    rgba(1, 16, 31, 0.82);
+  border-right: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 .ai-workstation :deep(.ai-conversations__header) {
   min-height: 92px;
-  border-bottom: 1px solid var(--ai-line);
-  background: rgba(1, 16, 31, 0.76);
+  border-bottom: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 .ai-workstation :deep(.ai-conversations__header span) {
-  color: rgba(116, 245, 255, 0.78);
+  color: var(--xt-text);
   letter-spacing: 0.12em;
 }
 
 .ai-workstation :deep(.ai-conversations__header strong) {
-  color: rgba(225, 253, 255, 0.96);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
 }
 
 .ai-workstation :deep(.ai-conversations__item) {
-  border-radius: 12px;
-  color: rgba(225, 253, 255, 0.9);
+  border-radius: 4px;
+  color: var(--xt-text);
 }
 
 .ai-workstation :deep(.ai-conversations__item:hover),
 .ai-workstation :deep(.ai-conversations__item.is-active) {
-  border-color: var(--ai-line-strong);
-  background: rgba(0, 242, 255, 0.1);
-  box-shadow: 0 0 22px rgba(0, 242, 255, 0.1);
+  border-color: var(--xt-border);
+  background: transparent;
+
 }
 
 .ai-workstation :deep(.ai-conversations__time),
 .ai-workstation :deep(.ai-conversations__state) {
-  color: var(--ai-muted);
+  color: var(--xt-text-secondary);
 }
 
 .ai-workstation :deep(.ai-message) {
@@ -577,67 +554,61 @@ async function send() {
 }
 
 .ai-workstation :deep(.ai-message__meta) {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   letter-spacing: 0.08em;
 }
 
 .ai-workstation :deep(.ai-message__bubble),
 .ai-workstation :deep(.ai-message__tool),
 .ai-workstation :deep(.ai-message__tool-row) {
-  border-color: var(--ai-line);
-  background:
-    linear-gradient(180deg, rgba(10, 38, 66, 0.74), rgba(2, 12, 25, 0.9)),
-    rgba(2, 12, 25, 0.84);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-color: var(--xt-border);
+  background: transparent;
+
 }
 
 .ai-workstation :deep(.ai-message--user .ai-message__bubble) {
-  border-color: rgba(0, 242, 255, 0.36);
-  background:
-    linear-gradient(180deg, rgba(0, 242, 255, 0.22), rgba(0, 104, 153, 0.2)),
-    rgba(0, 242, 255, 0.1);
-  color: #e1fdff;
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .ai-workstation :deep(.ai-message__content),
 .ai-workstation :deep(.ai-message__tool-row strong),
 .ai-workstation :deep(.ai-message__tool summary) {
-  color: rgba(225, 253, 255, 0.92);
+  color: var(--xt-text);
 }
 
 .ai-workstation :deep(.ai-message__tool-row small),
 .ai-workstation :deep(.ai-message__tool-row em),
 .ai-workstation :deep(.ai-message__tool-status) {
-  color: var(--ai-muted);
+  color: var(--xt-text-secondary);
 }
 
 .ai-workstation :deep(.xt-ai-action-card) {
-  border-color: rgba(0, 242, 255, 0.16);
-  background:
-    linear-gradient(180deg, rgba(10, 38, 66, 0.82), rgba(2, 12, 25, 0.92)),
-    rgba(2, 12, 25, 0.84);
-  color: rgba(225, 253, 255, 0.92);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .ai-workstation :deep(.xt-ai-action-card__icon) {
-  background: rgba(0, 242, 255, 0.12);
-  color: #74f5ff;
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .ai-workstation :deep(.xt-ai-action-card__body strong) {
-  color: rgba(225, 253, 255, 0.96);
+  color: var(--xt-text);
 }
 
 .ai-workstation :deep(.xt-ai-action-card__body span) {
-  color: var(--ai-muted);
+  color: var(--xt-text-secondary);
 }
 
 .ai-workstation :deep(.el-button--primary) {
   border: 0;
-  background: linear-gradient(180deg, rgba(116, 245, 255, 1), rgba(0, 185, 214, 0.92));
-  color: #00252b;
-  font-weight: 900;
-  box-shadow: 0 0 24px rgba(0, 242, 255, 0.22);
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
+
 }
 
 @keyframes aiSweep {
@@ -645,8 +616,8 @@ async function send() {
 }
 
 @keyframes aiPulse {
-  0% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0.3), 0 0 22px rgba(0, 242, 255, 0.52); }
-  100% { box-shadow: 0 0 0 12px rgba(0, 242, 255, 0), 0 0 22px rgba(0, 242, 255, 0.52); }
+  0% {  }
+  100% {  }
 }
 
 @media (max-width: 900px) {
@@ -654,7 +625,7 @@ async function send() {
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - 72px);
-    border-radius: 0;
+    border-radius: 4px;
   }
 
   .ai-workstation__bar {
@@ -670,7 +641,7 @@ async function send() {
     width: 100%;
     max-height: 220px;
     border-right: 0;
-    border-bottom: 1px solid var(--ai-line);
+    border-bottom: 1px solid var(--xt-border);
   }
 
   .ai-workstation__composer {

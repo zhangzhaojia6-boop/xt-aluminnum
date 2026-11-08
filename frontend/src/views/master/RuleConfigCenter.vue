@@ -324,9 +324,9 @@ onMounted(async () => {
   display: grid;
   gap: 16px;
   padding: 0;
-  border-radius: 0;
+  border-radius: 4px;
   background: transparent;
-  color: var(--rule-text);
+  color: var(--xt-text);
 }
 
 .rule-config-center::before {
@@ -334,10 +334,7 @@ onMounted(async () => {
   inset: 72px 0 auto;
   height: 280px;
   opacity: 0.34;
-  background:
-    radial-gradient(circle at 8% 18%, rgba(0, 242, 255, 0.2), transparent 28%),
-    linear-gradient(rgba(0, 242, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.06) 1px, transparent 1px);
+  background: transparent;
   background-size: auto, 32px 32px, 32px 32px;
   content: "";
   pointer-events: none;
@@ -352,13 +349,9 @@ onMounted(async () => {
 .rule-config-center__cabin,
 .rule-surface,
 .rule-config-center__rail {
-  border: 1px solid var(--rule-line);
-  background:
-    linear-gradient(180deg, rgba(9, 37, 63, 0.92), rgba(2, 14, 29, 0.94)),
-    rgba(1, 16, 31, 0.84);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 46px rgba(0, 18, 42, 0.22);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
 }
 
 .rule-config-center__hero {
@@ -368,7 +361,7 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 18px;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 4px;
   padding: 20px;
 }
 
@@ -376,8 +369,8 @@ onMounted(async () => {
   position: absolute;
   inset: auto 0 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.72), transparent);
-  animation: ruleEnergyLine 5s linear infinite;
+  background: transparent;
+
   content: "";
 }
 
@@ -391,9 +384,9 @@ onMounted(async () => {
 .rule-surface__state small,
 .rule-key span,
 .rule-config-center__rail span {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -404,11 +397,11 @@ onMounted(async () => {
 
 .rule-config-center__title-block h1 {
   margin: 6px 0 0;
-  color: #e1fdff;
+  color: var(--xt-text);
   font-size: clamp(26px, 3vw, 40px);
   letter-spacing: -0.022em;
   line-height: 1.05;
-  text-shadow: 0 0 24px rgba(0, 242, 255, 0.14);
+
 }
 
 .rule-config-center__hero-actions {
@@ -420,9 +413,9 @@ onMounted(async () => {
 .rule-config-center__refresh {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.34);
-  background: rgba(0, 242, 255, 0.1);
-  color: #e1fdff;
+  border: 1px solid var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .rule-config-center__refresh::after,
@@ -430,7 +423,7 @@ onMounted(async () => {
   position: absolute;
   inset: -60% 0 auto;
   height: 48%;
-  background: linear-gradient(180deg, transparent, rgba(116, 245, 255, 0.38), transparent);
+  background: transparent;
   content: "";
   opacity: 0;
   transform: translateY(-100%);
@@ -458,30 +451,30 @@ onMounted(async () => {
   min-height: 112px;
   display: grid;
   align-content: space-between;
-  border-radius: 16px;
+  border-radius: 4px;
   padding: 16px;
   overflow: hidden;
 }
 
 .rule-config-center__stat strong {
-  color: #e1fdff;
+  color: var(--xt-text);
   font-size: clamp(30px, 3.2vw, 44px);
   font-variant-numeric: tabular-nums;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.022em;
   line-height: 1;
 }
 
 .rule-config-center__stat.is-warning strong {
-  color: var(--rule-warning);
+  color: var(--xt-warning);
 }
 
 .rule-config-center__stat.is-danger strong {
-  color: var(--rule-danger);
+  color: var(--xt-danger);
 }
 
 .rule-config-center__stat.is-success strong {
-  color: var(--rule-accent-strong);
+  color: var(--xt-text);
 }
 
 .rule-config-center__layout {
@@ -493,7 +486,7 @@ onMounted(async () => {
 
 .rule-config-center__cabin,
 .rule-surface {
-  border-radius: 18px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -518,9 +511,9 @@ onMounted(async () => {
 .rule-config-center__rail strong {
   display: block;
   margin-top: 4px;
-  color: #e1fdff;
+  color: var(--xt-text);
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.012em;
 }
 
@@ -532,12 +525,10 @@ onMounted(async () => {
   display: grid;
   gap: 12px;
   padding: 16px;
-  border: 1px solid var(--rule-line-strong);
-  border-radius: 14px;
-  background:
-    linear-gradient(135deg, rgba(0, 242, 255, 0.16), rgba(0, 242, 255, 0.03)),
-    rgba(1, 16, 31, 0.76);
-  box-shadow: 0 0 30px rgba(0, 242, 255, 0.1);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .rule-config-center__health {
@@ -550,24 +541,22 @@ onMounted(async () => {
   display: grid;
   gap: 6px;
   padding: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: 12px;
-  background: rgba(1, 16, 31, 0.66);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .rule-config-center__health strong {
-  color: #e1fdff;
+  color: var(--xt-text);
   font-size: 24px;
   font-variant-numeric: tabular-nums;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .rule-surface__head {
   padding: 18px 20px;
-  border-bottom: 1px solid var(--rule-line);
-  background:
-    linear-gradient(90deg, rgba(0, 242, 255, 0.12), transparent 54%),
-    rgba(1, 16, 31, 0.58);
+  border-bottom: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 .rule-surface__state {
@@ -577,19 +566,10 @@ onMounted(async () => {
 }
 
 .rule-table {
-  --el-bg-color: rgba(2, 14, 29, 0.94);
-  --el-fill-color-blank: rgba(2, 14, 29, 0.94);
   --el-table-bg-color: transparent;
-  --el-table-border-color: rgba(0, 242, 255, 0.1);
-  --el-table-current-row-bg-color: rgba(0, 242, 255, 0.08);
   --el-table-expanded-cell-bg-color: transparent;
-  --el-table-header-bg-color: rgba(2, 14, 29, 0.94);
-  --el-table-header-text-color: rgba(116, 245, 255, 0.82);
-  --el-table-row-hover-bg-color: rgba(0, 242, 255, 0.07);
-  --el-table-tr-bg-color: rgba(1, 16, 31, 0.58);
-  --el-table-text-color: rgba(225, 253, 255, 0.86);
   width: 100%;
-  background: rgba(1, 16, 31, 0.58);
+  background: transparent;
 }
 
 .rule-table :deep(.el-table__inner-wrapper::before) {
@@ -600,26 +580,24 @@ onMounted(async () => {
 .rule-table :deep(.el-table__body),
 .rule-table :deep(.el-scrollbar__view),
 .rule-table :deep(tr.el-table__row) {
-  background: rgba(1, 16, 31, 0.58);
+  background: transparent;
 }
 
 .rule-table :deep(th.el-table__cell) {
-  border-bottom: 1px solid var(--rule-line);
+  border-bottom: 1px solid var(--xt-border);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .rule-table :deep(td.el-table__cell) {
-  border-bottom: 1px solid rgba(0, 242, 255, 0.08);
+  border-bottom: 1px solid var(--xt-border);
   background: transparent;
 }
 
 .rule-table :deep(.el-table__row.is-dirty td.el-table__cell) {
-  background:
-    linear-gradient(90deg, rgba(255, 171, 0, 0.12), rgba(0, 242, 255, 0.04)),
-    rgba(1, 16, 31, 0.42);
-  animation: ruleDirtyPulse 2.4s var(--xt-ease) infinite;
+  background: transparent;
+
 }
 
 .rule-key {
@@ -629,13 +607,13 @@ onMounted(async () => {
 
 .rule-key strong,
 .rule-value {
-  color: #e1fdff;
+  color: var(--xt-text);
   font-variant-numeric: tabular-nums;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .rule-value {
-  color: var(--rule-accent-strong);
+  color: var(--xt-text);
 }
 
 .rule-input {
@@ -644,28 +622,24 @@ onMounted(async () => {
 
 .rule-input :deep(.el-input__wrapper),
 .rule-config-center__scope-select :deep(.el-select__wrapper) {
-  border-radius: 10px;
-  background: rgba(1, 16, 31, 0.82);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 242, 255, 0.24),
-    inset 0 0 0 1px var(--rule-line);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .rule-input :deep(.el-input__inner),
 .rule-config-center__scope-select :deep(.el-select__placeholder),
 .rule-config-center__scope-select :deep(.el-select__selected-item) {
-  color: #e1fdff;
+  color: var(--xt-text);
 }
 
 .rule-save {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.38);
-  background:
-    linear-gradient(180deg, rgba(0, 242, 255, 0.22), rgba(0, 104, 153, 0.2)),
-    rgba(1, 16, 31, 0.82);
-  color: #e1fdff;
-  box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .rule-config-center__mobile-rules {
@@ -676,14 +650,12 @@ onMounted(async () => {
   display: grid;
   gap: 14px;
   padding: 16px;
-  border-top: 1px solid rgba(0, 242, 255, 0.12);
-  background: rgba(1, 16, 31, 0.58);
+  border-top: 1px solid var(--xt-border);
+  background: transparent;
 }
 
 .rule-config-center__mobile-rule.is-dirty {
-  background:
-    linear-gradient(90deg, rgba(255, 171, 0, 0.12), rgba(0, 242, 255, 0.04)),
-    rgba(1, 16, 31, 0.62);
+  background: transparent;
 }
 
 .rule-config-center__mobile-rule header,
@@ -700,16 +672,16 @@ onMounted(async () => {
 }
 
 .rule-config-center__mobile-values span {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .rule-config-center__mobile-values strong {
-  color: var(--rule-accent-strong);
+  color: var(--xt-text);
   font-size: 22px;
   font-variant-numeric: tabular-nums;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .rule-config-center__rail {
@@ -717,7 +689,7 @@ onMounted(async () => {
   grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr) 36px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  border-radius: 16px;
+  border-radius: 4px;
   padding: 16px;
   animation: rulePanelIn 420ms var(--xt-ease) 140ms both;
 }
@@ -728,23 +700,23 @@ onMounted(async () => {
 
 .rule-config-center__rail i {
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--rule-accent), transparent);
-  box-shadow: 0 0 14px rgba(0, 242, 255, 0.34);
+  background: transparent;
+
 }
 
 .rule-config-center :deep(.reference-status) {
-  border: 1px solid rgba(0, 242, 255, 0.2);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(0, 242, 255, 0.08);
-  color: #74f5ff;
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .rule-config-center :deep(.reference-status[data-status="warning"]) {
-  border-color: rgba(255, 171, 0, 0.3);
-  background: rgba(255, 171, 0, 0.12);
-  color: var(--rule-warning);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-warning);
 }
 
 @keyframes rulePanelIn {
@@ -762,11 +734,11 @@ onMounted(async () => {
 @keyframes ruleDirtyPulse {
   0%,
   100% {
-    box-shadow: inset 0 0 0 rgba(255, 171, 0, 0);
+
   }
 
   50% {
-    box-shadow: inset 0 0 22px rgba(255, 171, 0, 0.08);
+
   }
 }
 

@@ -9,9 +9,7 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    linear-gradient(90deg, rgba(11, 99, 246, 0.024) 1px, transparent 1px),
-    linear-gradient(rgba(15, 23, 42, 0.022) 1px, transparent 1px);
+  background: transparent;
   background-size: 32px 32px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.42), transparent 72%);
 }
@@ -25,7 +23,7 @@
   z-index: 100;
   height: 1px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(11, 99, 246, 0.34), rgba(154, 90, 47, 0.22), transparent);
+  background: transparent;
 }
 
 .xt-page > * {
@@ -59,18 +57,16 @@
   position: relative;
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-industrial-surface--ink {
   border-color: var(--xt-border-ink);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.014)),
-    var(--xt-bg-ink);
-  color: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 22px 58px rgba(5, 10, 20, 0.28);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .xt-industrial-grid {
@@ -83,9 +79,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    linear-gradient(90deg, rgba(11, 91, 212, 0.04) 1px, transparent 1px),
-    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  background: transparent;
   background-size: 28px 28px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.58), transparent 74%);
 }
@@ -114,8 +108,8 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border-radius: inherit;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+
 }
 
 .xt-industrial-rail {
@@ -124,7 +118,7 @@
   gap: var(--xt-space-2);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
@@ -137,12 +131,10 @@
   max-width: 100%;
   padding: 8px;
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-xl);
-  background:
-    linear-gradient(135deg, rgba(94, 184, 255, 0.1), rgba(6, 20, 38, 0.58)),
-    var(--xt-bg-page);
-  color: var(--xt-text-inverse);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .xt-second-pass-source-strip__item {
@@ -150,12 +142,12 @@
   align-items: center;
   min-height: 28px;
   padding: 0 10px;
-  border: 1px solid rgba(94, 184, 255, 0.22);
-  border-radius: var(--xt-radius-lg);
-  background: rgba(94, 184, 255, 0.09);
-  color: rgba(232, 246, 255, 0.94);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
@@ -170,7 +162,7 @@
   min-width: 0;
   padding: var(--xt-space-2);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
 }
 
@@ -178,16 +170,16 @@
   display: block;
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .xt-industrial-metric strong {
   display: block;
   margin-top: 2px;
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-lg);
-  font-weight: 900;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -197,17 +189,17 @@
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--xt-primary);
-  box-shadow: 0 0 0 4px rgba(11, 99, 246, 0.10);
+
 }
 
 .xt-industrial-dot.is-warning {
-  background: var(--xt-warning);
-  box-shadow: 0 0 0 4px var(--xt-warning-light);
+  background: transparent;
+
 }
 
 .xt-industrial-dot.is-danger {
-  background: var(--xt-danger);
-  box-shadow: 0 0 0 4px var(--xt-danger-light);
+  background: transparent;
+
 }
 
 @keyframes xt-scan-line {
@@ -269,21 +261,21 @@
   bottom: 0;
   width: 84px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(11, 99, 246, 0.18), transparent);
+  background: transparent;
   transform: translateX(-18%);
-  animation: xt-scan-line 3.8s var(--xt-ease) infinite;
+
 }
 
 .xt-execution-pulse {
-  animation: xt-execution-pulse 1.8s var(--xt-ease) infinite;
+
 }
 
 .xt-thinking-rise {
-  animation: xt-thinking-rise 1.35s var(--xt-ease) infinite;
+
 }
 
 .xt-depth-breathe {
-  animation: xt-depth-breathe 4.8s var(--xt-ease) infinite;
+
 }
 
 @media (prefers-reduced-motion: reduce) {

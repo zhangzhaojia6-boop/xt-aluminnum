@@ -66,7 +66,7 @@ function formatTime(value) {
   width: 280px;
   min-width: 220px;
   border-right: 1px solid var(--xt-border-light);
-  background: var(--xt-command-surface);
+  background: transparent;
 }
 
 .ai-conversations__header {
@@ -89,12 +89,12 @@ function formatTime(value) {
 .ai-conversations__header span {
   color: var(--xt-primary);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .ai-conversations__header strong {
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: 18px;
 }
 
@@ -112,7 +112,7 @@ function formatTime(value) {
   gap: 4px 8px;
   width: 100%;
   border: 1px solid transparent;
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: transparent;
   color: var(--xt-text);
   padding: 10px 12px;
@@ -129,7 +129,7 @@ function formatTime(value) {
 .ai-conversations__item.is-active {
   border-color: var(--xt-primary-border);
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .ai-conversations__item:active {
@@ -145,7 +145,7 @@ function formatTime(value) {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ai-conversations__time {

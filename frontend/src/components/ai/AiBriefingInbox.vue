@@ -217,11 +217,11 @@ function handleIgnore(briefing) {
 .ai-briefing-inbox__filters button {
   min-height: 34px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
   cursor: pointer;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
@@ -242,22 +242,17 @@ function handleIgnore(briefing) {
   display: grid;
   gap: 8px;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: #fff;
-  box-shadow:
-    inset 0 0 0 1px rgba(43, 93, 178, 0.1),
-    0 6px 18px rgba(25, 62, 118, 0.06);
+
 }
 
 .ai-briefing-inbox__item.is-unread {
-  box-shadow:
-    inset 3px 0 0 var(--xt-primary),
-    inset 0 0 0 1px rgba(43, 93, 178, 0.13),
-    0 8px 22px rgba(25, 62, 118, 0.08);
+
 }
 
 .ai-briefing-inbox__item.is-followed {
-  background: rgba(236, 253, 245, 0.92);
+  background: transparent;
 }
 
 .ai-briefing-inbox__item.is-ignored {
@@ -276,7 +271,7 @@ function handleIgnore(briefing) {
   color: var(--xt-text-muted);
   font-size: 12px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .ai-briefing-inbox__item strong {
@@ -294,7 +289,7 @@ function handleIgnore(briefing) {
   display: grid;
   gap: 6px;
   padding: 8px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
 }
 
@@ -307,7 +302,7 @@ function handleIgnore(briefing) {
   min-height: 64px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-muted);
   font-size: 13px;

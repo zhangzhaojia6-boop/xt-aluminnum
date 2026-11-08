@@ -2,11 +2,11 @@
   <Teleport to="body">
     <Transition name="xt-drawer">
       <div v-if="modelValue" class="xt-drawer-overlay" @click.self="close">
-        <aside 
+        <aside
           ref="drawerRef"
-          class="xt-drawer" 
-          :class="[`xt-drawer--${side}`, `xt-drawer--${size}`]" 
-          role="dialog" 
+          class="xt-drawer"
+          :class="[`xt-drawer--${side}`, `xt-drawer--${size}`]"
+          role="dialog"
           :aria-label="title"
         >
           <header class="xt-drawer__header">
@@ -68,8 +68,8 @@ const close = () => emit('update:modelValue', false)
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(2px);
+  background: transparent;
+
 }
 
 .xt-drawer {
@@ -79,7 +79,7 @@ const close = () => emit('update:modelValue', false)
   display: flex;
   flex-direction: column;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-xl);
+
 }
 
 .xt-drawer--right { right: 0; }
@@ -101,7 +101,7 @@ const close = () => emit('update:modelValue', false)
   margin: 0;
   color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-drawer__close {
@@ -112,14 +112,14 @@ const close = () => emit('update:modelValue', false)
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: var(--xt-radius-sm);
+  border-radius: 4px;
   background: transparent;
   color: var(--xt-text-muted);
   cursor: pointer;
 }
 
 .xt-drawer__close:hover {
-  background: var(--xt-bg-hover);
+  background: transparent;
   color: var(--xt-text);
 }
 

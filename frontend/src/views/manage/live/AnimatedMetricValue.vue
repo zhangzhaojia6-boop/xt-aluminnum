@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
 }
 
 .animated-metric-value.is-rolling {
-  color: #74f5ff;
+  color: var(--xt-text);
 }
 
 @media (prefers-reduced-motion: reduce) {

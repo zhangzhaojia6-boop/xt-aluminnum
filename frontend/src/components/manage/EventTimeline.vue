@@ -77,7 +77,7 @@ function toggleSources(id) {
 .xt-event-timeline {
   background: var(--xt-bg-panel);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
 }
@@ -98,8 +98,8 @@ function toggleSources(id) {
 .xt-event-timeline__row { border-bottom: 1px solid var(--xt-border); }
 .xt-event-timeline__row:last-child { border-bottom: 0; }
 .xt-event-timeline__sources {
-  border-top: 1px solid color-mix(in srgb, var(--xt-border) 76%, transparent);
-  background: color-mix(in srgb, var(--xt-bg-panel-soft) 72%, transparent);
+  border-top: 1px solid var(--xt-border);
+  background: transparent;
 }
 .xt-event-timeline__source-toggle {
   display: flex;
@@ -113,12 +113,12 @@ function toggleSources(id) {
   background: transparent;
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
 .xt-event-timeline__source-toggle:hover {
-  background: color-mix(in srgb, var(--xt-color-accent) 7%, transparent);
+  background: transparent;
 }
 .xt-event-timeline__source-toggle small {
   color: var(--xt-text-muted);
@@ -130,7 +130,7 @@ function toggleSources(id) {
   padding: 0 0 var(--xt-space-2) 108px;
 }
 .xt-event-timeline__source-list > li {
-  border-top: 1px solid color-mix(in srgb, var(--xt-border) 58%, transparent);
+  border-top: 1px solid var(--xt-border);
 }
 .xt-event-timeline__source-list :deep(.xt-event-card) {
   min-height: 48px;
