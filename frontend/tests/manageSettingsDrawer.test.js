@@ -27,6 +27,7 @@ const requiredPaths = [
   '/manage/mapping-reconciliation',
   '/manage/rag',
   '/manage/workshop-dashboard',
+  '/manage/procurement',
   '/manage/master',
   '/manage/alias',
   '/manage/admin/settings',

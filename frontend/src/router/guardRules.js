@@ -113,6 +113,11 @@ export function resolveGuardDecision({
     return null
   }
 
+  // 采购各环节由不同岗位办理，审批权在后端按岗位判断
+  if (to.meta.zone === 'procurement') {
+    return true
+  }
+
   if (auth.isFillOnlyRole && to.meta.zone !== 'entry' && to.name !== 'login') {
     return { name: 'mobile-entry' }
   }

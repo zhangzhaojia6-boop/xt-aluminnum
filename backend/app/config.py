@@ -182,6 +182,7 @@ class Settings(BaseSettings):
     HERMES_FACTORY_BRAIN_MAX_TOOL_STEPS: int = 8
     HERMES_FACTORY_BRAIN_MIN_CONFIDENCE: float = 0.65
     WORKFLOW_ENABLED: bool = False
+    PROCUREMENT_ENABLED: bool = False
     AUTO_PUBLISH_ENABLED: bool = True
     AUTO_PUSH_ENABLED: bool = True
     DAILY_REPORT_DINGTALK_RECIPIENT_NAME: str = ''

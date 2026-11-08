@@ -27,7 +27,7 @@ from app.core.scheduler import (
     try_acquire_scheduler_leader,
 )
 from app.routers.config import router as config_router
-from app.routers import ai, agent, agent_management, assistant, assistant_actions, attendance, auth, command, consumables, contracts, dashboard, dingtalk, energy, executive, export, factory_command, hermes, hermes_data_audit, imports, inventory, mapping_reconciliation, master, mes, mobile, notifications, ocr, production, quality, rag, realtime, reconciliation, reports, rule_configs, search, telemetry, templates, user_preferences, users, version, work_orders
+from app.routers import ai, agent, agent_management, assistant, assistant_actions, attendance, auth, command, consumables, contracts, dashboard, dingtalk, energy, executive, export, factory_command, hermes, hermes_data_audit, imports, inventory, mapping_reconciliation, master, mes, mobile, notifications, ocr, production, quality, rag, realtime, reconciliation, reports, rule_configs, search, telemetry, templates, user_preferences, users, version, work_orders, procurement
 from app.services import dingtalk_service
 
 logger = logging.getLogger(__name__)
@@ -244,6 +244,7 @@ app.mount('/uploads', StaticFiles(directory=str(uploads_dir)), name='uploads')
 
 app.include_router(auth.router, prefix=f'{settings.API_V1_PREFIX}/auth')
 app.include_router(users.router, prefix=f'{settings.API_V1_PREFIX}/users')
+app.include_router(procurement.router, prefix=f'{settings.API_V1_PREFIX}/procurement')
 app.include_router(user_preferences.router, prefix=f'{settings.API_V1_PREFIX}/user')
 app.include_router(master.router, prefix=f'{settings.API_V1_PREFIX}/master')
 app.include_router(imports.router, prefix=f'{settings.API_V1_PREFIX}/imports')
