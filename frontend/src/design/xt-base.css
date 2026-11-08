@@ -15,7 +15,7 @@ body {
   min-width: 320px;
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-body);
+
   font-size: var(--xt-text-base);
   line-height: 1.58;
   background: var(--xt-bg-page);
@@ -27,7 +27,7 @@ body.xt-no-scroll {
 }
 
 ::selection {
-  background: rgba(11, 99, 246, 0.16);
+  background: transparent;
 }
 
 #app {
@@ -68,12 +68,12 @@ svg {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--xt-gray-300);
-  border-radius: 3px;
+  background: transparent;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--xt-gray-400);
+  background: transparent;
 }
 
 .page-stack,
@@ -85,10 +85,10 @@ svg {
 
 .panel,
 .reference-card {
-  border: 1px solid var(--app-border);
-  border-radius: var(--app-radius-card);
-  background: var(--app-panel);
-  box-shadow: var(--xt-shadow-sm);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .panel {
@@ -101,13 +101,13 @@ svg {
 .xt-surface-dark {
   position: relative;
   min-width: 0;
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
 }
 
 .xt-surface {
   border: 1px solid var(--xt-border-light);
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-surface-soft {
@@ -117,13 +117,13 @@ svg {
 
 .xt-surface-dark {
   border: 1px solid var(--xt-border-ink);
-  background: var(--xt-bg-ink);
-  color: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 18px 40px rgba(5, 10, 20, 0.24);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .xt-number {
-  font-family: var(--xt-font-number);
+
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
@@ -131,9 +131,9 @@ svg {
 .xt-section-title {
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: var(--xt-text-xl);
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.18;
   letter-spacing: 0;
   text-wrap: balance;
@@ -141,9 +141,9 @@ svg {
 
 .xt-section-kicker {
   margin: 0;
-  color: var(--xt-accent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .page-header {
@@ -153,17 +153,17 @@ svg {
   gap: var(--xt-space-4);
   padding: var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
-  background: var(--xt-command-surface-strong);
-  box-shadow: var(--xt-shadow-sm);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .page-header h1 {
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: var(--xt-text-xl);
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.2;
   letter-spacing: 0;
   text-wrap: balance;
@@ -190,8 +190,8 @@ svg {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border-radius: inherit;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  border-radius: 4px;
+
 }
 
 .stat-grid {
@@ -203,21 +203,21 @@ svg {
 .stat-card {
   padding: var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .note {
-  color: var(--app-muted);
+  color: var(--xt-text-secondary);
 }
 
 .template-empty {
   padding: var(--xt-space-5);
   border: 1px dashed var(--xt-border-strong);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
-  color: var(--app-muted);
+  color: var(--xt-text-secondary);
   text-align: center;
 }
 
@@ -243,18 +243,18 @@ svg {
   gap: var(--xt-space-3);
   padding: var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .mobile-top h1,
 .mobile-shell .page-title h1 {
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: var(--xt-text-xl);
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.18;
 }
 
@@ -267,8 +267,8 @@ svg {
 }
 
 .mobile-card {
-  border-radius: var(--xt-radius-xl);
-  box-shadow: var(--xt-shadow-sm);
+  border-radius: 4px;
+
 }
 
 .mobile-card .el-card__header {
@@ -289,7 +289,7 @@ svg {
   min-width: 0;
   padding: var(--xt-space-4);
   border: 1px dashed var(--xt-border-strong);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-lg);
@@ -331,7 +331,7 @@ svg {
   gap: var(--xt-space-1);
   padding: var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
 }
 
@@ -355,7 +355,7 @@ svg {
   min-width: 0;
   color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 900;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -374,7 +374,7 @@ svg {
   gap: var(--xt-space-2);
   color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -397,7 +397,7 @@ svg {
 .mobile-field .el-select__wrapper,
 .mobile-field .el-textarea__inner {
   min-height: 48px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
 }
 
 .mobile-field .el-input__inner,
@@ -412,7 +412,7 @@ svg {
 .mobile-actions .el-button,
 .mobile-sticky-actions .el-button {
   min-height: 48px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
 }
 
 .mobile-sticky-actions {
@@ -423,9 +423,9 @@ svg {
   gap: var(--xt-space-2);
   padding: var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-md);
+
 }
 
 .mobile-sticky-actions__meta,
@@ -449,9 +449,9 @@ svg {
   gap: var(--xt-space-3);
   padding: var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-xs);
+
 }
 
 .mobile-history-main,
@@ -470,7 +470,7 @@ svg {
   min-width: 0;
   color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -482,7 +482,7 @@ svg {
 
 .mobile-history-item .header-actions .el-button {
   min-height: 48px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
 }
 
 .mobile-history-item .header-actions .el-button--primary.is-plain {
@@ -503,7 +503,7 @@ svg {
 .mobile-upload-box {
   padding: var(--xt-space-3);
   border: 1px dashed var(--xt-border-strong);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
 }
 
@@ -514,7 +514,7 @@ svg {
 .mobile-ocr-preview {
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel-soft);
 }
 
@@ -546,12 +546,12 @@ svg {
   gap: var(--xt-space-3);
   padding: var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
 }
 
 .mobile-attendance-card.is-anomaly {
-  border-color: rgba(194, 65, 52, 0.22);
+  border-color: var(--xt-border);
   background: var(--xt-danger-light);
 }
 
@@ -564,7 +564,7 @@ svg {
   background: var(--xt-warning-light);
   color: var(--xt-warning);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .mobile-ocr-badge.is-good {
@@ -579,9 +579,9 @@ svg {
 
 .mobile-ocr-field__value {
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-xl);
-  font-weight: 900;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -590,9 +590,9 @@ svg {
   margin: 0;
   overflow: auto;
   padding: var(--xt-space-3);
-  border-radius: var(--xt-radius-lg);
-  background: var(--xt-bg-ink);
-  color: var(--xt-text-inverse);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   white-space: pre-wrap;
 }
 
@@ -665,14 +665,14 @@ svg {
 .panel-source-tag.is-healthy,
 .stat-source-tag.is-healthy {
   color: var(--xt-success);
-  border-color: rgba(22, 138, 85, 0.20);
+  border-color: var(--xt-border);
   background: var(--xt-success-light);
 }
 
 .panel-source-tag.is-alert,
 .stat-source-tag.is-alert {
   color: var(--xt-warning);
-  border-color: rgba(183, 121, 31, 0.22);
+  border-color: var(--xt-border);
   background: var(--xt-warning-light);
 }
 
@@ -681,7 +681,7 @@ svg {
   display: grid;
   gap: var(--xt-space-4);
   padding: var(--xt-space-4);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-page);
 }
 
@@ -716,9 +716,9 @@ svg {
 
 .reference-page__number,
 .reference-card__number {
-  color: var(--reference-blue);
+  color: var(--xt-text);
   font-size: var(--xt-text-xl);
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -727,14 +727,14 @@ svg {
   min-height: 40px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(11, 99, 246, 0.16);
-  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: #ffffff;
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .reference-card__number {
-  color: var(--xt-accent);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-sm);
 }
@@ -746,17 +746,17 @@ svg {
 }
 
 .reference-page__system {
-  color: var(--xt-accent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .reference-page h1,
 .reference-card__title strong {
   margin: 0;
-  color: var(--xt-gray-900);
+  color: var(--xt-text);
   font-size: var(--xt-text-xl);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .reference-page__tags {
@@ -773,17 +773,17 @@ svg {
   padding: 0 var(--xt-space-2);
   border: 1px solid var(--xt-border-light);
   border-radius: var(--xt-radius-pill);
-  background: var(--xt-command-surface);
+  background: transparent;
   color: var(--xt-text-soft);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .reference-status[data-status='success'],
 .reference-status[data-status='done'],
 .reference-status[data-status='confirmed'] {
   color: var(--xt-success);
-  border-color: rgba(22, 138, 85, 0.2);
+  border-color: var(--xt-border);
   background: var(--xt-success-light);
 }
 
@@ -791,7 +791,7 @@ svg {
 .reference-status[data-status='pending'],
 .reference-status[data-status='open'] {
   color: var(--xt-warning);
-  border-color: rgba(183, 121, 31, 0.22);
+  border-color: var(--xt-border);
   background: var(--xt-warning-light);
 }
 
@@ -799,7 +799,7 @@ svg {
 .reference-status[data-status='error'],
 .reference-status[data-status='failed'] {
   color: var(--xt-danger);
-  border-color: rgba(194, 65, 52, 0.2);
+  border-color: var(--xt-border);
   background: var(--xt-danger-light);
 }
 
@@ -850,10 +850,10 @@ svg {
   display: grid;
   gap: var(--xt-space-3);
   padding: var(--xt-space-4);
-  border: 1px solid var(--reference-line);
-  border-radius: var(--xt-radius-xl);
-  background: var(--reference-card);
-  box-shadow: var(--reference-shadow);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .reference-card--dense {
@@ -868,8 +868,8 @@ svg {
   gap: var(--xt-space-3);
   align-items: center;
   padding: var(--xt-space-3);
-  border: 1px solid var(--reference-line);
-  border-radius: var(--xt-radius-xl);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
 }
 
@@ -878,10 +878,10 @@ svg {
   height: 38px;
   display: grid;
   place-items: center;
-  border-radius: var(--xt-radius-lg);
-  color: var(--reference-blue);
+  border-radius: 4px;
+  color: var(--xt-text);
   background: var(--xt-primary-soft);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .reference-kpi__content {
@@ -895,13 +895,13 @@ svg {
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .reference-kpi__value {
-  color: var(--xt-gray-900);
+  color: var(--xt-text);
   font-size: var(--xt-text-2xl);
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -916,8 +916,8 @@ svg {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
-  border: 1px solid var(--reference-line);
-  border-radius: var(--xt-radius-xl);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
 }
 
 .reference-data-table {
@@ -934,8 +934,8 @@ svg {
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: var(--xt-space-2);
   padding: var(--xt-space-2);
-  border: 1px solid var(--reference-line);
-  border-radius: var(--xt-radius-xl);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: var(--xt-bg-panel-muted);
 }
 
@@ -945,8 +945,8 @@ svg {
   display: grid;
   gap: 3px;
   padding: var(--xt-space-3);
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: var(--xt-radius-xl);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
 }
 
@@ -969,7 +969,7 @@ svg {
 }
 
 .el-button {
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
     border-color var(--xt-motion-fast) var(--xt-ease),
@@ -980,7 +980,7 @@ svg {
 
 .el-button:focus-visible {
   outline: none;
-  box-shadow: var(--app-focus-ring);
+
 }
 
 .el-button:active {
@@ -995,12 +995,12 @@ svg {
 .el-button--primary:hover,
 .el-button--primary:focus {
   border-color: var(--xt-primary-hover);
-  background: var(--xt-primary-hover);
+  background: transparent;
 }
 
 .el-input__wrapper,
 .el-select__wrapper {
-  border-radius: var(--xt-radius-sm);
+  border-radius: 4px;
   transition: box-shadow var(--xt-motion-fast) var(--xt-ease);
 }
 
@@ -1034,7 +1034,7 @@ svg {
 }
 
 .el-card {
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .el-card__header {
@@ -1043,19 +1043,19 @@ svg {
 
 .el-message-box,
 .el-dialog {
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
 }
 
 .el-input__wrapper.is-focus,
 .el-select__wrapper.is-focused {
-  box-shadow: var(--app-focus-ring);
+
 }
 
 @media (hover: hover) {
   .xt-surface[data-interactive='true']:hover,
   .reference-card[data-interactive='true']:hover {
     transform: translateY(-1px);
-    box-shadow: var(--xt-shadow-md);
+
   }
 }
 

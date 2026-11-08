@@ -316,7 +316,7 @@ onMounted(loadChannels)
   gap: var(--xt-space-4);
   min-height: calc(100vh - var(--xt-topbar-height) - var(--xt-space-10));
   overflow-x: hidden;
-  color: rgba(245, 247, 239, 0.94);
+  color: var(--xt-text);
 }
 
 .xt-channels__backdrop {
@@ -324,11 +324,7 @@ onMounted(loadChannels)
   inset: -24px 0;
   z-index: -1;
   opacity: 0.66;
-  background:
-    linear-gradient(rgba(166, 124, 72, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(166, 124, 72, 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 18% 0, rgba(166, 124, 72, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(10, 14, 18, 0.2), rgba(10, 14, 18, 0.96));
+  background: transparent;
   background-size: 34px 34px, 34px 34px, 100% 100%, 100% 100%;
   pointer-events: none;
 }
@@ -337,12 +333,10 @@ onMounted(loadChannels)
 .xt-channels__metrics article,
 .xt-channels__panel,
 .xt-channels__state {
-  border: 1px solid rgba(166, 124, 72, 0.32);
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(30, 35, 38, 0.96), rgba(13, 17, 21, 0.96)),
-    #11161b;
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-channels__hero {
@@ -355,18 +349,18 @@ onMounted(loadChannels)
 }
 
 .xt-channels__hero span {
-  color: rgba(210, 166, 98, 0.9);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .xt-channels__hero h1 {
   margin: 0;
-  color: rgba(245, 247, 239, 0.98);
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: clamp(32px, 4vw, 52px);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
@@ -379,12 +373,12 @@ onMounted(loadChannels)
 
 .xt-channels__refresh,
 .xt-channels__state button {
-  border: 1px solid rgba(210, 166, 98, 0.42);
-  border-radius: 8px;
-  background: rgba(166, 124, 72, 0.12);
-  color: rgba(255, 232, 190, 0.95);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   cursor: pointer;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-channels__refresh:disabled {
@@ -400,13 +394,13 @@ onMounted(loadChannels)
 .xt-channels__button {
   min-height: 30px;
   padding: 0 var(--xt-space-3);
-  border: 1px solid rgba(210, 166, 98, 0.34);
-  border-radius: 7px;
-  background: rgba(210, 166, 98, 0.1);
-  color: rgba(255, 232, 190, 0.95);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   cursor: pointer;
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-channels__state {
@@ -415,24 +409,24 @@ onMounted(loadChannels)
   align-items: center;
   justify-content: center;
   gap: var(--xt-space-3);
-  color: rgba(255, 192, 174, 0.96);
-  font-weight: 900;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-channels__inline-state {
   margin: 0;
   padding: var(--xt-space-2) var(--xt-space-3);
-  border: 1px solid rgba(166, 124, 72, 0.22);
-  border-radius: 8px;
-  background: rgba(166, 124, 72, 0.08);
-  color: rgba(255, 232, 190, 0.9);
-  font-weight: 900;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-channels__inline-state.is-error {
-  border-color: rgba(208, 76, 61, 0.32);
-  background: rgba(208, 76, 61, 0.1);
-  color: rgba(255, 192, 174, 0.96);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-channels__metrics {
@@ -450,22 +444,22 @@ onMounted(loadChannels)
 
 .xt-channels__metrics span,
 .xt-channels__panel header span {
-  color: rgba(210, 166, 98, 0.75);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.06em;
 }
 
 .xt-channels__metrics strong {
-  color: rgba(245, 247, 239, 0.98);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: clamp(28px, 3vw, 42px);
   line-height: 1;
 }
 
 .xt-channels__metrics small {
-  color: rgba(193, 207, 202, 0.72);
-  font-weight: 850;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-channels__panel {
@@ -481,18 +475,18 @@ onMounted(loadChannels)
   justify-content: space-between;
   gap: var(--xt-space-3);
   padding-bottom: var(--xt-space-3);
-  border-bottom: 1px solid rgba(166, 124, 72, 0.18);
+  border-bottom: 1px solid var(--xt-border);
 }
 
 .xt-channels__panel h2 {
   margin: 0;
-  color: rgba(245, 247, 239, 0.96);
+  color: var(--xt-text);
   font-size: var(--xt-text-xl);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-channels__panel header b {
-  color: rgba(210, 166, 98, 0.9);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
@@ -500,10 +494,10 @@ onMounted(loadChannels)
   min-height: 104px;
   display: grid;
   place-items: center;
-  border: 1px dashed rgba(166, 124, 72, 0.28);
-  border-radius: 10px;
-  color: rgba(193, 207, 202, 0.68);
-  font-weight: 900;
+  border: 1px dashed var(--xt-border);
+  border-radius: 4px;
+  color: var(--xt-text-secondary);
+  font-weight: 600;
 }
 
 .xt-channels__table-wrap {
@@ -514,14 +508,14 @@ onMounted(loadChannels)
   display: grid;
   gap: var(--xt-space-3);
   padding-top: var(--xt-space-3);
-  border-top: 1px solid rgba(166, 124, 72, 0.14);
+  border-top: 1px solid var(--xt-border);
 }
 
 .xt-channels__logs h3 {
   margin: 0;
-  color: rgba(245, 247, 239, 0.92);
+  color: var(--xt-text);
   font-size: var(--xt-text-base);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-channels table {
@@ -533,19 +527,19 @@ onMounted(loadChannels)
 .xt-channels th,
 .xt-channels td {
   padding: 12px var(--xt-space-2);
-  border-bottom: 1px solid rgba(166, 124, 72, 0.1);
+  border-bottom: 1px solid var(--xt-border);
   text-align: left;
   vertical-align: middle;
 }
 
 .xt-channels th {
-  color: rgba(210, 166, 98, 0.78);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-channels td {
-  color: rgba(245, 247, 239, 0.84);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
@@ -558,14 +552,14 @@ onMounted(loadChannels)
 }
 
 .xt-channels td b {
-  color: rgba(245, 247, 239, 0.95);
-  font-weight: 900;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-channels td small {
-  color: rgba(193, 207, 202, 0.62);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .xt-channels__tag {
@@ -573,24 +567,24 @@ onMounted(loadChannels)
   align-items: center;
   min-height: 24px;
   padding: 3px var(--xt-space-2);
-  border: 1px solid rgba(57, 217, 138, 0.3);
+  border: 1px solid var(--xt-border);
   border-radius: 4px;
-  background: rgba(57, 217, 138, 0.1);
-  color: rgba(137, 255, 205, 0.94);
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-channels__tag.is-warning {
-  border-color: rgba(210, 166, 98, 0.36);
-  background: rgba(166, 124, 72, 0.13);
-  color: rgba(255, 232, 190, 0.94);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-channels__tag.is-muted {
-  border-color: rgba(132, 148, 149, 0.24);
-  background: rgba(49, 53, 60, 0.28);
-  color: rgba(185, 202, 203, 0.74);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 @media (max-width: 900px) {

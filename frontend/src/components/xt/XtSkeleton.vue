@@ -59,19 +59,14 @@ const itemWidth = (i) => {
 
 .xt-skeleton__item {
   height: 16px;
-  background: var(--xt-bg-panel-soft, rgba(255, 255, 255, 0.05));
+  background: transparent;
   border-radius: 4px;
 }
 
 .is-animated .xt-skeleton__item {
-  background: linear-gradient(
-    90deg,
-    var(--xt-bg-panel-soft, rgba(255, 255, 255, 0.05)) 25%,
-    rgba(255, 255, 255, 0.08) 37%,
-    var(--xt-bg-panel-soft, rgba(255, 255, 255, 0.05)) 63%
-  );
+  background: transparent;
   background-size: 400% 100%;
-  animation: xt-skeleton-loading 1.4s ease infinite;
+
 }
 
 @keyframes xt-skeleton-loading {

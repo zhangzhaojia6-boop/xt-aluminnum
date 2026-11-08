@@ -452,10 +452,10 @@ watch(
 .review-assistant-workbench__status-card,
 .review-assistant-workbench__capability {
   padding: 16px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   border: 1px solid var(--xt-border-light);
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     border-color var(--app-motion-fast) ease,
@@ -468,7 +468,7 @@ watch(
 .review-assistant-workbench__capability:hover {
   transform: translateY(-2px);
   border-color: var(--xt-primary-border);
-  box-shadow: var(--xt-shadow-md);
+
 }
 
 .review-assistant-workbench__composer-actions,
@@ -483,10 +483,10 @@ watch(
   display: grid;
   gap: 12px;
   padding: 16px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   border: 1px solid var(--xt-border-light);
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     border-color var(--app-motion-fast) ease,
@@ -497,7 +497,7 @@ watch(
 .review-assistant-workbench__result-card:hover {
   transform: translateY(-2px);
   border-color: var(--xt-primary-border);
-  box-shadow: var(--xt-shadow-md);
+
 }
 
 .review-assistant-workbench__result-head {
@@ -536,12 +536,12 @@ watch(
   align-items: center;
   min-height: 32px;
   padding: 0 12px;
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   background: var(--xt-primary-light);
   border: 1px solid var(--xt-primary-border);
   color: var(--xt-primary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     box-shadow var(--app-motion-fast) var(--app-motion-curve);
@@ -550,7 +550,7 @@ watch(
 .review-assistant-workbench__result-sources span:hover,
 .review-assistant-workbench__result-next span:hover {
   transform: translateY(-1px);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .review-assistant-workbench__result-preview {
@@ -561,7 +561,7 @@ watch(
 
 .review-assistant-workbench__result-preview img {
   width: 100%;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   border: 1px solid var(--xt-border-light);
   background: var(--xt-bg-panel-soft);
 }
@@ -580,12 +580,12 @@ watch(
   align-items: center;
   min-height: 32px;
   padding: 0 12px;
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   background: var(--xt-primary-light);
   border: 1px solid var(--xt-primary-border);
   color: var(--xt-primary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     box-shadow var(--app-motion-fast) var(--app-motion-curve);
@@ -593,7 +593,7 @@ watch(
 
 .review-assistant-workbench__chips span:hover {
   transform: translateY(-1px);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .review-assistant-workbench__grid {

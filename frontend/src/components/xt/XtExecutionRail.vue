@@ -79,18 +79,18 @@ function defaultDetail(index) {
   gap: var(--xt-space-2);
   padding: var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-xs);
+
 }
 
 .xt-execution-rail__step.is-running {
   border-color: var(--xt-primary-border);
-  box-shadow: var(--xt-shadow-command);
+
 }
 
 .xt-execution-rail__step.is-running .xt-execution-rail__index {
-  animation: xt-execution-pulse 1.8s var(--xt-ease) infinite;
+
 }
 
 .xt-execution-rail__step.is-done .xt-execution-rail__index {
@@ -114,12 +114,12 @@ function defaultDetail(index) {
   flex: 0 0 30px;
   display: grid;
   place-items: center;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-primary-soft);
   color: var(--xt-primary);
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-sm);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-execution-rail__copy {

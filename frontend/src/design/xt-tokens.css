@@ -10,7 +10,7 @@
   --xt-accent-soft: #f7f8fa;
   --xt-command-surface: #f7f8fa;
   --xt-command-surface-strong: #ffffff;
-  --xt-command-surface-dark: oklch(22% 0.025 250);
+  --xt-command-surface-dark: #f7f8fa;
 
   --xt-gray-50: #f8fafc;
   --xt-gray-100: #f1f5f9;
@@ -51,9 +51,9 @@
   --xt-bg-panel-muted: #f7f8fa;
   --xt-bg-panel-strong: #ffffff;
   --xt-bg-depth: #f3f4f6;
-  --xt-bg-ink: oklch(18% 0.028 250);
-  --xt-bg-ink-soft: oklch(23% 0.032 250);
-  --xt-bg-ink-panel: oklch(27% 0.034 250);
+  --xt-bg-ink: #f7f8fa;
+  --xt-bg-ink-soft: #f7f8fa;
+  --xt-bg-ink-panel: #ffffff;
 
   --xt-text: #111827;
   --xt-text-secondary: #4b5563;

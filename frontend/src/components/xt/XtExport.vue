@@ -62,7 +62,7 @@ function exportFormat(format) {
 .xt-export__item {
   height: 34px;
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   color: var(--xt-text);
   background: var(--xt-bg-panel);
 }
@@ -84,9 +84,9 @@ function exportFormat(format) {
   min-width: 120px;
   padding: var(--xt-space-1);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-lg);
+
 }
 
 .xt-export__item {
@@ -98,6 +98,6 @@ function exportFormat(format) {
 }
 
 .xt-export__item:hover {
-  background: var(--xt-gray-50);
+  background: transparent;
 }
 </style>

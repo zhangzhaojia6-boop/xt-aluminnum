@@ -84,7 +84,7 @@ function onBlur() {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   overflow: hidden;
 }

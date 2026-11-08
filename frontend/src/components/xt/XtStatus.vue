@@ -57,7 +57,7 @@ const resolvedText = computed(() => props.text || statusMap[normalizedValue.valu
   border: 1px solid transparent;
   border-radius: 999px;
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -68,7 +68,7 @@ const resolvedText = computed(() => props.text || statusMap[normalizedValue.valu
   background: currentColor;
 }
 
-.xt-status--neutral { color: var(--xt-gray-600); background: var(--xt-gray-100); border-color: var(--xt-border-light); }
+.xt-status--neutral { color: var(--xt-text); background: var(--xt-gray-100); border-color: var(--xt-border-light); }
 .xt-status--primary { color: var(--xt-primary); background: var(--xt-primary-light); border-color: var(--xt-primary-border); }
 .xt-status--success { color: var(--xt-success); background: var(--xt-success-light); border-color: var(--xt-success-border); }
 .xt-status--warning { color: var(--xt-warning); background: var(--xt-warning-light); border-color: var(--xt-warning-border); }

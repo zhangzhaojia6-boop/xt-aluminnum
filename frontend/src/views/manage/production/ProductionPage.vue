@@ -288,9 +288,7 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   position: fixed;
   inset: 0;
   z-index: -1;
-  background:
-    linear-gradient(color-mix(in srgb, var(--xt-primary) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--xt-primary) 5%, transparent) 1px, transparent 1px);
+  background: transparent;
   background-size: 32px 32px;
   content: "";
   pointer-events: none;
@@ -303,14 +301,10 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 .xt-production__status-bar {
   position: relative;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
-  border-radius: var(--xt-radius-xl);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 7%, transparent), transparent),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 88%, var(--xt-bg-panel));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 34%, transparent);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-production__hero::before,
@@ -319,9 +313,7 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 .xt-production__signal::before {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 88% 10%, color-mix(in srgb, var(--xt-primary) 16%, transparent), transparent 34%),
-    linear-gradient(135deg, color-mix(in srgb, var(--xt-primary) 8%, transparent), transparent 44%);
+  background: transparent;
   content: "";
   pointer-events: none;
 }
@@ -334,7 +326,7 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   right: var(--xt-space-4);
   left: var(--xt-space-4);
   height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent);
+  background: transparent;
   content: "";
   pointer-events: none;
 }
@@ -362,27 +354,27 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 
 .xt-production__hero h1 {
   margin: 0;
-  color: var(--xt-text-inverse);
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: clamp(var(--xt-text-2xl), 3vw, 42px);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.04em;
 }
 
 .xt-production__eyebrow {
-  color: color-mix(in srgb, var(--xt-primary) 72%, var(--xt-text-inverse));
+  color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .xt-production__error {
   padding: var(--xt-space-2) var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-warning) 35%, var(--xt-border));
-  border-radius: var(--xt-radius-md);
-  background: color-mix(in srgb, var(--xt-warning-light) 10%, var(--xt-bg-panel));
-  color: var(--xt-text-inverse);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
@@ -408,24 +400,24 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   gap: var(--xt-space-3);
   margin-bottom: var(--xt-space-3);
   padding-bottom: var(--xt-space-3);
-  border-bottom: 1px solid color-mix(in srgb, var(--xt-primary) 13%, var(--xt-border));
+  border-bottom: 1px solid var(--xt-border);
 }
 
 .xt-production__panel-head h2 {
   margin: var(--xt-space-1) 0 0;
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-size: var(--xt-text-xl);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-production__count {
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 22%, var(--xt-border));
+  border: 1px solid var(--xt-border);
   border-radius: var(--xt-radius-pill);
   padding: var(--xt-space-1) var(--xt-space-2);
-  background: color-mix(in srgb, var(--xt-primary-light) 8%, transparent);
-  color: color-mix(in srgb, var(--xt-text-inverse) 74%, transparent);
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-production__empty {
@@ -435,9 +427,9 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   min-height: 260px;
   margin: 0;
   place-items: center;
-  border: 1px dashed color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
-  border-radius: var(--xt-radius-lg);
-  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  border: 1px dashed var(--xt-border);
+  border-radius: 4px;
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
@@ -452,9 +444,9 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 .xt-production__table th,
 .xt-production__table td {
   padding: var(--xt-space-3);
-  border-bottom: 1px solid color-mix(in srgb, var(--xt-primary) 8%, var(--xt-border));
+  border-bottom: 1px solid var(--xt-border);
   text-align: left;
-  color: color-mix(in srgb, var(--xt-text-inverse) 80%, transparent);
+  color: var(--xt-text);
 }
 
 .xt-production__table tbody tr {
@@ -471,9 +463,9 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 }
 
 .xt-production__table th {
-  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.06em;
 }
 
@@ -484,12 +476,12 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 
 .xt-production__table small {
   margin-left: 2px;
-  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
 }
 
 .xt-production__table .is-muted {
-  color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
+  color: var(--xt-text);
 }
 
 .xt-production__table .tone-positive {
@@ -505,21 +497,21 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   width: 28px;
   height: 28px;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 20%, var(--xt-border));
+  border: 1px solid var(--xt-border);
   border-radius: var(--xt-radius-pill);
-  background: color-mix(in srgb, var(--xt-primary-light) 8%, transparent);
-  color: var(--xt-text-inverse);
-  font-family: var(--xt-font-number);
-  font-weight: 900;
+  background: transparent;
+  color: var(--xt-text);
+
+  font-weight: 600;
 }
 
 .xt-production__rank.tone-hot {
-  border-color: color-mix(in srgb, var(--xt-warning) 44%, var(--xt-border));
+  border-color: var(--xt-border);
   color: var(--xt-warning);
 }
 
 .xt-production__rank.tone-warm {
-  color: color-mix(in srgb, var(--xt-warning) 72%, var(--xt-text-inverse));
+  color: var(--xt-warning);
 }
 
 .xt-production__rank.tone-live {
@@ -527,8 +519,8 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 }
 
 .xt-production__workshop {
-  color: var(--xt-text-inverse);
-  font-weight: 850;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-production__bar {
@@ -536,15 +528,15 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   height: 7px;
   overflow: hidden;
   border-radius: var(--xt-radius-pill);
-  background: color-mix(in srgb, var(--xt-bg-ink) 62%, var(--xt-bg-panel));
+  background: transparent;
 }
 
 .xt-production__bar span {
   display: block;
   height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--xt-primary), color-mix(in srgb, var(--xt-primary) 46%, var(--xt-text-inverse)));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-text-inverse) 18%, transparent);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-production__aside {
@@ -577,9 +569,9 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   gap: var(--xt-space-2);
   align-items: center;
   padding: var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 10%, var(--xt-border));
-  border-radius: var(--xt-radius-lg);
-  background: color-mix(in srgb, var(--xt-bg-ink) 28%, transparent);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-production__brief-list li > span {
@@ -587,22 +579,22 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   height: 8px;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-primary) 18%, transparent);
+
 }
 
 .xt-production__brief-list small {
   display: block;
-  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-production__brief-list strong {
   display: block;
   margin-top: 2px;
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-size: var(--xt-text-md);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-production__signal {
@@ -627,7 +619,7 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   align-items: center;
   gap: var(--xt-space-2);
   min-width: 0;
-  color: color-mix(in srgb, var(--xt-text-inverse) 72%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
@@ -637,31 +629,31 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   flex: 0 0 auto;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-primary) 18%, transparent);
+
 }
 
 .xt-production__status-item small {
-  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .xt-production__status-item strong {
-  color: var(--xt-text-inverse);
-  font-weight: 900;
+  color: var(--xt-text);
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .xt-production__status-item.tone-success > span {
-  background: var(--xt-success);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-success) 18%, transparent);
+  background: transparent;
+
 }
 
 .xt-production__status-item.tone-warning > span,
 .xt-production__status-item.tone-danger > span {
-  background: var(--xt-warning);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-warning) 18%, transparent);
+  background: transparent;
+
 }
 
 .xt-production__signal-icon {
@@ -671,15 +663,15 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 }
 
 .xt-production__signal strong {
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-size: var(--xt-text-md);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-production__signal small {
-  color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 @media (max-width: 1080px) {

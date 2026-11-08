@@ -66,17 +66,15 @@ defineEmits(['close'])
 
 <style scoped>
 :deep(.live-machine-drawer) {
-  background:
-    linear-gradient(180deg, rgba(5, 24, 46, 0.98), rgba(2, 12, 25, 0.98)),
-    radial-gradient(circle at 15% 0%, rgba(0, 242, 255, 0.16), transparent 44%);
-  color: rgba(225, 253, 255, 0.94);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 :deep(.live-machine-drawer .el-drawer__header) {
   margin-bottom: 0;
-  border-bottom: 1px solid rgba(0, 242, 255, 0.14);
+  border-bottom: 1px solid var(--xt-border);
   padding: 18px 20px;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
 }
 
 :deep(.live-machine-drawer .el-drawer__body) {
@@ -89,15 +87,15 @@ defineEmits(['close'])
 }
 
 .live-machine-drawer__head span {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
 .live-machine-drawer__head strong {
   margin-top: 4px;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font-size: 22px;
 }
 
@@ -110,12 +108,10 @@ defineEmits(['close'])
 
 .live-machine-drawer__stats span,
 .live-machine-drawer__shifts article {
-  border: 1px solid rgba(0, 242, 255, 0.15);
-  border-radius: 10px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 12px;
-  background:
-    linear-gradient(180deg, rgba(6, 28, 52, 0.8), rgba(2, 15, 29, 0.88)),
-    radial-gradient(circle at 0% 0%, rgba(0, 242, 255, 0.1), transparent 45%);
+  background: transparent;
 }
 
 .live-machine-drawer__stats b,
@@ -124,15 +120,15 @@ defineEmits(['close'])
 }
 
 .live-machine-drawer__stats b {
-  color: #e1fdff;
-  font-family: var(--xt-font-display, "Hanken Grotesk", sans-serif);
+  color: var(--xt-text);
+
   font-size: 24px;
   line-height: 1;
 }
 
 .live-machine-drawer__stats em {
   margin-top: 6px;
-  color: rgba(185, 223, 235, 0.64);
+  color: var(--xt-text-secondary);
   font-style: normal;
   font-size: 12px;
 }
@@ -151,27 +147,27 @@ defineEmits(['close'])
 }
 
 .live-machine-drawer__shifts strong {
-  color: rgba(225, 253, 255, 0.9);
+  color: var(--xt-text);
 }
 
 .live-machine-drawer__shifts span {
-  color: #74f5ff;
+  color: var(--xt-text);
   font-size: 12px;
 }
 
 .live-machine-drawer__shifts em {
-  color: rgba(225, 253, 255, 0.88);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-style: normal;
 }
 
 .live-machine-drawer__loading {
-  color: #ffab00;
+  color: var(--xt-warning);
   margin-bottom: 12px;
 }
 
 .live-machine-drawer__error {
-  color: #ff5d4d;
+  color: var(--xt-text);
   margin-bottom: 12px;
 }
 
@@ -183,8 +179,8 @@ defineEmits(['close'])
   --el-table-border-color: rgba(0, 242, 255, 0.12);
   --el-table-text-color: rgba(225, 253, 255, 0.86);
   --el-table-header-text-color: rgba(116, 245, 255, 0.82);
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 10px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   overflow: hidden;
 }
 

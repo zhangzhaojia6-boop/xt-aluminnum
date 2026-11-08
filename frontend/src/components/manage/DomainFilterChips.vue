@@ -77,16 +77,16 @@ function toggle(key) {
   background: var(--xt-bg-panel-soft);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   transition: background-color var(--xt-motion-fast) var(--xt-ease), color var(--xt-motion-fast) var(--xt-ease);
 }
 .xt-domain-chip.is-active {
-  background: var(--xt-color-accent);
-  color: var(--xt-text-inverse);
+  background: transparent;
+  color: var(--xt-text);
 }
 @media (hover: hover) {
   .xt-domain-chip:hover { background: var(--xt-bg-panel-soft); color: var(--xt-text); }
-  .xt-domain-chip.is-active:hover { background: var(--xt-color-accent); color: var(--xt-text-inverse); }
+  .xt-domain-chip.is-active:hover { background: transparent; color: var(--xt-text); }
 }
 </style>

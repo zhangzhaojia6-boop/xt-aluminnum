@@ -943,7 +943,7 @@ onMounted(async () => {
 }
 
 .mobile-energy-machine-row {
-  border: 1px solid var(--el-border-color-lighter, var(--xt-border));
+  border: 1px solid var(--xt-border);
   border-radius: 4px;
   padding: 10px 12px;
 }
@@ -962,7 +962,7 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 600;
   color: var(--xt-text);
-  border-top: 1px solid var(--el-border-color-lighter, var(--xt-border));
+  border-top: 1px solid var(--xt-border);
   margin-top: 4px;
 }
 </style>

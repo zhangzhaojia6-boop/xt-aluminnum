@@ -49,9 +49,9 @@ defineProps({
   position: relative;
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-card::before {
@@ -59,8 +59,8 @@ defineProps({
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border-radius: inherit;
-  box-shadow: var(--xt-shadow-inset-hairline);
+  border-radius: 4px;
+
 }
 
 .xt-card--interactive {
@@ -73,7 +73,7 @@ defineProps({
 @media (hover: hover) {
   .xt-card--interactive:hover {
     border-color: var(--xt-border);
-    box-shadow: var(--xt-shadow-md);
+
     transform: translateY(-1px);
   }
 }
@@ -100,9 +100,9 @@ defineProps({
 .xt-card__title {
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: var(--xt-text-lg);
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.35;
   letter-spacing: 0;
 }

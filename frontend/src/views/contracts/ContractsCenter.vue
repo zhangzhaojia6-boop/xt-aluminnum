@@ -249,7 +249,7 @@ onMounted(load)
   --contracts-panel: rgba(12, 25, 42, 0.72);
   --contracts-line: rgba(0, 242, 255, 0.18);
   --contracts-muted: rgba(223, 226, 235, 0.66);
-  color: #dfe2eb;
+  color: var(--xt-text);
 }
 
 .contracts-command::before {
@@ -258,12 +258,7 @@ onMounted(load)
   z-index: -1;
   pointer-events: none;
   content: '';
-  background:
-    radial-gradient(circle at 14% 8%, rgba(0, 242, 255, 0.12), transparent 30%),
-    radial-gradient(circle at 82% 10%, rgba(255, 171, 0, 0.08), transparent 24%),
-    linear-gradient(rgba(0, 242, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(135deg, #0a0e14, var(--contracts-bg));
+  background: transparent;
   background-size: auto, auto, 32px 32px, 32px 32px, auto;
 }
 
@@ -273,10 +268,10 @@ onMounted(load)
 .contracts-command__mobile-list article {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--contracts-line);
-  background: linear-gradient(180deg, rgba(38, 42, 49, 0.54), var(--contracts-panel));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 20px 54px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
+
 }
 
 .contracts-command__hero::after,
@@ -286,9 +281,9 @@ onMounted(load)
   inset: 0;
   pointer-events: none;
   content: '';
-  background: linear-gradient(115deg, transparent 0%, rgba(0, 242, 255, 0.14) 42%, transparent 62%);
+  background: transparent;
   transform: translateX(-120%);
-  animation: contractsSweep 7s ease-in-out infinite;
+
 }
 
 .contracts-command__hero {
@@ -298,7 +293,7 @@ onMounted(load)
   gap: 20px;
   min-height: 156px;
   padding: 28px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .contracts-command__hero-copy,
@@ -314,9 +309,9 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--contracts-cyan);
+  color: var(--xt-primary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
@@ -325,15 +320,15 @@ onMounted(load)
   height: 8px;
   content: '';
   border-radius: 999px;
-  background: var(--contracts-cyan);
-  box-shadow: 0 0 18px var(--contracts-cyan);
+  background: transparent;
+
 }
 
 .contracts-command h1,
 .contracts-command h2 {
   margin: 0;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   letter-spacing: -0.03em;
 }
 
@@ -342,7 +337,7 @@ onMounted(load)
   font-size: clamp(34px, 5vw, 58px);
   line-height: 1;
   white-space: nowrap;
-  text-shadow: 0 0 28px rgba(0, 242, 255, 0.22);
+
 }
 
 .contracts-command h2 {
@@ -357,9 +352,9 @@ onMounted(load)
   flex-wrap: wrap;
   gap: 12px;
   padding: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 16px;
-  background: rgba(1, 16, 31, 0.58);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .contracts-command__date {
@@ -373,11 +368,9 @@ onMounted(load)
 .contracts-command__actions :deep(.el-input__wrapper),
 .contracts-command__actions :deep(.el-select__wrapper) {
   min-height: 38px;
-  border-radius: 10px;
-  background: rgba(1, 16, 31, 0.72);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 242, 255, 0.3),
-    inset 0 0 0 1px rgba(0, 242, 255, 0.14);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .contracts-command__actions :deep(.el-input__inner),
@@ -385,21 +378,21 @@ onMounted(load)
 .contracts-command__actions :deep(.el-range-separator),
 .contracts-command__actions :deep(.el-select__placeholder),
 .contracts-command__actions :deep(.el-select__selected-item) {
-  color: #e1fdff;
+  color: var(--xt-text);
 }
 
 .contracts-command__button {
   min-width: 92px;
-  border: 1px solid rgba(0, 242, 255, 0.32);
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(0, 242, 255, 0.22), rgba(0, 118, 255, 0.32));
-  color: #e1fdff;
-  font-weight: 800;
-  box-shadow: 0 0 26px rgba(0, 242, 255, 0.16);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
+
 }
 
 .contracts-command__button--ghost {
-  background: rgba(1, 16, 31, 0.68);
+  background: transparent;
 }
 
 .contracts-command__stats {
@@ -411,7 +404,7 @@ onMounted(load)
 .contracts-command__stat {
   min-height: 132px;
   padding: 18px;
-  border-radius: 16px;
+  border-radius: 4px;
 }
 
 .contracts-command__stat-top {
@@ -420,9 +413,9 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--contracts-muted);
+  color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -430,9 +423,9 @@ onMounted(load)
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--contracts-cyan);
-  box-shadow: 0 0 18px var(--contracts-cyan);
-  animation: contractsPulse 2.2s ease-in-out infinite;
+  background: transparent;
+
+
 }
 
 .contracts-command__stat strong {
@@ -440,11 +433,11 @@ onMounted(load)
   z-index: 1;
   display: block;
   margin-top: 18px;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   font-size: clamp(30px, 4vw, 46px);
   line-height: 0.95;
-  text-shadow: 0 0 24px rgba(0, 242, 255, 0.22);
+
 }
 
 .contracts-command__stat small {
@@ -452,23 +445,23 @@ onMounted(load)
   z-index: 1;
   display: block;
   margin-top: 8px;
-  color: var(--contracts-muted);
-  font-weight: 700;
+  color: var(--xt-text-secondary);
+  font-weight: 600;
 }
 
 .contracts-command__stat--amber .contracts-command__led {
-  background: var(--contracts-amber);
-  box-shadow: 0 0 18px var(--contracts-amber);
+  background: transparent;
+
 }
 
 .contracts-command__stat--blue .contracts-command__led {
-  background: var(--contracts-blue);
-  box-shadow: 0 0 18px var(--contracts-blue);
+  background: transparent;
+
 }
 
 .contracts-command__panel {
   padding: 22px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .contracts-command__panel--chart {
@@ -484,44 +477,44 @@ onMounted(load)
 }
 
 .contracts-command__panel-chip {
-  border: 1px solid rgba(0, 242, 255, 0.16);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
   padding: 6px 10px;
-  color: var(--contracts-muted);
-  background: rgba(1, 16, 31, 0.62);
+  color: var(--xt-text-secondary);
+  background: transparent;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .contracts-command__table {
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: 14px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
 }
 
 .contracts-command__table :deep(.xt-data-table),
 .contracts-command__table :deep(.xt-data-table__table),
 .contracts-command__table :deep(.xt-data-table__row) {
-  border-color: rgba(0, 242, 255, 0.12);
+  border-color: var(--xt-border);
   background: transparent;
 }
 
 .contracts-command__table :deep(.xt-data-table__th) {
-  color: rgba(225, 253, 255, 0.82);
-  border-color: rgba(0, 242, 255, 0.12);
+  color: var(--xt-text);
+  border-color: var(--xt-border);
 }
 
 .contracts-command__table :deep(.xt-data-table__td) {
-  color: #dfe2eb;
-  border-color: rgba(0, 242, 255, 0.1);
+  color: var(--xt-text);
+  border-color: var(--xt-border);
 }
 
 .contracts-command__table :deep(.xt-data-table--striped .xt-data-table__row:nth-child(even)) {
-  background: rgba(0, 242, 255, 0.035);
+  background: transparent;
 }
 
 .contracts-command__table :deep(.xt-data-table__row:hover) {
-  background: rgba(0, 242, 255, 0.08);
+  background: transparent;
 }
 
 .contracts-command__progress {
@@ -536,12 +529,12 @@ onMounted(load)
   display: block;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--contracts-cyan), var(--contracts-blue));
-  box-shadow: 0 0 14px rgba(0, 242, 255, 0.22);
+  background: transparent;
+
 }
 
 .contracts-command__progress strong {
-  color: #f6fbff;
+  color: var(--xt-text);
 }
 
 .contracts-command__status {
@@ -551,22 +544,22 @@ onMounted(load)
   min-width: 58px;
   border-radius: 999px;
   padding: 4px 9px;
-  background: rgba(0, 242, 255, 0.14);
-  color: #a7fff8;
+  background: transparent;
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 0 14px rgba(0, 242, 255, 0.12);
+  font-weight: 600;
+
 }
 
 .contracts-command__status[data-status='success'] {
-  background: rgba(116, 245, 255, 0.16);
-  color: #d8ffff;
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .contracts-command__status[data-status='danger'] {
-  background: rgba(255, 92, 53, 0.16);
-  color: #ffd8cf;
-  box-shadow: 0 0 16px rgba(255, 92, 53, 0.16);
+  background: transparent;
+  color: var(--xt-text);
+
 }
 
 .contracts-command__mobile-list {
@@ -574,7 +567,7 @@ onMounted(load)
 }
 
 .contracts-command__mobile-list article {
-  border-radius: 16px;
+  border-radius: 4px;
   padding: 16px;
 }
 
@@ -583,10 +576,10 @@ onMounted(load)
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .contracts-command__mobile-grid {
@@ -597,11 +590,11 @@ onMounted(load)
 }
 
 .contracts-command__mobile-grid span {
-  color: var(--contracts-muted);
+  color: var(--xt-text-secondary);
 }
 
 .contracts-command__mobile-grid strong {
-  color: #f6fbff;
+  color: var(--xt-text);
   text-align: right;
 }
 

@@ -46,18 +46,16 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   grid-template-columns: minmax(190px, 0.72fr) minmax(0, 2.6fr);
   gap: var(--xt-space-3);
   padding: var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 22%, var(--xt-border));
-  border-radius: var(--xt-radius-xl);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 7%, transparent), transparent),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 10px 24px color-mix(in srgb, var(--xt-bg-ink) 36%, transparent);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
   overflow: hidden;
 }
 
 .xt-source-strip::before,
+.xt-source-strip::before, .xt-source-strip::after { display: none; }
+
 .xt-source-strip::after {
   position: absolute;
   content: "";
@@ -67,9 +65,11 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
 .xt-source-strip::before {
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--xt-primary), transparent);
+  background: transparent;
   opacity: 0.8;
 }
+
+.xt-source-strip::before, .xt-source-strip::after { display: none; }
 
 .xt-source-strip::after {
   right: -34px;
@@ -85,7 +85,7 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   inset: 0;
   z-index: 1;
   width: 112px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 15%, transparent), transparent);
+  background: transparent;
   opacity: 0.32;
   transform: translateX(24%);
   pointer-events: none;
@@ -104,7 +104,7 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
 .xt-source-strip__rail span {
   height: 1px;
   border-radius: var(--xt-radius-pill);
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 28%, transparent), transparent);
+  background: transparent;
   opacity: 0.38;
 }
 
@@ -120,28 +120,26 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   gap: var(--xt-space-2);
   min-width: 0;
   padding: var(--xt-space-2);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 16%, var(--xt-border));
-  border-radius: var(--xt-radius-lg);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 5%, transparent), transparent),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 74%, transparent);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-source-strip__source small,
 .xt-source-strip__label {
   display: block;
-  color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
 .xt-source-strip__source strong {
   display: block;
   margin-top: 2px;
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 950;
+  font-weight: 600;
   line-height: 1.1;
 }
 
@@ -152,30 +150,30 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   flex: 0 0 auto;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--xt-primary) 18%, transparent);
+
 }
 
 .xt-source-strip__pulse::after {
   position: absolute;
   inset: -8px;
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 36%, transparent);
-  border-radius: inherit;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   content: "";
 }
 
 .xt-source-strip.tone-success .xt-source-strip__pulse {
-  background: var(--xt-success);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--xt-success) 18%, transparent);
+  background: transparent;
+
 }
 
 .xt-source-strip.tone-warning .xt-source-strip__pulse {
-  background: var(--xt-warning);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--xt-warning) 18%, transparent);
+  background: transparent;
+
 }
 
 .xt-source-strip.tone-danger .xt-source-strip__pulse {
-  background: var(--xt-danger);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--xt-danger) 18%, transparent);
+  background: transparent;
+
 }
 
 .xt-source-strip__items {
@@ -190,12 +188,10 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
 .xt-source-strip__items li {
   min-width: 0;
   padding: var(--xt-space-2);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 13%, var(--xt-border));
-  border-radius: var(--xt-radius-lg);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 5%, transparent), transparent),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 76%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 5%, transparent);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-source-strip__readout {
@@ -206,19 +202,19 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
 .xt-source-strip__items b {
   display: inline-block;
   margin-top: 5px;
-  color: var(--xt-text-inverse);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-xl);
-  font-weight: 950;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
 }
 
 .xt-source-strip__items small {
   margin-left: 4px;
-  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 @media (max-width: 860px) {

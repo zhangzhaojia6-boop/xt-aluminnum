@@ -177,7 +177,7 @@ const shortcutActions = computed(() => {
   gap: 12px;
   padding: 14px;
   background: var(--xt-bg-panel-strong);
-  box-shadow: var(--app-shadow-xs);
+
 }
 
 .review-assistant-dock__copy,
@@ -203,10 +203,10 @@ const shortcutActions = computed(() => {
   gap: 4px;
   min-height: 70px;
   padding: 9px 10px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   border: 1px solid var(--xt-border-light);
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     border-color var(--app-motion-fast) ease,
@@ -217,7 +217,7 @@ const shortcutActions = computed(() => {
 .review-assistant-dock__status-card:hover {
   transform: translateY(-2px);
   border-color: var(--xt-primary-border);
-  box-shadow: var(--xt-shadow-md);
+
 }
 
 .review-assistant-dock__status-head {
@@ -232,7 +232,7 @@ const shortcutActions = computed(() => {
 
 .review-assistant-dock__status-card:hover .review-assistant-dock__status-icon {
   transform: translateY(-1px);
-  box-shadow: var(--xt-shadow-md);
+
 }
 
 .review-assistant-dock__status-card.is-primary {
@@ -269,11 +269,11 @@ const shortcutActions = computed(() => {
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   color: var(--xt-text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
   transition:
@@ -288,20 +288,20 @@ const shortcutActions = computed(() => {
   transform: translateY(-2px);
   border-color: var(--xt-primary-border);
   background: var(--xt-bg-panel-soft);
-  box-shadow: var(--xt-shadow-sm);
+
   outline: none;
 }
 
 .review-assistant-dock__shortcut.is-success:hover,
 .review-assistant-dock__shortcut.is-success:focus-visible {
   border-color: var(--xt-success-border);
-  background: rgba(236, 253, 245, 0.92);
+  background: transparent;
 }
 
 .review-assistant-dock__shortcut.is-warn:hover,
 .review-assistant-dock__shortcut.is-warn:focus-visible {
   border-color: var(--xt-warning-border);
-  background: rgba(255, 247, 237, 0.92);
+  background: transparent;
 }
 
 .review-assistant-dock__shortcut-icon {
@@ -311,13 +311,13 @@ const shortcutActions = computed(() => {
 .review-assistant-dock__shortcut:hover .review-assistant-dock__shortcut-icon,
 .review-assistant-dock__shortcut:focus-visible .review-assistant-dock__shortcut-icon {
   transform: translateY(-1px);
-  box-shadow: var(--xt-shadow-md);
+
 }
 
 .review-assistant-dock__open {
   grid-column: 1 / -1;
   min-height: 44px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
 }
 
 @media (max-width: 1100px) {

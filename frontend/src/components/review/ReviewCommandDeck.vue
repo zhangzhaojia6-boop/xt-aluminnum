@@ -61,10 +61,10 @@ function iconToneClass(tone) {
   gap: 8px;
   min-height: 86px;
   padding: 12px;
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   border: 1px solid var(--xt-border-light);
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     border-color var(--app-motion-fast) ease,
@@ -79,14 +79,14 @@ function iconToneClass(tone) {
   right: 0;
   top: 0;
   height: 2px;
-  background: var(--deck-accent);
+  background: transparent;
 }
 
 .review-command-deck__card:hover,
 .review-command-deck__card:focus-visible {
   transform: translateY(-2px);
   border-color: var(--xt-primary-border);
-  box-shadow: var(--xt-shadow-md);
+
   background: var(--xt-bg-panel-soft);
   outline: none;
 }
@@ -127,7 +127,7 @@ function iconToneClass(tone) {
 .review-command-deck__card strong {
   font-size: clamp(20px, 1.6vw, 26px);
   line-height: 1.08;
-  color: var(--app-text);
+  color: var(--xt-text);
 }
 
 @media (max-width: 1220px) {

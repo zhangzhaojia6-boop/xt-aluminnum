@@ -41,6 +41,8 @@ defineProps({ items: { type: Array, default: () => [] } })
 </script>
 
 <style scoped>
+.xt-kpi-bar__icon { display: none; }
+
 .xt-kpi-bar {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -61,20 +63,15 @@ defineProps({ items: { type: Array, default: () => [] } })
 .xt-kpi-bar__card {
   position: relative;
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 11px;
   align-items: start;
   min-height: 98px;
   padding: 11px 12px;
-  border: 1px solid rgba(70, 157, 238, 0.26);
-  border-radius: 12px;
-  background:
-    radial-gradient(circle at 92% 86%, rgba(35, 130, 235, 0.2), transparent 46%),
-    linear-gradient(180deg, rgba(18, 57, 88, 0.68), rgba(5, 24, 42, 0.94)),
-    rgba(4, 21, 37, 0.94);
-  box-shadow:
-    inset 0 1px 0 rgba(189, 225, 255, 0.08),
-    0 10px 24px rgba(0, 8, 16, 0.28);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
   overflow: hidden;
 }
 
@@ -83,7 +80,7 @@ defineProps({ items: { type: Array, default: () => [] } })
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(52, 154, 255, 0.8), transparent);
+  background: transparent;
   opacity: 0.8;
 }
 
@@ -95,7 +92,7 @@ defineProps({ items: { type: Array, default: () => [] } })
   width: 104px;
   height: 104px;
   border-radius: 50%;
-  background: rgba(33, 137, 255, 0.14);
+  background: transparent;
 }
 
 .xt-kpi-bar__card.is-muted {
@@ -124,11 +121,9 @@ defineProps({ items: { type: Array, default: () => [] } })
   place-items: center;
   width: 48px;
   height: 48px;
-  border: 1px solid rgba(67, 158, 255, 0.34);
-  border-radius: 14px;
-  background:
-    linear-gradient(145deg, rgba(40, 142, 255, 0.34), rgba(5, 31, 55, 0.9)),
-    rgba(6, 34, 58, 0.92);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-kpi-bar__icon i,
@@ -142,9 +137,9 @@ defineProps({ items: { type: Array, default: () => [] } })
 .xt-kpi-bar__icon i {
   width: 22px;
   height: 22px;
-  border: 2px solid rgba(109, 193, 255, 0.9);
-  border-radius: 6px;
-  background: linear-gradient(135deg, rgba(69, 164, 255, 0.72), rgba(7, 63, 112, 0.82));
+  border: 2px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-kpi-bar__icon.metric-plant-output i {
@@ -157,21 +152,21 @@ defineProps({ items: { type: Array, default: () => [] } })
 .xt-kpi-bar__icon.metric-plant-output::before {
   width: 2px;
   height: 20px;
-  background: rgba(209, 238, 255, 0.62);
+  background: transparent;
   transform: rotate(30deg);
 }
 
 .xt-kpi-bar__icon.metric-finished-inbound i {
   width: 26px;
   height: 18px;
-  border-radius: 3px 3px 7px 7px;
+  border-radius: 4px;
   clip-path: polygon(0 38%, 50% 0, 100% 38%, 100% 100%, 0 100%);
 }
 
 .xt-kpi-bar__icon.metric-finished-inbound::before {
   width: 16px;
   height: 9px;
-  border: 2px solid rgba(209, 238, 255, 0.64);
+  border: 2px solid var(--xt-border);
   border-top: 0;
   transform: translateY(8px);
 }
@@ -186,7 +181,7 @@ defineProps({ items: { type: Array, default: () => [] } })
 .xt-kpi-bar__icon.metric-process-throughput::after {
   width: 22px;
   height: 6px;
-  border: 2px solid rgba(109, 193, 255, 0.72);
+  border: 2px solid var(--xt-border);
   border-radius: 999px;
 }
 
@@ -210,8 +205,8 @@ defineProps({ items: { type: Array, default: () => [] } })
 .xt-kpi-bar__icon.metric-yield-rate::before {
   width: 14px;
   height: 8px;
-  border-right: 2px solid rgba(150, 239, 172, 0.9);
-  border-bottom: 2px solid rgba(150, 239, 172, 0.9);
+  border-right: 2px solid var(--xt-border);
+  border-bottom: 2px solid var(--xt-border);
   transform: rotate(45deg);
 }
 
@@ -227,7 +222,7 @@ defineProps({ items: { type: Array, default: () => [] } })
   left: 16px;
   width: 16px;
   height: 2px;
-  background: rgba(209, 238, 255, 0.68);
+  background: transparent;
 }
 
 .xt-kpi-bar__icon.metric-contract-tonnage::before {
@@ -239,18 +234,16 @@ defineProps({ items: { type: Array, default: () => [] } })
 }
 
 .xt-kpi-bar__icon.metric-energy-cost {
-  border-color: rgba(246, 174, 57, 0.44);
-  background:
-    linear-gradient(145deg, rgba(246, 174, 57, 0.24), rgba(5, 31, 55, 0.9)),
-    rgba(6, 34, 58, 0.92);
+  border-color: var(--xt-border);
+  background: transparent;
 }
 
 .xt-kpi-bar__icon.metric-energy-cost::before {
   content: '¥';
-  color: rgba(255, 202, 93, 0.94);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: 24px;
-  font-weight: 950;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -259,33 +252,33 @@ defineProps({ items: { type: Array, default: () => [] } })
 }
 
 .xt-kpi-bar__label {
-  color: rgba(226, 240, 255, 0.68);
+  color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
 .xt-kpi-bar__delta {
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 16%, var(--xt-border));
+  border: 1px solid var(--xt-border);
   border-radius: var(--xt-radius-pill);
   padding: 1px 7px;
-  background: color-mix(in srgb, var(--xt-bg-panel-soft) 8%, transparent);
-  color: color-mix(in srgb, var(--xt-text-inverse) 56%, transparent);
+  background: transparent;
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .xt-kpi-bar__delta.tone-positive {
   color: var(--xt-success);
-  background: color-mix(in srgb, var(--xt-success-light) 10%, transparent);
-  border-color: color-mix(in srgb, var(--xt-success) 40%, var(--xt-border));
+  background: transparent;
+  border-color: var(--xt-border);
 }
 
 .xt-kpi-bar__delta.tone-negative {
   color: var(--xt-danger);
-  background: color-mix(in srgb, var(--xt-danger-light) 10%, transparent);
-  border-color: color-mix(in srgb, var(--xt-danger) 40%, var(--xt-border));
+  background: transparent;
+  border-color: var(--xt-border);
 }
 
 .xt-kpi-bar__value {
@@ -295,40 +288,40 @@ defineProps({ items: { type: Array, default: () => [] } })
   align-items: baseline;
   gap: var(--xt-space-1);
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+
   margin-top: 5px;
   font-size: clamp(21px, 2vw, 28px);
-  font-weight: 900;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
 
 .xt-kpi-bar__value span {
-  color: var(--xt-text-inverse);
+  color: var(--xt-text);
 }
 
 .xt-kpi-bar__value small {
-  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
-  font-family: var(--xt-font-body);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-kpi-bar__source {
   position: relative;
   z-index: 1;
   margin-top: 2px;
-  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-kpi-bar__card.tone-positive .xt-kpi-bar__value span {
-  color: color-mix(in srgb, var(--xt-success) 76%, var(--xt-text-inverse));
+  color: var(--xt-success);
 }
 
 .xt-kpi-bar__card.tone-negative .xt-kpi-bar__value span {
-  color: color-mix(in srgb, var(--xt-danger) 76%, var(--xt-text-inverse));
+  color: var(--xt-danger);
 }
 
 .xt-kpi-bar__spark {
@@ -342,9 +335,9 @@ defineProps({ items: { type: Array, default: () => [] } })
 .xt-kpi-bar__hint {
   position: relative;
   z-index: 1;
-  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .xt-kpi-bar__hint--placeholder {

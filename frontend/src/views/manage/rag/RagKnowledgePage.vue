@@ -337,7 +337,7 @@ onMounted(loadDocuments)
   display: grid;
   gap: var(--xt-space-4);
   min-height: calc(100vh - var(--xt-topbar-height) - var(--xt-space-10));
-  color: var(--rag-text);
+  color: var(--xt-text);
 }
 
 .xt-rag__hero,
@@ -345,12 +345,10 @@ onMounted(loadDocuments)
 .xt-rag__metrics article,
 .xt-rag__panel,
 .xt-rag__state {
-  border: 1px solid var(--rag-border);
-  border-radius: 0;
-  background:
-    linear-gradient(180deg, rgba(184, 134, 11, 0.09), transparent 34%),
-    linear-gradient(135deg, rgba(31, 31, 32, 0.98), rgba(19, 19, 20, 0.98));
-  box-shadow: inset 0 1px 0 rgba(238, 233, 222, 0.06);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-rag__hero {
@@ -365,16 +363,16 @@ onMounted(loadDocuments)
 .xt-rag__hero span,
 .xt-rag__panel header span,
 .xt-rag__metrics span {
-  color: var(--rag-gold);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.14em;
 }
 
 .xt-rag__hero h1 {
   margin: var(--xt-space-2) 0 0;
-  color: var(--rag-text);
-  font-family: "Noto Serif SC", "Songti SC", serif;
+  color: var(--xt-text);
+
   font-size: clamp(2rem, 4vw, 3.2rem);
   letter-spacing: 0.08em;
 }
@@ -402,34 +400,34 @@ onMounted(loadDocuments)
 }
 
 .xt-rag__metadata span {
-  color: var(--rag-gold);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .xt-rag__metadata input,
 .xt-rag__metadata select {
   min-width: 0;
-  border: 1px solid rgba(184, 134, 11, 0.34);
-  border-radius: 0;
-  background: #101011;
-  color: var(--rag-text);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   padding: 0.68rem 0.76rem;
 }
 
 .xt-rag__metadata input:focus,
 .xt-rag__metadata select:focus {
-  border-color: var(--rag-gold);
+  border-color: var(--xt-border);
   outline: none;
 }
 
 .xt-rag button {
-  border: 1px solid rgba(211, 166, 70, 0.72);
-  background: linear-gradient(180deg, #d4a84c, #a87510);
-  color: #241800;
+  border: 1px solid var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
   cursor: pointer;
-  font-weight: 900;
+  font-weight: 600;
   padding: 0.74rem 1rem;
 }
 
@@ -442,11 +440,11 @@ onMounted(loadDocuments)
 .xt-rag__danger,
 .xt-rag__link {
   background: transparent !important;
-  color: var(--rag-text) !important;
+  color: var(--xt-text);
 }
 
 .xt-rag__danger {
-  border-color: rgba(139, 30, 30, 0.72) !important;
+  border-color: var(--xt-border) !important;
 }
 
 .xt-rag__link {
@@ -464,7 +462,7 @@ onMounted(loadDocuments)
 }
 
 .xt-rag__state.is-error {
-  border-color: rgba(139, 30, 30, 0.72);
+  border-color: var(--xt-border);
 }
 
 .xt-rag__metrics {
@@ -481,7 +479,7 @@ onMounted(loadDocuments)
 }
 
 .xt-rag__metrics strong {
-  font-family: "DIN Alternate", "Arial Narrow", sans-serif;
+
   font-size: clamp(2rem, 3.6vw, 3rem);
 }
 
@@ -490,7 +488,7 @@ onMounted(loadDocuments)
 .xt-rag td small,
 .xt-rag__chunks span,
 .xt-rag__sources span {
-  color: var(--rag-muted);
+  color: var(--xt-text-secondary);
 }
 
 .xt-rag__grid {
@@ -520,20 +518,20 @@ onMounted(loadDocuments)
   align-items: center;
   justify-content: space-between;
   gap: var(--xt-space-3);
-  border-bottom: 1px solid rgba(184, 134, 11, 0.2);
+  border-bottom: 1px solid var(--xt-border);
   padding-bottom: var(--xt-space-2);
 }
 
 .xt-rag__panel h2,
 .xt-rag__sources h3 {
   margin: 0;
-  font-family: "Noto Serif SC", "Songti SC", serif;
+
   letter-spacing: 0.06em;
 }
 
 .xt-rag__empty {
-  border: 1px dashed rgba(184, 134, 11, 0.28);
-  color: var(--rag-muted);
+  border: 1px dashed var(--xt-border);
+  color: var(--xt-text-secondary);
   padding: var(--xt-space-4);
   text-align: center;
 }
@@ -553,50 +551,50 @@ onMounted(loadDocuments)
 
 .xt-rag th,
 .xt-rag td {
-  border-bottom: 1px solid rgba(184, 134, 11, 0.17);
+  border-bottom: 1px solid var(--xt-border);
   padding: 0.78rem;
   text-align: left;
   vertical-align: top;
 }
 
 .xt-rag th {
-  color: var(--rag-muted);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   letter-spacing: 0.08em;
 }
 
 .xt-rag tr.is-selected td {
-  background: rgba(184, 134, 11, 0.08);
+  background: transparent;
 }
 
 .xt-rag__tag {
   display: inline-flex;
   align-items: center;
   gap: var(--xt-space-1);
-  color: var(--rag-gold);
-  font-weight: 900;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-rag__tag i {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--rag-gold);
+  background: transparent;
 }
 
 .xt-rag__tag.is-muted {
-  color: #e1a6a6;
+  color: var(--xt-text);
 }
 
 .xt-rag__tag.is-muted i {
-  background: var(--rag-red);
+  background: transparent;
 }
 
 .xt-rag__detail {
   display: grid;
   gap: var(--xt-space-1);
-  border: 1px solid rgba(184, 134, 11, 0.24);
-  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--xt-border);
+  background: transparent;
   padding: var(--xt-space-3);
 }
 
@@ -611,38 +609,38 @@ onMounted(loadDocuments)
 
 .xt-rag__chunks li,
 .xt-rag__sources li {
-  border: 1px solid rgba(184, 134, 11, 0.18);
-  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid var(--xt-border);
+  background: transparent;
   padding: var(--xt-space-3);
 }
 
 .xt-rag__chunks p,
 .xt-rag__answer {
   margin: var(--xt-space-2) 0 0;
-  color: var(--rag-text);
+  color: var(--xt-text);
   line-height: 1.75;
 }
 
 .xt-rag textarea {
   width: 100%;
-  border: 1px solid rgba(184, 134, 11, 0.34);
-  border-radius: 0;
-  background: #101011;
-  color: var(--rag-text);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   line-height: 1.7;
   padding: var(--xt-space-3);
   resize: vertical;
 }
 
 .xt-rag textarea:focus {
-  border-color: var(--rag-gold);
+  border-color: var(--xt-border);
   outline: none;
 }
 
 .xt-rag__answer {
   min-height: 92px;
-  border: 1px solid rgba(184, 134, 11, 0.24);
-  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid var(--xt-border);
+  background: transparent;
   padding: var(--xt-space-4);
   white-space: pre-wrap;
 }

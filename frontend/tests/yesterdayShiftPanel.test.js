@@ -34,11 +34,11 @@ test('YesterdayShiftPanel renders three shifts in A/B/C order', () => {
   assert.match(src, /小夜班/)
 })
 
-test('YesterdayShiftPanel has dark HUD aesthetic (gradient bg, white headline)', () => {
+test('YesterdayShiftPanel stays on the paper surface', () => {
   const src = source('../src/components/manage/YesterdayShiftPanel.vue')
   const styleBlock = src.split('<style')[1] || ''
-  assert.match(styleBlock, /linear-gradient/)
-  assert.match(styleBlock, /#0d1320|#131b2e/)
+  assert.doesNotMatch(styleBlock, /linear-gradient/)
+  assert.doesNotMatch(styleBlock, /#0d1320|#131b2e/)
 })
 
 test('YesterdayShiftPanel marks the leading shift', () => {

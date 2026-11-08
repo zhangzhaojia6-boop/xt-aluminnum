@@ -82,9 +82,9 @@ function displayValue(value) {
   gap: var(--xt-space-3);
   padding: var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-field-group--supporting {
@@ -92,7 +92,7 @@ function displayValue(value) {
 }
 
 .xt-field-group--audit {
-  background: var(--xt-command-surface);
+  background: transparent;
 }
 
 .xt-field-group__head {
@@ -118,7 +118,7 @@ function displayValue(value) {
 .xt-field-group__head strong {
   color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.25;
 }
 
@@ -126,7 +126,7 @@ function displayValue(value) {
 .xt-field-group__toggle {
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-field-group__toggle {
@@ -143,12 +143,12 @@ function displayValue(value) {
   min-width: 0;
   padding: var(--xt-space-3);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-lg);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
 }
 
 .xt-field-group--primary .xt-field-group__item {
-  background: var(--xt-command-surface-strong);
+  background: transparent;
 }
 
 .xt-field-group__item span,
@@ -157,7 +157,7 @@ function displayValue(value) {
   color: var(--xt-text-muted);
   font-size: var(--xt-text-xs);
   font-style: normal;
-  font-weight: 760;
+  font-weight: 600;
   line-height: 1.4;
 }
 
@@ -166,7 +166,7 @@ function displayValue(value) {
   margin-top: var(--xt-space-1);
   color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 850;
+  font-weight: 600;
   line-height: 1.3;
   overflow-wrap: anywhere;
 }

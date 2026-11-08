@@ -87,12 +87,12 @@ const badgeText = computed(() => (props.unreadCount > 99 ? '99+' : String(props.
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border: 2px solid var(--xt-bg-panel);
+  border: 2px solid var(--xt-border);
   border-radius: 999px;
-  color: var(--xt-text-inverse);
-  background: var(--xt-danger);
+  color: var(--xt-text);
+  background: transparent;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 14px;
 }
 
@@ -105,9 +105,9 @@ const badgeText = computed(() => (props.unreadCount > 99 ? '99+' : String(props.
   max-width: calc(100vw - 32px);
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-lg);
+
 }
 
 .xt-notification__header {
@@ -118,7 +118,7 @@ const badgeText = computed(() => (props.unreadCount > 99 ? '99+' : String(props.
   padding: var(--xt-space-3) var(--xt-space-4);
   border-bottom: 1px solid var(--xt-border-light);
   font-size: var(--xt-text-sm);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .xt-notification__read {
@@ -145,7 +145,7 @@ const badgeText = computed(() => (props.unreadCount > 99 ? '99+' : String(props.
 }
 
 .xt-notification__item:hover {
-  background: var(--xt-gray-50);
+  background: transparent;
 }
 
 .xt-notification__item.is-unread {

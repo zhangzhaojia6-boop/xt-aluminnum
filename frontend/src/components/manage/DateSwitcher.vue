@@ -180,15 +180,13 @@ onBeforeUnmount(() => {
 .xt-date-switcher__label {
   min-height: 38px;
   padding: 0 var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 22%, var(--xt-border-ink));
-  border-radius: var(--xt-radius-lg);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 5%, transparent), transparent),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 82%, var(--xt-bg-panel));
-  color: var(--xt-text-inverse);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
   cursor: pointer;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent);
+
   transition:
     border-color 120ms ease,
     background 120ms ease,
@@ -198,7 +196,7 @@ onBeforeUnmount(() => {
 .xt-date-switcher__btn:hover:not(:disabled),
 .xt-date-switcher__refresh:hover:not(:disabled),
 .xt-date-switcher__label:hover {
-  border-color: color-mix(in srgb, var(--xt-primary) 62%, var(--xt-border-ink));
+  border-color: var(--xt-border);
   background: color-mix(in srgb, var(--xt-primary) 14%, var(--xt-bg-ink-panel));
 }
 
@@ -218,20 +216,20 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--xt-text-inverse);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-md);
-  font-weight: 900;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .xt-date-switcher__label.is-open {
   border-color: var(--xt-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-primary) 28%, transparent);
+
 }
 
 .xt-date-switcher__caret {
-  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
+  color: var(--xt-text);
   font-size: 10px;
 }
 
@@ -239,12 +237,12 @@ onBeforeUnmount(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+
 }
 
-.xt-date-switcher__dot.is-green { background: var(--xt-color-success); color: var(--xt-color-success); }
-.xt-date-switcher__dot.is-yellow { background: var(--xt-color-warning); color: var(--xt-color-warning); }
-.xt-date-switcher__dot.is-red { background: var(--xt-color-danger); color: var(--xt-color-danger); }
+.xt-date-switcher__dot.is-green { background: transparent; color: var(--xt-success); }
+.xt-date-switcher__dot.is-yellow { background: transparent; color: var(--xt-warning); }
+.xt-date-switcher__dot.is-red { background: transparent; color: var(--xt-danger); }
 
 .xt-cal-pop {
   position: absolute;
@@ -256,14 +254,10 @@ onBeforeUnmount(() => {
   gap: var(--xt-space-2);
   width: 286px;
   padding: var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 28%, var(--xt-border-ink));
-  border-radius: var(--xt-radius-xl);
-  background:
-    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent 34%),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 94%, var(--xt-bg-panel));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 56%, transparent);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-cal-pop__head {
@@ -274,10 +268,10 @@ onBeforeUnmount(() => {
 }
 
 .xt-cal-pop__title {
-  color: var(--xt-text-inverse);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-sm);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-cal-pop__nav {
@@ -286,24 +280,24 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border-ink));
-  border-radius: var(--xt-radius-sm);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: transparent;
-  color: color-mix(in srgb, var(--xt-text-inverse) 66%, transparent);
+  color: var(--xt-text);
   cursor: pointer;
 }
 
 .xt-cal-pop__nav:hover {
-  border-color: color-mix(in srgb, var(--xt-primary) 58%, var(--xt-border-ink));
-  color: var(--xt-text-inverse);
+  border-color: var(--xt-border);
+  color: var(--xt-text);
 }
 
 .xt-cal-pop__weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -320,11 +314,11 @@ onBeforeUnmount(() => {
 .xt-cal-pop__cell {
   height: 30px;
   border: 1px solid transparent;
-  border-radius: var(--xt-radius-sm);
+  border-radius: 4px;
   background: transparent;
-  color: color-mix(in srgb, var(--xt-text-inverse) 78%, transparent);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition:
@@ -335,7 +329,7 @@ onBeforeUnmount(() => {
 }
 
 .xt-cal-pop__cell:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--xt-primary) 26%, var(--xt-border));
+  border-color: var(--xt-border);
   background: color-mix(in srgb, var(--xt-primary) 10%, var(--xt-bg-panel-soft));
 }
 
@@ -344,7 +338,7 @@ onBeforeUnmount(() => {
 }
 
 .xt-cal-pop__cell.is-out {
-  color: color-mix(in srgb, var(--xt-text-inverse) 34%, transparent);
+  color: var(--xt-text);
   opacity: 0.68;
 }
 
@@ -356,11 +350,11 @@ onBeforeUnmount(() => {
   border-color: var(--xt-primary);
   background: color-mix(in srgb, var(--xt-primary) 82%, var(--xt-bg-ink-panel));
   color: var(--xt-text-inverse);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-text-inverse) 18%, transparent);
+
 }
 
 .xt-cal-pop__cell.is-future {
-  color: color-mix(in srgb, var(--xt-text-inverse) 30%, transparent);
+  color: var(--xt-text);
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -370,24 +364,24 @@ onBeforeUnmount(() => {
   gap: 6px;
   justify-content: space-between;
   padding-top: var(--xt-space-2);
-  border-top: 1px dashed color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border-ink));
+  border-top: 1px dashed var(--xt-border);
 }
 
 .xt-cal-pop__quick-btn {
   flex: 1;
   padding: 5px 0;
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border-ink));
-  border-radius: var(--xt-radius-sm);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: transparent;
-  color: color-mix(in srgb, var(--xt-text-inverse) 62%, transparent);
+  color: var(--xt-text);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .xt-cal-pop__quick-btn:hover {
-  border-color: color-mix(in srgb, var(--xt-primary) 58%, var(--xt-border-ink));
-  color: var(--xt-text-inverse);
+  border-color: var(--xt-border);
+  color: var(--xt-text);
 }
 
 .xt-cal-pop__quick-btn--accent {

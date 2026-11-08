@@ -28,16 +28,16 @@ defineProps({
   gap: var(--xt-space-4);
   padding: var(--xt-space-3) var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-action-bar--sticky {
   position: sticky;
   bottom: var(--xt-space-4);
   z-index: 20;
-  box-shadow: var(--xt-shadow-md);
+
 }
 
 .xt-action-bar__main,

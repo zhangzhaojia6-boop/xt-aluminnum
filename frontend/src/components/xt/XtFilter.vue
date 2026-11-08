@@ -84,9 +84,9 @@ function reset() {
   gap: var(--xt-space-4);
   padding: var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
 }
 
 .xt-filter__fields {
@@ -112,7 +112,7 @@ function reset() {
   height: 34px;
   padding: 0 var(--xt-space-3);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   color: var(--xt-text);
   background: var(--xt-bg-panel);
   outline: none;
@@ -123,7 +123,7 @@ function reset() {
 
 .xt-filter__control:focus {
   border-color: var(--xt-primary);
-  box-shadow: 0 0 0 3px var(--xt-primary-light);
+
 }
 
 .xt-filter__actions {
@@ -136,7 +136,7 @@ function reset() {
   height: 34px;
   padding: 0 var(--xt-space-4);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   color: var(--xt-text);
   background: var(--xt-bg-panel);
 }

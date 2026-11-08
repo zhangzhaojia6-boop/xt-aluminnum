@@ -33,9 +33,9 @@ defineEmits(['retry'])
   align-items: flex-start;
   gap: var(--xt-space-4);
   padding: var(--xt-space-6);
-  border-radius: var(--xt-radius-lg);
-  background: var(--xt-bg-danger-subtle, #fff5f5);
-  border: 1px solid var(--xt-border-danger, #cf222e33);
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid var(--xt-border-danger, var(--xt-border));
 }
 
 .xt-error-panel__icon {
@@ -43,10 +43,10 @@ defineEmits(['retry'])
   width: 32px;
   height: 32px;
   place-items: center;
-  border-radius: var(--xt-radius-full);
-  background: var(--xt-bg-danger, #cf222e);
-  color: #fff;
-  font-weight: 700;
+  border-radius: 4px;
+  background: var(--xt-danger-light);
+  color: var(--xt-danger);
+  font-weight: 600;
   font-size: var(--xt-text-sm);
   flex-shrink: 0;
 }
@@ -67,7 +67,7 @@ defineEmits(['retry'])
   align-self: flex-start;
   padding: var(--xt-space-1) var(--xt-space-3);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
   color: var(--xt-text-primary);
   font-size: var(--xt-text-xs);
@@ -76,6 +76,6 @@ defineEmits(['retry'])
 }
 
 .xt-error-panel__retry:hover {
-  background: var(--xt-bg-panel-hover);
+  background: transparent;
 }
 </style>

@@ -49,16 +49,16 @@ defineProps({
   margin-bottom: var(--xt-space-1);
   color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
 .xt-page-header__title {
   margin: 0;
   color: var(--xt-text);
-  font-family: var(--xt-font-display);
+
   font-size: var(--xt-text-2xl);
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1.25;
   letter-spacing: 0;
 }

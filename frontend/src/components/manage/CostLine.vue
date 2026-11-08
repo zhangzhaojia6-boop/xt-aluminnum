@@ -159,10 +159,10 @@ const option = computed(() => {
   gap: var(--xt-space-3);
   min-height: 100%;
   padding: var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-warning) 26%, var(--xt-border));
-  border-radius: var(--xt-radius-xl);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+
   overflow: hidden;
 }
 
@@ -171,7 +171,7 @@ const option = computed(() => {
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--xt-warning), transparent);
+  background: transparent;
   opacity: 0.85;
 }
 
@@ -189,7 +189,7 @@ const option = computed(() => {
 .xt-cost-panel__cost-label {
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-cost-panel__cost-row {
@@ -201,9 +201,9 @@ const option = computed(() => {
 
 .xt-cost-panel__cost-value {
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
+
   font-size: var(--xt-text-2xl);
-  font-weight: 900;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -211,24 +211,24 @@ const option = computed(() => {
 .xt-cost-panel__cost-unit {
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-cost-panel__cost-pill {
   margin-left: auto;
   padding: 3px var(--xt-space-2);
-  border: 1px solid color-mix(in srgb, var(--xt-warning) 42%, var(--xt-border));
+  border: 1px solid var(--xt-border);
   border-radius: var(--xt-radius-pill);
-  background: color-mix(in srgb, var(--xt-warning-light) 10%, transparent);
-  color: color-mix(in srgb, var(--xt-warning) 72%, var(--xt-text));
+  background: transparent;
+  color: var(--xt-warning);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .xt-cost-panel__cost-pill.is-muted {
-  border-color: color-mix(in srgb, var(--xt-primary) 16%, var(--xt-border));
-  background: color-mix(in srgb, var(--xt-bg-panel-soft) 8%, transparent);
+  border-color: var(--xt-border);
+  background: transparent;
   color: var(--xt-text-secondary);
 }
 
@@ -249,7 +249,7 @@ const option = computed(() => {
 .xt-cost-panel__trend-title {
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-cost-panel__trend-meta {
@@ -260,8 +260,8 @@ const option = computed(() => {
 
 .xt-cost-panel__trend-meta b {
   color: var(--xt-text);
-  font-family: var(--xt-font-number);
-  font-weight: 900;
+
+  font-weight: 600;
 }
 
 .xt-cost-panel__chart {

@@ -33,11 +33,11 @@ const items = computed(() => buildKeyEvents(props.exceptionLane))
 .xt-key-events { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--xt-space-2); grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 720px) { .xt-key-events { grid-template-columns: 1fr; } }
 .xt-key-events__card {
-  background: var(--xt-bg-panel); border: 1px solid var(--xt-border); border-radius: var(--xt-radius-md);
+  background: var(--xt-bg-panel); border: 1px solid var(--xt-border); border-radius: 4px;
   min-height: 64px; display: flex;
 }
 .xt-key-events__card.is-muted { background: var(--xt-bg-panel-soft); opacity: 0.7; }
-.xt-key-events__link { flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--xt-space-3); text-decoration: none; color: var(--xt-text); font-weight: 800; }
+.xt-key-events__link { flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--xt-space-3); text-decoration: none; color: var(--xt-text); font-weight: 600; }
 .xt-key-events__empty { flex: 1; display: flex; align-items: center; padding: 0 var(--xt-space-3); color: var(--xt-text-muted); }
 .xt-key-events__chev { color: var(--xt-text-muted); font-size: var(--xt-text-lg); }
 </style>

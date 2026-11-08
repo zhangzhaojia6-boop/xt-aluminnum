@@ -451,7 +451,7 @@ onMounted(loadOverview)
   gap: var(--xt-space-4);
   min-height: calc(100vh - var(--xt-topbar-height) - var(--xt-space-10));
   overflow-x: hidden;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
 }
 
 .xt-agent-management__backdrop {
@@ -459,10 +459,7 @@ onMounted(loadOverview)
   inset: -24px 0;
   z-index: -1;
   opacity: 0.58;
-  background:
-    linear-gradient(rgba(20, 136, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(20, 136, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(11, 18, 34, 0.4), rgba(11, 18, 34, 0.92));
+  background: transparent;
   background-size: 32px 32px, 32px 32px, 100% 100%;
   pointer-events: none;
 }
@@ -471,12 +468,10 @@ onMounted(loadOverview)
 .xt-agent-management__metric,
 .xt-agent-management__panel,
 .xt-agent-management__state {
-  border: 1px solid var(--xt-agent-border);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(22, 30, 49, 0.96), rgba(13, 24, 43, 0.96)),
-    var(--xt-agent-panel);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-agent-management__hero {
@@ -487,24 +482,22 @@ onMounted(loadOverview)
   gap: var(--xt-space-4);
   padding: var(--xt-space-5);
   overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(20, 136, 255, 0.16), rgba(22, 30, 49, 0.96) 52%, rgba(11, 18, 34, 0.98)),
-    var(--xt-agent-panel);
+  background: transparent;
 }
 
 .xt-agent-management__hero span {
-  color: rgba(116, 245, 255, 0.84);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .xt-agent-management__hero h1 {
   margin: 0;
-  color: rgba(225, 253, 255, 0.98);
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: clamp(32px, 4vw, 52px);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
@@ -513,11 +506,11 @@ onMounted(loadOverview)
   align-items: center;
   gap: var(--xt-space-2);
   padding: var(--xt-space-2) var(--xt-space-3);
-  border: 1px solid rgba(57, 217, 138, 0.32);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(57, 217, 138, 0.1);
-  color: rgba(137, 255, 205, 0.94);
-  font-weight: 900;
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-agent-management__status i,
@@ -526,19 +519,19 @@ onMounted(loadOverview)
   height: 8px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: rgba(57, 217, 138, 0.95);
-  box-shadow: 0 0 10px rgba(57, 217, 138, 0.45);
+  background: transparent;
+
 }
 
 .xt-agent-management__status i.is-warning,
 .xt-agent-management__timeline i.is-warning {
-  background: rgba(255, 171, 0, 0.96);
-  box-shadow: 0 0 10px rgba(255, 176, 32, 0.4);
+  background: transparent;
+
 }
 
 .xt-agent-management__timeline i.is-error {
-  background: rgba(255, 92, 92, 0.96);
-  box-shadow: 0 0 10px rgba(255, 92, 92, 0.4);
+  background: transparent;
+
 }
 
 .xt-agent-management__state {
@@ -547,46 +540,44 @@ onMounted(loadOverview)
   align-items: center;
   justify-content: center;
   gap: var(--xt-space-3);
-  color: rgba(185, 223, 235, 0.82);
-  font-weight: 900;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-agent-management__state.is-loading {
-  background:
-    linear-gradient(90deg, rgba(0, 242, 255, 0.05), rgba(0, 242, 255, 0.14), rgba(0, 242, 255, 0.05)),
-    rgba(4, 18, 32, 0.66);
+  background: transparent;
   background-size: 240% 100%;
-  animation: xt-agent-management-loading 1.2s linear infinite;
+
 }
 
 .xt-agent-management__state.is-error {
-  border-color: rgba(255, 92, 92, 0.28);
-  color: rgba(255, 168, 168, 0.94);
+  border-color: var(--xt-border);
+  color: var(--xt-text);
 }
 
 .xt-agent-management__state button {
-  border: 1px solid rgba(255, 168, 168, 0.34);
-  border-radius: 8px;
-  background: rgba(255, 92, 92, 0.08);
-  color: rgba(255, 218, 214, 0.96);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   cursor: pointer;
 }
 
 .xt-agent-management__inline-state {
   margin: 0;
   padding: var(--xt-space-2) var(--xt-space-3);
-  border: 1px solid rgba(57, 217, 138, 0.22);
-  border-radius: 8px;
-  background: rgba(57, 217, 138, 0.08);
-  color: rgba(137, 255, 205, 0.9);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-agent-management__inline-state.is-error {
-  border-color: rgba(255, 92, 92, 0.26);
-  background: rgba(255, 92, 92, 0.08);
-  color: rgba(255, 190, 190, 0.92);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-agent-management__metrics {
@@ -604,31 +595,31 @@ onMounted(loadOverview)
 
 .xt-agent-management__metric span,
 .xt-agent-management__panel header span {
-  color: rgba(185, 223, 235, 0.72);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.06em;
 }
 
 .xt-agent-management__metric strong {
-  color: rgba(225, 253, 255, 0.98);
+  color: var(--xt-text);
   font-family: var(--xt-font-mono);
   font-size: clamp(28px, 3vw, 42px);
   line-height: 1;
 }
 
 .xt-agent-management__metric small {
-  color: rgba(34, 211, 238, 0.84);
-  font-weight: 850;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-agent-management__metric.is-warning small,
 .xt-agent-management__metric.is-warning strong {
-  color: rgba(255, 214, 128, 0.96);
+  color: var(--xt-text);
 }
 
 .xt-agent-management__metric.is-green small {
-  color: rgba(137, 255, 205, 0.9);
+  color: var(--xt-text);
 }
 
 .xt-agent-management__grid {
@@ -656,24 +647,24 @@ onMounted(loadOverview)
   justify-content: space-between;
   gap: var(--xt-space-3);
   padding-bottom: var(--xt-space-3);
-  border-bottom: 1px solid rgba(0, 242, 255, 0.14);
+  border-bottom: 1px solid var(--xt-border);
 }
 
 .xt-agent-management__panel h2 {
   margin: 0;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-agent-management__empty {
   min-height: 98px;
   display: grid;
   place-items: center;
-  border: 1px dashed rgba(0, 242, 255, 0.2);
-  border-radius: 10px;
-  color: rgba(185, 223, 235, 0.62);
-  font-weight: 850;
+  border: 1px dashed var(--xt-border);
+  border-radius: 4px;
+  color: var(--xt-text-secondary);
+  font-weight: 600;
 }
 
 .xt-agent-management__table-wrap {
@@ -689,19 +680,19 @@ onMounted(loadOverview)
 .xt-agent-management__table-wrap th,
 .xt-agent-management__table-wrap td {
   padding: 10px var(--xt-space-2);
-  border-bottom: 1px solid rgba(0, 242, 255, 0.08);
+  border-bottom: 1px solid var(--xt-border);
   text-align: left;
   vertical-align: middle;
 }
 
 .xt-agent-management__table-wrap th {
-  color: rgba(116, 245, 255, 0.78);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-agent-management__table-wrap td {
-  color: rgba(225, 253, 255, 0.82);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
@@ -711,8 +702,8 @@ onMounted(loadOverview)
 .xt-agent-management__timeline b {
   display: block;
   overflow: hidden;
-  color: rgba(225, 253, 255, 0.94);
-  font-weight: 900;
+  color: var(--xt-text);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -724,9 +715,9 @@ onMounted(loadOverview)
 .xt-agent-management__timeline time {
   display: block;
   overflow: hidden;
-  color: rgba(185, 223, 235, 0.62);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 760;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -748,9 +739,9 @@ onMounted(loadOverview)
   justify-content: space-between;
   gap: var(--xt-space-3);
   padding: var(--xt-space-3);
-      border: 1px solid rgba(94, 112, 143, 0.22);
-      border-radius: 8px;
-      background: rgba(26, 35, 55, 0.62);
+      border: 1px solid var(--xt-border);
+      border-radius: 4px;
+      background: transparent;
 }
 
 .xt-agent-management__row > div,
@@ -768,19 +759,19 @@ onMounted(loadOverview)
 .xt-agent-management__button {
   min-height: 28px;
   padding: 3px var(--xt-space-2);
-  border: 1px solid rgba(116, 245, 255, 0.24);
+  border: 1px solid var(--xt-border);
   border-radius: 4px;
-  background: rgba(20, 136, 255, 0.08);
-  color: rgba(185, 223, 235, 0.9);
+  background: transparent;
+  color: var(--xt-text);
   cursor: pointer;
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-agent-management__button.is-primary {
-  border-color: rgba(255, 176, 32, 0.34);
-  background: rgba(255, 176, 32, 0.12);
-  color: rgba(255, 226, 160, 0.95);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-agent-management__button:disabled {
@@ -791,24 +782,24 @@ onMounted(loadOverview)
 .xt-agent-management__tag {
   flex: 0 0 auto;
   padding: 3px var(--xt-space-2);
-  border: 1px solid rgba(57, 217, 138, 0.3);
+  border: 1px solid var(--xt-border);
   border-radius: 4px;
-  background: rgba(57, 217, 138, 0.1);
-  color: rgba(137, 255, 205, 0.94);
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-agent-management__tag.is-warning {
-  border-color: rgba(255, 176, 32, 0.32);
-  background: rgba(255, 176, 32, 0.1);
-  color: rgba(255, 214, 128, 0.94);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-agent-management__tag.is-muted {
-  border-color: rgba(132, 148, 149, 0.26);
-  background: rgba(49, 53, 60, 0.28);
-  color: rgba(185, 202, 203, 0.74);
+  border-color: var(--xt-border);
+  background: transparent;
+  color: var(--xt-text);
 }
 
 .xt-agent-management__evidence {
@@ -825,11 +816,11 @@ onMounted(loadOverview)
 .xt-agent-management__evidence article > span {
   width: fit-content;
   padding: 3px var(--xt-space-2);
-  border: 1px solid rgba(0, 242, 255, 0.22);
-  border-radius: 7px;
-  color: rgba(116, 245, 255, 0.88);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-agent-management__timeline {
@@ -845,7 +836,7 @@ onMounted(loadOverview)
   display: grid;
   gap: var(--xt-space-2);
   padding-top: var(--xt-space-2);
-  border-top: 1px solid rgba(0, 242, 255, 0.12);
+  border-top: 1px solid var(--xt-border);
 }
 
 .xt-agent-management__logs header {
@@ -854,32 +845,32 @@ onMounted(loadOverview)
 
 .xt-agent-management__logs h3 {
   margin: 0;
-  color: rgba(225, 253, 255, 0.9);
+  color: var(--xt-text);
   font-size: var(--xt-text-base);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-agent-management__logs article {
   display: grid;
   gap: 2px;
   padding: var(--xt-space-3);
-  border: 1px solid rgba(94, 112, 143, 0.2);
-  border-radius: 8px;
-  background: rgba(11, 18, 34, 0.34);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-agent-management__logs article b {
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-agent-management__logs article small,
 .xt-agent-management__logs article time {
   overflow: hidden;
-  color: rgba(185, 223, 235, 0.66);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 760;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

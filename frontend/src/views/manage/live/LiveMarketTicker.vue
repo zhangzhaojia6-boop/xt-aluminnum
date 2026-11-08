@@ -42,15 +42,11 @@ defineProps({
   min-width: 178px;
   min-height: 118px;
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.23);
-  border-radius: 16px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 15px 16px;
-  background:
-    linear-gradient(135deg, rgba(17, 68, 112, 0.86), rgba(4, 22, 41, 0.94)),
-    radial-gradient(circle at 16% 0%, rgba(0, 242, 255, 0.2), transparent 52%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 10px 24px rgba(0, 29, 68, 0.22);
+  background: transparent;
+
   transform: translateY(0);
   transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
 }
@@ -61,7 +57,7 @@ defineProps({
   right: 14px;
   left: 14px;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.48), transparent);
+  background: transparent;
   content: "";
 }
 
@@ -81,7 +77,7 @@ defineProps({
 }
 
 .live-market-ticker__item:hover {
-  border-color: rgba(0, 242, 255, 0.48);
+  border-color: var(--xt-border);
   transform: translateY(-1px);
 }
 
@@ -102,9 +98,9 @@ defineProps({
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: rgba(185, 223, 235, 0.78);
+  color: var(--xt-text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 
@@ -113,7 +109,7 @@ defineProps({
   height: 8px;
   border-radius: 50%;
   background: currentcolor;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentcolor 18%, transparent);
+
   transition: transform 180ms ease;
 }
 
@@ -124,7 +120,7 @@ defineProps({
 .live-market-ticker__item strong {
   display: block;
   margin-top: 11px;
-  color: #e1fdff;
+  color: var(--xt-text);
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: clamp(32px, 3.2vw, 52px);
   line-height: 0.96;
@@ -136,20 +132,20 @@ defineProps({
 .live-market-ticker__item em {
   display: block;
   margin-top: 12px;
-  color: rgba(185, 223, 235, 0.62);
+  color: var(--xt-text-secondary);
   font-style: normal;
   font-size: 12px;
   letter-spacing: 0.04em;
 }
 
-.live-market-ticker__item.is-success { color: #00f2ff; }
-.live-market-ticker__item.is-warning { color: #ffab00; }
-.live-market-ticker__item.is-danger { color: #ff5d4d; }
-.live-market-ticker__item.is-muted { color: #7aa2bd; }
+.live-market-ticker__item.is-success { color: var(--xt-primary); }
+.live-market-ticker__item.is-warning { color: var(--xt-warning); }
+.live-market-ticker__item.is-danger { color: var(--xt-text); }
+.live-market-ticker__item.is-muted { color: var(--xt-text); }
 
-.live-market-ticker__item.is-success strong { color: #e1fdff; }
-.live-market-ticker__item.is-warning strong { color: #ffe1a3; }
-.live-market-ticker__item.is-danger strong { color: #ffd2cc; }
+.live-market-ticker__item.is-success strong { color: var(--xt-text); }
+.live-market-ticker__item.is-warning strong { color: var(--xt-text); }
+.live-market-ticker__item.is-danger strong { color: var(--xt-text); }
 
 @media (max-width: 1180px) {
   .live-market-ticker {

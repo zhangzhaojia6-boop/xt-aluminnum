@@ -257,7 +257,7 @@ onMounted(load)
   --report-panel: rgba(12, 25, 42, 0.72);
   --report-line: rgba(0, 242, 255, 0.18);
   --report-muted: rgba(223, 226, 235, 0.66);
-  color: #dfe2eb;
+  color: var(--xt-text);
 }
 
 .report-delivery::before {
@@ -266,12 +266,7 @@ onMounted(load)
   z-index: -1;
   pointer-events: none;
   content: '';
-  background:
-    radial-gradient(circle at 10% 8%, rgba(0, 242, 255, 0.12), transparent 30%),
-    radial-gradient(circle at 78% 0%, rgba(116, 245, 255, 0.1), transparent 28%),
-    linear-gradient(rgba(0, 242, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(135deg, #0a0e14, var(--report-bg));
+  background: transparent;
   background-size: auto, auto, 32px 32px, 32px 32px, auto;
 }
 
@@ -283,10 +278,10 @@ onMounted(load)
 .report-delivery__mobile-list article {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--report-line);
-  background: linear-gradient(180deg, rgba(38, 42, 49, 0.54), var(--report-panel));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 20px 54px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
+  border: 1px solid var(--xt-border);
+  background: transparent;
+
+
 }
 
 .report-delivery__hero::after,
@@ -297,9 +292,9 @@ onMounted(load)
   inset: 0;
   pointer-events: none;
   content: '';
-  background: linear-gradient(115deg, transparent 0%, rgba(0, 242, 255, 0.14) 42%, transparent 62%);
+  background: transparent;
   transform: translateX(-120%);
-  animation: reportDeliverySweep 7s ease-in-out infinite;
+
 }
 
 .report-delivery__hero {
@@ -309,7 +304,7 @@ onMounted(load)
   gap: 20px;
   min-height: 148px;
   padding: 28px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .report-delivery__hero-copy,
@@ -328,9 +323,9 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--report-cyan);
+  color: var(--xt-primary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
@@ -339,15 +334,15 @@ onMounted(load)
   height: 8px;
   content: '';
   border-radius: 999px;
-  background: var(--report-cyan);
-  box-shadow: 0 0 18px var(--report-cyan);
+  background: transparent;
+
 }
 
 .report-delivery h1,
 .report-delivery h2 {
   margin: 0;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   letter-spacing: -0.03em;
 }
 
@@ -355,7 +350,7 @@ onMounted(load)
   margin-top: 12px;
   font-size: clamp(34px, 5vw, 58px);
   line-height: 1;
-  text-shadow: 0 0 28px rgba(0, 242, 255, 0.22);
+
 }
 
 .report-delivery h2 {
@@ -365,24 +360,24 @@ onMounted(load)
 
 .report-delivery__refresh {
   min-width: 112px;
-  border: 1px solid rgba(0, 242, 255, 0.32);
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(0, 242, 255, 0.22), rgba(0, 118, 255, 0.32));
-  color: #e1fdff;
-  font-weight: 800;
-  box-shadow: 0 0 26px rgba(0, 242, 255, 0.16);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
+
 }
 
 .report-delivery__filters {
   padding: 20px 22px 8px;
-  border-radius: 16px;
+  border-radius: 4px;
 }
 
 .report-delivery__preview {
   display: grid;
   gap: 16px;
   padding: 22px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .report-delivery__preview-head,
@@ -405,42 +400,40 @@ onMounted(load)
 
 .report-delivery__preview-actions :deep(.el-input__wrapper) {
   min-height: 38px;
-  border-radius: 10px;
-  background: rgba(1, 16, 31, 0.72);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 242, 255, 0.3),
-    inset 0 0 0 1px rgba(0, 242, 255, 0.14);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .report-delivery__preview-actions :deep(.el-input__inner) {
-  color: #e1fdff;
+  color: var(--xt-text);
 }
 
 .report-delivery__preview-body {
   display: grid;
   gap: 12px;
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: 14px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 14px;
-  background: rgba(1, 16, 31, 0.52);
+  background: transparent;
 }
 
 .report-delivery__preview-status {
   justify-content: flex-start;
-  color: var(--report-muted);
+  color: var(--xt-text-secondary);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .report-delivery__preview-text {
   max-height: 260px;
   overflow: auto;
   margin: 0;
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 14px;
-  color: #f6fbff;
-  background: rgba(0, 0, 0, 0.22);
-  font-family: 'LXGW WenKai', 'Hanken Grotesk', sans-serif;
+  color: var(--xt-text);
+  background: transparent;
+
   line-height: 1.72;
   white-space: pre-wrap;
 }
@@ -452,13 +445,13 @@ onMounted(load)
 }
 
 .report-delivery__missing-fields span {
-  border: 1px solid rgba(255, 171, 0, 0.24);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
   padding: 6px 10px;
-  color: #ffd38a;
-  background: rgba(255, 171, 0, 0.08);
+  color: var(--xt-text);
+  background: transparent;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .report-delivery__filters :deep(.el-form) {
@@ -471,24 +464,22 @@ onMounted(load)
 }
 
 .report-delivery__filters :deep(.el-form-item__label) {
-  color: var(--report-muted);
-  font-weight: 700;
+  color: var(--xt-text-secondary);
+  font-weight: 600;
 }
 
 .report-delivery__filters :deep(.el-input__wrapper),
 .report-delivery__filters :deep(.el-select__wrapper) {
   min-height: 38px;
-  border-radius: 10px;
-  background: rgba(1, 16, 31, 0.72);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 242, 255, 0.3),
-    inset 0 0 0 1px rgba(0, 242, 255, 0.14);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .report-delivery__filters :deep(.el-input__inner),
 .report-delivery__filters :deep(.el-select__placeholder),
 .report-delivery__filters :deep(.el-select__selected-item) {
-  color: #e1fdff;
+  color: var(--xt-text);
 }
 
 .report-delivery__stats {
@@ -500,7 +491,7 @@ onMounted(load)
 .report-delivery__stat {
   min-height: 132px;
   padding: 18px;
-  border-radius: 16px;
+  border-radius: 4px;
 }
 
 .report-delivery__stat-top {
@@ -509,9 +500,9 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--report-muted);
+  color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
@@ -519,9 +510,9 @@ onMounted(load)
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--report-cyan);
-  box-shadow: 0 0 18px var(--report-cyan);
-  animation: reportDeliveryPulse 2.2s ease-in-out infinite;
+  background: transparent;
+
+
 }
 
 .report-delivery__stat strong {
@@ -529,11 +520,11 @@ onMounted(load)
   z-index: 1;
   display: block;
   margin-top: 18px;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   font-size: clamp(30px, 4vw, 46px);
   line-height: 0.95;
-  text-shadow: 0 0 24px rgba(0, 242, 255, 0.22);
+
 }
 
 .report-delivery__stat small {
@@ -541,23 +532,23 @@ onMounted(load)
   z-index: 1;
   display: block;
   margin-top: 8px;
-  color: var(--report-muted);
-  font-weight: 700;
+  color: var(--xt-text-secondary);
+  font-weight: 600;
 }
 
 .report-delivery__stat--amber .report-delivery__led {
-  background: var(--report-amber);
-  box-shadow: 0 0 18px var(--report-amber);
+  background: transparent;
+
 }
 
 .report-delivery__stat--blue .report-delivery__led {
-  background: var(--report-blue);
-  box-shadow: 0 0 18px var(--report-blue);
+  background: transparent;
+
 }
 
 .report-delivery__matrix {
   padding: 22px;
-  border-radius: 18px;
+  border-radius: 4px;
 }
 
 .report-delivery__matrix-head {
@@ -576,19 +567,19 @@ onMounted(load)
 }
 
 .report-delivery__matrix-meta span {
-  border: 1px solid rgba(0, 242, 255, 0.16);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
   padding: 6px 10px;
-  color: var(--report-muted);
-  background: rgba(1, 16, 31, 0.62);
+  color: var(--xt-text-secondary);
+  background: transparent;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .report-delivery__table {
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: 14px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
 }
 
 .report-delivery__table :deep(.el-table),
@@ -596,28 +587,28 @@ onMounted(load)
 .report-delivery__table :deep(.el-table th.el-table__cell),
 .report-delivery__table :deep(.el-table td.el-table__cell) {
   background: transparent;
-  color: #dfe2eb;
+  color: var(--xt-text);
 }
 
 .report-delivery__table :deep(.el-table th.el-table__cell) {
-  color: rgba(225, 253, 255, 0.82);
+  color: var(--xt-text);
   font-size: 12px;
   letter-spacing: 0.04em;
 }
 
 .report-delivery__table :deep(.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell) {
-  background: rgba(0, 242, 255, 0.035);
+  background: transparent;
 }
 
 .report-delivery__table :deep(.el-table__body tr:hover > td.el-table__cell) {
-  background: rgba(0, 242, 255, 0.08);
+  background: transparent;
 }
 
 .report-delivery :deep(.reference-status) {
   border-radius: 999px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.02em;
-  box-shadow: 0 0 16px rgba(0, 242, 255, 0.1);
+
 }
 
 .report-delivery__mobile-list {
@@ -625,7 +616,7 @@ onMounted(load)
 }
 
 .report-delivery__mobile-list article {
-  border-radius: 16px;
+  border-radius: 4px;
   padding: 16px;
 }
 
@@ -634,10 +625,10 @@ onMounted(load)
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #f6fbff;
-  font-family: 'Hanken Grotesk', 'Inter', sans-serif;
+  color: var(--xt-text);
+
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .report-delivery__mobile-grid {
@@ -648,17 +639,17 @@ onMounted(load)
 }
 
 .report-delivery__mobile-grid span {
-  color: var(--report-muted);
+  color: var(--xt-text-secondary);
 }
 
 .report-delivery__mobile-grid strong {
-  color: #f6fbff;
+  color: var(--xt-text);
   text-align: right;
 }
 
 .report-delivery__mobile-list p {
   margin: 14px 0 0;
-  color: rgba(223, 226, 235, 0.78);
+  color: var(--xt-text);
 }
 
 @keyframes reportDeliverySweep {

@@ -1076,19 +1076,17 @@ onMounted(loadSources)
   display: grid;
   gap: var(--xt-space-4);
   min-height: calc(100vh - var(--xt-topbar-height) - var(--xt-space-10));
-  color: var(--mapping-text);
+  color: var(--xt-text);
 }
 
 .xt-mapping-reconciliation__hero,
 .xt-mapping-reconciliation__metrics article,
 .xt-mapping-reconciliation__panel,
 .xt-mapping-reconciliation__state {
-  border: 1px solid var(--mapping-border);
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(199, 155, 75, 0.08), transparent 42%),
-    linear-gradient(135deg, rgba(17, 27, 34, 0.96), rgba(8, 17, 22, 0.96));
-  box-shadow: inset 0 1px 0 rgba(245, 240, 230, 0.06);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+
 }
 
 .xt-mapping-reconciliation__hero {
@@ -1101,30 +1099,30 @@ onMounted(loadSources)
 }
 
 .xt-mapping-reconciliation__hero span {
-  color: var(--mapping-gold);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0.16em;
 }
 
 .xt-mapping-reconciliation__hero h1 {
   margin: var(--xt-space-2) 0 0;
-  color: var(--mapping-text);
-  font-family: var(--xt-font-display);
+  color: var(--xt-text);
+
   font-size: clamp(34px, 4vw, 56px);
-  font-weight: 950;
+  font-weight: 600;
   letter-spacing: -0.04em;
 }
 
 .xt-mapping-reconciliation button {
   min-height: 38px;
   padding: 0 var(--xt-space-4);
-  border: 1px solid rgba(199, 155, 75, 0.42);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(199, 155, 75, 0.12);
-  color: var(--mapping-text);
+  background: transparent;
+  color: var(--xt-text);
   cursor: pointer;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation button:disabled {
@@ -1138,13 +1136,13 @@ onMounted(loadSources)
   justify-content: center;
   gap: var(--xt-space-3);
   min-height: 68px;
-  color: rgba(245, 240, 230, 0.74);
-  font-weight: 900;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__state.is-error {
-  border-color: rgba(127, 29, 29, 0.52);
-  color: #ffb4a8;
+  border-color: var(--xt-border);
+  color: var(--xt-text);
 }
 
 .xt-mapping-reconciliation__metrics {
@@ -1162,22 +1160,22 @@ onMounted(loadSources)
 
 .xt-mapping-reconciliation__metrics span,
 .xt-mapping-reconciliation__panel header span {
-  color: rgba(245, 240, 230, 0.62);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 
 .xt-mapping-reconciliation__metrics strong {
-  color: var(--mapping-gold);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: clamp(30px, 3vw, 44px);
   line-height: 1;
 }
 
 .xt-mapping-reconciliation__metrics small {
-  color: rgba(245, 240, 230, 0.68);
-  font-weight: 800;
+  color: var(--xt-text-secondary);
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__grid {
@@ -1204,20 +1202,20 @@ onMounted(loadSources)
   justify-content: space-between;
   gap: var(--xt-space-3);
   padding-bottom: var(--xt-space-3);
-  border-bottom: 1px solid rgba(199, 155, 75, 0.18);
+  border-bottom: 1px solid var(--xt-border);
 }
 
 .xt-mapping-reconciliation__panel h2 {
   margin: 0;
-  color: var(--mapping-text);
+  color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__path {
   overflow: hidden;
   margin: 0;
-  color: rgba(245, 240, 230, 0.62);
+  color: var(--xt-text-secondary);
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xs);
   text-overflow: ellipsis;
@@ -1228,28 +1226,28 @@ onMounted(loadSources)
   width: 100%;
   min-height: 36px;
   padding: 0 var(--xt-space-3);
-  border: 1px solid rgba(199, 155, 75, 0.2);
-  border-radius: 10px;
-  background: rgba(10, 15, 18, 0.72);
-  color: var(--mapping-text);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
   font: inherit;
-  font-weight: 850;
+  font-weight: 600;
   outline: none;
 }
 
 .xt-mapping-reconciliation__file-search:focus {
-  border-color: rgba(199, 155, 75, 0.58);
-  box-shadow: 0 0 0 3px rgba(199, 155, 75, 0.12);
+  border-color: var(--xt-border);
+
 }
 
 .xt-mapping-reconciliation__empty {
   min-height: 98px;
   display: grid;
   place-items: center;
-  border: 1px dashed rgba(199, 155, 75, 0.28);
-  border-radius: 12px;
-  color: rgba(245, 240, 230, 0.54);
-  font-weight: 900;
+  border: 1px dashed var(--xt-border);
+  border-radius: 4px;
+  color: var(--xt-text-secondary);
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__file-list,
@@ -1272,9 +1270,9 @@ onMounted(loadSources)
   justify-content: space-between;
   gap: var(--xt-space-3);
   padding: var(--xt-space-3);
-  border: 1px solid rgba(199, 155, 75, 0.14);
-  border-radius: 10px;
-  background: rgba(245, 240, 230, 0.035);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-mapping-reconciliation__file-list b,
@@ -1282,8 +1280,8 @@ onMounted(loadSources)
 .xt-mapping-reconciliation__summary b,
 .xt-mapping-reconciliation__field-rates b {
   overflow: hidden;
-  color: var(--mapping-text);
-  font-weight: 900;
+  color: var(--xt-text);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1292,43 +1290,43 @@ onMounted(loadSources)
 .xt-mapping-reconciliation__rules span,
 .xt-mapping-reconciliation__rules small {
   flex: 0 0 auto;
-  color: rgba(245, 240, 230, 0.58);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__summary strong {
-  color: var(--mapping-gold);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-xl);
 }
 
 .xt-mapping-reconciliation__field-rates span {
-  color: var(--mapping-gold);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-lg);
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__rule-preview {
   display: grid;
   gap: var(--xt-space-2);
   padding: var(--xt-space-3);
-  border: 1px solid rgba(199, 155, 75, 0.22);
-  border-radius: 12px;
-  background: rgba(199, 155, 75, 0.08);
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
 }
 
 .xt-mapping-reconciliation__rule-preview span,
 .xt-mapping-reconciliation__rule-preview small {
-  color: rgba(245, 240, 230, 0.62);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__rule-preview strong {
-  color: var(--mapping-gold);
-  font-family: var(--xt-font-number);
+  color: var(--xt-text);
+
   font-size: var(--xt-text-2xl);
   line-height: 1;
 }
@@ -1341,12 +1339,12 @@ onMounted(loadSources)
 
 .xt-mapping-reconciliation__chips span {
   padding: var(--xt-space-2) var(--xt-space-3);
-  border: 1px solid rgba(199, 155, 75, 0.2);
+  border: 1px solid var(--xt-border);
   border-radius: 999px;
-  background: rgba(199, 155, 75, 0.08);
-  color: rgba(245, 240, 230, 0.78);
+  background: transparent;
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__panel.is-controls {
@@ -1371,20 +1369,20 @@ onMounted(loadSources)
 
 .xt-mapping-reconciliation__controls label span,
 .xt-mapping-reconciliation__controls legend {
-  color: rgba(245, 240, 230, 0.64);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__controls select,
 .xt-mapping-reconciliation__controls input[type='date'] {
   width: 100%;
   min-height: 42px;
-  border: 1px solid rgba(199, 155, 75, 0.28);
-  border-radius: 10px;
-  background: rgba(8, 17, 22, 0.72);
-  color: var(--mapping-text);
-  font-weight: 850;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xt-text);
+  font-weight: 600;
   padding: 0 var(--xt-space-3);
 }
 
@@ -1401,8 +1399,8 @@ onMounted(loadSources)
   display: flex;
   align-items: center;
   gap: var(--xt-space-1);
-  color: rgba(245, 240, 230, 0.76);
-  font-weight: 850;
+  color: var(--xt-text);
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation__table-wrap {
@@ -1418,18 +1416,18 @@ onMounted(loadSources)
 .xt-mapping-reconciliation th,
 .xt-mapping-reconciliation td {
   padding: 11px var(--xt-space-2);
-  border-bottom: 1px solid rgba(199, 155, 75, 0.12);
+  border-bottom: 1px solid var(--xt-border);
   text-align: left;
 }
 
 .xt-mapping-reconciliation th {
-  color: var(--mapping-gold);
+  color: var(--xt-text);
   font-size: var(--xt-text-xs);
-  font-weight: 950;
+  font-weight: 600;
 }
 
 .xt-mapping-reconciliation td {
-  color: rgba(245, 240, 230, 0.78);
+  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 

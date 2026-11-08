@@ -53,19 +53,17 @@ const connectionText = computed(() => {
 .live-event-rail {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.17);
-  border-radius: 18px;
+  border: 1px solid var(--xt-border);
+  border-radius: 4px;
   padding: 16px;
-  background:
-    linear-gradient(180deg, rgba(8, 33, 58, 0.82), rgba(3, 15, 28, 0.94)),
-    radial-gradient(circle at 20% 0%, rgba(0, 242, 255, 0.14), transparent 42%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: transparent;
+
 }
 
 .live-event-rail::before {
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(180deg, rgba(225, 253, 255, 0.035) 0 1px, transparent 1px 8px);
+  background: transparent;
   opacity: 0.7;
   content: "";
   pointer-events: none;
@@ -87,21 +85,21 @@ const connectionText = computed(() => {
 }
 
 .live-section-head span {
-  color: rgba(116, 245, 255, 0.72);
+  color: var(--xt-text);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.14em;
 }
 
 .live-section-head strong {
   display: block;
   margin-top: 3px;
-  color: rgba(225, 253, 255, 0.94);
+  color: var(--xt-text);
   font-size: 18px;
 }
 
 .live-section-head em {
-  color: rgba(185, 223, 235, 0.62);
+  color: var(--xt-text-secondary);
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-style: normal;
   font-size: 12px;
@@ -115,10 +113,10 @@ const connectionText = computed(() => {
 .live-event-rail__list article {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-left: 3px solid rgba(0, 242, 255, 0.52);
-  border-radius: 10px;
-  background: rgba(2, 16, 31, 0.74);
+  border: 1px solid var(--xt-border);
+  border-left: 3px solid var(--xt-border);
+  border-radius: 4px;
+  background: transparent;
   padding: 11px 12px;
 }
 
@@ -128,16 +126,16 @@ const connectionText = computed(() => {
   right: 12px;
   left: 12px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.16), transparent);
+  background: transparent;
   content: "";
 }
 
 .live-event-rail__list article.is-warning {
-  border-left-color: #ffab00;
+  border-left-color: var(--xt-border);
 }
 
 .live-event-rail__list article.is-danger {
-  border-left-color: #ff5d4d;
+  border-left-color: var(--xt-border);
 }
 
 .live-event-rail__list span,
@@ -148,14 +146,14 @@ const connectionText = computed(() => {
 }
 
 .live-event-rail__list span {
-  color: rgba(185, 223, 235, 0.58);
+  color: var(--xt-text-secondary);
   font-size: 12px;
   letter-spacing: 0.04em;
 }
 
 .live-event-rail__list strong {
   margin-top: 5px;
-  color: rgba(225, 253, 255, 0.88);
+  color: var(--xt-text);
   font-size: 13px;
   line-height: 1.4;
 }
@@ -164,7 +162,7 @@ const connectionText = computed(() => {
   display: grid;
   min-height: 220px;
   place-items: center;
-  color: rgba(185, 223, 235, 0.68);
+  color: var(--xt-text-secondary);
 }
 
 </style>
