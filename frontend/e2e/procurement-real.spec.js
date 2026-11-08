@@ -18,6 +18,7 @@ const ACCOUNTS = {
   accountant: 'pilot-accountant',
   gate: 'pilot-gate',
   quality: 'pilot-quality',
+  audit: 'pilot-audit',
 }
 
 test.skip(process.env.PROCUREMENT_REAL !== '1', '需要真实后端')
@@ -166,4 +167,33 @@ test('5 万元以上走合同、技术审核、法务和质检', async ({ page, 
   expect(final.status).toBe('archived')
   expect(walked).toEqual(['draft', 'workshop_approval', 'tech_review', 'stock_review', 'quotation', 'quotation_confirm', 'purchase_approval', 'contract_draft', 'legal_review', 'finance_contract_review', 'contract_sign', 'gate_registration', 'acceptance', 'quality_check', 'document_collection', 'payment_review', 'payment_approval', 'payment_booking'])
   expect(final.documents.length).toBeGreaterThanOrEqual(4)
+})
+
+test('后台：采购科负责人拉黑，企管筛选并导出，门岗看不到', async ({ page, browser, request }) => {
+  const leadPage = await (await browser.newContext()).newPage()
+  await openAs(leadPage, await tokenOf(request, 'purchasing_lead'), '/procurement/suppliers')
+  await leadPage.getByTestId('supplier-add').click()
+  await leadPage.getByTestId('supplier-name').fill('黑名单测试公司')
+  await leadPage.getByTestId('supplier-status').selectOption('blacklisted')
+  await leadPage.getByTestId('supplier-save').click()
+  await expect(leadPage.getByTestId('supplier-row').filter({ hasText: '黑名单测试公司' })).toContainText('黑名单')
+
+  const auditPage = await (await browser.newContext()).newPage()
+  await openAs(auditPage, await tokenOf(request, 'audit'), '/procurement/ledger')
+  await expect(auditPage.getByTestId('ledger-row').first()).toBeVisible()
+  await auditPage.getByTestId('ledger-keyword').fill('轴承')
+  await auditPage.getByTestId('ledger-apply').click()
+  await expect(auditPage.getByTestId('ledger-row').first()).toContainText('轴承')
+  await expect(auditPage.getByTestId('ledger-row').filter({ hasText: '手套' })).toHaveCount(0)
+  const download = auditPage.waitForEvent('download')
+  await auditPage.getByTestId('ledger-export').click()
+  expect((await download).suggestedFilename()).toContain('采购台账')
+  await expect(auditPage.getByTestId('supplier-form')).toHaveCount(0)
+  await auditPage.goto('/procurement/board')
+  await expect(auditPage.getByTestId('procurement-hours')).toBeVisible()
+
+  const gatePage = await (await browser.newContext()).newPage()
+  await openAs(gatePage, await tokenOf(request, 'gate'), '/procurement/ledger')
+  await expect(gatePage.getByText('没有查看全部台账的权限')).toBeVisible()
+  await expect(gatePage.getByRole('link', { name: '总览' })).toHaveCount(0)
 })

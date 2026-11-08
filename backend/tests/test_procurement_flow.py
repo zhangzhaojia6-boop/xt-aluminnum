@@ -24,15 +24,16 @@ from app.models.procurement import (
     ProcurementQuote,
     ProcurementRequest,
     ProcurementStepLog,
+    ProcurementSupplier,
 )
-from app.models.system import User
+from app.models.system import AuditLog, User
 from app.services import procurement_service as service
 
 SHANGHAI = ZoneInfo('Asia/Shanghai')
 TABLES = [
     Workshop.__table__, User.__table__, ProcurementAssignment.__table__, ProcurementRequest.__table__,
-    ProcurementQuote.__table__, ProcurementDocument.__table__, ProcurementStepLog.__table__,
-    AgentProfile.__table__, CommunicationChannel.__table__, AgentChannelBinding.__table__, AgentOutboxMessage.__table__,
+    ProcurementQuote.__table__, ProcurementDocument.__table__, ProcurementStepLog.__table__, ProcurementSupplier.__table__,
+    AuditLog.__table__, AgentProfile.__table__, CommunicationChannel.__table__, AgentChannelBinding.__table__, AgentOutboxMessage.__table__,
 ]
 ROLES = {
     flow.ROLE_EQUIPMENT: 11, flow.ROLE_WAREHOUSE: 12, flow.ROLE_PURCHASING: 13, flow.ROLE_PURCHASING_LEAD: 14,

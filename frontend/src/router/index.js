@@ -59,6 +59,9 @@ const ProcurementList = () => import('../views/procurement/ProcurementList.vue')
 const ProcurementNew = () => import('../views/procurement/ProcurementNew.vue')
 const ProcurementDetail = () => import('../views/procurement/ProcurementDetail.vue')
 const ProcurementBoard = () => import('../views/procurement/ProcurementBoard.vue')
+const ProcurementLedger = () => import('../views/procurement/ProcurementLedger.vue')
+const ProcurementSuppliers = () => import('../views/procurement/ProcurementSuppliers.vue')
+const ProcurementStaff = () => import('../views/procurement/ProcurementStaff.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -120,7 +123,10 @@ const rawRoutes = [
       { path: '', name: 'procurement-todo', component: ProcurementList, props: { scope: 'todo' }, meta: { ...procurementMeta, title: '待我办理' } },
       { path: 'mine', name: 'procurement-mine', component: ProcurementList, props: { scope: 'mine' }, meta: { ...procurementMeta, title: '我提报的' } },
       { path: 'new', name: 'procurement-new', component: ProcurementNew, meta: { ...procurementMeta, title: '提报需求' } },
-      { path: 'board', name: 'procurement-board', component: ProcurementBoard, meta: { ...procurementMeta, title: '采购台账' } },
+      { path: 'board', name: 'procurement-board', component: ProcurementBoard, meta: { ...procurementMeta, title: '采购总览' } },
+      { path: 'ledger', name: 'procurement-ledger', component: ProcurementLedger, meta: { ...procurementMeta, title: '采购台账' } },
+      { path: 'suppliers', name: 'procurement-suppliers', component: ProcurementSuppliers, meta: { ...procurementMeta, title: '供应商' } },
+      { path: 'staff', name: 'procurement-staff', component: ProcurementStaff, meta: { ...procurementMeta, title: '办理人' } },
       { path: ':id', name: 'procurement-detail', component: ProcurementDetail, meta: { ...procurementMeta, title: '采购单' } }
     ]
   },

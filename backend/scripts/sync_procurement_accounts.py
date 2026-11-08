@@ -70,7 +70,7 @@ def sync_accounts(db: Session, entries: list[dict], *, actor: User, apply: bool)
         log_action(
             db, user_id=actor.id, user_name=actor.name, action='procurement_account_sync', module='procurement',
             table_name='users', record_id=user.id, new_value={'roles': plan['roles'], 'created': plan['action'] == 'create'},
-            reason='sync_procurement_accounts',
+            reason='sync_procurement_accounts', auto_commit=False,
         )
     db.commit()
     return plans

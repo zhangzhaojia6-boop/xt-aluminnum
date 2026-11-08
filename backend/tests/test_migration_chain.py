@@ -49,7 +49,7 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0058_procurement' in current.stdout
+    assert '0059_procurement_suppliers' in current.stdout
 
     engine = create_engine(database_url, future=True)
     columns = {item['name']: item for item in inspect(engine).get_columns('chat_inbox')}
@@ -123,7 +123,7 @@ def test_0054_adopts_compatible_residual_table_without_deleting_receipts(tmp_pat
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0058_procurement' in current.stdout
+    assert '0059_procurement_suppliers' in current.stdout
     with engine.connect() as conn:
         receipt = conn.execute(
             text(

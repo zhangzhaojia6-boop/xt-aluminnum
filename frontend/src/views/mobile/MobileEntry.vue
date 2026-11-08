@@ -524,7 +524,7 @@ async function refreshShiftClock() {
 
 onMounted(() => {
   load()
-  fetchProcurementMeta().then(() => { procurementOn.value = true }).catch(() => {})
+  fetchProcurementMeta().then((meta) => { procurementOn.value = meta.enabled !== false }).catch(() => {})
   shiftClockTimer.value = setInterval(() => {
     refreshShiftClock()
   }, 60 * 1000)
