@@ -812,7 +812,7 @@ onMounted(async () => {
   border: 1px solid var(--xt-border-light);
   border-radius: 4px;
   background: var(--xt-bg-panel);
-  
+
 }
 
 .entry-flow-steps span {
@@ -880,7 +880,7 @@ onMounted(async () => {
 
 .entry-calc-strip strong {
   color: var(--xt-primary);
-  
+
   font-size: var(--xt-text-2xl);
   line-height: 1;
 }
@@ -903,16 +903,16 @@ onMounted(async () => {
   border: 1px solid var(--xt-border-light);
   border-radius: 4px;
   background: var(--xt-bg-panel);
-  
+
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary) {
-  
+
   transition: box-shadow var(--xt-motion-fast) var(--xt-ease);
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary:hover) {
-  
+
 }
 
 @media (max-width: 900px) {

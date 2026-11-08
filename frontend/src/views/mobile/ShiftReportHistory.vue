@@ -370,7 +370,7 @@ onMounted(load)
   height: 7px;
   border-radius: 50%;
   background: transparent;
-  
+
 }
 
 .mobile-top h1,
@@ -505,7 +505,7 @@ onMounted(load)
   border-radius: 50%;
   border: 1px solid var(--xt-border);
   background: transparent;
-  
+
 }
 
 .history-log__empty strong,
@@ -560,18 +560,18 @@ onMounted(load)
   height: 8px;
   border-radius: 50%;
   background: transparent;
-  
+
 }
 
 .history-log__status.is-warning i,
 .history-log__status.is-owner i {
   background: transparent;
-  
+
 }
 
 .history-log__status.is-danger i {
   background: transparent;
-  
+
 }
 
 .history-log__seq {

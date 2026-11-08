@@ -332,7 +332,7 @@ onMounted(loadWorkshops)
 }
 
 .consumable-hub__hero::after {
-  
+
 }
 
 .consumable-hub__hero-copy h1,
@@ -343,12 +343,12 @@ onMounted(loadWorkshops)
 .consumable-hub__hero-copy h1 {
   margin: 0;
   color: var(--xt-text);
-  
+
   font-size: 30px;
   font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.05;
-  
+
 }
 
 .consumable-hub__hero-copy p {
@@ -389,7 +389,7 @@ onMounted(loadWorkshops)
 
 .consumable-hub__hero-readouts strong {
   color: var(--xt-text);
-  
+
   font-size: 24px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -413,7 +413,7 @@ onMounted(loadWorkshops)
   height: 7px;
   border-radius: 50%;
   background: transparent;
-  
+
 }
 
 .consumable-hub__panel {
@@ -477,7 +477,7 @@ onMounted(loadWorkshops)
 
 .consumable-hub__signal strong {
   color: var(--xt-text);
-  
+
   font-size: 20px;
   font-variant-numeric: tabular-nums;
 }
@@ -493,7 +493,7 @@ onMounted(loadWorkshops)
 }
 
 .consumable-hub__status i {
-  
+
 }
 
 .consumable-hub__field-grid {
@@ -595,7 +595,7 @@ onMounted(loadWorkshops)
   position: relative;
   min-height: 44px;
   overflow: hidden;
-  
+
 }
 
 .consumable-hub__save::after {
@@ -631,12 +631,12 @@ onMounted(loadWorkshops)
 .consumable-hub :deep(.el-input__wrapper.is-focus),
 .consumable-hub :deep(.el-select__wrapper.is-focused),
 .consumable-hub :deep(.el-textarea__inner:focus) {
-  
+
 }
 
 .consumable-form :deep(.el-input-number .el-input__inner) {
   color: var(--xt-text);
-  
+
   font-variant-numeric: tabular-nums;
 }
 

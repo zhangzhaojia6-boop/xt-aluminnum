@@ -541,7 +541,7 @@ onBeforeUnmount(() => {
 }
 
 .attendance-radar__hero::after {
-  
+
 }
 
 .attendance-radar__hero-copy {
@@ -570,7 +570,7 @@ onBeforeUnmount(() => {
   height: 7px;
   border-radius: 50%;
   background: transparent;
-  
+
 }
 
 .mobile-top h1,
@@ -697,7 +697,7 @@ onBeforeUnmount(() => {
 
 .attendance-radar__person.is-danger {
   border-color: var(--xt-border);
-  
+
 }
 
 .attendance-radar__person.is-warning {
@@ -732,12 +732,12 @@ onBeforeUnmount(() => {
 
 .attendance-radar__status.is-warning i {
   background: transparent;
-  
+
 }
 
 .attendance-radar__status.is-danger i {
   background: transparent;
-  
+
 }
 
 .mobile-attendance-card__name {
@@ -754,7 +754,7 @@ onBeforeUnmount(() => {
 .attendance-radar__dock {
   border: 1px solid var(--xt-border);
   background: transparent;
-  
+
 }
 
 .attendance-radar__button,
@@ -776,7 +776,7 @@ onBeforeUnmount(() => {
 }
 
 .attendance-radar__submit {
-  
+
 }
 
 .attendance-radar :deep(.el-select__wrapper),
@@ -787,7 +787,7 @@ onBeforeUnmount(() => {
 
 .attendance-radar :deep(.el-select__wrapper.is-focused),
 .attendance-radar :deep(.el-textarea__inner:focus) {
-  
+
 }
 
 @media (hover: hover) {
