@@ -91,3 +91,19 @@ test('energy, per-ton and cost gaps land in the energy queue, other gaps stay in
   assert.equal(queues.find((queue) => queue.key === 'energy').count, 6)
   assert.equal(queues.find((queue) => queue.key === 'reporting').count, 2)
 })
+
+test('queue meta only says pending when a message is really queued', async () => {
+  const { buildAlertQueueItemMeta } = await import('../src/components/manage/_alertEventNormalize.js')
+  const meta = (deliveryStatus) => buildAlertQueueItemMeta({
+    actionRoute: '/entry/fill?field=x',
+    deadline: '10:00',
+    deliveryStatus,
+  })
+
+  assert.equal(meta('channel_unavailable'), '截止 10:00')
+  assert.equal(meta('dry_run'), '截止 10:00')
+  assert.equal(meta('unchanged'), '截止 10:00')
+  assert.equal(meta('pending'), '截止 10:00 · 待发送')
+  assert.equal(meta('retrying'), '截止 10:00 · 待发送')
+  assert.equal(meta('sent'), '截止 10:00 · 已发送')
+})

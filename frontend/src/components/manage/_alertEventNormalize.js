@@ -530,7 +530,7 @@ export function buildAlertQueueItemMeta(item = {}, ownerRoleLabels = {}) {
   if (isOwnerFillRoute) {
     if (deliveryStatus === 'sent') {
       parts.push('已发送')
-    } else if (deliveryStatus) {
+    } else if (deliveryStatus === 'pending' || deliveryStatus === 'retrying') {
       parts.push('待发送')
     }
   } else {
