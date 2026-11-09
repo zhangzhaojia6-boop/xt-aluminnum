@@ -740,8 +740,13 @@ def _captured_earlier(old_fact: Mapping[str, Any], new_fact: Mapping[str, Any]) 
         return False
     old_at = _business_window_start(old_detail.get("business_window"))
     new_at = _business_window_start(new_detail.get("business_window"))
+    if old_at is None:
+        return False
+    # 实时行刷新后移出在制日期窗口时，重建只会得到一个没有读取证据的 0，不能盖掉真实抓取值。
+    if new_at is None:
+        return True
     try:
-        return old_at is not None and new_at is not None and old_at < new_at
+        return old_at < new_at
     except TypeError:
         return False
 
