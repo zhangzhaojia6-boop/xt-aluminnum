@@ -562,6 +562,12 @@ def _render_selected_facts(*, plan: RootOwnerMessagePlan, decision: EvidenceDeci
     return "；".join(rendered)
 
 
+_ANOMALY_MISSING_NEXT_STEP = (
+    "钉钉群、数据质量问题和日报里都没有这天的异常记录；"
+    "有停机或检修要说明的，请发到钉钉群，系统发现的缺口到数据中枢异常页查看。"
+)
+
+
 def _missing_next_step(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:
     trace = decision.trace if isinstance(decision.trace, Mapping) else {}
     gap_plan = trace.get("gap_plan") if isinstance(trace.get("gap_plan"), Mapping) else {}
@@ -571,6 +577,8 @@ def _missing_next_step(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision
         next_step = str(item.get("next_step") or "").strip()
         if next_step:
             return next_step
+    if "anomaly_explanation_daily" in plan.metric_keys:
+        return _ANOMALY_MISSING_NEXT_STEP
     return "建议先补齐对应来源。"
 
 
