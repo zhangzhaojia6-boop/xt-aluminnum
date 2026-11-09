@@ -1,10 +1,7 @@
 <template>
   <section class="xt-alerts" data-testid="manage-alerts" data-visual-pass="stitch-image2-second-pass">
-    <header class="xt-alerts__hero">
-      <div class="xt-alerts__title-block">
-        <span class="xt-alerts__eyebrow">异常总览</span>
-        <h1>异常</h1>
-      </div>
+    <header class="xt-alerts__hero" aria-label="异常总览">
+      <h1>异常</h1>
       <div class="xt-alerts__date-dock">
         <DateSwitcher
           :model-value="timeline.targetDate.value"
@@ -35,9 +32,18 @@
         class="xt-alerts__stat"
         :class="`xt-alerts__stat--${item.tone}`"
       >
-        <span class="xt-alerts__stat-label"><i></i>{{ item.label }}</span>
+        <span class="xt-alerts__stat-label">{{ item.label }}</span>
         <strong>{{ item.value }}</strong>
       </article>
+      <div
+        v-if="businessEvents.length"
+        class="xt-alerts__ratio"
+        role="img"
+        :aria-label="`未结 ${openCount} 条，已处理 ${businessEvents.length - openCount} 条`"
+      >
+        <i class="is-open" :style="{ flexGrow: openCount }"></i>
+        <i class="is-closed" :style="{ flexGrow: businessEvents.length - openCount }"></i>
+      </div>
     </section>
 
     <section class="xt-alerts__filters" data-testid="manage-alerts-filters">
@@ -50,10 +56,7 @@
 
     <section class="xt-alerts__queues" data-testid="manage-alert-work-queues">
       <header class="xt-alerts__queue-head">
-        <div>
-          <span class="xt-alerts__eyebrow">ACTION QUEUE</span>
-          <h2>异常处理队列</h2>
-        </div>
+        <h2>异常处理队列</h2>
         <p>{{ workQueueSummary }}</p>
       </header>
       <div class="xt-alerts__queue-grid">
@@ -88,12 +91,9 @@
       </div>
     </section>
 
-    <section class="xt-alerts__timeline-shell">
+    <section class="xt-alerts__timeline-shell" aria-label="异常清单">
       <div class="xt-alerts__timeline-head">
-        <div>
-          <span class="xt-alerts__eyebrow">异常清单</span>
-          <h2>异常事件流</h2>
-        </div>
+        <h2>异常事件流</h2>
         <div class="xt-alerts__timeline-meta">
           <span>{{ timeline.targetDate.value }}</span>
           <span>{{ actionCases.length }} 项</span>
@@ -263,46 +263,9 @@ watch(timeline.targetDate, (next) => {
 
 <style scoped>
 .xt-alerts {
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--xt-space-4);
-}
-
-.xt-alerts::before {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  content: '';
-  background: transparent;
-  background-size: auto, var(--xt-space-8) var(--xt-space-8), var(--xt-space-8) var(--xt-space-8);
-}
-
-.xt-alerts__hero,
-.xt-alerts__stat,
-.xt-alerts__filters,
-.xt-alerts__queues,
-.xt-alerts__timeline-shell {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--xt-border);
-  background: transparent;
-
-}
-
-.xt-alerts__hero::after,
-.xt-alerts__stat::after,
-.xt-alerts__queues::after,
-.xt-alerts__timeline-shell::after {
-  position: absolute;
-  top: 0;
-  right: var(--xt-space-4);
-  left: var(--xt-space-4);
-  height: 1px;
-  pointer-events: none;
-  content: '';
-  background: transparent;
+  gap: var(--xt-space-8);
 }
 
 .xt-alerts__hero {
@@ -310,74 +273,29 @@ watch(timeline.targetDate, (next) => {
   align-items: center;
   justify-content: space-between;
   gap: var(--xt-space-4);
-  min-height: 148px;
-  padding: var(--xt-space-6);
-  border-radius: 4px;
-}
-
-.xt-alerts__title-block,
-.xt-alerts__date-dock,
-.xt-alerts__queue-head,
-.xt-alerts__queue-grid,
-.xt-alerts__timeline-head,
-.xt-alerts__stat > * {
-  position: relative;
-  z-index: 1;
-}
-
-.xt-alerts__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--xt-space-2);
-  color: var(--xt-primary);
-  font-size: var(--xt-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.16em;
-}
-
-.xt-alerts__eyebrow::before {
-  width: var(--xt-space-2);
-  height: var(--xt-space-2);
-  content: '';
-  border-radius: var(--xt-radius-pill);
-  background: var(--xt-primary);
-
 }
 
 .xt-alerts h1,
 .xt-alerts h2 {
   margin: 0;
   color: var(--xt-text);
-
-  letter-spacing: -0.04em;
+  font-weight: 600;
 }
 
 .xt-alerts h1 {
-  margin-top: var(--xt-space-3);
-  font-size: clamp(var(--xt-text-3xl), 5vw, calc(var(--xt-text-3xl) * 1.8));
-  font-weight: 600;
-  line-height: 1;
+  font-size: clamp(var(--xt-text-2xl), 3vw, 40px);
+  letter-spacing: -0.02em;
 }
 
 .xt-alerts h2 {
-  margin-top: var(--xt-space-2);
-  font-size: var(--xt-text-xl);
-  font-weight: 600;
-}
-
-.xt-alerts__date-dock {
-  padding: var(--xt-space-2);
-  border: 1px solid var(--xt-border);
-  border-radius: 4px;
-  background: transparent;
+  font-size: var(--xt-text-lg);
 }
 
 .xt-alerts__capability-status {
   display: flex;
   align-items: center;
   gap: var(--xt-space-3);
-  min-height: 38px;
-  padding: var(--xt-space-2) var(--xt-space-4);
+  padding: var(--xt-space-2) 0;
   border-block: 1px solid var(--xt-border);
   color: var(--xt-text);
   font-size: var(--xt-text-xs);
@@ -400,72 +318,67 @@ watch(timeline.targetDate, (next) => {
 .xt-alerts__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--xt-space-4);
-}
-
-.xt-alerts__stat {
-  min-height: 132px;
-  padding: var(--xt-space-5);
-  border-radius: 4px;
+  gap: var(--xt-space-4) var(--xt-space-6);
 }
 
 .xt-alerts__stat-label {
-  display: flex;
-  align-items: center;
-  gap: var(--xt-space-2);
-  color: var(--xt-primary);
-  font-size: var(--xt-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-}
-
-.xt-alerts__stat-label i {
-  width: var(--xt-space-2);
-  height: var(--xt-space-2);
-  border-radius: var(--xt-radius-pill);
-  background: currentColor;
-
+  display: block;
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-sm);
 }
 
 .xt-alerts__stat strong {
   display: block;
-  margin-top: var(--xt-space-5);
+  margin-top: var(--xt-space-2);
   color: var(--xt-primary);
-
-  font-size: clamp(var(--xt-text-3xl), 4vw, calc(var(--xt-text-3xl) * 1.45));
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
-.xt-alerts__stat--alert strong,
-.xt-alerts__stat--alert .xt-alerts__stat-label i {
+.xt-alerts__stat--alert strong {
   color: var(--xt-danger);
 }
 
-.xt-alerts__stat--blue strong,
-.xt-alerts__stat--blue .xt-alerts__stat-label i {
+.xt-alerts__stat--blue strong {
   color: var(--xt-text);
 }
 
-.xt-alerts__stat--amber strong,
-.xt-alerts__stat--amber .xt-alerts__stat-label i {
+.xt-alerts__stat--amber strong {
   color: var(--xt-warning);
 }
 
-.xt-alerts__filters {
-  padding: var(--xt-space-3);
-  border-radius: 4px;
+.xt-alerts__ratio {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 2px;
+  height: 8px;
+}
+
+.xt-alerts__ratio i {
+  flex-basis: 0;
+  border-radius: 2px;
+  transform-origin: left;
+  animation: xt-alerts-ratio-grow 800ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.xt-alerts__ratio .is-open {
+  background: var(--xt-danger);
+}
+
+.xt-alerts__ratio .is-closed {
+  background: var(--xt-primary);
 }
 
 .xt-alerts__queues {
   display: grid;
   gap: var(--xt-space-4);
-  padding: var(--xt-space-5);
-  border-radius: 4px;
 }
 
 .xt-alerts__queue-head {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--xt-space-4);
   flex-wrap: wrap;
@@ -473,30 +386,35 @@ watch(timeline.targetDate, (next) => {
 
 .xt-alerts__queue-head p {
   margin: 0;
-  color: var(--xt-text);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
-  font-weight: 600;
 }
 
 .xt-alerts__queue-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--xt-space-3);
+  gap: var(--xt-space-6);
 }
 
 .xt-alerts__queue {
   display: grid;
-  gap: var(--xt-space-3);
-  min-height: 148px;
-  padding: var(--xt-space-4);
-  border: 1px solid var(--xt-border);
-  border-radius: 4px;
-  background: transparent;
+  align-content: start;
+  gap: var(--xt-space-2);
+  padding-top: var(--xt-space-3);
+  border-top: 2px solid var(--xt-border);
+}
+
+.xt-alerts__queue.tone-danger {
+  border-top-color: var(--xt-danger);
+}
+
+.xt-alerts__queue.tone-warning {
+  border-top-color: var(--xt-warning);
 }
 
 .xt-alerts__queue header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--xt-space-2);
 }
@@ -508,33 +426,24 @@ watch(timeline.targetDate, (next) => {
 }
 
 .xt-alerts__queue header strong {
-  display: grid;
-  justify-items: end;
+  display: inline-flex;
+  align-items: baseline;
   gap: var(--xt-space-1);
-  color: var(--xt-primary);
-
+  color: var(--xt-text);
   font-size: var(--xt-text-2xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .xt-alerts__queue header strong small {
-  color: var(--xt-text);
-
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 600;
-}
-
-.xt-alerts__queue.tone-danger header strong {
-  color: var(--xt-danger);
-}
-
-.xt-alerts__queue.tone-warning header strong {
-  color: var(--xt-warning);
+  font-weight: 400;
 }
 
 .xt-alerts__queue-items {
   display: grid;
-  gap: var(--xt-space-2);
 }
 
 .xt-alerts__queue-items a {
@@ -543,41 +452,40 @@ watch(timeline.targetDate, (next) => {
   justify-content: space-between;
   gap: var(--xt-space-2);
   min-width: 0;
-  overflow: hidden;
-  padding: var(--xt-space-2);
-  border: 1px solid var(--xt-border);
-  border-radius: 4px;
+  padding: var(--xt-space-2) 0;
   color: var(--xt-primary);
-  font-size: var(--xt-text-xs);
-  font-weight: 600;
+  font-size: var(--xt-text-sm);
   text-decoration: none;
 }
 
-.xt-alerts__queue-items a span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.xt-alerts__queue-items a + a {
+  border-top: 1px solid var(--xt-border);
+}
+
+@media (hover: hover) {
+  .xt-alerts__queue-items a:hover b {
+    text-decoration: underline;
+  }
 }
 
 .xt-alerts__queue-item-copy {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .xt-alerts__queue-item-copy b {
   overflow: hidden;
   color: inherit;
-  font-size: inherit;
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .xt-alerts__queue-item-copy small {
   overflow: hidden;
-  color: var(--xt-text);
-  font-weight: 600;
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -590,8 +498,8 @@ watch(timeline.targetDate, (next) => {
 
 .xt-alerts__queue p {
   margin: 0;
-  color: var(--xt-text);
-  font-size: var(--xt-text-xs);
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-sm);
 }
 
 .xt-alerts__filters :deep(.xt-domain-chip) {
@@ -602,53 +510,43 @@ watch(timeline.targetDate, (next) => {
 }
 
 .xt-alerts__filters :deep(.xt-domain-chip.is-active) {
-  background: color-mix(in srgb, var(--xt-primary) 24%, var(--xt-bg-ink-panel));
+  border-color: var(--xt-primary);
+  background: var(--xt-primary);
   color: var(--xt-text-inverse);
-
-}
-
-.xt-alerts__timeline-shell {
-  border-radius: 4px;
 }
 
 .xt-alerts__timeline-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--xt-space-4);
-  padding: var(--xt-space-5) var(--xt-space-6);
-  border-bottom: 1px solid var(--xt-border);
-  background: color-mix(in srgb, var(--xt-primary) 5%, transparent);
+  padding-bottom: var(--xt-space-3);
 }
 
 .xt-alerts__timeline-meta {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--xt-space-2);
+  gap: var(--xt-space-4);
 }
 
 .xt-alerts__timeline-meta span {
-  min-height: 28px;
-  padding: var(--xt-space-1) var(--xt-space-3);
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-pill);
-  background: color-mix(in srgb, var(--xt-primary) 8%, transparent);
-  color: var(--xt-text-inverse);
-  font-size: var(--xt-text-xs);
-  font-weight: 600;
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-timeline) {
   border: 0;
-  border-radius: 4px;
+  border-top: 1px solid var(--xt-border);
+  border-radius: 0;
   background: transparent;
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-timeline__summary) {
   border-bottom-color: var(--xt-border);
-  background: color-mix(in srgb, var(--xt-primary) 4%, transparent);
-  color: color-mix(in srgb, var(--xt-text-inverse) 72%, transparent);
+  background: transparent;
+  color: var(--xt-text-secondary);
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-timeline__row) {
@@ -656,23 +554,23 @@ watch(timeline.targetDate, (next) => {
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-timeline__empty) {
-  color: var(--xt-text);
+  color: var(--xt-text-muted);
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-card__time),
 .xt-alerts__timeline-shell :deep(.xt-event-card__arrow) {
-  color: var(--xt-text);
+  color: var(--xt-text-secondary);
 }
 
 .xt-alerts__timeline-shell :deep(.xt-event-card__summary) {
-  color: var(--xt-primary);
+  color: var(--xt-text-secondary);
+}
+
+@keyframes xt-alerts-ratio-grow {
+  from { transform: scaleX(0); }
 }
 
 @media (max-width: 1080px) {
-  .xt-alerts__stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .xt-alerts__queue-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -683,10 +581,6 @@ watch(timeline.targetDate, (next) => {
   .xt-alerts__timeline-head {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .xt-alerts__hero {
-    padding: var(--xt-space-5);
   }
 
   .xt-alerts__date-dock :deep(.xt-date-switcher) {
@@ -700,11 +594,15 @@ watch(timeline.targetDate, (next) => {
   }
 
   .xt-alerts__stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .xt-alerts__queue-grid {
     grid-template-columns: 1fr;
+  }
+
+  .xt-alerts__timeline-meta {
+    justify-content: flex-start;
   }
 
   .xt-alerts__capability-status {
@@ -713,6 +611,12 @@ watch(timeline.targetDate, (next) => {
 
   .xt-alerts__capability-status strong {
     white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xt-alerts__ratio i {
+    animation: none;
   }
 }
 </style>

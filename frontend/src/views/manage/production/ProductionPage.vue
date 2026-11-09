@@ -7,10 +7,7 @@
     :data-stitch-screen-id="stitchSurface.stitch.screenId"
   >
     <header class="xt-production__hero">
-      <div class="xt-production__hero-copy">
-        <span class="xt-production__eyebrow">生产驾驶舱</span>
-        <h1>生产</h1>
-      </div>
+      <h1>生产</h1>
       <DateSwitcher
         :model-value="snapshot.targetDate.value"
         :loading="snapshot.loading.value"
@@ -36,33 +33,32 @@
     <div class="xt-production__grid">
       <section class="xt-production__ranking">
         <div class="xt-production__panel-head">
-          <div>
-            <span class="xt-production__eyebrow">车间排行</span>
-            <h2>车间产量排名</h2>
-          </div>
-          <span class="xt-production__count">{{ rankedRows.length }} 个车间</span>
+          <h2>车间产量</h2>
+          <span v-if="hasMonthlyMarker" class="xt-production__legend"><i aria-hidden="true"></i>月均</span>
         </div>
         <p v-if="rankedRows.length === 0" class="xt-production__empty">无车间数据</p>
         <table v-else class="xt-production__table" data-testid="manage-production-table">
           <thead>
             <tr>
-              <th scope="col">排名</th>
               <th scope="col">车间</th>
+              <th scope="col" class="is-chart"><span class="xt-production__sr">产量条</span></th>
               <th scope="col" class="is-num">今日产量</th>
               <th scope="col" class="is-num">比昨日</th>
               <th scope="col" class="is-num">月均参照</th>
-              <th scope="col">状态</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rankedRows" :key="row.key">
-              <td>
-                <span class="xt-production__rank" :class="row.rankTone ? `tone-${row.rankTone}` : ''">{{ row.rank }}</span>
-              </td>
+            <tr v-for="(row, index) in chartRows" :key="row.key">
               <td>
                 <span class="xt-production__workshop">{{ row.name }}</span>
               </td>
-              <td class="is-num">
+              <td class="is-chart">
+                <div class="xt-production__bar" aria-hidden="true">
+                  <span :style="{ width: `${row.outputRatio * 100}%`, animationDelay: `${index * 50}ms` }"></span>
+                  <i v-if="row.markerRatio != null" :style="{ left: `${row.markerRatio * 100}%` }"></i>
+                </div>
+              </td>
+              <td class="is-num is-strong">
                 <span>{{ fmt(row.totalOutput, 2) }}</span>
                 <small>吨</small>
               </td>
@@ -74,40 +70,19 @@
                 <template v-if="row.targetValue == null">—</template>
                 <template v-else>{{ fmt(row.targetValue, 2) }} <small>月均</small></template>
               </td>
-              <td>
-                <div class="xt-production__bar" aria-hidden="true">
-                  <span :style="{ width: `${row.progress}%` }"></span>
-                </div>
-              </td>
             </tr>
           </tbody>
         </table>
       </section>
 
       <aside class="xt-production__aside">
-        <section class="xt-production__insight">
-          <div class="xt-production__panel-head">
-            <div>
-              <span class="xt-production__eyebrow">主数据摘要</span>
-              <h2>生产摘要</h2>
-            </div>
+        <h2>生产摘要</h2>
+        <dl class="xt-production__brief-list">
+          <div v-for="item in productionBrief" :key="item.key">
+            <dt>{{ item.label }}</dt>
+            <dd>{{ item.value }}</dd>
           </div>
-          <ul class="xt-production__brief-list">
-            <li v-for="item in productionBrief" :key="item.key">
-              <span></span>
-              <div>
-                <small>{{ item.label }}</small>
-                <strong>{{ item.value }}</strong>
-              </div>
-            </li>
-          </ul>
-        </section>
-
-        <section class="xt-production__signal">
-          <span class="xt-production__signal-icon">⌁</span>
-          <strong>生产信号</strong>
-          <small>{{ leadingWorkshopText }}</small>
-        </section>
+        </dl>
       </aside>
     </div>
 
@@ -272,63 +247,24 @@ const stitchSurface = computed(() => buildProductionStitchSurface({
 const kpiItems = computed(() => stitchSurface.value.kpiStrip)
 const rankedRows = computed(() => stitchSurface.value.workshopRanking)
 const productionBrief = computed(() => stitchSurface.value.productionBrief)
-const leadingWorkshopText = computed(() => stitchSurface.value.signal.text)
+const chartRows = computed(() => {
+  const rows = rankedRows.value
+  const scale = Math.max(...rows.flatMap((row) => [Number(row.totalOutput) || 0, Number(row.targetValue) || 0]), 0)
+  return rows.map((row) => ({
+    ...row,
+    outputRatio: scale > 0 ? (Number(row.totalOutput) || 0) / scale : 0,
+    markerRatio: scale > 0 && row.targetValue != null ? Number(row.targetValue) / scale : null,
+  }))
+})
+const hasMonthlyMarker = computed(() => chartRows.value.some((row) => row.markerRatio != null))
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 </script>
 
 <style scoped>
 .xt-production {
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--xt-space-4);
-}
-
-.xt-production::before {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: transparent;
-  background-size: 32px 32px;
-  content: "";
-  pointer-events: none;
-}
-
-.xt-production__hero,
-.xt-production__ranking,
-.xt-production__insight,
-.xt-production__signal,
-.xt-production__status-bar {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--xt-border);
-  border-radius: 4px;
-  background: transparent;
-
-}
-
-.xt-production__hero::before,
-.xt-production__ranking::before,
-.xt-production__insight::before,
-.xt-production__signal::before {
-  position: absolute;
-  inset: 0;
-  background: transparent;
-  content: "";
-  pointer-events: none;
-}
-
-.xt-production__hero::after,
-.xt-production__ranking::after,
-.xt-production__insight::after {
-  position: absolute;
-  top: 0;
-  right: var(--xt-space-4);
-  left: var(--xt-space-4);
-  height: 1px;
-  background: transparent;
-  content: "";
-  pointer-events: none;
+  gap: var(--xt-space-6);
 }
 
 .xt-production__hero {
@@ -336,106 +272,96 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   align-items: center;
   justify-content: space-between;
   gap: var(--xt-space-3);
-  min-height: 132px;
-  padding: var(--xt-space-5);
-}
-
-.xt-production__hero-copy {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: var(--xt-space-1);
-}
-
-.xt-production__hero :deep(.xt-date-switcher) {
-  position: relative;
-  z-index: 1;
 }
 
 .xt-production__hero h1 {
   margin: 0;
   color: var(--xt-text);
-
-  font-size: clamp(var(--xt-text-2xl), 3vw, 42px);
+  font-size: clamp(var(--xt-text-2xl), 3vw, 40px);
   font-weight: 600;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
 }
 
-.xt-production__eyebrow {
-  color: var(--xt-primary);
-  font-size: var(--xt-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.xt-production :deep(.xt-kpi-bar__card),
+.xt-production :deep(.xt-source-strip),
+.xt-production :deep(.xt-source-strip__source),
+.xt-production :deep(.xt-source-strip__items li) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.xt-production :deep(.xt-kpi-bar__card),
+.xt-production :deep(.xt-source-strip),
+.xt-production :deep(.xt-source-strip__source),
+.xt-production :deep(.xt-source-strip__items li) {
+  padding-inline: 0;
+}
+
+.xt-production :deep(.xt-kpi-bar__card) {
+  min-height: 0;
+}
+
+.xt-production :deep(.xt-kpi-bar__card::before),
+.xt-production :deep(.xt-kpi-bar__card::after),
+.xt-production :deep(.xt-kpi-bar__hint--placeholder),
+.xt-production :deep(.xt-source-strip__pulse) {
+  display: none;
 }
 
 .xt-production__error {
-  padding: var(--xt-space-2) var(--xt-space-3);
-  border: 1px solid var(--xt-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--xt-text);
+  color: var(--xt-danger);
   font-size: var(--xt-text-sm);
+  font-weight: 600;
 }
 
 .xt-production__grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 0.86fr);
-  gap: var(--xt-space-4);
-}
-
-.xt-production__ranking {
-  display: flex;
-  flex-direction: column;
-  min-height: 520px;
-  padding: var(--xt-space-4);
+  grid-template-columns: minmax(0, 2.4fr) minmax(240px, 1fr);
+  gap: var(--xt-space-6);
+  align-items: start;
 }
 
 .xt-production__panel-head {
-  position: relative;
-  z-index: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--xt-space-3);
   margin-bottom: var(--xt-space-3);
-  padding-bottom: var(--xt-space-3);
-  border-bottom: 1px solid var(--xt-border);
 }
 
-.xt-production__panel-head h2 {
-  margin: var(--xt-space-1) 0 0;
+.xt-production__panel-head h2,
+.xt-production__aside h2 {
+  margin: 0;
   color: var(--xt-text);
-  font-size: var(--xt-text-xl);
+  font-size: var(--xt-text-lg);
   font-weight: 600;
 }
 
-.xt-production__count {
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-pill);
-  padding: var(--xt-space-1) var(--xt-space-2);
-  background: transparent;
-  color: var(--xt-text);
+.xt-production__legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 600;
+}
+
+.xt-production__legend i {
+  width: 2px;
+  height: 14px;
+  background: var(--xt-text);
 }
 
 .xt-production__empty {
-  position: relative;
-  z-index: 1;
   display: grid;
-  min-height: 260px;
+  min-height: 240px;
   margin: 0;
   place-items: center;
-  border: 1px dashed var(--xt-border);
-  border-radius: 4px;
-  color: var(--xt-text);
+  color: var(--xt-text-muted);
   font-size: var(--xt-text-sm);
 }
 
 .xt-production__table {
-  position: relative;
-  z-index: 1;
   width: 100%;
   border-collapse: collapse;
   font-size: var(--xt-text-sm);
@@ -443,30 +369,23 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 
 .xt-production__table th,
 .xt-production__table td {
-  padding: var(--xt-space-3);
+  padding: 14px var(--xt-space-2);
   border-bottom: 1px solid var(--xt-border);
-  text-align: left;
   color: var(--xt-text);
-}
-
-.xt-production__table tbody tr {
-  transition:
-    background-color var(--xt-motion-fast) var(--xt-ease),
-    transform var(--xt-motion-fast) var(--xt-ease);
-}
-
-@media (hover: hover) {
-  .xt-production__table tbody tr:hover {
-    background: color-mix(in srgb, var(--xt-primary) 6%, transparent);
-    transform: translateX(2px);
-  }
+  text-align: left;
+  white-space: nowrap;
 }
 
 .xt-production__table th {
-  color: var(--xt-text);
+  padding-block: var(--xt-space-2);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.xt-production__table .is-chart {
+  width: 42%;
+  min-width: 140px;
 }
 
 .xt-production__table .is-num {
@@ -474,14 +393,19 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   font-variant-numeric: tabular-nums;
 }
 
+.xt-production__table .is-strong {
+  font-weight: 600;
+}
+
 .xt-production__table small {
   margin-left: 2px;
-  color: var(--xt-text);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
+  font-weight: 400;
 }
 
 .xt-production__table .is-muted {
-  color: var(--xt-text);
+  color: var(--xt-text-secondary);
 }
 
 .xt-production__table .tone-positive {
@@ -492,134 +416,80 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   color: var(--xt-warning);
 }
 
-.xt-production__rank {
-  display: inline-grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-pill);
-  background: transparent;
-  color: var(--xt-text);
-
-  font-weight: 600;
-}
-
-.xt-production__rank.tone-hot {
-  border-color: var(--xt-border);
-  color: var(--xt-warning);
-}
-
-.xt-production__rank.tone-warm {
-  color: var(--xt-warning);
-}
-
-.xt-production__rank.tone-live {
-  color: var(--xt-primary);
+.xt-production__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 .xt-production__workshop {
   color: var(--xt-text);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .xt-production__bar {
-  width: min(120px, 14vw);
-  height: 7px;
-  overflow: hidden;
-  border-radius: var(--xt-radius-pill);
-  background: transparent;
+  position: relative;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--xt-bg-panel-soft);
 }
 
 .xt-production__bar span {
   display: block;
   height: 100%;
-  border-radius: 4px;
-  background: transparent;
-
+  border-radius: 2px;
+  background: var(--xt-primary);
+  transform-origin: left;
+  animation: xt-production-bar-grow 800ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-.xt-production__aside {
-  display: grid;
-  gap: var(--xt-space-4);
-}
-
-.xt-production__insight,
-.xt-production__signal {
-  padding: var(--xt-space-4);
-}
-
-.xt-production__insight {
-  min-height: 358px;
+.xt-production__bar i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--xt-text);
 }
 
 .xt-production__brief-list {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: var(--xt-space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  margin: var(--xt-space-3) 0 0;
 }
 
-.xt-production__brief-list li {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--xt-space-2);
-  align-items: center;
-  padding: var(--xt-space-3);
-  border: 1px solid var(--xt-border);
-  border-radius: 4px;
-  background: transparent;
+.xt-production__brief-list > div {
+  padding: var(--xt-space-3) 0;
+  border-bottom: 1px solid var(--xt-border);
 }
 
-.xt-production__brief-list li > span {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--xt-radius-pill);
-  background: var(--xt-primary);
-
-}
-
-.xt-production__brief-list small {
-  display: block;
-  color: var(--xt-text);
+.xt-production__brief-list dt {
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 600;
 }
 
-.xt-production__brief-list strong {
-  display: block;
-  margin-top: 2px;
+.xt-production__brief-list dd {
+  margin: 4px 0 0;
   color: var(--xt-text);
   font-size: var(--xt-text-md);
   font-weight: 600;
-}
-
-.xt-production__signal {
-  display: grid;
-  min-height: 148px;
-  place-items: center;
-  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .xt-production__status-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--xt-space-3);
-  padding: var(--xt-space-3) var(--xt-space-4);
+  gap: var(--xt-space-3) var(--xt-space-6);
+  padding-top: var(--xt-space-3);
+  border-top: 1px solid var(--xt-border);
 }
 
 .xt-production__status-item {
-  position: relative;
-  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: var(--xt-space-2);
   min-width: 0;
-  color: var(--xt-text);
   font-size: var(--xt-text-sm);
 }
 
@@ -629,13 +499,11 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   flex: 0 0 auto;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-
 }
 
 .xt-production__status-item small {
-  color: var(--xt-text);
+  color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
-  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -646,41 +514,24 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 }
 
 .xt-production__status-item.tone-success > span {
-  background: transparent;
-
+  background: var(--xt-success);
 }
 
-.xt-production__status-item.tone-warning > span,
+.xt-production__status-item.tone-warning > span {
+  background: var(--xt-warning);
+}
+
 .xt-production__status-item.tone-danger > span {
-  background: transparent;
-
+  background: var(--xt-danger);
 }
 
-.xt-production__signal-icon {
-  color: var(--xt-primary);
-  font-size: 48px;
-  line-height: 1;
-}
-
-.xt-production__signal strong {
-  color: var(--xt-text);
-  font-size: var(--xt-text-md);
-  font-weight: 600;
-}
-
-.xt-production__signal small {
-  color: var(--xt-text);
-  font-size: var(--xt-text-xs);
-  font-weight: 600;
+@keyframes xt-production-bar-grow {
+  from { transform: scaleX(0); }
 }
 
 @media (max-width: 1080px) {
   .xt-production__grid {
     grid-template-columns: 1fr;
-  }
-
-  .xt-production__ranking {
-    min-height: auto;
   }
 }
 
@@ -688,62 +539,20 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   .xt-production__hero {
     flex-direction: column;
     align-items: stretch;
-    padding: var(--xt-space-4);
   }
 
-  .xt-production__ranking,
-  .xt-production__insight,
-  .xt-production__signal,
-  .xt-production__status-bar {
-    padding: var(--xt-space-3);
-  }
-
-  .xt-production__status-bar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .xt-production__table {
-    min-width: 0;
-    table-layout: fixed;
-  }
-
-  .xt-production__table th,
-  .xt-production__table td {
-    padding: var(--xt-space-2);
-    font-size: var(--xt-text-xs);
-  }
-
-  .xt-production__table th:nth-child(1),
-  .xt-production__table td:nth-child(1) {
-    width: 44px;
-  }
-
-  .xt-production__table th:nth-child(3),
-  .xt-production__table td:nth-child(3) {
-    width: 82px;
-  }
-
+  .xt-production__table .is-chart,
   .xt-production__table th:nth-child(4),
-  .xt-production__table td:nth-child(4) {
-    width: 62px;
-  }
-
+  .xt-production__table td:nth-child(4),
   .xt-production__table th:nth-child(5),
-  .xt-production__table td:nth-child(5),
-  .xt-production__table th:nth-child(6),
-  .xt-production__table td:nth-child(6) {
+  .xt-production__table td:nth-child(5) {
     display: none;
-  }
-
-  .xt-production__ranking {
-    overflow-x: auto;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xt-production__table tbody tr {
-    transition: none;
+  .xt-production__bar span {
+    animation: none;
   }
 }
 </style>
