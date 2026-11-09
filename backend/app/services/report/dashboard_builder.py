@@ -691,10 +691,12 @@ def _workshop_output_totals(
     # 车间当天没有任何来源时是未知，不是 0 吨
     if not any(payloads) and legacy_shift_output <= 0:
         return None, None, None
-    total_output = round(sum(_to_float(item.get('output')) for item in payloads), 2)
+    counted = [daily_overview_builder._counted_output(item) for item in payloads if item]
+    known = [value for value in counted if value is not None]
+    total_output = round(sum(known), 2) if known else None
     process_output = round(sum(_to_float(item.get('process_output')) for item in payloads), 2)
-    pass_count_total = int(sum(int(item.get('pass_count_total') or 0) for item in payloads))
-    if total_output == 0 and legacy_shift_output > 0:
+    pass_count_total = int(sum(int(item.get('pass_count_total') or 0) for item in payloads)) or None
+    if not total_output and legacy_shift_output > 0:
         total_output = legacy_shift_output
         if process_output == 0:
             process_output = legacy_shift_output
@@ -797,7 +799,7 @@ def build_workshop_dashboard(
             target_date,
         )
         month_payload = month_scope.get(workshop_id)
-        month_to_date_output = _to_float(month_payload.get('output')) if month_payload else None
+        month_to_date_output = daily_overview_builder._counted_output(month_payload) if month_payload else None
 
     return {
         'target_date': target_date.isoformat(),
