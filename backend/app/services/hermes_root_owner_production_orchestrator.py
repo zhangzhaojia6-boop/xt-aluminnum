@@ -563,8 +563,8 @@ def _render_selected_facts(*, plan: RootOwnerMessagePlan, decision: EvidenceDeci
 
 
 _ANOMALY_MISSING_NEXT_STEP = (
-    "钉钉群、数据质量问题和日报里都没有这天的异常记录；"
-    "有停机或检修要说明的，请发到钉钉群，系统发现的缺口到数据中枢异常页查看。"
+    "系统还没有接入异常说明的来源，这一项暂时答不了；"
+    "系统发现的缺口到数据中枢异常页查看。"
 )
 
 
