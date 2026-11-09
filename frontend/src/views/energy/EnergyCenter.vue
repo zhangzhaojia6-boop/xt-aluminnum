@@ -17,6 +17,7 @@
           <span :class="`energy-center__status-dot energy-center__status-dot--${statusBar.tone}`"></span>
           <strong>{{ statusBar.syncStatus }}</strong>
           <small>{{ statusBar.businessDate || '-' }} / {{ statusBar.rowCount }} 条</small>
+          <small v-if="showLatestEnergyDate" data-testid="energy-latest-data-date">最后有数据 {{ latestEnergyDate }}</small>
           <small>页面刷新 {{ statusBar.updatedAt || '-' }}</small>
         </div>
         <DateSwitcher
@@ -187,7 +188,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 
-import { fetchEnergySummary } from '../../api/energy'
+import { fetchEnergyLatestDataDate, fetchEnergySummary } from '../../api/energy'
 import DateSwitcher from '../../components/manage/DateSwitcher.vue'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import { formatShiftLabel } from '../../utils/display'
@@ -231,6 +232,7 @@ const rows = ref([])
 const loading = ref(false)
 const errorText = ref('')
 const updatedAt = ref('')
+const latestEnergyDate = ref('')
 
 const rawEnergyStats = computed(() => [
   { key: 'electricity', label: '电耗', value: formatStat(sumBy('electricity_value')), unit: 'kWh', accent: 'cyan' },
@@ -251,6 +253,9 @@ const stitchSurface = computed(() => buildEnergyStitchSurface({
   },
 }))
 const statusBar = computed(() => stitchSurface.value.statusBar)
+const showLatestEnergyDate = computed(() => (
+  !loading.value && !errorText.value && statusBar.value.rowCount === 0 && Boolean(latestEnergyDate.value)
+))
 const energyStats = computed(() => stitchSurface.value.kpiStrip)
 const energyRows = computed(() => stitchSurface.value.detailRows)
 const eventRailItems = computed(() => stitchSurface.value.eventRail)
@@ -323,6 +328,14 @@ function resolveEnergyErrorText(error) {
   return error?.response?.data?.detail || error?.message || '能耗数据加载失败'
 }
 
+async function loadLatestEnergyDate() {
+  try {
+    latestEnergyDate.value = await fetchEnergyLatestDataDate()
+  } catch {
+    latestEnergyDate.value = ''
+  }
+}
+
 async function load() {
   loading.value = true
   errorText.value = ''
@@ -352,6 +365,7 @@ function handleBusinessDatePick(value) {
 }
 
 onMounted(load)
+onMounted(loadLatestEnergyDate)
 </script>
 
 <style scoped>

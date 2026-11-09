@@ -59,6 +59,15 @@ def import_energy(
     raise HTTPException(status_code=410, detail='能耗导入功能已停用，请使用电工/内勤每日填报。')
 
 
+@router.get('/latest-data-date')
+def get_latest_energy_data_date(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, date | None]:
+    workshop_id = _effective_energy_workshop_id(current_user, workshop_id=None, shift_config_id=None)
+    return {'business_date': energy_service.latest_energy_data_date(db, workshop_id=workshop_id)}
+
+
 @router.get('/summary', response_model=list[EnergySummaryOut], response_model_exclude_none=True)
 def list_energy_summary(
     business_date: date | None = None,

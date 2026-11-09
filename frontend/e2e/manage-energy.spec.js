@@ -290,3 +290,15 @@ test.describe('manage energy center Stitch surface', () => {
     await expectNoHorizontalOverflow(page)
   })
 })
+
+test('manage energy center names the last day with data when the selected day has none', async ({ page }) => {
+  await page.route('**/api/v1/energy/latest-data-date', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ business_date: '2026-09-02' }),
+  }))
+
+  await openEnergyCenter(page, { scenario: 'empty', viewport: { width: 1440, height: 900 } })
+
+  await expect(page.getByTestId('energy-latest-data-date')).toHaveText('最后有数据 2026-09-02')
+})

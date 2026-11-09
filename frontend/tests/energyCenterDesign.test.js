@@ -158,3 +158,9 @@ test('EnergyCenter reloads when the selected business date changes and explains 
 test('EnergyCenter does not add forbidden product wording', () => {
   assert.doesNotMatch(src, /cyberpunk|quantum|sci-?fi/i)
 })
+
+test('EnergyCenter shows the last day with energy data only when the selected day has none', () => {
+  assert.match(src, /onMounted\(loadLatestEnergyDate\)/)
+  assert.match(src, /statusBar\.value\.rowCount === 0/)
+  assert.match(src, /最后有数据 \{\{ latestEnergyDate \}\}/)
+})
