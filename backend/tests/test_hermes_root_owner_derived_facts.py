@@ -128,6 +128,26 @@ def test_least_trusted_question_ranks_missing_above_unread_values() -> None:
     assert "全厂总产量（" not in answer
 
 
+def test_least_trusted_ignores_override_trail_but_reports_a_blocking_conflict() -> None:
+    payload = _hub_payload()
+    payload["conflicts"] = [{"field": "daily_yield_rate", "type": "dingtalk_supplement"}]
+    _decision, answer, _records = _turn("今天哪个关键数字最不可信？", payload)
+    assert "日成品率（来源互相冲突）" not in answer
+
+    payload["conflicts"] = [{"field": "daily_yield_rate", "type": "source_error"}]
+    _decision, answer, _records = _turn("今天哪个关键数字最不可信？", payload)
+    assert "日成品率（来源互相冲突）" in answer
+
+
+def test_missing_answer_gives_the_next_step_for_that_metric() -> None:
+    payload = {**_hub_payload(), "facts": {}}
+
+    _decision, answer, _records = _turn("今天高压总用电量是多少？", payload)
+
+    assert "优先由电工扫码补录或提交钉钉能耗表。" in answer
+    assert "缺少 MES" not in answer
+
+
 def test_least_trusted_question_flags_a_key_number_with_read_gaps() -> None:
     payload = _hub_payload()
     payload["missing_fields"] = []

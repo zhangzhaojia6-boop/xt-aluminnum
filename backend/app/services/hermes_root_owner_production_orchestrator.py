@@ -515,13 +515,12 @@ def _machine_source_labels(facts: Mapping[str, Any]) -> str:
 def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:
     trace_id = str(decision.trace.get("trace_id") or "").strip()
     if decision.primary is None:
-        missing = "、".join(_source_label(source) for source in decision.missing_sources) or "事实源"
         checked_sources = _checked_source_labels(decision)
         metrics = "、".join(_METRIC_LABELS.get(key, key) for key in plan.metric_keys)
         metric_text = f"的{metrics}" if metrics else ""
         return (
-            f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()}{metric_text}暂时没有查到可用正式事实，"
-            f"缺少 {missing}，建议先补齐对应来源。"
+            f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()}{metric_text}暂时没有查到可用正式事实。"
+            f"{_missing_next_step(plan=plan, decision=decision)}"
             f"来源：{checked_sources}。状态：missing。追踪编号：{trace_id}。"
         )
     source_label = _source_label(decision.primary.source_key)
@@ -561,6 +560,18 @@ def _render_selected_facts(*, plan: RootOwnerMessagePlan, decision: EvidenceDeci
             rendered.append(f"{label}：{value_text}{unit_text}{detail_text}")
             break
     return "；".join(rendered)
+
+
+def _missing_next_step(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:
+    trace = decision.trace if isinstance(decision.trace, Mapping) else {}
+    gap_plan = trace.get("gap_plan") if isinstance(trace.get("gap_plan"), Mapping) else {}
+    for item in gap_plan.get("items") or []:
+        if not isinstance(item, Mapping) or str(item.get("field") or "") not in plan.metric_keys:
+            continue
+        next_step = str(item.get("next_step") or "").strip()
+        if next_step:
+            return next_step
+    return "建议先补齐对应来源。"
 
 
 def _output_inbound_gap_text(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:

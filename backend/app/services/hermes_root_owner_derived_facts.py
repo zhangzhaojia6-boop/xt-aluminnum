@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.business_time import production_business_window
 from app.domain.daily_report_field_contract import DAILY_REPORT_NORMATIVE_FIELD_COUNT
 from app.domain.metric_contracts import DAILY_REPORT_METRIC_CONTRACTS
+from app.services.report.daily_fact_bundle import _conflict_blocks_ready
 from app.services.report.daily_fact_gap_closure_service import GROUP_LABELS, _field_label
 from app.services.report.mes_factory_packaging_fact import query_factory_packaging_output_by_date
 
@@ -174,7 +175,11 @@ def _source_status(payload: Mapping[str, Any], normalized_text: str) -> DerivedF
 
 def _least_trusted(payload: Mapping[str, Any]) -> DerivedFact:
     facts = _facts(payload)
-    conflicts = {str(item.get("field") or "") for item in payload.get("conflicts") or [] if isinstance(item, Mapping)}
+    conflicts = {
+        str(item.get("field") or "")
+        for item in payload.get("conflicts") or []
+        if isinstance(item, Mapping) and _conflict_blocks_ready(item)
+    }
     ranked: list[tuple[int, str, str]] = []
     for field_name in _KEY_METRICS:
         fact = facts.get(field_name)

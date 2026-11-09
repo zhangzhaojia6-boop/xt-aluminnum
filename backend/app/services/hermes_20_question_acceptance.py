@@ -565,6 +565,15 @@ def render_acceptance_report(summary: AcceptanceSummary) -> str:
         f"核心链路：{summary.core_pass_count}/{summary.total}",
         f"真实外发成功：{summary.delivery_success_count}/{summary.total}",
         f"环境型外发失败：{summary.environment_failure_count}",
+        "回答状态：" + "、".join(
+            f"{label} {sum(1 for result in summary.results if result.status == status)}"
+            for status, label in (
+                ("confirmed", "全部确认"),
+                ("candidate", "候选"),
+                ("conflict", "冲突"),
+                ("missing", "有缺失"),
+            )
+        ),
         "",
         "| 问题 | 理解 | 来源 | 事实 | 回答 | 钉钉 | 状态 |",
         "|---|---|---|---|---|---|---|",
