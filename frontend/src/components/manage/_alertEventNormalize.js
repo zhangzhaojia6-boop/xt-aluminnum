@@ -296,6 +296,8 @@ function dailyOccurredAt(row, targetDate, fallbackTime) {
   return `${eventDate}T${time || fallbackTime}`
 }
 
+const ENERGY_FACT_FIELD = /electricity|gas|cost/
+
 const FACT_STATUS_LABELS = {
   missing: '缺数',
   needs_evidence: '待证据',
@@ -329,6 +331,7 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
   return {
     id: `${kind}:${rawId}`,
     groupKey,
+    queueKey: kind === 'fact-missing' && ENERGY_FACT_FIELD.test(row.field || row.field_name || '') ? 'energy' : undefined,
     domain: kind === 'fact-conflict'
       ? 'reconciliation'
       : (kind === 'hermes-failure' ? 'production' : 'reporting'),
@@ -441,6 +444,7 @@ export function groupAlertEvents(events = []) {
 }
 
 function queueKeyForEvent(event = {}) {
+  if (event.queueKey) return event.queueKey
   const text = `${event.summary || ''} ${event.domain || ''}`
   if (event.domain === 'reporting') return 'reporting'
   if (event.domain === 'quality') return 'quality'
