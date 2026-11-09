@@ -302,13 +302,15 @@ const exceptionRows = computed(() => {
 })
 const factoryMesHomeFact = computed(() => dashboard.value.factory_packaging_fact || dashboard.value.factory_mes_home_packaging_fact || dashboard.value.factoryMesHomePackagingFact || {})
 const factoryProductionFact = computed(() => dashboard.value.factory_production_fact || dashboard.value.factoryProductionFact || {})
+// 实时聚合对没有上报的车间给 0，不代表真的是 0 吨
+const reportedLiveTotal = (value) => (Number(value) ? value : null)
 const liveWorkshopTotal = computed(() => {
   const liveWorkshop = (live.value.workshops || [])[0] || {}
   return liveWorkshop.workshop_total || liveWorkshop.workshopTotal || {}
 })
 const kpis = computed(() => [
-  { key: 'workshop-feeding', label: '车间投料量 / 上机量', value: formatNumber(liveWorkshopTotal.value.input ?? dashboard.value.input_weight ?? dashboard.value.inputWeight, 2), unit: '吨', tone: 'primary' },
-  { key: 'process', label: '车间下机量', value: formatNumber(dashboard.value.process_output ?? liveWorkshopTotal.value.output ?? dashboard.value.total_output, 2), unit: '吨', tone: 'primary' },
+  { key: 'workshop-feeding', label: '车间投料量 / 上机量', value: formatNumber(reportedLiveTotal(liveWorkshopTotal.value.input) ?? dashboard.value.input_weight ?? dashboard.value.inputWeight, 2), unit: '吨', tone: 'primary' },
+  { key: 'process', label: '车间下机量', value: formatNumber(dashboard.value.process_output ?? reportedLiveTotal(liveWorkshopTotal.value.output) ?? dashboard.value.total_output, 2), unit: '吨', tone: 'primary' },
   { key: 'finished', label: '车间口径产量', value: formatNumber(dashboard.value.total_output, 2), unit: '吨', tone: 'success' },
   { key: 'factory-feeding', label: '全厂投料', value: formatNumber(factoryProductionFact.value.factory_feeding_daily_input, 2), unit: '吨', tone: 'primary' },
   { key: 'factory-mes-daily', label: '全厂包装', value: formatNumber(factoryMesHomeFact.value.factory_packaging_daily_output ?? factoryMesHomeFact.value.mes_home_daily_output, 2), unit: '吨', tone: 'success' },
