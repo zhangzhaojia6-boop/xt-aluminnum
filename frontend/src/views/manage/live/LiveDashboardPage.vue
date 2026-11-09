@@ -507,6 +507,13 @@ onUnmounted(() => {
   display: none;
 }
 
+.live-dashboard-page :deep(.live-machine-workshop) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .live-dashboard-page :deep(.live-market-ticker) {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

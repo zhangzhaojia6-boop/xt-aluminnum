@@ -93,6 +93,10 @@ export function buildLiveTickerItems(aggregation = {}) {
   const missingCellCount = progress.missing_cell_count ?? progress.missingCellCount
   const attentionCellCount = progress.attention_cell_count ?? progress.attentionCellCount
   const syncLagSeconds = sync.lag_seconds ?? sync.lagSeconds
+  // 关注班次包含未填报，未填已单列，这里只算其余的
+  const anomalyCount = isPresent(attentionCellCount)
+    ? Math.max(numberValue(attentionCellCount) - numberValue(missingCellCount), 0)
+    : attentionCellCount
 
   const packagingOutput = pickValue(factoryTotal, [
     'packaging_output',
@@ -198,8 +202,8 @@ export function buildLiveTickerItems(aggregation = {}) {
     },
     {
       label: '异常',
-      value: formatCount(attentionCellCount),
-      tone: isPresent(attentionCellCount) ? (numberValue(attentionCellCount) > 0 ? 'warning' : 'success') : 'muted',
+      value: formatCount(anomalyCount),
+      tone: isPresent(anomalyCount) ? (numberValue(anomalyCount) > 0 ? 'warning' : 'success') : 'muted',
       source: '状态',
     },
     {
@@ -226,11 +230,22 @@ function resolveMachineTone(machine = {}) {
   return 'muted'
 }
 
+function isMachineUnreported(machine = {}) {
+  const dayTotal = machine.day_total || machine.dayTotal || {}
+  const input = numberValue(dayTotal.machine_input_weight ?? dayTotal.machineInputWeight ?? dayTotal.input)
+  const output = numberValue(dayTotal.machine_down_machine_output ?? dayTotal.machineDownMachineOutput ?? dayTotal.output)
+  const shifts = Array.isArray(machine.shifts) ? machine.shifts : []
+  return input === 0 && output === 0 && shifts.length > 0 && shifts.every((shift) => (
+    ['not_started', 'not_applicable'].includes(shift.submission_status || shift.status)
+  ))
+}
+
 function normalizeMachine(workshop, machine) {
   const dayTotal = machine.day_total || machine.dayTotal || {}
   const input = numberValue(dayTotal.machine_input_weight ?? dayTotal.machineInputWeight ?? dayTotal.input)
   const output = numberValue(dayTotal.machine_down_machine_output ?? dayTotal.machineDownMachineOutput ?? dayTotal.output)
   return {
+    unreported: isMachineUnreported(machine),
     id: machine.machine_id ?? machine.machineId ?? machine.machine_name,
     workshopId: workshop.workshop_id ?? workshop.workshopId,
     workshopName: normalizeWorkshopName(workshop.workshop_name || workshop.workshopName || '--'),
@@ -283,6 +298,7 @@ export function buildLiveMachineMatrix(workshops = []) {
         workshopName: normalizeWorkshopName(workshop.workshop_name || workshop.workshopName || '--'),
         input: isPresent(workshopInput) ? numberValue(workshopInput) : roundMetric(machines.reduce((sum, machine) => sum + numberValue(machine.input), 0)),
         output: isPresent(workshopOutput) ? numberValue(workshopOutput) : roundMetric(machines.reduce((sum, machine) => sum + numberValue(machine.output), 0)),
+        unreported: machines.every((machine) => machine.unreported),
         machines,
       })
     }
@@ -376,6 +392,7 @@ export function buildLiveProcessFlowItems(aggregation = {}) {
       const dayTotal = dayTotalOf(machine)
       bucket.machineCount += 1
       if (isUnboundMachine(machine)) bucket.pendingMachineCount += 1
+      if (isMachineUnreported(machine)) return
       addIfPresent(bucket, 'input', dayTotal.input)
       addIfPresent(bucket, 'output', dayTotal.output)
       addIfPresent(bucket, 'scrap', dayTotal.scrap)

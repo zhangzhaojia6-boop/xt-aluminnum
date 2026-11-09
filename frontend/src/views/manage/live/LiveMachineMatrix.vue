@@ -24,8 +24,8 @@
         <div class="live-machine-workshop__head">
           <strong>{{ workshop.workshopName }}</strong>
           <div class="live-machine-workshop__totals">
-            <span data-xt-numeric>上机 {{ formatNumber(workshop.input, 2) }} 吨</span>
-            <span data-xt-numeric>下机 {{ formatNumber(workshop.output, 2) }} 吨</span>
+            <span data-xt-numeric>上机 {{ workshop.unreported ? '—' : `${formatNumber(workshop.input, 2)} 吨` }}</span>
+            <span data-xt-numeric>下机 {{ workshop.unreported ? '—' : `${formatNumber(workshop.output, 2)} 吨` }}</span>
           </div>
         </div>
         <div class="live-machine-workshop__grid">

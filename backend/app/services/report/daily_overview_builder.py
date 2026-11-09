@@ -400,6 +400,9 @@ def _counted_output(payload: dict[str, Any]) -> float | None:
     # 冷轧要靠开坯、中退、成品标记才知道哪道算产量；MES 过站记录不带标记时算不出，是缺失而不是 0
     if set(payload.get('process_stage_outputs') or {}) == {'unmarked'}:
         return None
+    # 没有任何来源记录时是不知道，不是产量为 0
+    if not payload.get('source_basis') and not payload['output']:
+        return None
     return payload['output']
 
 
