@@ -174,9 +174,9 @@ onMounted(load)
   margin: 0 auto;
   padding: var(--xt-space-6);
   color: var(--xt-text);
-  --qr-accent: #00f2ff;
-  --qr-line: rgba(0, 242, 255, 0.16);
-  --qr-line-strong: rgba(0, 242, 255, 0.38);
+  --qr-accent: var(--xt-primary);
+  --qr-line: color-mix(in srgb, var(--xt-primary) 16%, transparent);
+  --qr-line-strong: color-mix(in srgb, var(--xt-primary) 38%, transparent);
   --qr-panel: rgba(6, 29, 51, 0.88);
   --qr-muted: rgba(185, 223, 235, 0.66);
 }

@@ -50,7 +50,7 @@ test('rule config view keeps edit-save contract while adding industrial matrix s
 test('rule config visual layer matches the industrial blue command style', () => {
   const viewSource = readFileSync(new URL('../src/views/master/RuleConfigCenter.vue', import.meta.url), 'utf8')
 
-  assert.match(viewSource, /--rule-accent:\s*#00f2ff/)
+  assert.match(viewSource, /--rule-accent:\s*var\(--xt-primary\)/)
   assert.match(viewSource, /rule-config-center__stat/)
   assert.match(viewSource, /规则清单/)
   assert.match(viewSource, /默认层/)

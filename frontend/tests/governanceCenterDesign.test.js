@@ -70,7 +70,7 @@ test('GovernanceCenter uses the industrial blue responsive surface', () => {
   assert.match(src, /权限治理/)
   assert.match(src, /治理能力总览/)
   assert.match(src, /角色分布/)
-  assert.match(src, /--governance-cyan:\s*#00f2ff/)
+  assert.match(src, /--governance-cyan:\s*var\(--xt-primary\)/)
   assert.match(src, /governanceSweep/)
   assert.match(src, /governancePulse/)
   assert.match(src, /@media \(max-width: 720px\)/)

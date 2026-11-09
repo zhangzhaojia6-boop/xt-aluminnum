@@ -31,7 +31,7 @@ test('AliasMapping applies the industrial blue router surface', () => {
   assert.match(source, /data-testid="alias-matrix"/)
   assert.match(source, /data-testid="alias-mobile-list"/)
   assert.match(source, /ALIAS ROUTER/)
-  assert.match(source, /--alias-cyan:\s*#00f2ff/)
+  assert.match(source, /--alias-cyan:\s*var\(--xt-primary\)/)
   assert.match(source, /aliasRouterSweep/)
   assert.match(source, /aliasRouterLed/)
 })

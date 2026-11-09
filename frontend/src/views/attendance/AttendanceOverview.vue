@@ -167,13 +167,13 @@ onMounted(load)
 
 <style scoped>
 .attendance-command {
-  --attendance-cyan: #00f2ff;
+  --attendance-cyan: var(--xt-primary);
   --attendance-blue: #74f5ff;
   --attendance-amber: #ffab00;
   --attendance-alert: #ff3d00;
   --attendance-bg: #06101f;
   --attendance-panel: rgba(12, 25, 42, 0.72);
-  --attendance-line: rgba(0, 242, 255, 0.18);
+  --attendance-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
   --attendance-muted: rgba(223, 226, 235, 0.66);
   color: var(--xt-text);
 }

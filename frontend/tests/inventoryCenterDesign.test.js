@@ -52,7 +52,7 @@ test('InventoryCenter uses the industrial blue responsive surface', () => {
   assert.match(src, /库存管控/)
   assert.match(src, /库存流转/)
   assert.match(src, /出入库流水/)
-  assert.match(src, /--inventory-cyan:\s*#00f2ff/)
+  assert.match(src, /--inventory-cyan:\s*var\(--xt-primary\)/)
   assert.match(src, /inventorySweep/)
   assert.match(src, /inventoryPulse/)
   assert.match(src, /@media \(max-width: 720px\)/)

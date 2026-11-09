@@ -181,8 +181,8 @@ async function send() {
 
 <style scoped>
 .ai-assistant {
-  --ai-drawer-accent: #00f2ff;
-  --ai-drawer-line: rgba(0, 242, 255, 0.18);
+  --ai-drawer-accent: var(--xt-primary);
+  --ai-drawer-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
   --ai-drawer-panel: rgba(6, 29, 51, 0.82);
   --ai-drawer-panel-strong: rgba(2, 12, 25, 0.94);
   --ai-drawer-muted: rgba(185, 223, 235, 0.68);

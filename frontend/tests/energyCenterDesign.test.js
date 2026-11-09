@@ -98,13 +98,19 @@ test('EnergyCenter orders desktop and mobile detail fields by energy values befo
   )
 })
 
+test('EnergyCenter shows a dash instead of zero when no row has a value', () => {
+  assert.match(src, /values\.length \? values\.reduce/)
+  assert.match(src, /values\.length \? Math\.max/)
+  assert.match(src, /if \(value === null\) return '—'/)
+})
+
 test('EnergyCenter uses the industrial blue responsive surface', () => {
   assert.match(src, /data-testid="energy-center-page"/)
   assert.match(src, /data-testid="energy-center-stats"/)
   assert.match(src, /data-testid="energy-center-table"/)
   assert.match(src, /data-testid="energy-center-mobile-list"/)
   assert.match(src, /能耗总览/)
-  assert.match(src, /--energy-cyan:\s*#00f2ff/)
+  assert.match(src, /--energy-cyan:\s*var\(--xt-primary\)/)
   assert.match(src, /energy-center__flow-card--endpoint/)
   assert.match(src, /energy-center__flow-card--result/)
   assert.match(src, /energy-center__flow-card--critical/)
