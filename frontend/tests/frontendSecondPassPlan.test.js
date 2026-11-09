@@ -34,17 +34,14 @@ test('second pass core management pages declare the same visual pass and data-so
   for (const [name, src] of CORE_PAGES) {
     assert.match(src, /data-visual-pass="stitch-image2-second-pass"/, `${name} missing second-pass marker`)
   }
-  for (const [name, src] of [['live', live], ['production', production]]) {
-    assert.match(src, /data-testid="second-pass-source-strip"/, `${name} missing source strip`)
-    assert.match(src, /MES 外部数据/, `${name} missing MES source label`)
-    assert.match(src, /人工填报/, `${name} missing manual source label`)
-    assert.match(src, /算法数据/, `${name} missing algorithm source label`)
-  }
   assert.match(today, /data-visual-pass="light-workspace"/)
-  assert.doesNotMatch(today, /data-testid="second-pass-source-strip"/)
-  assert.doesNotMatch(today, />MES 外部数据</)
-  assert.doesNotMatch(today, />人工填报</)
-  assert.doesNotMatch(today, />算法数据</)
+  // 这三个固定标签不随数据变化；这些页面的数字旁已有真实来源，不再显示。
+  for (const [name, src] of [['today', today], ['live', live], ['production', production]]) {
+    assert.doesNotMatch(src, /data-testid="second-pass-source-strip"/, `${name} shows static source labels`)
+    assert.doesNotMatch(src, />MES 外部数据</, `${name} shows static MES label`)
+    assert.doesNotMatch(src, />人工填报</, `${name} shows static manual label`)
+    assert.doesNotMatch(src, />算法数据</, `${name} shows static algorithm label`)
+  }
 })
 
 test('second pass secondary management pages keep the same visual pass and source contract', () => {
