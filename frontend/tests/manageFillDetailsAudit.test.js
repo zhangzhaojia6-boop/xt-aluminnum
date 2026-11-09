@@ -459,11 +459,9 @@ test('TodayPage and WorkshopDashboardPage mount precise missing report panels', 
   const todaySrc = source('../src/views/manage/today/TodayPage.vue')
   const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
 
-  assert.match(todaySrc, /MissingReportPanel/)
-  assert.match(todaySrc, /compact/)
+  assert.doesNotMatch(todaySrc, /MissingReportPanel/)
   assert.match(todaySrc, /fetchLiveAggregation/)
   assert.match(todaySrc, /buildTodayStitchSurface/)
-  assert.match(todaySrc, /missingRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.missingReportRows/)
   assert.match(dashboardSrc, /MissingReportPanel/)
   assert.match(dashboardSrc, /data-testid="workshop-dashboard-filter"/)
   assert.match(dashboardSrc, /fetchMesWorkshopProcessRecords\(scopedParams/)

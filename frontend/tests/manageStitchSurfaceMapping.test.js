@@ -516,7 +516,6 @@ test('first-batch pages render the Stitch bottom status slot from real surface d
 
   assert.match(todaySource, /data-testid="stitch-bottom-status"/)
   assert.match(todaySource, /runtimeState/)
-  assert.match(todaySource, /missingRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.missingReportRows/)
   assert.match(todaySource, /bottomStatusItems\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.bottomStatus/)
   assert.match(liveSource, /data-testid="stitch-bottom-status"/)
   assert.match(liveSource, /bottomStatusItems\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.bottomStatus/)

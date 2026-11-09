@@ -21,7 +21,7 @@ test('TodayPage composes the active overview pieces', () => {
   assert.match(src, /TodayWorkshopBars/)
   assert.match(src, /TodayWipDonut/)
   assert.match(src, /CostLine/)
-  assert.match(src, /MissingReportPanel/)
+  assert.doesNotMatch(src, /MissingReportPanel/)
   assert.match(src, /useDashboardSnapshot/)
 })
 

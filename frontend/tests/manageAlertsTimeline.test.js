@@ -112,7 +112,7 @@ test('load sends each endpoint the date parameter expected by its backend', asyn
 test('load aggregates events from five endpoints, sorted desc', async () => {
   const t = createAlertsTimeline({ ...makeFakes(), now: new Date('2026-05-20T08:00:00') })
   await t.load()
-  assert.equal(t.events.value.length, 7)
+  assert.equal(t.events.value.length, 6)
   assert.equal(t.events.value[0].domain, 'reporting')
   assert.equal(t.events.value.some((event) => event.id === 'live-missing:missing-cells'), false)
   assert.equal(t.events.value.some((event) => event.id === 'mes-fill-gap:TX-001'), true)
@@ -545,7 +545,7 @@ test('domainCounts reflects full unfiltered totals', async () => {
   assert.equal(t.domainCounts.value.quality, 1)
   assert.equal(t.domainCounts.value.reconciliation, 1)
   assert.equal(t.domainCounts.value.mes, 1)
-  assert.equal(t.domainCounts.value.reporting, 3)
+  assert.equal(t.domainCounts.value.reporting, 2)
 })
 
 test('filteredEvents respects domains[]', async () => {
@@ -560,7 +560,7 @@ test('empty domains[] means all', async () => {
   const t = createAlertsTimeline({ ...makeFakes(), now: new Date('2026-05-20') })
   await t.load()
   t.domains.value = []
-  assert.equal(t.filteredEvents.value.length, 7)
+  assert.equal(t.filteredEvents.value.length, 6)
 })
 
 test('MES fill gaps appear as concrete alert events with workshop machine shift and card', async () => {

@@ -31,7 +31,7 @@ test('normalizeFactoryDirector maps recent_items to production domain', () => {
   assert.equal(out[0].status, 'open')
 })
 
-test('normalizeFactoryDirector merges returned_items + reminder_items into reporting', () => {
+test('normalizeFactoryDirector keeps returned_items and retires reminder_items', () => {
   const payload = {
     exception_lane: {
       returned_items: [{ id: 'r1', summary: '退回' }],
@@ -39,7 +39,8 @@ test('normalizeFactoryDirector merges returned_items + reminder_items into repor
     }
   }
   const out = normalizeFactoryDirector(payload, DATE)
-  assert.equal(out.length, 2)
+  assert.equal(out.length, 1)
+  assert.equal(out[0].summary, '退回')
   assert.ok(out.every((e) => e.domain === 'reporting'))
 })
 
