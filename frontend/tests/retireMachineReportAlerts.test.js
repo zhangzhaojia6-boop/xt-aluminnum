@@ -22,14 +22,13 @@ test('MES gaps that only say local reporting is absent are retired, a weight mis
   assert.match(events[0].summary, /重量不一致/)
 })
 
-test('unfilled machine cells are no longer an alert, unfilled owner roles still are', () => {
+test('unfilled machine cells and owner roles are no longer alerts', () => {
   const events = normalizeLiveMissingReports({
     overall_progress: { missing_cell_count: 153 },
     owner_daily_status: { items: [{ role_label: '总电工', person_name: '王电工', status: 'not_started' }] },
   }, '2026-11-08')
 
-  assert.equal(events.length, 1)
-  assert.match(events[0].summary, /总电工/)
+  assert.deepEqual(events, [])
 })
 
 test('missing facts owned by machine operators leave the queue, other owners and conflicts stay', () => {
@@ -60,12 +59,4 @@ test('a machine is not flagged because nobody filled it in', () => {
   const tones = Object.fromEntries(matrix.workshops[0].machines.map((machine) => [machine.machineName, machine.tone]))
 
   assert.deepEqual(tones, { A: 'success', B: 'muted' })
-})
-
-test('unfilled owner alerts never show the raw status code', () => {
-  const events = normalizeLiveMissingReports({
-    owner_daily_status: { items: [{ role_label: '内勤', status: 'not_started' }] },
-  }, '2026-11-08')
-
-  assert.equal(events[0].detail, '待提交')
 })

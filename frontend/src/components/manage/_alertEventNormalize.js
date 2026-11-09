@@ -12,7 +12,7 @@ const R_ROUTE = '/manage/alerts?surface=reconciliation'
 const MES_ROUTE = '/manage/fill-details'
 const REPORTING_ROUTE = '/manage/fill-details'
 
-// 机台填报已停用（2026-11-09 负责人决定）：这几类只说明本地没有填报，不再算待处理。
+// 机台和责任人填报已停用（2026-11-09 负责人决定）：这几类只说明本地没有填报，不再算待处理。
 const RETIRED_MES_GAP_STATUSES = new Set(['missing_local_entry', 'mes_batch_unmapped', 'local_entry_unassigned'])
 const RETIRED_FACT_OWNER_ROLE = 'machine_operator'
 
@@ -160,10 +160,6 @@ function numberValue(value) {
   return Number.isFinite(number) ? number : 0
 }
 
-function statusIsMissing(status) {
-  return !['submitted', 'approved', 'auto_confirmed', 'confirmed', '已填', '已提交'].includes(String(status || '').toLowerCase())
-}
-
 export function normalizeFactoryDirector(payload, targetDate) {
   const lane = payload && payload.exception_lane
   if (!lane) return []
@@ -179,7 +175,7 @@ export function normalizeFactoryDirector(payload, targetDate) {
       status: fallbackStatus(row)
     })
   })
-  ;[...safeArray(lane.returned_items), ...safeArray(lane.reminder_items)].forEach((row, idx) => {
+  safeArray(lane.returned_items).forEach((row, idx) => {
     out.push({
       id: fallbackId('reporting', row, idx, 'report_id'),
       domain: 'reporting',
@@ -263,7 +259,6 @@ export function normalizeMesFillGaps(payload, targetDate) {
 export function normalizeLiveMissingReports(payload, targetDate) {
   const progress = payload?.overall_progress || payload?.overallProgress || {}
   const pending = progress.pending_assignment || progress.pendingAssignment || {}
-  const ownerStatus = payload?.owner_daily_status || payload?.ownerDailyStatus || {}
   const out = []
   const pendingCount = numberValue(pending.entry_count ?? pending.entryCount)
   const missingMachineCount = numberValue(pending.missing_machine_count ?? pending.missingMachineCount)
@@ -283,23 +278,6 @@ export function normalizeLiveMissingReports(payload, targetDate) {
       status: 'open',
     })
   }
-
-  safeArray(ownerStatus.items).forEach((row, idx) => {
-    if (!statusIsMissing(row.status || row.submit_status || row.submitStatus)) return
-    out.push({
-      id: `live-missing-owner:${row.role_label || row.role || idx}:${row.person_name || row.username || idx}`,
-      domain: 'reporting',
-      occurredAt: row.updated_at || row.created_at || `${targetDate}T23:59:57`,
-      summary: `未填报角色：${joinNonEmpty([
-        row.role_label || row.role,
-        row.person_name || row.username,
-        row.workshop_name,
-      ], ' · ')}`,
-      detail: row.status_label || '待提交',
-      detailRoute: REPORTING_ROUTE,
-      status: 'open',
-    })
-  })
 
   return out
 }

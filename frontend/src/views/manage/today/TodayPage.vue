@@ -104,10 +104,7 @@
         <RouterLink class="xt-today__live-link" to="/manage/live">
           <span>当天生产动态</span>
           <el-icon><ArrowRight /></el-icon>
-        </RouterLink>
-
-        <MissingReportPanel title="缺报明细" :rows="missingRows" :loading="liveLoading" compact />
-      </aside>
+        </RouterLink>      </aside>
     </section>
 
     <section class="xt-today__month" aria-label="本月累计">
@@ -191,7 +188,6 @@ import TodayWipDonut from './TodayWipDonut.vue'
 import { shapeTrendSeries } from '../../../components/manage/_outputTrend.js'
 const CostLine = defineAsyncComponent(() => import('../../../components/manage/CostLine.vue'))
 const OutputTrendLine = defineAsyncComponent(() => import('../../../components/manage/OutputTrendLine.vue'))
-import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
 import { fetchTimeseries } from '../../../api/dashboard.js'
@@ -336,7 +332,6 @@ const wipTotalText = computed(() => {
   const total = sumWipWeight(wipRows.value)
   return total === null ? MISSING_DAILY_VALUE : `${fmt(total)} 吨`
 })
-const missingRows = computed(() => stitchSurface.value.missingReportRows.filter((row) => row.roleLabel !== '主操'))
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})
 const factClosureSurface = computed(() => buildFactClosureSurface(dailyOverview.value.fact_closure))
@@ -535,16 +530,6 @@ const eventRailItems = computed(() => {
       label: '告警',
       title: '数据同步需核查',
       body: snapshot.lastError.value || liveLoadError.value,
-      tone: 'danger',
-      time: nowText,
-    })
-  }
-  if (missingRows.value.length) {
-    items.push({
-      key: 'missing',
-      label: '异常',
-      title: '存在缺报明细',
-      body: `当前缺报队列 ${missingRows.value.length} 条，已在下方明细压缩展示。`,
       tone: 'danger',
       time: nowText,
     })
