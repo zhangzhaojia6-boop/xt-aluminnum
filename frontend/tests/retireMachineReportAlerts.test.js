@@ -60,3 +60,13 @@ test('a machine is not flagged because nobody filled it in', () => {
 
   assert.deepEqual(tones, { A: 'success', B: 'muted' })
 })
+
+test('gap details never show internal field keys or raw status words', () => {
+  const [event] = normalizeDailyFactAlerts({
+    fact_missing: [{ field: 'outsourced_daily', summary: '外加工日产量 缺少可信事实', owner_role: 'planning_owner', status: 'missing' }],
+  }, '2026-11-08')
+
+  assert.equal(event.summary, '外加工日产量 缺少可信事实')
+  assert.doesNotMatch(event.detail, /outsourced_daily|missing/)
+  assert.match(event.detail, /缺数/)
+})

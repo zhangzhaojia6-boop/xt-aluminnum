@@ -160,3 +160,26 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
     await expect(page.getByRole('heading', { name: '昨日总览' })).toHaveCount(0)
   })
 })
+
+test.describe('manage alerts first load', () => {
+  test('does not claim zero alerts until the first load finishes', async ({ page }) => {
+    await setupReviewSessionAndMocks(page)
+    await mockQualityIssues(page, [])
+    await mockReconciliationItems(page, [])
+    await page.route(/\/api\/v1\/(dashboard|quality|reconciliation)/, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 2500))
+      await route.fallback()
+    })
+
+    await page.goto('/manage/alerts')
+
+    const status = page.getByRole('status').filter({ hasText: '正在读取异常' })
+    await expect(status).toBeVisible()
+    await expect(page.getByText('当日无异常')).toHaveCount(0)
+    await expect(page.getByText('当前无待处理')).toHaveCount(0)
+    await expect(page.locator('main strong', { hasText: /^—$/ })).toHaveCount(4)
+
+    await expect(status).toHaveCount(0, { timeout: 15000 })
+    await expect(page.locator('main strong', { hasText: /^—$/ })).toHaveCount(0)
+  })
+})

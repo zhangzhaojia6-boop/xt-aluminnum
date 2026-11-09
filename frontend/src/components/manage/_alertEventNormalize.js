@@ -296,6 +296,14 @@ function dailyOccurredAt(row, targetDate, fallbackTime) {
   return `${eventDate}T${time || fallbackTime}`
 }
 
+const FACT_STATUS_LABELS = {
+  missing: '缺数',
+  needs_evidence: '待证据',
+  conflict: '来源冲突',
+  resolved: '已补齐',
+  confirmed: '已确认',
+}
+
 function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
   const eventDate = row.target_date || row.targetDate || targetDate
   const traceId = typeof (row.trace_id ?? row.traceId) === 'string'
@@ -327,7 +335,7 @@ function dailyFactEvent(kind, row, idx, targetDate, fallbackTime) {
     occurredAt: dailyOccurredAt(row, eventDate, fallbackTime),
     targetDate: eventDate,
     summary: row.summary || labels[kind],
-    detail: joinNonEmpty([row.field || row.field_name, sourceLabel, row.channel, factStatus], ' · '),
+    detail: joinNonEmpty([sourceLabel, row.channel, FACT_STATUS_LABELS[factStatus]], ' · '),
     detailRoute: traceRoute(traceId, row.detail_route || row.detailRoute),
     actionRoute: row.action_route || row.actionRoute || '',
     ownerRole: row.owner_role || row.ownerRole || '',

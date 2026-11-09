@@ -54,7 +54,9 @@
       />
     </section>
 
-    <section class="xt-alerts__queues" data-testid="manage-alert-work-queues">
+    <p v-if="initialLoading" class="xt-alerts__loading" role="status">正在读取异常</p>
+
+    <section v-if="!initialLoading" class="xt-alerts__queues" data-testid="manage-alert-work-queues">
       <header class="xt-alerts__queue-head">
         <h2>异常处理队列</h2>
         <p>{{ workQueueSummary }}</p>
@@ -91,7 +93,7 @@
       </div>
     </section>
 
-    <section class="xt-alerts__timeline-shell" aria-label="异常清单">
+    <section v-if="!initialLoading" class="xt-alerts__timeline-shell" aria-label="异常清单">
       <div class="xt-alerts__timeline-head">
         <h2>异常事件流</h2>
         <div class="xt-alerts__timeline-meta">
@@ -172,6 +174,7 @@ function onDomainsChange(next) {
   syncRouteFromDomains(next)
 }
 
+const initialLoading = computed(() => timeline.loading.value && timeline.events.value.length === 0)
 const businessEvents = computed(
   () => timeline.filteredEvents.value.filter((event) => !event.isFallback)
 )
@@ -217,11 +220,12 @@ function queueItemMeta(item) {
 }
 const alertStats = computed(() => {
   const total = businessEvents.value.length
+  const shown = (value) => (initialLoading.value ? '—' : value)
   return [
-    { key: 'total', label: '全部异常', value: total, tone: 'cyan' },
-    { key: 'open', label: '未结', value: openCount.value, tone: 'alert' },
-    { key: 'closed', label: '已处理', value: Math.max(0, total - openCount.value), tone: 'blue' },
-    { key: 'case', label: '处理事项', value: actionCases.value.length, tone: 'amber' }
+    { key: 'total', label: '全部异常', value: shown(total), tone: 'cyan' },
+    { key: 'open', label: '未结', value: shown(openCount.value), tone: 'alert' },
+    { key: 'closed', label: '已处理', value: shown(Math.max(0, total - openCount.value)), tone: 'blue' },
+    { key: 'case', label: '处理事项', value: shown(actionCases.value.length), tone: 'amber' }
   ]
 })
 
@@ -370,6 +374,12 @@ watch(timeline.targetDate, (next) => {
 
 .xt-alerts__ratio .is-closed {
   background: var(--xt-primary);
+}
+
+.xt-alerts__loading {
+  margin: 0;
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-sm);
 }
 
 .xt-alerts__queues {

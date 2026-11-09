@@ -80,3 +80,10 @@ test('AlertsPage removes fixed source claims', () => {
   assert.doesNotMatch(SRC, />人工填报</)
   assert.doesNotMatch(SRC, />算法数据</)
 })
+
+test('AlertsPage does not report zero alerts before the first load finishes', () => {
+  assert.match(SRC, /initialLoading = computed\(\(\) => timeline\.loading\.value && timeline\.events\.value\.length === 0\)/)
+  assert.match(SRC, /initialLoading\.value \? '—' : value/)
+  assert.match(SRC, /v-if="!initialLoading" class="xt-alerts__timeline-shell"/)
+  assert.match(SRC, /role="status">正在读取异常/)
+})
