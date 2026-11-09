@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { formatEnergySourceLabel } from '../src/utils/stitchManageSurface.js'
 
 const pagePath = new URL('../src/views/energy/EnergyCenter.vue', import.meta.url)
 const apiPath = new URL('../src/api/energy.js', import.meta.url)
@@ -55,9 +56,9 @@ test('EnergyCenter keeps all management table fields visible', () => {
 test('EnergyCenter exposes IoT shadow source and collection time', () => {
   assert.match(src, /formatEnergySourceLabel/)
   assert.match(src, /formatSourceUpdatedAt/)
-  assert.match(src, /物联网采集/)
-  assert.match(src, /row\.source_label/)
   assert.match(src, /row\.source_updated_at/)
+  assert.equal(formatEnergySourceLabel({ source: 'iot_shadow' }), '物联网采集')
+  assert.equal(formatEnergySourceLabel({ source: 'iot_shadow', source_label: '电表' }), '电表')
 })
 
 test('EnergyCenter keeps electricity and comprehensive energy separated', () => {

@@ -192,10 +192,11 @@ import DateSwitcher from '../../components/manage/DateSwitcher.vue'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import { formatShiftLabel } from '../../utils/display'
 import { inferLastCompletedBusinessDate } from '../../utils/shiftClock'
-import { buildEnergyStitchSurface } from '../../utils/stitchManageSurface.js'
+import { buildEnergyStitchSurface, formatEnergySourceLabel } from '../../utils/stitchManageSurface.js'
 import { normalizeWorkshopName } from '../../utils/activeWorkshops.js'
 
 const WORKSHOP_CODE_LABELS = {
+  FACTORY: '全厂',
   ZD: '铸锭',
   ZR2: '铸二',
   ZR3: '铸三',
@@ -298,16 +299,6 @@ function formatWorkshopLabel(value) {
   if (!text) return '-'
   const normalized = WORKSHOP_CODE_LABELS[text] || normalizeWorkshopName(text)
   return ENERGY_WORKSHOP_DISPLAY_LABELS[normalized] || normalized
-}
-
-function formatEnergySourceLabel(row = {}) {
-  if (row.source_label) return row.source_label
-  if (row.source === 'mes_packaging_output_basis') return '全厂包装'
-  if (row.source === 'iot_shadow') return '物联网采集'
-  if (row.source === 'mobile_shift_report') return '电工填报'
-  if (row.source === 'owner_only') return '内勤填报'
-  if (row.source === 'energy_import') return '旧导入'
-  return row.source || '-'
 }
 
 function formatSourceUpdatedAt(value) {

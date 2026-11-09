@@ -231,6 +231,42 @@ function buildFillDetailsBottomStatus({
   ]
 }
 
+const ENERGY_VALUE_KEYS = ['electricity_value', 'gas_value', 'water_value', 'total_energy']
+const NO_ENERGY_SOURCE = '无来源'
+
+export function formatEnergySourceLabel(row = {}) {
+  if (row.source_label) return row.source_label
+  if (row.source === 'mes_packaging_output_basis') return '全厂包装'
+  if (row.source === 'iot_shadow') return '物联网采集'
+  if (row.source === 'mobile_shift_report') return '电工填报'
+  if (row.source === 'owner_only') return '内勤填报'
+  if (row.source === 'energy_import') return '旧导入'
+  return row.source || '-'
+}
+
+function hasEnergyValue(row, key) {
+  const value = row?.[key]
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+}
+
+function energyRowsOf(detailRows = []) {
+  if (!Array.isArray(detailRows)) return []
+  return detailRows.filter((row) => ENERGY_VALUE_KEYS.some((key) => hasEnergyValue(row, key)))
+}
+
+function energySourcesOf(rows = [], key = null) {
+  const labels = rows
+    .filter((row) => !key || hasEnergyValue(row, key))
+    .map(formatEnergySourceLabel)
+    .filter((label) => label !== '-')
+  return [...new Set(labels)].join('、') || NO_ENERGY_SOURCE
+}
+
+function energyWorkshopName(row) {
+  if (row?.workshop_code === 'FACTORY') return '全厂'
+  return row?.workshop_code || '未知车间'
+}
+
 function resolveEnergySyncState({
   detailRows = [],
   runtimeState = {},
@@ -242,8 +278,11 @@ function resolveEnergySyncState({
   if (errorText) {
     return { value: '需核查', tone: 'danger', eventTitle: '能耗数据需核查' }
   }
-  if (Array.isArray(detailRows) && detailRows.length > 0) {
+  if (energyRowsOf(detailRows).length > 0) {
     return { value: '已同步', tone: 'success', eventTitle: '能耗数据已同步' }
+  }
+  if (Array.isArray(detailRows) && detailRows.length > 0) {
+    return { value: '无能耗数据', tone: 'warning', eventTitle: '当日无能耗数据' }
   }
   return { value: '待核', tone: 'warning', eventTitle: '暂无能耗明细' }
 }
@@ -295,7 +334,7 @@ function buildEnergyFlow({
       label: '电耗采集',
       value: electricity.value || '-',
       unit: electricity.unit || 'kWh',
-      source: '能耗汇总接口',
+      source: energySourcesOf(detailRows, 'electricity_value'),
       tone: 'cyan',
       icon: 'meter',
     },
@@ -305,7 +344,7 @@ function buildEnergyFlow({
       label: '气耗采集',
       value: gas.value || '-',
       unit: gas.unit || 'm³',
-      source: '能耗汇总接口',
+      source: energySourcesOf(detailRows, 'gas_value'),
       tone: 'amber',
       icon: 'flame',
     },
@@ -315,7 +354,7 @@ function buildEnergyFlow({
       label: '水耗采集',
       value: water.value || '-',
       unit: water.unit || 'm³',
-      source: '能耗汇总接口',
+      source: energySourcesOf(detailRows, 'water_value'),
       tone: 'blue',
       icon: 'water',
     },
@@ -325,7 +364,7 @@ function buildEnergyFlow({
       label: '综合折算',
       value: total.value || '-',
       unit: total.unit || 'kgce',
-      source: '算法汇总',
+      source: detailRows.some((row) => hasEnergyValue(row, 'total_energy')) ? '算法汇总' : NO_ENERGY_SOURCE,
       tone: 'result',
       emphasis: 'endpoint',
       icon: 'converter',
@@ -334,9 +373,9 @@ function buildEnergyFlow({
       key: 'per-ton-check',
       stage: '校核',
       label: '单吨能耗关注',
-      value: maxPerTon ? `${maxPerTon.row?.workshop_code || '未知车间'} ${formatEnergyNumber(maxPerTon.value)}` : '待核',
+      value: maxPerTon ? `${energyWorkshopName(maxPerTon.row)} ${formatEnergyNumber(maxPerTon.value)}` : '待核',
       unit: 'kgce/吨',
-      source: '能耗明细字段',
+      source: maxPerTon ? '能耗明细字段' : NO_ENERGY_SOURCE,
       tone: maxPerTon ? 'critical' : 'warning',
       emphasis: 'endpoint',
       icon: 'gauge',
@@ -354,7 +393,7 @@ function buildEnergyStatusBar({
     title: '能源中心',
     subtitle: '能耗看板',
     businessDate: targetDate,
-    rowCount: Array.isArray(detailRows) ? detailRows.length : 0,
+    rowCount: energyRowsOf(detailRows).length,
     updatedAt: resolveEnergyUpdatedAt(runtimeState),
     syncStatus: syncState.value,
     tone: syncState.tone,
@@ -368,7 +407,7 @@ function buildEnergyEventRail({
 } = {}) {
   const syncState = resolveEnergySyncState({ detailRows, runtimeState })
   const { errorText = '' } = runtimeState
-  const rowCount = Array.isArray(detailRows) ? detailRows.length : 0
+  const rowCount = energyRowsOf(detailRows).length
   const events = [
     {
       key: 'energy-sync',
@@ -388,7 +427,7 @@ function buildEnergyEventRail({
     events.push({
       key: 'electricity-top',
       title: '电耗最高参考',
-      value: `${maxElectricity.row?.workshop_code || '未知车间'} ${formatEnergyNumber(maxElectricity.value)} kWh`,
+      value: `${energyWorkshopName(maxElectricity.row)} ${formatEnergyNumber(maxElectricity.value)} kWh`,
       time: maxElectricity.row?.business_date || targetDate,
       tone: 'warning',
     })
@@ -398,7 +437,7 @@ function buildEnergyEventRail({
     events.push({
       key: 'gas-top',
       title: '气耗最高参考',
-      value: `${maxGas.row?.workshop_code || '未知车间'} ${formatEnergyNumber(maxGas.value)} m³`,
+      value: `${energyWorkshopName(maxGas.row)} ${formatEnergyNumber(maxGas.value)} m³`,
       time: maxGas.row?.business_date || targetDate,
       tone: 'warning',
     })
@@ -408,7 +447,7 @@ function buildEnergyEventRail({
     events.push({
       key: 'water-top',
       title: '水耗最高参考',
-      value: `${maxWater.row?.workshop_code || '未知车间'} ${formatEnergyNumber(maxWater.value)} m³`,
+      value: `${energyWorkshopName(maxWater.row)} ${formatEnergyNumber(maxWater.value)} m³`,
       time: maxWater.row?.business_date || targetDate,
       tone: 'warning',
     })
@@ -418,7 +457,7 @@ function buildEnergyEventRail({
     events.push({
       key: 'output-top',
       title: '产量口径参考',
-      value: `${maxOutput.row?.workshop_code || '未知车间'} ${formatEnergyNumber(maxOutput.value)} 吨`,
+      value: `${energyWorkshopName(maxOutput.row)} ${formatEnergyNumber(maxOutput.value)} 吨`,
       time: maxOutput.row?.business_date || targetDate,
       tone: 'success',
     })
@@ -428,7 +467,7 @@ function buildEnergyEventRail({
     events.push({
       key: 'per-ton-top',
       title: '单吨能耗关注',
-      value: `${maxPerTon.row?.workshop_code || '未知车间'} ${formatEnergyNumber(maxPerTon.value)} kgce/吨`,
+      value: `${energyWorkshopName(maxPerTon.row)} ${formatEnergyNumber(maxPerTon.value)} kgce/吨`,
       time: maxPerTon.row?.business_date || targetDate,
       tone: 'warning',
     })
@@ -442,11 +481,12 @@ function buildEnergyBottomStatus({
   runtimeState = {},
 } = {}) {
   const syncState = resolveEnergySyncState({ detailRows, runtimeState })
-  const rowCount = Array.isArray(detailRows) ? detailRows.length : 0
+  const energyRows = energyRowsOf(detailRows)
+  const rowCount = energyRows.length
   return [
     { key: 'system', label: '系统状态', value: syncState.value, tone: syncState.tone },
     { key: 'energy', label: '能耗明细', value: `${rowCount} 条`, tone: rowCount > 0 ? 'success' : 'warning' },
-    { key: 'source', label: '数据来源', value: '能耗汇总接口', tone: rowCount > 0 ? 'success' : 'warning' },
+    { key: 'source', label: '数据来源', value: energySourcesOf(energyRows), tone: rowCount > 0 ? 'success' : 'warning' },
     { key: 'updated-at', label: '页面刷新', value: resolveEnergyUpdatedAt(runtimeState), tone: syncState.tone },
   ]
 }
