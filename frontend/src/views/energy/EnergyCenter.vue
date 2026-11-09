@@ -272,15 +272,25 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : 0
 }
 
+function knownValues(key) {
+  return rows.value
+    .map((row) => row?.[key])
+    .filter((value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)))
+    .map(Number)
+}
+
 function sumBy(key) {
-  return rows.value.reduce((total, row) => total + toNumber(row?.[key]), 0)
+  const values = knownValues(key)
+  return values.length ? values.reduce((total, value) => total + value, 0) : null
 }
 
 function maxBy(key) {
-  return rows.value.reduce((max, row) => Math.max(max, toNumber(row?.[key])), 0)
+  const values = knownValues(key)
+  return values.length ? Math.max(...values) : null
 }
 
 function formatStat(value) {
+  if (value === null) return '—'
   return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value)
 }
 
@@ -361,13 +371,13 @@ onMounted(load)
 
 <style scoped>
 .energy-center {
-  --energy-cyan: #00f2ff;
-  --energy-cyan-soft: rgba(0, 242, 255, 0.16);
+  --energy-cyan: var(--xt-primary);
+  --energy-cyan-soft: color-mix(in srgb, var(--xt-primary) 16%, transparent);
   --energy-amber: #ffab00;
   --energy-blue: #74f5ff;
   --energy-bg: #06101f;
   --energy-panel: rgba(12, 25, 42, 0.72);
-  --energy-line: rgba(0, 242, 255, 0.18);
+  --energy-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
   --energy-muted: rgba(223, 226, 235, 0.66);
   color: var(--xt-text);
 }

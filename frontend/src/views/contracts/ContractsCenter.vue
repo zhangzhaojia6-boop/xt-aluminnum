@@ -240,14 +240,14 @@ onMounted(load)
 
 <style scoped>
 .contracts-command {
-  --contracts-cyan: #00f2ff;
-  --contracts-cyan-soft: rgba(0, 242, 255, 0.16);
+  --contracts-cyan: var(--xt-primary);
+  --contracts-cyan-soft: color-mix(in srgb, var(--xt-primary) 16%, transparent);
   --contracts-amber: #ffab00;
   --contracts-blue: #74f5ff;
   --contracts-danger: #ff5c35;
   --contracts-bg: #06101f;
   --contracts-panel: rgba(12, 25, 42, 0.72);
-  --contracts-line: rgba(0, 242, 255, 0.18);
+  --contracts-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
   --contracts-muted: rgba(223, 226, 235, 0.66);
   color: var(--xt-text);
 }

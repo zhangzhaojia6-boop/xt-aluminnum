@@ -305,13 +305,13 @@ onMounted(load)
 
 <style scoped>
 .workshop-master {
-  --workshop-cyan: #00f2ff;
-  --workshop-cyan-soft: rgba(0, 242, 255, 0.12);
+  --workshop-cyan: var(--xt-primary);
+  --workshop-cyan-soft: color-mix(in srgb, var(--xt-primary) 12%, transparent);
   --workshop-amber: #ffab00;
   --workshop-bg: rgba(1, 16, 31, 0.74);
   --workshop-bg-strong: rgba(2, 12, 25, 0.92);
-  --workshop-line: rgba(0, 242, 255, 0.18);
-  --workshop-line-strong: rgba(0, 242, 255, 0.38);
+  --workshop-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
+  --workshop-line-strong: color-mix(in srgb, var(--xt-primary) 38%, transparent);
   --workshop-muted: rgba(185, 223, 235, 0.64);
   --workshop-text: rgba(225, 253, 255, 0.94);
   position: relative;
@@ -548,7 +548,7 @@ onMounted(load)
   border-radius: 4px;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 242, 255, 0.42) transparent;
+  scrollbar-color: color-mix(in srgb, var(--xt-primary) 42%, transparent) transparent;
 }
 
 .workshop-master :deep(.reference-data-table-shell) {
@@ -556,7 +556,7 @@ onMounted(load)
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 242, 255, 0.42) transparent;
+  scrollbar-color: color-mix(in srgb, var(--xt-primary) 42%, transparent) transparent;
 }
 
 .workshop-master :deep(.workshop-master__table.el-table) {

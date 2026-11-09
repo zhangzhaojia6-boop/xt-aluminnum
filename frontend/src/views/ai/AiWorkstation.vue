@@ -187,10 +187,10 @@ async function send() {
 
 <style scoped>
 .ai-workstation {
-  --ai-accent: #00f2ff;
-  --ai-accent-soft: rgba(0, 242, 255, 0.12);
-  --ai-line: rgba(0, 242, 255, 0.16);
-  --ai-line-strong: rgba(0, 242, 255, 0.34);
+  --ai-accent: var(--xt-primary);
+  --ai-accent-soft: color-mix(in srgb, var(--xt-primary) 12%, transparent);
+  --ai-line: color-mix(in srgb, var(--xt-primary) 16%, transparent);
+  --ai-line-strong: color-mix(in srgb, var(--xt-primary) 34%, transparent);
   --ai-panel: rgba(6, 29, 51, 0.82);
   --ai-panel-strong: rgba(2, 12, 25, 0.94);
   --ai-muted: rgba(185, 223, 235, 0.66);
@@ -400,7 +400,7 @@ async function send() {
   background: transparent;
   background-size: 34px 34px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 242, 255, 0.36) transparent;
+  scrollbar-color: color-mix(in srgb, var(--xt-primary) 36%, transparent) transparent;
 }
 
 .ai-workstation__panel {

@@ -54,7 +54,7 @@ test('AttendanceOverview uses the industrial blue responsive surface', () => {
   assert.match(src, /考勤预留/)
   assert.match(src, /考勤预留/)
   assert.match(src, /后续接入钉钉打卡后启用/)
-  assert.match(src, /--attendance-cyan:\s*#00f2ff/)
+  assert.match(src, /--attendance-cyan:\s*var\(--xt-primary\)/)
   assert.match(src, /attendanceCommandSweep/)
   assert.match(src, /attendanceCommandPulse/)
   assert.match(src, /@media \(max-width: 720px\)/)

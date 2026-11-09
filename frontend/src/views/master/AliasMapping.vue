@@ -271,13 +271,13 @@ onMounted(load)
 
 <style scoped>
 .alias-router {
-  --alias-cyan: #00f2ff;
-  --alias-cyan-soft: rgba(0, 242, 255, 0.12);
+  --alias-cyan: var(--xt-primary);
+  --alias-cyan-soft: color-mix(in srgb, var(--xt-primary) 12%, transparent);
   --alias-amber: #ffab00;
   --alias-bg: rgba(1, 16, 31, 0.72);
   --alias-bg-strong: rgba(2, 12, 25, 0.92);
-  --alias-line: rgba(0, 242, 255, 0.18);
-  --alias-line-strong: rgba(0, 242, 255, 0.38);
+  --alias-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
+  --alias-line-strong: color-mix(in srgb, var(--xt-primary) 38%, transparent);
   --alias-muted: rgba(185, 223, 235, 0.64);
   --alias-text: rgba(225, 253, 255, 0.94);
   position: relative;
@@ -494,7 +494,7 @@ onMounted(load)
   border-radius: 4px;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 242, 255, 0.42) transparent;
+  scrollbar-color: color-mix(in srgb, var(--xt-primary) 42%, transparent) transparent;
 }
 
 .alias-router :deep(.reference-data-table-shell) {
@@ -502,7 +502,7 @@ onMounted(load)
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 242, 255, 0.42) transparent;
+  scrollbar-color: color-mix(in srgb, var(--xt-primary) 42%, transparent) transparent;
 }
 
 .alias-router :deep(.alias-router__table.el-table) {

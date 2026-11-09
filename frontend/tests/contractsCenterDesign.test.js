@@ -54,7 +54,7 @@ test('ContractsCenter uses the industrial blue responsive surface', () => {
   assert.match(src, /订单管控/)
   assert.match(src, /履约流转/)
   assert.match(src, /合同清单/)
-  assert.match(src, /--contracts-cyan:\s*#00f2ff/)
+  assert.match(src, /--contracts-cyan:\s*var\(--xt-primary\)/)
   assert.match(src, /contractsSweep/)
   assert.match(src, /contractsPulse/)
   assert.match(src, /@media \(max-width: 720px\)/)

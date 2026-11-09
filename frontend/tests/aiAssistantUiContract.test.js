@@ -72,7 +72,7 @@ test('ai workstation aligns to the cyber industrial visual system without changi
   assert.match(workstation, /store\.loadRuntime/)
   assert.match(workstation, /AiBriefingInbox/)
   assert.match(workstation, /AiWatchlistPanel/)
-  assert.match(workstation, /--ai-accent:\s*#00f2ff/)
+  assert.match(workstation, /--ai-accent:\s*var\(--xt-primary\)/)
   assert.match(workstation, /aiSweep/)
   assert.match(workstation, /aiPulse/)
   assert.match(workstation, /:deep\(\.ai-conversations\)/)

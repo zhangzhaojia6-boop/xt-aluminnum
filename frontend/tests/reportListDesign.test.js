@@ -63,7 +63,7 @@ test('ReportList uses the industrial blue responsive delivery surface', () => {
   assert.match(src, /data-testid="report-delivery-mobile-list"/)
   assert.match(src, /日报交付/)
   assert.match(src, /交付清单/)
-  assert.match(src, /--report-cyan:\s*#00f2ff/)
+  assert.match(src, /--report-cyan:\s*var\(--xt-primary\)/)
   assert.match(src, /reportDeliverySweep/)
   assert.match(src, /reportDeliveryPulse/)
   assert.match(src, /@media \(max-width: 720px\)/)

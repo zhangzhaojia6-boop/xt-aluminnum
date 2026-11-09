@@ -309,14 +309,14 @@ onMounted(async () => {
 
 <style scoped>
 .rule-config-center {
-  --rule-accent: #00f2ff;
+  --rule-accent: var(--xt-primary);
   --rule-accent-strong: #74f5ff;
   --rule-bg: #06101f;
   --rule-card: rgba(6, 26, 49, 0.88);
   --rule-card-strong: rgba(8, 38, 66, 0.92);
   --rule-danger: #ff5b2e;
-  --rule-line: rgba(0, 242, 255, 0.18);
-  --rule-line-strong: rgba(0, 242, 255, 0.38);
+  --rule-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
+  --rule-line-strong: color-mix(in srgb, var(--xt-primary) 38%, transparent);
   --rule-muted: rgba(185, 223, 235, 0.64);
   --rule-text: rgba(225, 253, 255, 0.92);
   --rule-warning: #ffab00;
