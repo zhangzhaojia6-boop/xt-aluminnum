@@ -40,7 +40,7 @@ const props = defineProps({
 const have = computed(() => Math.max(props.total - props.open, 0))
 const legend = computed(() => [
   { key: 'have', label: '已有', count: have.value },
-  { key: 'manual', label: '等人补录', count: props.manual },
+  { key: 'manual', label: '缺来源', count: props.manual },
   { key: 'recheck', label: '系统复查', count: props.recheck },
   { key: 'dependency', label: '等上游数据', count: props.dependency }
 ])
