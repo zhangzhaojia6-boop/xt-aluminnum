@@ -908,6 +908,8 @@ def _status_from_snapshot(snapshot: AcceptanceTurnSnapshot) -> str:
         return "conflict"
     if fact_statuses and fact_statuses == {"confirmed"}:
         return "confirmed"
+    if fact_statuses and fact_statuses == {"candidate"}:
+        return "candidate"
     if "missing" in fact_statuses:
         return "missing"
     if missing:

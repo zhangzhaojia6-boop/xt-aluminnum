@@ -92,6 +92,16 @@ def _fact_gate(question_id: int, snapshot: AcceptanceTurnSnapshot):
     return next(gate for gate in evaluate_question_snapshot(question, snapshot).gates if gate.name == "fact")
 
 
+def test_report_counts_candidate_answers_apart_from_missing_ones() -> None:
+    candidate = _snapshot(13, {"field": "annual_total_output", "status": "candidate", "value": 1.0})
+    candidate.evidence = {"missing_sources": ["mes_readonly"]}
+    missing = _snapshot(13, {"field": "annual_total_output", "status": "missing"})
+    question = {item.question_id: item for item in build_20_question_catalog()}[13]
+
+    assert evaluate_question_snapshot(question, candidate).status == "candidate"
+    assert evaluate_question_snapshot(question, missing).status == "missing"
+
+
 def test_wip_snapshot_from_next_morning_is_confirmed_for_the_previous_business_day() -> None:
     record = _wip_record()
 
