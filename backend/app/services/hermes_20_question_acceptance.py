@@ -164,6 +164,8 @@ _DISALLOWED_SOURCE_MARKERS = (
 _POINT_IN_TIME_NEXT_DAY_SOURCE_TYPES = frozenset(
     {"mes_wip_total_snapshot", "mes_daily_wip_snapshot", "mes_coil_snapshot_business_date"}
 )
+# 查不到数时只说这一句，负责人不知道该找谁补，不算答完。
+_GENERIC_MISSING_ANSWER = "建议先补齐对应来源"
 _SOURCE_FAILURE_STATUSES = frozenset(
     {"", "failed", "error", "missing", "empty", "disabled", "unavailable", "unknown"}
 )
@@ -814,6 +816,8 @@ def _answer_gate(snapshot: AcceptanceTurnSnapshot) -> LayerGateResult:
         return LayerGateResult("answer", False, "public_identity_or_language_failed")
     if "来源" not in answer or "状态" not in answer:
         return LayerGateResult("answer", False, "answer_contract_incomplete")
+    if _GENERIC_MISSING_ANSWER in answer:
+        return LayerGateResult("answer", False, "missing_answer_has_no_next_step")
     confirmed_facts = [
         fact
         for fact in snapshot.fact_answer or []

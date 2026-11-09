@@ -92,6 +92,21 @@ def _fact_gate(question_id: int, snapshot: AcceptanceTurnSnapshot):
     return next(gate for gate in evaluate_question_snapshot(question, snapshot).gates if gate.name == "fact")
 
 
+def test_answer_gate_rejects_a_missing_answer_without_a_next_step() -> None:
+    question = {item.question_id: item for item in build_20_question_catalog()}[14]
+    tail = "来源：已检查数据中枢投影。状态：missing。追踪编号：trace-q14。"
+    record = {"field": "anomaly_explanation_daily", "status": "missing", "reason": "没有来源记录", "action": "请对应责任人补录"}
+    snapshot = _snapshot(14, record)
+
+    snapshot.answer = f"鑫泰铝业智能大脑回答：异常说明暂时没有查到可用正式事实。建议先补齐对应来源。{tail}"
+    gate = next(g for g in evaluate_question_snapshot(question, snapshot).gates if g.name == "answer")
+    assert gate.reason == "missing_answer_has_no_next_step"
+
+    snapshot.answer = f"鑫泰铝业智能大脑回答：异常说明暂时没有查到可用正式事实。请生产调度补录当日异常。{tail}"
+    gate = next(g for g in evaluate_question_snapshot(question, snapshot).gates if g.name == "answer")
+    assert gate.passed
+
+
 def test_report_counts_candidate_answers_apart_from_missing_ones() -> None:
     candidate = _snapshot(13, {"field": "annual_total_output", "status": "candidate", "value": 1.0})
     candidate.evidence = {"missing_sources": ["mes_readonly"]}
