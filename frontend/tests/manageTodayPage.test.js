@@ -215,3 +215,9 @@ test('mobile Today keeps the report date on one horizontal row', () => {
   assert.match(today, /@media \(max-width:\s*700px\)[\s\S]*?\.xt-today__top-actions\s*\{\s*width:\s*100%/)
   assert.match(today, /@media \(max-width:\s*480px\)[\s\S]*?:deep\(\.xt-date-switcher\)\s*\{[^}]*max-width:\s*100%/)
 })
+
+test('fact band names gaps with no live source instead of waiting on people', () => {
+  const band = source('../src/views/manage/today/TodayFactBand.vue')
+  assert.match(band, /label: '缺来源'/)
+  assert.doesNotMatch(band, /等人补录/)
+})
