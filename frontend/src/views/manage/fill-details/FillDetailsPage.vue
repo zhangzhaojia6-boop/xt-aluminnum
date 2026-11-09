@@ -36,12 +36,6 @@
       </div>
     </header>
 
-    <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
-      <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
-      <span class="xt-second-pass-source-strip__item">人工填报</span>
-      <span class="xt-second-pass-source-strip__item">算法数据</span>
-    </div>
-
     <div class="xt-fill-details__audit-ticker" data-testid="data-audit-ticker">
       <article
         v-for="item in auditTickerItems"

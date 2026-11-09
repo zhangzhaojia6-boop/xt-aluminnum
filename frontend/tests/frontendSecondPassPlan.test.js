@@ -47,10 +47,8 @@ test('second pass core management pages declare the same visual pass and data-so
 test('second pass secondary management pages keep the same visual pass and source contract', () => {
   for (const [name, src] of SECONDARY_PAGES) {
     assert.match(src, /data-visual-pass="stitch-image2-second-pass"/, `${name} missing second-pass marker`)
-    assert.match(src, /data-testid="second-pass-source-strip"/, `${name} missing source strip`)
-    assert.match(src, /MES 外部数据/, `${name} missing MES source label`)
-    assert.match(src, /人工填报/, `${name} missing manual source label`)
-    assert.match(src, /算法数据/, `${name} missing algorithm source label`)
+    assert.doesNotMatch(src, /second-pass-source-strip/, `${name} shows static source labels`)
+    assert.doesNotMatch(src, />MES 外部数据</, `${name} shows static MES label`)
   }
   assert.match(alerts, /data-visual-pass="stitch-image2-second-pass"/)
   assert.doesNotMatch(alerts, /data-testid="second-pass-source-strip"/)
@@ -61,10 +59,8 @@ test('second pass secondary management pages keep the same visual pass and sourc
 
 test('system settings exposes the thirteen-workshop and MES mapping cockpit in the same visual language', () => {
   assert.match(systemSettings, /data-visual-pass="stitch-image2-second-pass"/)
-  assert.match(systemSettings, /data-testid="second-pass-source-strip"/)
-  assert.match(systemSettings, /MES 外部数据/)
-  assert.match(systemSettings, /人工填报/)
-  assert.match(systemSettings, /算法数据/)
+  assert.doesNotMatch(systemSettings, /second-pass-source-strip/)
+  assert.doesNotMatch(systemSettings, />MES 外部数据</)
   assert.match(systemSettings, /十三车间/)
   assert.match(systemSettings, /别名映射/)
   assert.match(systemSettings, /机列台账/)
@@ -88,12 +84,8 @@ test('dark command surface tokens stay removed after the paper redesign', () => 
     assert.doesNotMatch(tokens, new RegExp(`${token}:`), `unexpected ${token}`)
   }
 
-  assert.match(hud, /--xt-hud-source-strip-bg:/)
-  assert.match(hud, /--xt-hud-source-strip-border:/)
-  assert.match(hud, /\.xt-second-pass-source-strip/)
-  assert.match(hud, /\.xt-second-pass-source-strip__item/)
-  assert.match(industrial, /\.xt-second-pass-source-strip/)
-  assert.match(industrial, /\.xt-second-pass-source-strip__item/)
+  assert.doesNotMatch(hud, /xt-second-pass-source-strip|--xt-hud-source-strip/)
+  assert.doesNotMatch(industrial, /xt-second-pass-source-strip/)
 })
 
 test('mobile entry shell prefers stable field readability over decorative infinite sweep effects', () => {
