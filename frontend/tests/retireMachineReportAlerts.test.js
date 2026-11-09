@@ -61,3 +61,11 @@ test('a machine is not flagged because nobody filled it in', () => {
 
   assert.deepEqual(tones, { A: 'success', B: 'muted' })
 })
+
+test('unfilled owner alerts never show the raw status code', () => {
+  const events = normalizeLiveMissingReports({
+    owner_daily_status: { items: [{ role_label: '内勤', status: 'not_started' }] },
+  }, '2026-11-08')
+
+  assert.equal(events[0].detail, '待提交')
+})

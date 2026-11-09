@@ -295,7 +295,7 @@ export function normalizeLiveMissingReports(payload, targetDate) {
         row.person_name || row.username,
         row.workshop_name,
       ], ' · ')}`,
-      detail: row.status_label || row.status || '待提交',
+      detail: row.status_label || '待提交',
       detailRoute: REPORTING_ROUTE,
       status: 'open',
     })

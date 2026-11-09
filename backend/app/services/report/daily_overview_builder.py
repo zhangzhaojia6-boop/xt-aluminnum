@@ -419,9 +419,9 @@ def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str
     all_ids = (set(today_scope) | set(yesterday_scope) | set(monthly_scope)) & set(ws_map)
     for wid in sorted(all_ids, key=lambda w: -(today.get(w) or 0)):
         name = ws_map.get(wid, f'车间{wid}')
-        d = _round2(today.get(wid, 0))
-        m = _round2(monthly.get(wid, 0))
-        yd = _round2(yesterday.get(wid, 0))
+        d = _round2(today.get(wid))
+        m = _round2(monthly.get(wid))
+        yd = _round2(yesterday.get(wid))
         today_payload = today_scope.get(wid, {})
         rows.append({
             'workshop_id': wid,

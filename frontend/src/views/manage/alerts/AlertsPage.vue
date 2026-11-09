@@ -205,6 +205,7 @@ const OWNER_ROLE_LABELS = {
   energy_chief: '全厂总电工',
   shipment_outflow_owner: '园区剪切内勤',
   overhaul_owner: '大修内勤',
+  recovery_owner: '回收内勤',
   storage_owner: '成品库内勤',
   planning_owner: '计划内勤',
   quality_owner: '质检内勤',
