@@ -13,6 +13,7 @@ from app.domain.daily_report_field_contract import daily_report_field_contract_f
 from app.domain.metric_contracts import daily_report_contract_for
 from app.models.agent_communication import AgentEvent, AgentOutboxMessage
 from app.models.reports import DailyFactBundleRun, DailyFactBundleSnapshot
+from app.domain.daily_report_field_names import DAILY_REPORT_FIELD_LABELS
 from app.services.report.daily_report_gap_analysis import (
     build_daily_report_gap_action_route,
     build_daily_report_gap_plan,
@@ -182,6 +183,14 @@ def _latest_daily_fact_snapshot(
     )
 
 
+def _gap_event_summary(field: str, status: str, payload: Mapping[str, Any]) -> str:
+    label = DAILY_REPORT_FIELD_LABELS.get(field)
+    if not label:
+        return str(payload.get("summary") or f"{field} 缺少可信事实")
+    # 旧记录存的是「能源字段」这样的大类标题，读取时按字段重新生成。
+    return f"{label} {'已补齐可信事实' if status == 'resolved' else '缺少可信事实'}"
+
+
 def _fact_conflict_alerts(conflicts: Any, *, target_date: date) -> list[dict[str, Any]]:
     alerts: list[dict[str, Any]] = []
     if not isinstance(conflicts, list):
@@ -196,7 +205,7 @@ def _fact_conflict_alerts(conflicts: Any, *, target_date: date) -> list[dict[str
         item.setdefault("status", "mismatch")
         item["trace_id"] = trace_id
         item["target_date"] = target_date.isoformat()
-        item.setdefault("summary", f"{field} 事实冲突")
+        item.setdefault("summary", f"{DAILY_REPORT_FIELD_LABELS.get(field, field)} 事实冲突")
         item["detail_route"] = _alerts_route(trace_id)
         alerts.append(item)
     return alerts
@@ -222,7 +231,7 @@ def _fact_missing_alerts(closure: Mapping[str, Any], *, target_date: date) -> li
                 "id": f"{field}:{raw.get('status')}",
                 "trace_id": trace_id,
                 "target_date": target_date.isoformat(),
-                "summary": f"{field} 缺少可信事实",
+                "summary": f"{DAILY_REPORT_FIELD_LABELS.get(field, field)} 缺少可信事实",
                 "entry_route": gap_action["entry_route"],
                 "fill_strategy": gap_action["fill_strategy"],
                 "owner_role": gap_action["owner_role"],
@@ -331,7 +340,7 @@ def _fact_gap_event_alerts(
                 "trace_id": trace_id,
                 "target_date": target_date.isoformat(),
                 "occurred_at": event.occurred_at.isoformat() if event.occurred_at is not None else None,
-                "summary": str(payload.get("summary") or f"{field} 缺少可信事实"),
+                "summary": _gap_event_summary(field, event.status, payload),
                 "next_step": str(payload.get("next_step") or "请负责人补充可信事实并保留来源。"),
                 "entry_route": entry_route,
                 "fill_strategy": fill_strategy,

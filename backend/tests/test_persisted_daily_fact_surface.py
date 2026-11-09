@@ -335,7 +335,7 @@ def test_snapshot_conflicts_and_missing_facts_become_fact_alerts(db_session: Ses
         "source": "mes_packaging_output",
         "trace_id": "trace-conflict-output",
         "target_date": TARGET_DATE.isoformat(),
-        "summary": "total_output_daily 事实冲突",
+        "summary": "全厂总产量 事实冲突",
         "detail_route": "/manage/alerts?trace_id=trace-conflict-output",
     }]
     assert [item["field"] for item in payload["fact_missing"]] == ["total_electricity_kwh"]
@@ -416,7 +416,7 @@ def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session
         payload={
             "field": "total_electricity_kwh",
             "fact_status": "missing",
-            "summary": "全厂高压总用电量缺少可信事实",
+            "summary": "全厂高压总用电量 缺少可信事实",
             "entry_route": "/entry/fill",
             "fill_strategy": "owner_daily",
             "owner_role": "energy_chief",
@@ -453,7 +453,7 @@ def test_open_fact_event_drives_existing_alert_to_existing_fill_route(db_session
         "trace_id": "daily-fact-closure:2026-07-07",
         "target_date": TARGET_DATE.isoformat(),
         "occurred_at": event.occurred_at.isoformat(),
-        "summary": "全厂高压总用电量缺少可信事实",
+        "summary": "全厂高压总用电量 缺少可信事实",
         "next_step": "请电工扫码补录或提交钉钉能耗表。",
         "entry_route": "/entry/fill",
         "fill_strategy": "owner_daily",
@@ -500,7 +500,7 @@ def test_legacy_fact_gap_event_payload_falls_back_to_contract_defaults(db_sessio
     assert len(payload["fact_missing"]) == 1
     alert = payload["fact_missing"][0]
     assert alert["field"] == "finished_inbound_daily"
-    assert alert["summary"] == "成品入库量缺少可信事实"
+    assert alert["summary"] == "成品入库量 缺少可信事实"
     assert alert["entry_route"] == "/entry/fill"
     assert alert["owner_role"] == "storage_owner"
     assert alert["entry_fields"] == ["park_inbound_daily", "new_plant_inbound_daily"]
@@ -514,6 +514,28 @@ def test_legacy_fact_gap_event_payload_falls_back_to_contract_defaults(db_sessio
         "&owner_role=storage_owner"
         "&trace_id=trace-legacy-gap"
     )
+
+
+def test_stored_group_title_is_replaced_by_the_exact_field_name(db_session: Session) -> None:
+    db_session.add(AgentEvent(
+        event_type="daily_fact_gap",
+        severity="warning",
+        status="open",
+        scope_type="factory",
+        source_type="daily_fact_closure",
+        source_ref=f"daily_fact_gap:{TARGET_DATE.isoformat()}:cast_2_gas_m3",
+        business_date=TARGET_DATE,
+        occurred_at=datetime(2026, 7, 8, 8, 5, tzinfo=SHANGHAI),
+        payload={
+            "field": "cast_2_gas_m3",
+            "fact_status": "missing",
+            "summary": "能源字段 缺少可信事实",
+            "last_checked_trace_id": "trace-group-title",
+        },
+    ))
+    db_session.commit()
+
+    assert _overview(db_session)["fact_missing"][0]["summary"] == "铸二用气 缺少可信事实"
 
 
 def test_template_only_fact_missing_alert_uses_payload_contract_provenance() -> None:
@@ -536,7 +558,7 @@ def test_template_only_fact_missing_alert_uses_payload_contract_provenance() -> 
         "contract_version": "task1-template-contract",
         "id": "recovery_daily:missing",
         "target_date": TARGET_DATE.isoformat(),
-        "summary": "recovery_daily 缺少可信事实",
+        "summary": "回收车间日产量 缺少可信事实",
         "entry_route": "/entry/fill",
         "fill_strategy": "owner_daily",
         "owner_role": "recovery_owner",

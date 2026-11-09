@@ -26,6 +26,7 @@ from app.services.report.daily_report_gap_analysis import (
     build_daily_report_gap_action_route,
     classify_daily_report_field_gap,
 )
+from app.domain.daily_report_field_names import DAILY_REPORT_FIELD_LABELS
 from app.services.report.template_daily_report import FACT_LABELS
 
 EVENT_TYPE = "daily_fact_gap"
@@ -37,13 +38,6 @@ OUTBOX_DEDUPE_MINUTES = 31 * 24 * 60
 REGISTERED_SOURCE_WAIT_UNTIL = time(10, 0)
 REGISTERED_SOURCE_LOOKBACK = timedelta(days=14)
 DELIVERY_STATUS_PRIORITY = ("dead_letter", "retrying", "pending", "failed", "sent", "dry_run")
-CORE_FIELD_LABELS = {
-    "total_output_daily": "全厂总产量",
-    "finished_inbound_daily": "成品入库量",
-    "wip_total": "在制料总量",
-    "total_electricity_kwh": "全厂高压总用电量",
-    "daily_yield_rate": "日成品率",
-}
 GROUP_LABELS = {
     "opening": "日报总览",
     "workshop_output": "车间产量",
@@ -845,7 +839,7 @@ def _supervisor_action_route(*, business_date: date, trace_id: str) -> str:
 
 
 def _field_label(field: str) -> str:
-    known_label = CORE_FIELD_LABELS.get(field) or FACT_LABELS.get(field)
+    known_label = DAILY_REPORT_FIELD_LABELS.get(field) or FACT_LABELS.get(field)
     if known_label:
         return str(known_label)
     group = classify_daily_report_field_gap(field)["group"]
