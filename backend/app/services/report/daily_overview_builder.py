@@ -130,7 +130,8 @@ def _process_row_pass_count(row: MesWorkshopProcessRecord) -> int:
     for key in ('pass_count', 'passes', '道次'):
         if payload.get(key) not in (None, ''):
             return int(_to_float(payload.get(key)))
-    return 1
+    # MES 没记道次时不能按记录条数算
+    return 0
 
 
 def _mes_input_tons(row: MesWorkshopProcessRecord) -> float:
@@ -229,7 +230,6 @@ def _query_mes_material_output_scope_by_workshop(db: Session, start: date, end: 
         bucket['input'] += output_weight
         bucket['output'] += output_weight
         bucket['process_output'] += output_weight
-        bucket['pass_count_total'] += 1
         line_key = str(row.line_name or '').strip() or '未分机列'
         stage_outputs = bucket['process_stage_outputs']
         stage_outputs[line_key] = stage_outputs.get(line_key, 0.0) + output_weight
