@@ -405,8 +405,9 @@ function customerContractText(coil) {
 }
 
 function materialSummary(coil) {
+  const materialCode = coil?.material_code && coil.material_code !== coil?.tracking_card_no ? coil.material_code : ''
   const parts = [
-    coil?.material_code || coil?.alloy_grade,
+    materialCode || coil?.alloy_grade,
     coil?.material_state,
     coil?.spec_display,
   ].filter(Boolean)
@@ -420,7 +421,9 @@ function specText(coil) {
 }
 
 function statusText(coil) {
-  const parts = [coil?.status_name, coil?.card_status_name, coil?.production_status].filter(Boolean)
+  // MES 的数字状态码和布尔标记没有对照表，不能当状态名显示
+  const parts = [coil?.status_name, coil?.card_status_name, coil?.production_status]
+    .filter((value) => value && !/^(\d+|true|false)$/i.test(String(value).trim()))
   return parts.length ? parts.join(' / ') : '状态未同步'
 }
 
@@ -993,7 +996,7 @@ load()
   }
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1280px) {
   .xt-coils__layout {
     grid-template-columns: 1fr;
   }

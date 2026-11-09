@@ -54,7 +54,7 @@
               </td>
               <td class="is-num is-strong">
                 <span>{{ fmt(row.totalOutput, 2) }}</span>
-                <small>吨</small>
+                <small v-if="row.totalOutput != null">吨</small>
               </td>
               <td class="is-num" :class="row.compareTone ? `tone-${row.compareTone}` : ''">
                 <template v-if="row.compareValue == null">—</template>
@@ -128,6 +128,12 @@ function sumDailyWorkshopOutput(rows = []) {
   return hasValue ? total : null
 }
 
+// 有在执行合同却算出 0，是工单没填合同余量，不是没有缺口
+function contractGapKnown(estimate) {
+  if (estimate.remaining_weight == null) return false
+  return Number(estimate.remaining_weight) !== 0 || !Number(estimate.active_contract_count)
+}
+
 const rawKpiItems = computed(() => {
   const lm = snapshot.leaderMetrics.value
   const trend = snapshot.trend.value
@@ -152,7 +158,7 @@ const rawKpiItems = computed(() => {
       status: marginReady ? null : 'muted',
       hint: marginReady ? null : '估算未就绪'
     },
-    { key: 'gap', label: '合同缺口', value: me.remaining_weight == null ? '—' : Number(me.remaining_weight).toFixed(0), unit: '吨' },
+    { key: 'gap', label: '合同缺口', value: contractGapKnown(me) ? Number(me.remaining_weight).toFixed(0) : '—', unit: '吨' },
     { key: 'energy', label: '日吨能耗', value: fmt(lm.energy_per_ton, 1), unit: 'kWh/吨' }
   ]
 })
@@ -165,11 +171,11 @@ const rawRankedRows = computed(() => {
       const compare = r.delta_vs_yesterday == null ? null : Number(r.delta_vs_yesterday)
       const compareTone = compare == null ? null : (compare > 0 ? 'positive' : compare < 0 ? 'negative' : null)
       const compareArrow = compare == null ? '' : (compare > 0 ? '↑' : compare < 0 ? '↓' : '')
-      const totalOutput = Number(r.total_output || 0)
+      const totalOutput = r.total_output == null ? null : Number(r.total_output)
       const targetValue = r.target_value == null ? null : Number(r.target_value)
       const progress = targetValue && targetValue > 0
-        ? Math.min(Math.max((totalOutput / targetValue) * 100, 8), 100)
-        : Math.min(Math.max(totalOutput, 8), 100)
+        ? Math.min(Math.max(((totalOutput || 0) / targetValue) * 100, 8), 100)
+        : Math.min(Math.max(totalOutput || 0, 8), 100)
       return {
         key: r.workshop_id ?? r.workshop_name ?? i,
         rank: i + 1,
@@ -189,7 +195,7 @@ const rawLeadingRow = computed(() => rawRankedRows.value[0] || null)
 
 const rawLeadingWorkshopText = computed(() => {
   const row = rawLeadingRow.value
-  return row ? `${row.name} ${fmt(row.totalOutput, 2)} 吨` : '暂无车间数据'
+  return row?.totalOutput != null ? `${row.name} ${fmt(row.totalOutput, 2)} 吨` : '暂无车间数据'
 })
 
 const rawProductionBrief = computed(() => {
@@ -198,7 +204,7 @@ const rawProductionBrief = computed(() => {
   return [
     { key: 'workshops', label: '参与车间', value: `${rawRankedRows.value.length} 个` },
     { key: 'leader', label: '当前最高', value: rawLeadingWorkshopText.value },
-    { key: 'gap', label: '合同缺口', value: me.remaining_weight == null ? '—' : `${Number(me.remaining_weight).toFixed(0)} 吨` },
+    { key: 'gap', label: '合同缺口', value: contractGapKnown(me) ? `${Number(me.remaining_weight).toFixed(0)} 吨` : '—' },
     { key: 'energy', label: '日吨能耗', value: lm.energy_per_ton == null ? '—' : `${fmt(lm.energy_per_ton, 1)} kWh/吨` }
   ]
 })
