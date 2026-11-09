@@ -17,6 +17,7 @@
           <span :class="`energy-center__status-dot energy-center__status-dot--${statusBar.tone}`"></span>
           <strong>{{ statusBar.syncStatus }}</strong>
           <small>{{ statusBar.businessDate || '-' }} / {{ statusBar.rowCount }} 条</small>
+          <small v-if="showLatestEnergyDate" data-testid="energy-latest-data-date">最后有数据 {{ latestEnergyDate }}</small>
           <small>页面刷新 {{ statusBar.updatedAt || '-' }}</small>
         </div>
         <DateSwitcher
@@ -187,15 +188,16 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 
-import { fetchEnergySummary } from '../../api/energy'
+import { fetchEnergyLatestDataDate, fetchEnergySummary } from '../../api/energy'
 import DateSwitcher from '../../components/manage/DateSwitcher.vue'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import { formatShiftLabel } from '../../utils/display'
 import { inferLastCompletedBusinessDate } from '../../utils/shiftClock'
-import { buildEnergyStitchSurface } from '../../utils/stitchManageSurface.js'
+import { buildEnergyStitchSurface, formatEnergySourceLabel } from '../../utils/stitchManageSurface.js'
 import { normalizeWorkshopName } from '../../utils/activeWorkshops.js'
 
 const WORKSHOP_CODE_LABELS = {
+  FACTORY: '全厂',
   ZD: '铸锭',
   ZR2: '铸二',
   ZR3: '铸三',
@@ -230,6 +232,7 @@ const rows = ref([])
 const loading = ref(false)
 const errorText = ref('')
 const updatedAt = ref('')
+const latestEnergyDate = ref('')
 
 const rawEnergyStats = computed(() => [
   { key: 'electricity', label: '电耗', value: formatStat(sumBy('electricity_value')), unit: 'kWh', accent: 'cyan' },
@@ -250,6 +253,9 @@ const stitchSurface = computed(() => buildEnergyStitchSurface({
   },
 }))
 const statusBar = computed(() => stitchSurface.value.statusBar)
+const showLatestEnergyDate = computed(() => (
+  !loading.value && !errorText.value && statusBar.value.rowCount === 0 && Boolean(latestEnergyDate.value)
+))
 const energyStats = computed(() => stitchSurface.value.kpiStrip)
 const energyRows = computed(() => stitchSurface.value.detailRows)
 const eventRailItems = computed(() => stitchSurface.value.eventRail)
@@ -300,16 +306,6 @@ function formatWorkshopLabel(value) {
   return ENERGY_WORKSHOP_DISPLAY_LABELS[normalized] || normalized
 }
 
-function formatEnergySourceLabel(row = {}) {
-  if (row.source_label) return row.source_label
-  if (row.source === 'mes_packaging_output_basis') return '全厂包装'
-  if (row.source === 'iot_shadow') return '物联网采集'
-  if (row.source === 'mobile_shift_report') return '电工填报'
-  if (row.source === 'owner_only') return '内勤填报'
-  if (row.source === 'energy_import') return '旧导入'
-  return row.source || '-'
-}
-
 function formatSourceUpdatedAt(value) {
   if (!value) return '-'
   const parsed = dayjs(value)
@@ -330,6 +326,14 @@ function resolveEnergyErrorText(error) {
   if (status === 401) return '请先登录后查看能耗数据'
   if (status === 403) return '无权限查看能耗数据'
   return error?.response?.data?.detail || error?.message || '能耗数据加载失败'
+}
+
+async function loadLatestEnergyDate() {
+  try {
+    latestEnergyDate.value = await fetchEnergyLatestDataDate()
+  } catch {
+    latestEnergyDate.value = ''
+  }
 }
 
 async function load() {
@@ -361,6 +365,7 @@ function handleBusinessDatePick(value) {
 }
 
 onMounted(load)
+onMounted(loadLatestEnergyDate)
 </script>
 
 <style scoped>

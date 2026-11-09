@@ -6,7 +6,7 @@ from decimal import Decimal
 import math
 
 from fastapi import UploadFile
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
@@ -382,6 +382,23 @@ def _prefer_machine_detail_total(report_value, detail_value) -> float:
     return report_num or 0.0
 
 
+def _owner_energy_values(extra_payload: dict | None) -> tuple[float, float, float]:
+    payload = dict(extra_payload or {})
+    electricity_value = _to_float(payload.get('total_electricity_kwh'))
+    if electricity_value is None:
+        electricity_value = (_to_float(payload.get('new_plant_electricity_kwh')) or 0.0) + (
+            _to_float(payload.get('park_electricity_kwh')) or 0.0
+        )
+    gas_value = _to_float(payload.get('total_gas_m3'))
+    if gas_value is None:
+        gas_value = sum(
+            _to_float(payload.get(field_name)) or 0.0
+            for field_name in ('cast_roll_gas_m3', 'smelting_gas_m3', 'heating_furnace_gas_m3', 'boiler_gas_m3')
+        )
+    water_value = (_to_float(payload.get('groundwater_ton')) or 0.0) + (_to_float(payload.get('tap_water_ton')) or 0.0)
+    return electricity_value, gas_value, water_value
+
+
 def _load_owner_only_energy_rows(
     db: Session,
     *,
@@ -408,19 +425,7 @@ def _load_owner_only_energy_rows(
     for entry, workshop in rows:
         if target_workshop_code and workshop.code != target_workshop_code:
             continue
-        payload = dict(entry.extra_payload or {})
-        electricity_value = _to_float(payload.get('total_electricity_kwh'))
-        if electricity_value is None:
-            electricity_value = (_to_float(payload.get('new_plant_electricity_kwh')) or 0.0) + (
-                _to_float(payload.get('park_electricity_kwh')) or 0.0
-            )
-        gas_value = _to_float(payload.get('total_gas_m3'))
-        if gas_value is None:
-            gas_value = sum(
-                _to_float(payload.get(field_name)) or 0.0
-                for field_name in ('cast_roll_gas_m3', 'smelting_gas_m3', 'heating_furnace_gas_m3', 'boiler_gas_m3')
-            )
-        water_value = (_to_float(payload.get('groundwater_ton')) or 0.0) + (_to_float(payload.get('tap_water_ton')) or 0.0)
+        electricity_value, gas_value, water_value = _owner_energy_values(entry.extra_payload)
         if not any(value for value in (electricity_value, gas_value, water_value)):
             continue
 
@@ -641,6 +646,65 @@ def _with_mes_packaging_output_basis(
             'source_label': '全厂包装',
         },
     ]
+
+
+def latest_energy_data_date(db: Session, *, workshop_id: int | None = None) -> date | None:
+    imported = db.query(func.max(EnergyImportRecord.business_date)).filter(
+        EnergyImportRecord.energy_value.is_not(None),
+        EnergyImportRecord.energy_value != 0,
+    )
+    if workshop_id:
+        imported = imported.filter(EnergyImportRecord.workshop_code == _workshop_code_map(db).get(workshop_id))
+
+    collected = db.query(func.max(IotEnergySnapshot.business_date)).filter(
+        or_(
+            func.coalesce(IotEnergySnapshot.electricity_kwh, 0) != 0,
+            func.coalesce(IotEnergySnapshot.gas_m3, 0) != 0,
+            func.coalesce(IotEnergySnapshot.water_m3, 0) != 0,
+        )
+    )
+    if workshop_id:
+        collected = collected.filter(IotEnergySnapshot.workshop_id == workshop_id)
+
+    reported = (
+        db.query(func.max(MobileShiftReport.business_date))
+        .outerjoin(MachineEnergyRecord, MachineEnergyRecord.shift_report_id == MobileShiftReport.id)
+        .filter(
+            MobileShiftReport.report_status.in_(('submitted', 'approved', 'auto_confirmed')),
+            or_(
+                func.coalesce(MobileShiftReport.electricity_daily, 0) != 0,
+                func.coalesce(MobileShiftReport.gas_daily, 0) != 0,
+                func.coalesce(MachineEnergyRecord.energy_kwh, 0) != 0,
+                func.coalesce(MachineEnergyRecord.gas_m3, 0) != 0,
+            ),
+        )
+    )
+    if workshop_id:
+        reported = reported.filter(MobileShiftReport.workshop_id == workshop_id)
+
+    owner_entries = db.query(WorkOrderEntry.business_date, WorkOrderEntry.extra_payload).filter(
+        WorkOrderEntry.entry_type == 'owner_daily',
+        WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
+    )
+    if workshop_id:
+        owner_entries = owner_entries.filter(WorkOrderEntry.workshop_id == workshop_id)
+    owner_date = next(
+        (
+            business_date
+            for business_date, payload in owner_entries.order_by(WorkOrderEntry.business_date.desc())
+            if any(_owner_energy_values(payload))
+        ),
+        None,
+    )
+
+    dates = [imported.scalar(), reported.scalar(), owner_date]
+    try:
+        dates.append(collected.scalar())
+    except (OperationalError, ProgrammingError) as error:
+        if not _is_missing_iot_shadow_table(error):
+            raise
+        db.rollback()
+    return max((item for item in dates if item is not None), default=None)
 
 
 def get_energy_summary(

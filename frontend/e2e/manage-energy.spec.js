@@ -7,6 +7,7 @@ const energyRows = [
     business_date: '2026-06-05',
     workshop_code: '精整车间',
     shift_code: 'day',
+    source: 'mobile_shift_report',
     electricity_value: 1200,
     gas_value: 320,
     water_value: 18,
@@ -18,6 +19,7 @@ const energyRows = [
     business_date: '2026-06-05',
     workshop_code: '拉矫车间',
     shift_code: 'night',
+    source: 'mobile_shift_report',
     electricity_value: 300,
     gas_value: 120,
     water_value: 8,
@@ -199,7 +201,7 @@ test.describe('manage energy center Stitch surface', () => {
       await expect(flow.locator('.energy-center__flow-stage', { hasText: /^采集$/ })).toHaveCount(3)
       await expect(flow.locator('.energy-center__flow-stage', { hasText: /^折算$/ })).toBeVisible()
       await expect(flow.locator('.energy-center__flow-stage', { hasText: /^校核$/ })).toBeVisible()
-      await expect(flow.getByText('能耗汇总接口').first()).toBeVisible()
+      await expect(flow.getByText('电工填报').first()).toBeVisible()
       await expect(flow.getByText('算法汇总')).toBeVisible()
       await expect(flow.getByText('能耗明细字段')).toBeVisible()
       await expect(flow.locator('.energy-center__flow-card--result')).toBeVisible()
@@ -287,4 +289,16 @@ test.describe('manage energy center Stitch surface', () => {
     await expect(page.getByTestId('energy-center-status-bar')).toContainText(expectedDate)
     await expectNoHorizontalOverflow(page)
   })
+})
+
+test('manage energy center names the last day with data when the selected day has none', async ({ page }) => {
+  await page.route('**/api/v1/energy/latest-data-date', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ business_date: '2026-09-02' }),
+  }))
+
+  await openEnergyCenter(page, { scenario: 'empty', viewport: { width: 1440, height: 900 } })
+
+  await expect(page.getByTestId('energy-latest-data-date')).toHaveText('最后有数据 2026-09-02')
 })

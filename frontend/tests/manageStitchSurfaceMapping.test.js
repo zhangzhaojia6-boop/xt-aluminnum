@@ -400,6 +400,7 @@ test('energy Stitch surface preserves energy KPIs, detail rows and source status
       total_energy: 660,
       output_weight: 34,
       energy_per_ton: 19.41,
+      source: 'mobile_shift_report',
     },
     {
       business_date: '2026-06-05',
@@ -411,6 +412,7 @@ test('energy Stitch surface preserves energy KPIs, detail rows and source status
       total_energy: 220,
       output_weight: 11,
       energy_per_ton: 20,
+      source: 'mobile_shift_report',
     },
   ]
 
@@ -442,7 +444,7 @@ test('energy Stitch surface preserves energy KPIs, detail rows and source status
   ])
   assert.deepEqual(surface.energyFlow.map((item) => item.stage), ['采集', '采集', '采集', '折算', '校核'])
   assert.deepEqual(surface.energyFlow.map((item) => item.icon), ['meter', 'flame', 'water', 'converter', 'gauge'])
-  assert.equal(surface.energyFlow.find((item) => item.key === 'electricity-input')?.source, '能耗汇总接口')
+  assert.equal(surface.energyFlow.find((item) => item.key === 'electricity-input')?.source, '电工填报')
   assert.equal(surface.energyFlow.find((item) => item.key === 'total-output')?.label, '综合折算')
   assert.equal(surface.energyFlow.find((item) => item.key === 'total-output')?.tone, 'result')
   assert.equal(surface.energyFlow.find((item) => item.key === 'total-output')?.emphasis, 'endpoint')
@@ -463,7 +465,7 @@ test('energy Stitch surface preserves energy KPIs, detail rows and source status
   assert.deepEqual(surface.bottomStatus, [
     { key: 'system', label: '系统状态', value: '已同步', tone: 'success' },
     { key: 'energy', label: '能耗明细', value: '2 条', tone: 'success' },
-    { key: 'source', label: '数据来源', value: '能耗汇总接口', tone: 'success' },
+    { key: 'source', label: '数据来源', value: '电工填报', tone: 'success' },
     { key: 'updated-at', label: '页面刷新', value: '08:30:00', tone: 'success' },
   ])
 })
@@ -489,6 +491,64 @@ test('energy Stitch surface exposes loading, empty and error states without chan
   assert.equal(failed.bottomStatus[0].tone, 'danger')
   assert.equal(failed.eventRail[0].title, '能耗数据需核查')
   assert.equal(failed.eventRail[0].value, '能耗数据加载失败')
+})
+
+test('energy surface does not call an output-only day synced', () => {
+  const surface = buildEnergyStitchSurface({
+    targetDate: '2026-11-08',
+    detailRows: [{
+      workshop_code: 'FACTORY',
+      electricity_value: null,
+      gas_value: null,
+      water_value: null,
+      total_energy: null,
+      output_weight: 319.85,
+      source: 'mes_packaging_output_basis',
+      source_label: '全厂包装',
+      business_date: '2026-11-08',
+    }],
+    runtimeState: { updatedAt: '16:53:00' },
+  })
+
+  assert.equal(surface.statusBar.syncStatus, '无能耗数据')
+  assert.equal(surface.statusBar.tone, 'warning')
+  assert.equal(surface.statusBar.rowCount, 0)
+  assert.equal(surface.eventRail[0].title, '当日无能耗数据')
+  assert.equal(surface.eventRail.find((item) => item.key === 'output-top')?.value, '全厂 319.85 吨')
+  assert.equal(surface.bottomStatus.find((item) => item.key === 'energy')?.value, '0 条')
+  assert.equal(surface.bottomStatus.find((item) => item.key === 'source')?.value, '无来源')
+  assert.deepEqual([...new Set(surface.energyFlow.map((item) => item.source))], ['无来源'])
+})
+
+test('energy surface does not count zero placeholders as energy data', () => {
+  const surface = buildEnergyStitchSurface({
+    detailRows: [{
+      workshop_code: '精整',
+      electricity_value: 0,
+      gas_value: 0,
+      water_value: 0,
+      total_energy: 0,
+      source: 'mobile_shift_report',
+    }],
+  })
+
+  assert.equal(surface.statusBar.syncStatus, '无能耗数据')
+  assert.equal(surface.bottomStatus.find((item) => item.key === 'source')?.value, '无来源')
+})
+
+test('energy surface names the real source of each metric', () => {
+  const surface = buildEnergyStitchSurface({
+    detailRows: [
+      { workshop_code: '精整', electricity_value: 10, gas_value: null, source: 'mobile_shift_report' },
+      { workshop_code: '拉矫', electricity_value: 5, gas_value: 3, source: 'energy_import' },
+    ],
+  })
+  const flow = Object.fromEntries(surface.energyFlow.map((item) => [item.key, item.source]))
+
+  assert.equal(flow['electricity-input'], '电工填报、旧导入')
+  assert.equal(flow['gas-input'], '旧导入')
+  assert.equal(flow['water-input'], '无来源')
+  assert.equal(surface.bottomStatus.find((item) => item.key === 'source')?.value, '电工填报、旧导入')
 })
 
 test('today, live, production, fill details and energy pages consume the Stitch surface mapping layer before visual rendering', () => {
