@@ -658,6 +658,39 @@ def test_refresh_keeps_first_wip_captured_after_the_business_day_cutoff(
     assert refreshed["facts"]["wip_total"]["source_detail"]["business_window"].startswith("2026-11-01T07:59:00")
 
 
+def test_refresh_keeps_captured_wip_when_the_rebuild_only_has_an_unread_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    from app.services.report import daily_fact_bundle
+
+    live: dict[str, object] = {"wip_total": 223.5, "captured_at": "2026-11-08T08:02:06+08:00"}
+    _stub_captured_wip_template(monkeypatch, live)
+    _scheduled_bundle(db_session, date(2026, 11, 7))
+    first_snapshot_id = db_session.query(DailyFactBundleSnapshot).one().id
+
+    def rebuilt_after_live_rows_moved_on(db, *, target_date, wip_date=None, **_kwargs):
+        return {
+            "values": {"total_output_daily": 511.35, "wip_total": 0.0},
+            "sources": {
+                "total_output_daily": {"source_type": "mes_packaging_output"},
+                "wip_total": {"source_type": "mes_wip_total_snapshot", "business_date": "2026-11-01"},
+            },
+            "missing_fields": [],
+            "conflicts": [],
+        }
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        rebuilt_after_live_rows_moved_on,
+    )
+    refreshed = _scheduled_bundle(db_session, date(2026, 11, 7))
+
+    assert refreshed["facts"]["wip_total"]["value"] == 223.5
+    assert refreshed["facts"]["wip_total"]["carried_over_from_snapshot_id"] == first_snapshot_id
+
+
 def test_refresh_uses_live_wip_when_it_is_still_available(
     monkeypatch: pytest.MonkeyPatch,
     db_session: Session,
