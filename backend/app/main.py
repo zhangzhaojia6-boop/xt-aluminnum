@@ -12,7 +12,6 @@ from app.agents.aggregator import aggregator_agent
 from app.agents.aluminum_price_fetcher import aluminum_price_fetcher_agent
 from app.agents.cost_aggregator import cost_aggregator_agent
 from app.agents.profit_snapshot import profit_snapshot_agent
-from app.agents.reminder import reminder_agent
 from app.config import settings
 from app.core import event_bus as event_bus_service
 from app.core import health as health_service
@@ -85,16 +84,6 @@ async def lifespan(_: FastAPI):
                     aggregator_agent.logger.exception('Aggregator failed')
                     return
 
-        def _run_reminder_sweep():
-            """每30分钟检查未提交的班次"""
-            with session_factory() as session:
-                try:
-                    reminder_agent.execute(db=session, target_date=health_service.current_business_date())
-                    session.commit()
-                except Exception:
-                    session.rollback()
-                    reminder_agent.logger.exception('Reminder failed')
-
         def _run_schedule_seed():
             from app.services.pilot_schedule_seed import seed_default_pilot_schedule
 
@@ -145,15 +134,6 @@ async def lifespan(_: FastAPI):
             'interval',
             hours=1,
             id='deterministic_pipeline',
-            replace_existing=True,
-            coalesce=True,
-            max_instances=1,
-        )
-        scheduler.add_job(
-            _run_reminder_sweep,
-            'interval',
-            minutes=30,
-            id='reminder_sweep',
             replace_existing=True,
             coalesce=True,
             max_instances=1,
