@@ -38,6 +38,8 @@ function formatColorViolations(violations) {
 }
 
 async function expectNoColorContrastViolations(page, scope, name) {
+  // 进场淡入途中的半透明色不是页面的真实颜色
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   let results
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
