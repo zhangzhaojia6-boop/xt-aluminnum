@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the data hub daily backup at 02:30
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+Unit=xintai-daily-backup.service
+
+[Install]
+WantedBy=timers.target
