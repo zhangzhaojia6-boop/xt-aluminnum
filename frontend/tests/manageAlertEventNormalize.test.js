@@ -194,7 +194,7 @@ test('groupAlertEvents groups MES batch rows only when the action identity match
   const raw = normalizeMesFillGaps({
     items: [
       {
-        status: 'mes_batch_unmapped',
+        status: 'weight_mismatch',
         workshop_id: 9,
         workshop_name: '精整车间',
         mes_machine_name: 'PC',
@@ -203,7 +203,7 @@ test('groupAlertEvents groups MES batch rows only when the action identity match
         batch_no: 'B-001',
       },
       {
-        status: 'mes_batch_unmapped',
+        status: 'weight_mismatch',
         workshop_id: 9,
         workshop_name: '精整车间',
         mes_machine_name: 'PC',
@@ -212,7 +212,7 @@ test('groupAlertEvents groups MES batch rows only when the action identity match
         batch_no: 'B-002',
       },
       {
-        status: 'mes_batch_unmapped',
+        status: 'weight_mismatch',
         workshop_id: 9,
         workshop_name: '精整车间',
         mes_machine_name: 'PC',

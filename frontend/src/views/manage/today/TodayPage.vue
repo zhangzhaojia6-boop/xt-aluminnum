@@ -13,17 +13,6 @@
       </div>
 
       <div class="xt-today__top-actions">
-        <button
-          v-if="reportingStatus.length"
-          type="button"
-          class="xt-today__filer-badge"
-          :class="`tone-${rosterTone}`"
-          @click="rosterOpen = !rosterOpen"
-          :aria-expanded="rosterOpen"
-        >
-          填报 <b>{{ rosterCounts.reported }}</b>/{{ rosterCounts.total }} 车间
-          <span v-if="rosterCounts.unreported > 0" class="xt-today__filer-pending">未报 {{ rosterCounts.unreported }}</span>
-        </button>
         <DateSwitcher
           :model-value="snapshot.targetDate.value"
           :loading="snapshot.loading.value"
@@ -117,16 +106,6 @@
           <el-icon><ArrowRight /></el-icon>
         </RouterLink>
 
-        <section class="xt-today__shift-card">
-          <h3>三班填报</h3>
-          <div class="xt-today__shift-list">
-            <div v-for="shift in shiftTiles" :key="shift.key" class="xt-today__shift-row">
-              <span>{{ shift.name }}</span>
-              <b>{{ shift.reported }}</b>
-            </div>
-          </div>
-        </section>
-
         <MissingReportPanel title="缺报明细" :rows="missingRows" :loading="liveLoading" compact />
       </aside>
     </section>
@@ -193,13 +172,6 @@
       </template>
     </section>
 
-    <Transition name="xt-roster-slide">
-      <FilerRoster
-        v-if="rosterOpen"
-        :reporting-status="reportingStatus"
-        :users="userList"
-      />
-    </Transition>
   </section>
 </template>
 
@@ -219,14 +191,11 @@ import TodayWipDonut from './TodayWipDonut.vue'
 import { shapeTrendSeries } from '../../../components/manage/_outputTrend.js'
 const CostLine = defineAsyncComponent(() => import('../../../components/manage/CostLine.vue'))
 const OutputTrendLine = defineAsyncComponent(() => import('../../../components/manage/OutputTrendLine.vue'))
-const FilerRoster = defineAsyncComponent(() => import('../../../components/manage/FilerRoster.vue'))
 import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
-import { rosterStats, buildFilerRoster } from '../../../components/manage/_filerRoster.js'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
 import { fetchTimeseries } from '../../../api/dashboard.js'
 import { fetchLiveAggregation } from '../../../api/realtime.js'
-import { fetchUsersPage } from '../../../api/users.js'
 import { isCompactClient } from '../../../router/guardRules.js'
 import { buildTodayStitchSurface } from '../../../utils/stitchManageSurface.js'
 import {
@@ -258,8 +227,6 @@ if (initialTargetDate && initialTargetDate !== snapshot.targetDate.value) {
 }
 
 const trendSeries = ref([])
-const userList = ref([])
-const rosterOpen = ref(false)
 const liveAggregation = ref({})
 const liveLoading = ref(false)
 const liveLoadError = ref('')
@@ -270,7 +237,6 @@ const chartsVisible = ref(false)
 let chartObserver
 let trendRequest = 0
 let liveRequest = 0
-let usersLoaded = false
 let dailyRefreshTimer
 let liveDate = ''
 
@@ -287,18 +253,6 @@ async function loadTrend(targetDate) {
     trendSeries.value = Array.isArray(data) ? data : []
   } catch (_e) {
     if (request === trendRequest) trendSeries.value = []
-  }
-}
-
-async function loadUsers() {
-  if (usersLoaded) return
-  usersLoaded = true
-  try {
-    const page = await fetchUsersPage({ limit: 300 })
-    userList.value = page.items || []
-  } catch (_e) {
-    userList.value = []
-    usersLoaded = false
   }
 }
 
@@ -325,7 +279,6 @@ watch([snapshot.targetDate, () => snapshot.pending.value.daily], ([next, pending
   liveDate = next
   void loadLiveAggregation(next)
 }, { immediate: true })
-watch(rosterOpen, (open) => { if (open) void loadUsers() })
 watch(snapshot.targetDate, (next) => {
   void loadTrend(next)
   liveRequest++
@@ -351,17 +304,6 @@ watch(snapshot.targetDate, (next) => {
 watch(() => route.query.target_date, (value) => {
   const next = normalizeRouteDate(value)
   if (next && next !== snapshot.targetDate.value) snapshot.targetDate.value = next
-})
-
-const reportingStatus = computed(() => snapshot.data.value.workshop_reporting_status || [])
-const rosterRows = computed(() => buildFilerRoster(reportingStatus.value, userList.value))
-const rosterCounts = computed(() => rosterStats(rosterRows.value))
-const rosterTone = computed(() => {
-  const c = rosterCounts.value
-  if (!c.total) return 'muted'
-  if (c.unreported === 0 && c.abnormal === 0) return 'success'
-  if (c.unreported > 0) return 'danger'
-  return 'warning'
 })
 
 function onDatePick(next) {
@@ -394,7 +336,7 @@ const wipTotalText = computed(() => {
   const total = sumWipWeight(wipRows.value)
   return total === null ? MISSING_DAILY_VALUE : `${fmt(total)} 吨`
 })
-const missingRows = computed(() => stitchSurface.value.missingReportRows)
+const missingRows = computed(() => stitchSurface.value.missingReportRows.filter((row) => row.roleLabel !== '主操'))
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})
 const factClosureSurface = computed(() => buildFactClosureSurface(dailyOverview.value.fact_closure))
@@ -580,25 +522,6 @@ const productionFlowStages = computed(() => {
   ]
 })
 
-const shiftTiles = computed(() => {
-  const raw = snapshot.yesterdayShiftBreakdown.value?.shifts || []
-  const order = [
-    { name: '长白班', timeRange: '07:30-15:30' },
-    { name: '小夜班', timeRange: '15:30-23:30' },
-    { name: '大夜班', timeRange: '23:30-07:30' },
-  ]
-  return order.map((slot, index) => {
-    const shift = raw.find((item) => String(item.shift_name || item.name || '').includes(slot.name))
-    const reported = shift?.reported_count ?? shift?.confirmed_count ?? shift?.submitted_count ?? null
-    const expected = shift?.expected_count ?? shift?.total_count ?? shift?.required_count ?? null
-    return {
-      key: shift?.shift_id ?? slot.name ?? index,
-      name: shift?.shift_name || shift?.name || slot.name,
-      timeRange: shift?.time_range || shift?.timeRange || shift?.range || slot.timeRange,
-      reported: expected ? `${reported ?? 0}/${expected}` : (reported == null ? '—' : `${reported}`),
-    }
-  })
-})
 
 const eventRailItems = computed(() => {
   const items = []
@@ -613,16 +536,6 @@ const eventRailItems = computed(() => {
       title: '数据同步需核查',
       body: snapshot.lastError.value || liveLoadError.value,
       tone: 'danger',
-      time: nowText,
-    })
-  }
-  if (rosterCounts.value.unreported > 0) {
-    items.push({
-      key: 'reminder',
-      label: '催报',
-      title: `仍有 ${rosterCounts.value.unreported} 个车间未完成`,
-      body: `已填 ${rosterCounts.value.reported}/${rosterCounts.value.total}，请优先确认缺报人员。`,
-      tone: 'warning',
       time: nowText,
     })
   }
@@ -722,9 +635,6 @@ onBeforeUnmount(() => {
 .xt-today__identity h1 { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.25; }
 .xt-today__identity p { margin: 4px 0 0; color: var(--xt-text-muted); }
 .xt-today__top-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
-.xt-today__filer-badge { padding: 8px 0; border: 0; background: transparent; color: var(--xt-text-secondary); font: inherit; cursor: pointer; }
-.xt-today__filer-badge b { color: var(--xt-text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.xt-today__filer-pending { margin-left: 8px; color: var(--xt-warning); }
 
 .xt-today__kpis { position: relative; }
 .xt-today__loading { display: block; margin-top: 8px; color: var(--xt-text-muted); font-size: 12px; }
@@ -756,10 +666,6 @@ onBeforeUnmount(() => {
 .xt-today__event-card strong { font-weight: 400; }
 .xt-today__event-card p { display: -webkit-box; margin: 2px 0 0; overflow: hidden; color: var(--xt-text-muted); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .xt-today__live-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-block: 1px solid var(--xt-border); color: var(--xt-primary); text-decoration: none; }
-.xt-today__shift-card h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
-.xt-today__shift-list { display: grid; gap: 4px; }
-.xt-today__shift-row { display: flex; justify-content: space-between; gap: 8px; color: var(--xt-text-secondary); font-variant-numeric: tabular-nums; }
-.xt-today__shift-row b { font-weight: 400; }
 .xt-today__empty { padding: 24px 0; color: var(--xt-text-muted); }
 
 .xt-today__month { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px; padding-top: 32px; border-top: 1px solid var(--xt-border); }

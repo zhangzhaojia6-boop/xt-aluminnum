@@ -175,7 +175,6 @@ test('ticker exposes the first-screen factory signals without fake zero fallback
     '过站下机',
     '总电耗',
     '吨电耗',
-    '未填',
     '异常',
     '外部 MES',
   ])
@@ -230,7 +229,7 @@ test('ticker honors unavailable energy flag with pending value and muted tone', 
 test('ticker marks missing freshness and counts as unknown rather than healthy', () => {
   const items = buildLiveTickerItems({})
 
-  assert.equal(items.find((item) => item.label === '未填')?.tone, 'muted')
+  assert.equal(items.some((item) => item.label === '未填'), false)
   assert.equal(items.find((item) => item.label === '异常')?.tone, 'muted')
   assert.equal(items.find((item) => item.label === '外部 MES')?.tone, 'muted')
 })
@@ -394,7 +393,7 @@ test('event rail and trusted metric formatting expose empty, error and disconnec
 
   assert.equal(events.some((event) => event.title === '实时连接断开'), true)
   assert.equal(events.some((event) => event.title === '接口失败'), true)
-  assert.equal(events.some((event) => event.title === '未填报'), true)
+  assert.equal(events.some((event) => event.title === '未填报'), false)
   assert.equal(events.some((event) => event.title === '能耗待同步'), true)
   assert.equal(events.some((event) => event.title === '待补产出重量'), true)
 })

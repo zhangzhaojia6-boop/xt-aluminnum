@@ -26,7 +26,7 @@ function makeFakes({ fdOk = true, qOk = true, rOk = true, liveOk = true } = {}) 
     fetchMesFillGaps: async () => ({
       items: [
         {
-          status: 'missing_local_entry',
+          status: 'weight_mismatch',
           workshop_name: '精整车间',
           mes_machine_name: '精整1#线',
           shift_name: '小夜班',
@@ -112,9 +112,9 @@ test('load sends each endpoint the date parameter expected by its backend', asyn
 test('load aggregates events from five endpoints, sorted desc', async () => {
   const t = createAlertsTimeline({ ...makeFakes(), now: new Date('2026-05-20T08:00:00') })
   await t.load()
-  assert.equal(t.events.value.length, 8)
+  assert.equal(t.events.value.length, 7)
   assert.equal(t.events.value[0].domain, 'reporting')
-  assert.equal(t.events.value.some((event) => event.id === 'live-missing:missing-cells'), true)
+  assert.equal(t.events.value.some((event) => event.id === 'live-missing:missing-cells'), false)
   assert.equal(t.events.value.some((event) => event.id === 'mes-fill-gap:TX-001'), true)
   assert.equal(t.events.value[t.events.value.length - 1].domain, 'reporting')
 })
@@ -545,7 +545,7 @@ test('domainCounts reflects full unfiltered totals', async () => {
   assert.equal(t.domainCounts.value.quality, 1)
   assert.equal(t.domainCounts.value.reconciliation, 1)
   assert.equal(t.domainCounts.value.mes, 1)
-  assert.equal(t.domainCounts.value.reporting, 4)
+  assert.equal(t.domainCounts.value.reporting, 3)
 })
 
 test('filteredEvents respects domains[]', async () => {
@@ -560,7 +560,7 @@ test('empty domains[] means all', async () => {
   const t = createAlertsTimeline({ ...makeFakes(), now: new Date('2026-05-20') })
   await t.load()
   t.domains.value = []
-  assert.equal(t.filteredEvents.value.length, 8)
+  assert.equal(t.filteredEvents.value.length, 7)
 })
 
 test('MES fill gaps appear as concrete alert events with workshop machine shift and card', async () => {
@@ -569,7 +569,7 @@ test('MES fill gaps appear as concrete alert events with workshop machine shift 
 
   const event = t.events.value.find((item) => item.id === 'mes-fill-gap:TX-001')
   assert.equal(event.domain, 'mes')
-  assert.equal(event.summary, 'MES有工序本地未填：精整车间 · 精整1#线 · 小夜班')
+  assert.equal(event.summary, 'MES与本地重量不一致：精整车间 · 精整1#线 · 小夜班')
   assert.match(event.detail, /TX-001/)
   assert.match(event.detail, /包装/)
   assert.equal(event.status, 'open')

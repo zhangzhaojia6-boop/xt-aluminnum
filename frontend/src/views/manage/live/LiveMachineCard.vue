@@ -13,7 +13,7 @@
         <b data-xt-numeric>{{ outputText }}</b>
       </span>
     </div>
-    <div v-if="!machine.unreported" class="live-machine-card__shifts">
+    <div v-if="hasSubmittedShift" class="live-machine-card__shifts">
       <span v-for="shift in machine.shifts.slice(0, 3)" :key="`${shift.shiftId}-${shift.shiftName}`">
         {{ shift.shiftName }} {{ shift.statusText }}
       </span>
@@ -35,13 +35,17 @@ const props = defineProps({
 defineEmits(['select'])
 
 const statusText = computed(() => {
-  if (props.machine.unreported) return '缺报'
+  if (props.machine.unreported) return '暂无'
   if (props.machine.tone === 'success') return '正常'
   if (props.machine.tone === 'warning') return '待核'
   if (props.machine.tone === 'danger') return '异常'
   if (props.machine.tone === 'pending') return '待归属'
   return '暂无'
 })
+
+const hasSubmittedShift = computed(() => props.machine.shifts.some((shift) => (
+  !['not_started', 'not_applicable'].includes(shift.status)
+)))
 
 const outputText = computed(() => (props.machine.unreported ? '—' : `${formatNumber(props.machine.output, 2)} 吨`))
 const inputText = computed(() => (props.machine.unreported ? '—' : `${formatNumber(props.machine.input, 2)} 吨`))
