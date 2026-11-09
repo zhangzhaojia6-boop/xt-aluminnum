@@ -122,36 +122,6 @@
   letter-spacing: 0;
 }
 
-.xt-second-pass-source-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 8px;
-  border: 1px solid var(--xt-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--xt-text);
-
-}
-
-.xt-second-pass-source-strip__item {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--xt-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--xt-text);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
 .xt-industrial-metric-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

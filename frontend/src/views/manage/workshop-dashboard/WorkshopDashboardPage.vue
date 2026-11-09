@@ -35,14 +35,6 @@
       </div>
     </header>
 
-    <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
-      <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
-      <span class="xt-second-pass-source-strip__item">MES 车间报表</span>
-      <span class="xt-second-pass-source-strip__item">MES 在制料统计</span>
-      <span class="xt-second-pass-source-strip__item">人工填报</span>
-      <span class="xt-second-pass-source-strip__item">算法数据</span>
-    </div>
-
     <div class="workshop-board__kpis">
       <article v-for="item in kpis" :key="item.key" class="workshop-board__kpi" :class="`tone-${item.tone}`">
         <span>{{ item.label }}</span>
