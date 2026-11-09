@@ -172,7 +172,7 @@ test('manage live route shows realtime process flow without page overflow', asyn
   await page.goto('/manage/live')
 
   await expect(page.getByTestId('manage-live')).toBeVisible()
-  await expect(page.getByText('生产流转总览')).toBeVisible()
+  await expect(page.getByRole('region', { name: '生产流转总览' })).toBeVisible()
   await expect(page.getByText('缺数据不计 0')).toBeVisible()
   await expect(page.getByTestId('stitch-bottom-status')).toContainText('能耗采集')
   await expect(page.getByTestId('stitch-bottom-status')).toContainText('物联网采集 · 09:20')
@@ -194,8 +194,8 @@ test('manage live route stays readable on a narrow factory screen', async ({ pag
 
   await expect(page.getByTestId('manage-live')).toBeVisible()
   await expect(page.getByText('全厂实时调度墙')).toBeVisible()
-  await expect(page.getByText('实时流转 / 机列矩阵 / 来源核验')).toBeVisible()
-  await expect(page.getByText('生产流转总览')).toBeVisible()
+  await expect(page.getByLabel('实时流转 / 机列矩阵 / 来源核验')).toBeVisible()
+  await expect(page.getByRole('region', { name: '生产流转总览' })).toBeVisible()
   await expect(page.getByTestId('stitch-bottom-status')).toContainText('能耗采集')
 
   const overflow = await page.evaluate(() => Math.max(
