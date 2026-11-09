@@ -1,4 +1,5 @@
 import inspect
+from pathlib import Path
 import re
 import time
 from threading import Event
@@ -46,7 +47,6 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
         'mes_month_to_date_backfill_0850',
         'mes_sync_reference',
         'agent_outbox_dispatch',
-        'fill_reminder',
         'data_archive',
     }
     assert scheduler.jobs['daily_report']['trigger'] == 'cron'
@@ -82,7 +82,7 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     assert scheduler.jobs['mes_sync_reference']['kwargs']['minutes'] == 360
     assert scheduler.jobs['agent_outbox_dispatch']['trigger'] == 'interval'
     assert scheduler.jobs['agent_outbox_dispatch']['kwargs']['seconds'] == 60
-    assert scheduler.jobs['fill_reminder']['trigger'] == 'cron'
+    assert 'fill_reminder' not in scheduler.jobs
     assert scheduler.jobs['data_archive']['trigger'] == 'cron'
 
 
@@ -239,3 +239,10 @@ def test_release_is_safe_when_not_leader() -> None:
     _reset_leader_state()
     release_scheduler_leader()
     assert scheduler_module._leader_connection is None
+
+
+def test_retired_fill_reports_are_not_reminded_automatically() -> None:
+    main_source = (Path(__file__).resolve().parents[1] / 'app' / 'main.py').read_text(encoding='utf-8')
+
+    assert 'reminder_sweep' not in main_source
+    assert 'reminder_agent' not in main_source
