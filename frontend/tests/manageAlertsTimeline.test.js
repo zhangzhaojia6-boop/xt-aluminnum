@@ -291,18 +291,18 @@ test('open fact task keeps management trace route separate from the owner fill a
   assert.equal(t.events.value[0].deadline, '09:30')
   assert.equal(t.events.value[0].contractVersion, '2026-07-18')
 
-  const reportingQueue = buildAlertWorkQueues(t.events.value)
-    .find((queue) => queue.key === 'reporting')
+  const energyQueue = buildAlertWorkQueues(t.events.value)
+    .find((queue) => queue.key === 'energy')
   assert.equal(
-    reportingQueue.items[0].route,
+    energyQueue.items[0].route,
     '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh'
   )
   assert.equal(
-    reportingQueue.items[0].actionRoute,
+    energyQueue.items[0].actionRoute,
     '/entry/fill?business_date=2026-05-19&field=total_electricity_kwh'
   )
-  assert.equal(reportingQueue.items[0].ownerRole, 'energy_chief')
-  assert.equal(reportingQueue.items[0].deliveryStatus, 'sent')
+  assert.equal(energyQueue.items[0].ownerRole, 'energy_chief')
+  assert.equal(energyQueue.items[0].deliveryStatus, 'sent')
 })
 
 test('reporting work queue shows open owner fill actions before resolved facts', () => {

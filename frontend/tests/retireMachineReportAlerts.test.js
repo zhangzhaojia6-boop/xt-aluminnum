@@ -70,3 +70,24 @@ test('gap details never show internal field keys or raw status words', () => {
   assert.doesNotMatch(event.detail, /outsourced_daily|missing/)
   assert.match(event.detail, /缺数/)
 })
+
+test('energy, per-ton and cost gaps land in the energy queue, other gaps stay in reporting', async () => {
+  const { buildAlertWorkQueues } = await import('../src/components/manage/_alertEventNormalize.js')
+  const fields = [
+    'total_electricity_kwh',
+    'cast_2_gas_m3',
+    'foundry_gas_per_ton_daily',
+    'gas_cost_10k',
+    'total_cost_10k',
+    'cost_per_ton',
+    'outsourced_daily',
+    'recovery_month',
+  ]
+  const events = normalizeDailyFactAlerts({
+    fact_missing: fields.map((field) => ({ field, summary: field, owner_role: 'planning_owner', status: 'missing' })),
+  }, '2026-11-08')
+  const queues = buildAlertWorkQueues(events)
+
+  assert.equal(queues.find((queue) => queue.key === 'energy').count, 6)
+  assert.equal(queues.find((queue) => queue.key === 'reporting').count, 2)
+})
