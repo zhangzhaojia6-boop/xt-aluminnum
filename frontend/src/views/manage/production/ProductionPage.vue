@@ -128,11 +128,7 @@ function sumDailyWorkshopOutput(rows = []) {
   return hasValue ? total : null
 }
 
-// 有在执行合同却算出 0，是工单没填合同余量，不是没有缺口
-function contractGapKnown(estimate) {
-  if (estimate.remaining_weight == null) return false
-  return Number(estimate.remaining_weight) !== 0 || !Number(estimate.active_contract_count)
-}
+const remainingContract = computed(() => snapshot.data.value.daily_overview?.contracts?.remaining ?? null)
 
 const rawKpiItems = computed(() => {
   const lm = snapshot.leaderMetrics.value
@@ -158,7 +154,7 @@ const rawKpiItems = computed(() => {
       status: marginReady ? null : 'muted',
       hint: marginReady ? null : '估算未就绪'
     },
-    { key: 'gap', label: '合同缺口', value: contractGapKnown(me) ? Number(me.remaining_weight).toFixed(0) : '—', unit: '吨' },
+    { key: 'remaining-contract', label: '总余合同', value: fmt(remainingContract.value, 0), unit: '吨' },
     { key: 'energy', label: '日吨能耗', value: fmt(lm.energy_per_ton, 1), unit: 'kWh/吨' }
   ]
 })
@@ -200,11 +196,10 @@ const rawLeadingWorkshopText = computed(() => {
 
 const rawProductionBrief = computed(() => {
   const lm = snapshot.leaderMetrics.value
-  const me = snapshot.managementEstimate.value
   return [
     { key: 'workshops', label: '参与车间', value: `${rawRankedRows.value.length} 个` },
     { key: 'leader', label: '当前最高', value: rawLeadingWorkshopText.value },
-    { key: 'gap', label: '合同缺口', value: contractGapKnown(me) ? `${Number(me.remaining_weight).toFixed(0)} 吨` : '—' },
+    { key: 'remaining-contract', label: '总余合同', value: remainingContract.value == null ? '—' : `${fmt(remainingContract.value, 0)} 吨` },
     { key: 'energy', label: '日吨能耗', value: lm.energy_per_ton == null ? '—' : `${fmt(lm.energy_per_ton, 1)} kWh/吨` }
   ]
 })
