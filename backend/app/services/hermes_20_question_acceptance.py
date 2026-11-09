@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field as dataclass_field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Mapping, Sequence
 
 from app.domain.metric_contracts import (
@@ -159,6 +159,10 @@ _DISALLOWED_SOURCE_MARKERS = (
     "history_report",
     "computed",
     "reference_only",
+)
+# 在制料是时点数：D 日的在制取换日后第一次抓取，所以落在 D+1 日且窗口起止相同。
+_POINT_IN_TIME_NEXT_DAY_SOURCE_TYPES = frozenset(
+    {"mes_wip_total_snapshot", "mes_daily_wip_snapshot", "mes_coil_snapshot_business_date"}
 )
 _SOURCE_FAILURE_STATUSES = frozenset(
     {"", "failed", "error", "missing", "empty", "disabled", "unavailable", "unknown"}
@@ -402,7 +406,12 @@ def _confirmed_failure_reason(answer: Mapping[str, Any]) -> str | None:
         return "business_date_invalid"
     if not business_window:
         return "business_window_missing"
-    if not _business_window_matches_date(business_date, business_window):
+    if not _business_window_matches_date(
+        business_date,
+        business_window,
+        field_name=field_name,
+        source_type=source_type,
+    ):
         return "business_window_contract_mismatch"
     unit_failure = metric_unit_failure_reason(field_name, unit)
     if unit_failure is not None:
@@ -429,7 +438,13 @@ def _contains_disallowed_source_marker(value: Any) -> bool:
     return any(marker in normalized for marker in _DISALLOWED_SOURCE_MARKERS)
 
 
-def _business_window_matches_date(business_date: str, business_window: str) -> bool:
+def _business_window_matches_date(
+    business_date: str,
+    business_window: str,
+    *,
+    field_name: str,
+    source_type: str,
+) -> bool:
     try:
         expected_date = date.fromisoformat(business_date)
         start_text, end_text = business_window.split("/", 1)
@@ -437,12 +452,29 @@ def _business_window_matches_date(business_date: str, business_window: str) -> b
         end_at = datetime.fromisoformat(end_text)
     except (TypeError, ValueError):
         return False
-    return bool(
-        start_at.tzinfo is not None
-        and end_at.tzinfo is not None
-        and end_at > start_at
-        and start_at.date() == expected_date
-    )
+    if start_at.tzinfo is None or end_at.tzinfo is None:
+        return False
+    if field_name == "monthly_total_output":
+        return (
+            start_at.date() == expected_date.replace(day=1)
+            and end_at.date() == expected_date + timedelta(days=1)
+        )
+    if source_type in _POINT_IN_TIME_NEXT_DAY_SOURCE_TYPES and end_at == start_at:
+        return start_at.date() == expected_date
+    return end_at > start_at and start_at.date() == expected_date
+
+
+def _fact_attributed_business_date(answer: Mapping[str, Any]) -> str:
+    business_date = str(answer.get("business_date") or "").strip()
+    if _normalized_source(answer.get("source_type")) not in _POINT_IN_TIME_NEXT_DAY_SOURCE_TYPES:
+        return business_date
+    start_text, _, end_text = str(answer.get("business_window") or "").partition("/")
+    if not start_text or start_text != end_text:
+        return business_date
+    try:
+        return (date.fromisoformat(business_date) - timedelta(days=1)).isoformat()
+    except ValueError:
+        return business_date
 
 
 def _normalized_source(value: Any) -> str:
@@ -634,7 +666,7 @@ def _fact_gate(question: HermesAcceptanceQuestion, snapshot: AcceptanceTurnSnaps
         isinstance(answer, Mapping)
         and str(answer.get("field") or "") in question.metric_keys
         and str(answer.get("status") or "").strip().lower() == "confirmed"
-        and str(answer.get("business_date") or "").strip() != recognition_business_date
+        and _fact_attributed_business_date(answer) != recognition_business_date
         for answer in snapshot.fact_answer or []
     ):
         return LayerGateResult("fact", False, "fact_business_date_mismatch")

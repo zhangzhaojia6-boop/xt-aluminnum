@@ -153,6 +153,7 @@ def test_daily_report_metric_contracts_lock_units_tolerances_and_sources() -> No
             'dingtalk_supplement',
             'root_owner_correction',
             'verified_owner_daily',
+            'mes_packaging_output',
         },
         'annual_total_output': {
             'dingtalk_supplement',

@@ -68,6 +68,9 @@ _MES_METRIC_FIELD_ALIASES = {
 }
 
 
+_HUB_METRIC_FIELD_ALIASES = {"monthly_total_output": "total_output_month"}
+
+
 DingTalkReader = Callable[..., list[EvidenceCandidate]]
 HubReader = Callable[..., Mapping[str, Any] | None]
 
@@ -559,6 +562,10 @@ def _extract_hub_metric_fact(payload: Mapping[str, Any], metric_keys: tuple[str,
     direct = _extract_direct_metric_fact(payload, metric_key_set)
     if direct:
         result.update(direct)
+    if isinstance(facts, Mapping):
+        for metric_key, hub_field in _HUB_METRIC_FIELD_ALIASES.items():
+            if metric_key in metric_key_set and metric_key not in result and _has_metric_value(facts.get(hub_field)):
+                result[metric_key] = facts[hub_field]
     return result or None
 
 

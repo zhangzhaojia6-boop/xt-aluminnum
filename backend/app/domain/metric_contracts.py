@@ -260,6 +260,9 @@ def _electricity_per_ton_source_contract() -> FactSourceContract:
     )
 
 
+_PROJECTION_FIELD_ALIASES = {'monthly_total_output': 'total_output_month'}
+
+
 def _projection_source_contracts(field_name: str) -> tuple[FactSourceContract, ...]:
     # Imported lazily because the projection service consumes this domain module.
     from app.services.report.daily_fact_evidence_contracts import (
@@ -269,7 +272,7 @@ def _projection_source_contracts(field_name: str) -> tuple[FactSourceContract, .
     )
 
     projection_contracts = []
-    direct_contract = PROJECTION_FACT_CONTRACTS.get(field_name)
+    direct_contract = PROJECTION_FACT_CONTRACTS.get(_PROJECTION_FIELD_ALIASES.get(field_name, field_name))
     if direct_contract is not None:
         projection_contracts.append(direct_contract)
     projection_contracts.extend(
