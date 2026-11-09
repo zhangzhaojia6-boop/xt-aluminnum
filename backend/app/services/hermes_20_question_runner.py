@@ -315,7 +315,7 @@ def _build_fact_answer(
                 or selected_status
                 or "missing"
             ).strip().lower()
-        reason = _fact_reason(
+        reason = str(field_fact.get("reason") or "").strip() or _fact_reason(
             field_name=field_name,
             status=status,
             conflict=conflict,
@@ -337,7 +337,8 @@ def _build_fact_answer(
             "trace_id": fact_trace_id if has_value else None,
             "source_trace_id": source_trace_id if has_value else None,
             "reason": reason,
-            "action": _fact_action(recognition, evidence, evidence_trace, field_name),
+            "action": str(field_fact.get("action") or "").strip()
+            or _fact_action(recognition, evidence, evidence_trace, field_name),
         }
         if status == "confirmed":
             validation_failure = confirmed_fact_failure_reason(record)
