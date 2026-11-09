@@ -515,10 +515,12 @@ def _machine_source_labels(facts: Mapping[str, Any]) -> str:
 def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:
     trace_id = str(decision.trace.get("trace_id") or "").strip()
     if decision.primary is None:
-        missing = "、".join(decision.missing_sources) or "事实源"
+        missing = "、".join(_source_label(source) for source in decision.missing_sources) or "事实源"
         checked_sources = _checked_source_labels(decision)
+        metrics = "、".join(_METRIC_LABELS.get(key, key) for key in plan.metric_keys)
+        metric_text = f"的{metrics}" if metrics else ""
         return (
-            f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()} 暂时没有查到可用正式事实，"
+            f"{_HERMES_PUBLIC_NAME}回答：{plan.business_date.isoformat()}{metric_text}暂时没有查到可用正式事实，"
             f"缺少 {missing}，建议先补齐对应来源。"
             f"来源：{checked_sources}。状态：missing。追踪编号：{trace_id}。"
         )
@@ -526,6 +528,7 @@ def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecis
     conflict_text = "；来源有冲突，我已按最高优先级来源采用当前口径" if decision.conflicts else ""
     status = "conflict" if decision.conflicts else str(decision.primary.status or "confirmed")
     fact_text = _render_selected_facts(plan=plan, decision=decision) or decision.primary.summary
+    fact_text += _output_inbound_gap_text(plan=plan, decision=decision)
     return (
         f"{_HERMES_PUBLIC_NAME}回答：按{source_label}读取 {plan.business_date.isoformat()}，"
         f"{fact_text}{conflict_text}；"
@@ -549,12 +552,49 @@ def _render_selected_facts(*, plan: RootOwnerMessagePlan, decision: EvidenceDeci
             unit_text = f" {unit}" if unit else ""
             source_text = _FACT_SOURCE_LABELS.get(fact_source) or _source_label(candidate.source_key)
             details = [f"事实来源：{source_text}"] if source_text else []
+            captured_at = _point_in_time_capture_text(candidate, field_name)
+            if captured_at:
+                details.append(f"取自 {captured_at} 抓取")
             if source_trace_id:
                 details.append(f"事实追踪：{source_trace_id}")
             detail_text = f"（{'；'.join(details)}）" if details else ""
             rendered.append(f"{label}：{value_text}{unit_text}{detail_text}")
             break
     return "；".join(rendered)
+
+
+def _output_inbound_gap_text(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:
+    if not {"total_output_daily", "finished_inbound_daily"}.issubset(plan.metric_keys):
+        return ""
+    values: dict[str, float] = {}
+    for field_name in ("total_output_daily", "finished_inbound_daily"):
+        for candidate in decision.candidates:
+            fact = _candidate_field_fact(candidate, field_name)
+            if fact is not None and isinstance(fact[0], (int, float)) and not isinstance(fact[0], bool):
+                values[field_name] = float(fact[0])
+                break
+    if len(values) < 2:
+        return ""
+    gap = abs(values["total_output_daily"] - values["finished_inbound_daily"])
+    return (
+        f"；两者相差 {format(round(gap, 2), '.15g')} 吨："
+        "产量按当天包装下线统计，入库按当天入库单统计，已包装未入库或跨日入库都会造成差异，"
+        "差值本身不代表账错"
+    )
+
+
+def _point_in_time_capture_text(candidate: EvidenceCandidate, field_name: str) -> str:
+    value = candidate.value
+    raw_fact = value.get(field_name) if isinstance(value, Mapping) else None
+    source_ref = raw_fact.get("source_ref") if isinstance(raw_fact, Mapping) else None
+    window = source_ref.get("business_window") if isinstance(source_ref, Mapping) else None
+    start_text, _, end_text = str(window or "").partition("/")
+    if not start_text or start_text != end_text:
+        return ""
+    try:
+        return datetime.fromisoformat(start_text).strftime("%m-%d %H:%M")
+    except ValueError:
+        return ""
 
 
 def _candidate_field_fact(
@@ -578,6 +618,9 @@ def _candidate_field_fact(
     unit = str(field_fact.get("unit") or (contract.unit if contract else "") or "").strip() or None
     source_ref = field_fact.get("source_ref") if isinstance(field_fact.get("source_ref"), Mapping) else {}
     fact_source = str(field_fact.get("source_type") or candidate.source_type or "").strip()
+    display = str(field_fact.get("display") or "").strip()
+    if display:
+        fact_value, unit = display, None
     source_trace_id = str(
         field_fact.get("trace_id")
         or field_fact.get("source_trace_id")
@@ -612,6 +655,7 @@ def _format_fact_value(value: Any) -> str:
 def _source_label(source_key: str) -> str:
     labels = {
         "dingtalk_group_chat": "钉钉群聊天内容",
+        "dingtalk_group_content": "钉钉群内容",
         "dingtalk_group_file": "钉钉群文件",
         "mes_readonly": "MES 只读库",
         "data_hub_projection": "数据中枢投影",

@@ -14,6 +14,7 @@ from app.services.hermes_dingtalk_evidence_service import (
     query_dingtalk_evidence,
 )
 from app.services.hermes_mes_read_service import HermesMesReadService
+from app.services.hermes_root_owner_derived_facts import build_derived_facts
 from app.services.report import daily_fact_bundle
 
 
@@ -172,10 +173,32 @@ def collect_root_owner_evidence(
         hub_reader=hub_reader,
     )
     source_status["data_hub_projection"] = hub_status
+    derived_facts = build_derived_facts(
+        db,
+        business_date=message_plan.business_date,
+        metric_keys=tuple(message_plan.metric_keys),
+        normalized_text=str(getattr(message_plan, "normalized_text", "") or ""),
+        hub_payload=hub_payload,
+    )
+    for derived in derived_facts:
+        candidates.append(
+            EvidenceCandidate(
+                source_key=derived.source_key,
+                source_type="dingtalk_group_content" if derived.source_key.startswith("dingtalk") else "data_hub",
+                domain=message_plan.domain,
+                priority=DINGTALK_PRIORITY if derived.source_key.startswith("dingtalk") else DATA_HUB_PRIORITY,
+                status=derived.status,
+                value=filter_sensitive_mapping({derived.field: derived.fact}),
+                summary=derived.summary,
+                trace_ref={"source": "daily_fact_bundle", "status": str(derived.status)},
+            )
+        )
     if hub_payload:
         raw_hub_status = str(hub_payload.get("status") or "ok")
         hub_fact = _extract_hub_metric_fact(hub_payload, tuple(message_plan.metric_keys))
-        if hub_fact:
+        if derived_facts:
+            source_status["data_hub_projection"]["candidate_status"] = derived_facts[0].status
+        elif hub_fact:
             hub_candidate_status = _hub_candidate_status(raw_hub_status, hub_fact)
             candidates.append(
                 EvidenceCandidate(

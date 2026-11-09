@@ -411,6 +411,7 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = _bind_metr
     'annual_total_output': DailyReportMetricContract(
         unit='吨',
         tolerance=0.0,
+        allowed_non_confirmed_statuses=frozenset({'candidate', 'missing', 'conflict'}),
         source_contracts=_confirmable_source_contracts(),
     ),
     'anomaly_explanation_daily': DailyReportMetricContract(
