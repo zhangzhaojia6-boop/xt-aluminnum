@@ -520,6 +520,22 @@ test('energy surface does not call an output-only day synced', () => {
   assert.deepEqual([...new Set(surface.energyFlow.map((item) => item.source))], ['无来源'])
 })
 
+test('energy surface does not count zero placeholders as energy data', () => {
+  const surface = buildEnergyStitchSurface({
+    detailRows: [{
+      workshop_code: '精整',
+      electricity_value: 0,
+      gas_value: 0,
+      water_value: 0,
+      total_energy: 0,
+      source: 'mobile_shift_report',
+    }],
+  })
+
+  assert.equal(surface.statusBar.syncStatus, '无能耗数据')
+  assert.equal(surface.bottomStatus.find((item) => item.key === 'source')?.value, '无来源')
+})
+
 test('energy surface names the real source of each metric', () => {
   const surface = buildEnergyStitchSurface({
     detailRows: [

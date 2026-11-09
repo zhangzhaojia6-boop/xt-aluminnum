@@ -244,9 +244,10 @@ export function formatEnergySourceLabel(row = {}) {
   return row.source || '-'
 }
 
+// 接口对没填能耗的班次也会返回 0，不能算有数据
 function hasEnergyValue(row, key) {
-  const value = row?.[key]
-  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+  const value = Number(row?.[key])
+  return Number.isFinite(value) && value !== 0
 }
 
 function energyRowsOf(detailRows = []) {
