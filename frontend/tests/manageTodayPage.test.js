@@ -120,7 +120,7 @@ test('TodayPage keeps factory command data basis in the Stitch wall', () => {
   assert.match(src, /dailyOverview\s*=\s*computed\(\(\)\s*=>\s*snapshot\.data\.value\.daily_overview/)
   assert.match(src, /wipRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.wipDistribution/)
   assert.match(src, /productionFlowStages\s*=\s*computed/)
-  assert.match(src, /shiftTiles\s*=\s*computed/)
+  assert.doesNotMatch(src, /shiftTiles/)
 })
 
 test('Today surface replaces overview guesses with confirmed or missing closure facts', () => {

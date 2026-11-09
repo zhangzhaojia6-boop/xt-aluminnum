@@ -60,6 +60,6 @@ test('ticker does not count unfilled shifts a second time as anomalies', () => {
     overall_progress: { missing_cell_count: 153, attention_cell_count: 156 },
   })
 
-  assert.equal(items.find((item) => item.label === '未填').value, '153')
+  assert.equal(items.some((item) => item.label === '未填'), false)
   assert.equal(items.find((item) => item.label === '异常').value, '3')
 })

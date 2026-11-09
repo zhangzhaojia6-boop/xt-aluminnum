@@ -93,7 +93,7 @@ export function buildLiveTickerItems(aggregation = {}) {
   const missingCellCount = progress.missing_cell_count ?? progress.missingCellCount
   const attentionCellCount = progress.attention_cell_count ?? progress.attentionCellCount
   const syncLagSeconds = sync.lag_seconds ?? sync.lagSeconds
-  // 关注班次包含未填报，未填已单列，这里只算其余的
+  // 关注班次包含未填报，机台填报已停用，这里只算其余的
   const anomalyCount = isPresent(attentionCellCount)
     ? Math.max(numberValue(attentionCellCount) - numberValue(missingCellCount), 0)
     : attentionCellCount
@@ -195,12 +195,6 @@ export function buildLiveTickerItems(aggregation = {}) {
       source: '算法',
     },
     {
-      label: '未填',
-      value: formatCount(missingCellCount),
-      tone: isPresent(missingCellCount) ? (numberValue(missingCellCount) > 0 ? 'danger' : 'success') : 'muted',
-      source: '填报',
-    },
-    {
       label: '异常',
       value: formatCount(anomalyCount),
       tone: isPresent(anomalyCount) ? (numberValue(anomalyCount) > 0 ? 'warning' : 'success') : 'muted',
@@ -224,10 +218,12 @@ function isUnboundMachine(machine = {}) {
 function resolveMachineTone(machine = {}) {
   const shifts = Array.isArray(machine.shifts) ? machine.shifts : []
   if (isUnboundMachine(machine)) return 'pending'
-  if (shifts.some((shift) => shift.submission_status === 'not_started' || shift.status_tone === 'danger')) return 'danger'
-  if (shifts.some((shift) => shift.submission_status === 'in_progress' || shift.status_tone === 'warning')) return 'warning'
+  const started = shifts.filter((shift) => shift.submission_status !== 'not_started')
+  if (started.some((shift) => shift.status_tone === 'danger')) return 'danger'
+  if (started.some((shift) => shift.submission_status === 'in_progress' || shift.status_tone === 'warning')) return 'warning'
   if (shifts.some((shift) => shift.submission_status === 'all_submitted')) return 'success'
-  return 'muted'
+  const dayTotal = machine.day_total || machine.dayTotal || {}
+  return numberValue(dayTotal.machine_down_machine_output ?? dayTotal.machineDownMachineOutput ?? dayTotal.output) > 0 ? 'success' : 'muted'
 }
 
 function isMachineUnreported(machine = {}) {
@@ -537,9 +533,6 @@ export function buildLiveEventItems({ streamStatus = 'idle', loadError = '', agg
   }
   if (loadError) {
     events.push({ title: '接口失败', tone: 'danger', text: String(loadError) })
-  }
-  if (numberValue(progress.missing_cell_count ?? progress.missingCellCount) > 0) {
-    events.push({ title: '未填报', tone: 'danger', text: `${numberValue(progress.missing_cell_count ?? progress.missingCellCount)} 个班次` })
   }
   if (!isPresent(pickValue(energy, ['algorithm_total_energy', 'algorithmTotalEnergy', 'total_electricity', 'totalElectricity']))) {
     events.push({ title: '能耗待同步', tone: 'warning', text: '等待电工或算法能耗明细' })

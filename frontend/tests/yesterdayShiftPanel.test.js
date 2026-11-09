@@ -9,9 +9,8 @@ function source(rel) {
 test('TodayPage renders yesterday shift data inside the Stitch event rail', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.match(src, /data-testid="today-event-rail"/)
-  assert.match(src, /三班填报/)
-  assert.match(src, /v-for="shift in shiftTiles"/)
-  assert.match(src, /snapshot\.yesterdayShiftBreakdown\.value/)
+  assert.doesNotMatch(src, /三班填报/)
+  assert.doesNotMatch(src, /shiftTiles/)
 })
 
 test('TodayPage no longer mounts the legacy standalone shift panel', () => {

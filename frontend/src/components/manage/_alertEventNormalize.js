@@ -12,6 +12,10 @@ const R_ROUTE = '/manage/alerts?surface=reconciliation'
 const MES_ROUTE = '/manage/fill-details'
 const REPORTING_ROUTE = '/manage/fill-details'
 
+// 机台填报已停用（2026-11-09 负责人决定）：这几类只说明本地没有填报，不再算待处理。
+const RETIRED_MES_GAP_STATUSES = new Set(['missing_local_entry', 'mes_batch_unmapped', 'local_entry_unassigned'])
+const RETIRED_FACT_OWNER_ROLE = 'machine_operator'
+
 function safeArray(v) {
   return Array.isArray(v) ? v : []
 }
@@ -234,7 +238,7 @@ export function normalizeReconciliation(items, targetDate) {
 
 export function normalizeMesFillGaps(payload, targetDate) {
   return safeArray(payload?.items || payload)
-    .filter((row) => row?.status && row.status !== 'matched')
+    .filter((row) => row?.status && row.status !== 'matched' && !RETIRED_MES_GAP_STATUSES.has(row.status))
     .map((row, idx) => ({
       id: `mes-fill-gap:${row.tracking_card_no || row.batch_no || row.local_entry_id || idx}`,
       groupKey: row.workshop_id || row.workshop_name || row.mes_resolved_machine_id
@@ -261,26 +265,9 @@ export function normalizeLiveMissingReports(payload, targetDate) {
   const pending = progress.pending_assignment || progress.pendingAssignment || {}
   const ownerStatus = payload?.owner_daily_status || payload?.ownerDailyStatus || {}
   const out = []
-  const missingCellCount = numberValue(progress.missing_cell_count ?? progress.missingCellCount)
   const pendingCount = numberValue(pending.entry_count ?? pending.entryCount)
   const missingMachineCount = numberValue(pending.missing_machine_count ?? pending.missingMachineCount)
   const missingShiftCount = numberValue(pending.missing_shift_count ?? pending.missingShiftCount)
-
-  if (missingCellCount > 0) {
-    out.push({
-      id: 'live-missing:missing-cells',
-      domain: 'reporting',
-      occurredAt: `${targetDate}T23:59:59`,
-      summary: `缺报 ${missingCellCount} 个填报单元`,
-      detail: joinNonEmpty([
-        pendingCount > 0 ? `待归属 ${pendingCount} 条` : '',
-        missingMachineCount > 0 ? `缺机列 ${missingMachineCount} 条` : '',
-        missingShiftCount > 0 ? `缺班次 ${missingShiftCount} 条` : '',
-      ], ' · '),
-      detailRoute: REPORTING_ROUTE,
-      status: 'open',
-    })
-  }
 
   if (pendingCount > 0) {
     out.push({
@@ -387,6 +374,7 @@ export function normalizeDailyFactAlerts(payload, targetDate) {
   const events = groups.flatMap(([kind, rows, fallbackTime]) => (
     rows
       .filter((row) => row && typeof row === 'object' && !Array.isArray(row))
+      .filter((row) => !(kind === 'fact-missing' && (row.owner_role || row.ownerRole) === RETIRED_FACT_OWNER_ROLE))
       .map((row, idx) => dailyFactEvent(kind, row, idx, targetDate, fallbackTime))
   ))
   const capabilityStatus = payload.fact_closure_capability?.status
