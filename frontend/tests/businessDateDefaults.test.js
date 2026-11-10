@@ -23,7 +23,6 @@ test('business date defaults: manage pages use the 07:50 production anchor', () 
     'src/views/manage/live/LiveDashboardPage.vue',
     'src/views/reports/LiveDashboard.vue',
     'src/views/reports/ReportList.vue',
-    'src/views/attendance/AttendanceOverview.vue',
     'src/views/attendance/ExceptionList.vue',
     'src/components/manage/DateSwitcher.vue',
     'src/composables/useDateRange.js',

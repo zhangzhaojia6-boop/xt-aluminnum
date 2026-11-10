@@ -54,20 +54,13 @@ test.describe('owner three-tab skeleton', () => {
     await gotoRedirectingManagePath(page, '/manage/quality', /\/manage\/alerts\?domain=quality(?:&target_date=\d{4}-\d{2}-\d{2})?$/)
   })
 
-  test('settings drawer exposes frozen destinations and routes to the page', async ({ page }) => {
+  test('frozen destinations are out of the nav but their address still opens', async ({ page }) => {
     await page.goto('/manage/today', { waitUntil: 'networkidle' })
     await expect(page.getByTestId('manage-today')).toBeVisible()
+    await expect(page.locator('.xt-manage__settings-trigger')).toHaveCount(0)
+    await expect(page.locator('.xt-manage__sidebar').getByRole('link', { name: /库存去向/ })).toHaveCount(0)
 
-    await page.locator('.xt-manage__settings-trigger').click()
-
-    const settingsNav = page.getByRole('navigation', { name: '管理端设置' })
-    await expect(settingsNav).toBeVisible()
-    await expect(settingsNav.getByText('杂项 (冻结)')).toBeVisible()
-
-    const destinationLink = settingsNav.getByRole('link', { name: /库存去向/ })
-    await expect(destinationLink).toHaveAttribute('href', '/manage/factory/destinations')
-    await destinationLink.click({ force: true })
-
+    await page.goto('/manage/factory/destinations')
     await expect(page).toHaveURL(/\/manage\/factory\/destinations$/)
   })
 })

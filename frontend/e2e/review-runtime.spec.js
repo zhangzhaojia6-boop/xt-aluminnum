@@ -41,7 +41,7 @@ test('factory route renders the production board smoke surface', async ({ page }
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await expect(page.getByTestId('manage-production')).toBeVisible()
   await expect(page.getByRole('heading', { name: '生产', exact: true })).toBeVisible()
-  await expect(page.getByText('车间产量排名')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '车间产量', exact: true })).toBeVisible()
   await expect(page.getByText('生产摘要')).toBeVisible()
   await expect(page.getByTestId('manage-production-table')).toBeVisible()
   await expect(page.getByRole('columnheader', { name: '车间' })).toBeVisible()
@@ -146,16 +146,15 @@ test('fill-only operator cannot access review brain', async ({ page }) => {
   }
 })
 
-test('ops reliability center route renders system settings surface', async ({ page }) => {
+test('old ops reliability address no longer opens a settings hub', async ({ page }) => {
   await page.goto('/manage/production')
   await expect(page.getByTestId('manage-shell')).toBeVisible()
 
   await page.goto('/manage/admin/settings')
 
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
+  await expect(page).not.toHaveURL(/\/manage\/admin\/settings$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByTestId('system-settings-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '系统设置' })).toBeVisible()
+  await expect(page.getByTestId('system-settings-page')).toHaveCount(0)
 })
 
 test('review roadmap legacy path redirects to yesterday report', async ({ page }) => {

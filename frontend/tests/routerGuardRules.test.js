@@ -70,7 +70,7 @@ test('resolveGuardDecision keeps management users out of mobile entry routes', (
         defaultSurface: 'admin',
       }),
     }),
-    { name: 'admin-ops-reliability' }
+    { name: 'admin-master-workshop' }
   )
   assert.equal(
     resolveGuardDecision({
@@ -140,7 +140,7 @@ test('resolveGuardDecision lands compact admin-only users on admin surface after
       auth: adminOnlyAuth,
       compactClient: true,
     }),
-    { name: 'admin-ops-reliability' }
+    { name: 'admin-master-workshop' }
   )
 })
 

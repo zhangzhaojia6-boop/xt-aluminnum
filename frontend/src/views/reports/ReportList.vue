@@ -153,6 +153,7 @@ import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vu
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchReports, previewTemplateDailyReport } from '../../api/reports'
 import { formatOutputModeLabel, formatReportScopeLabel, formatReportTypeLabel, formatStatusLabel } from '../../utils/display'
+import dayjs from 'dayjs'
 import { inferBusinessDate } from '../../utils/shiftClock'
 
 const items = ref([])
@@ -161,8 +162,9 @@ const previewDate = ref(defaultBusinessDate)
 const previewLoading = ref(false)
 const previewPayload = ref(null)
 
+// 日报第二天才生成，只看今天一定是 0 份
 const filters = reactive({
-  start_date: defaultBusinessDate,
+  start_date: dayjs(defaultBusinessDate).subtract(29, 'day').format('YYYY-MM-DD'),
   end_date: defaultBusinessDate,
   report_type: '',
   status: ''

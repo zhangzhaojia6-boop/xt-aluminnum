@@ -22,7 +22,7 @@ export function resolveRouteAccess(to = {}) {
 }
 
 function configLanding(authStore) {
-  if (authStore.adminSurface) return { name: 'admin-ops-reliability' }
+  if (authStore.adminSurface) return { name: 'admin-master-workshop' }
   return { name: 'login' }
 }
 
@@ -37,7 +37,7 @@ function reviewLanding(authStore) {
 }
 
 function adminLanding(authStore) {
-  if (authStore.adminSurface) return { name: 'admin-ops-reliability' }
+  if (authStore.adminSurface) return { name: 'admin-master-workshop' }
   return { name: 'login' }
 }
 

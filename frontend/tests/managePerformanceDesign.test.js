@@ -20,7 +20,6 @@ const CRITICAL_MANAGE_SURFACES = [
   'views/energy/EnergyCenter.vue',
   'views/manage/fill-details/FillDetailsPage.vue',
   'views/manage/alerts/AlertsPage.vue',
-  'views/manage/admin/SystemSettingsPage.vue',
   'components/xt/XtCameraGuide.vue',
   'components/manage/DateSwitcher.vue',
   'components/manage/FactorySourceStrip.vue',

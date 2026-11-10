@@ -8,7 +8,7 @@ function source(path) {
 
 test('mapping reconciliation page has a manage route and navigation entry', () => {
   const router = source('../src/router/index.js')
-  const navigation = source('../src/config/manage-settings-drawer.js')
+  const navigation = source('../src/config/manage-navigation.js')
 
   assert.match(router, /const MappingReconciliationPage = \(\) => import\('\.\.\/views\/manage\/mapping-reconciliation\/MappingReconciliationPage\.vue'\)/)
   assert.match(router, /path: 'mapping-reconciliation'/)

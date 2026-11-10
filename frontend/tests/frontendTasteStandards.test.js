@@ -12,10 +12,6 @@ const surfaces = [
     src: readFileSync(new URL('../src/views/master/MesTerminalBinding.vue', import.meta.url), 'utf8')
   },
   {
-    name: '系统设置',
-    src: readFileSync(new URL('../src/views/manage/admin/SystemSettingsPage.vue', import.meta.url), 'utf8')
-  },
-  {
     name: '实时调度墙',
     src: readFileSync(new URL('../src/views/manage/live/LiveDashboardPage.vue', import.meta.url), 'utf8')
   },

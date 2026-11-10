@@ -26,7 +26,6 @@ const ShiftDetail = () => import('../views/shift/ShiftDetail.vue')
 const ReconciliationDetail = () => import('../views/reconciliation/ReconciliationDetail.vue')
 const QualityDetail = () => import('../views/quality/QualityDetail.vue')
 const ReportList = () => import('../views/reports/ReportList.vue')
-const GovernanceCenter = () => import('../views/review/GovernanceCenter.vue')
 const AiWorkstation = () => import('../views/ai/AiWorkstation.vue')
 const Workshop = () => import('../views/master/Workshop.vue')
 const AliasMapping = () => import('../views/master/AliasMapping.vue')
@@ -35,7 +34,6 @@ const UserManagement = () => import('../views/master/UserManagement.vue')
 const RuleConfigCenter = () => import('../views/master/RuleConfigCenter.vue')
 const LiveDashboardPage = () => import('../views/manage/live/LiveDashboardPage.vue')
 const EnergyCenter = () => import('../views/energy/EnergyCenter.vue')
-const AttendanceOverview = () => import('../views/attendance/AttendanceOverview.vue')
 const AttendanceDetail = () => import('../views/attendance/AttendanceDetail.vue')
 const ExceptionList = () => import('../views/attendance/ExceptionList.vue')
 const QRCodePrint = () => import('../views/master/QRCodePrint.vue')
@@ -48,7 +46,6 @@ const CoilTracePage = () => import('../views/manage/coils/CoilTracePage.vue')
 const AlertsPage = () => import('../views/manage/alerts/AlertsPage.vue')
 const FillDetailsPage = () => import('../views/manage/fill-details/FillDetailsPage.vue')
 const WorkshopDashboardPage = () => import('../views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
-const SystemSettingsPage = () => import('../views/manage/admin/SystemSettingsPage.vue')
 const AgentManagementPage = () => import('../views/manage/admin/AgentManagementPage.vue')
 const MappingReconciliationPage = () => import('../views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 const RagKnowledgePage = () => import('../views/manage/rag/RagKnowledgePage.vue')
@@ -154,7 +151,7 @@ const rawRoutes = [
       { path: 'daily-report', name: 'manage-daily-report', redirect: preserveRouteState('/manage/today', { section: 'daily-report' }), meta: { ...reviewMeta, title: '日报总览', canonical: '/manage/today' } },
       { path: 'fill-details', name: 'manage-fill-details', component: FillDetailsPage, meta: { ...reviewMeta, title: '填报明细', canonical: '/manage/fill-details' } },
       { path: 'energy', name: 'energy-center', component: EnergyCenter, meta: { ...reviewMeta, title: '能源中心', canonical: '/manage/energy' } },
-      { path: 'attendance', name: 'attendance-overview', component: AttendanceOverview, meta: { ...reviewMeta, title: '考勤总览', canonical: '/manage/attendance' } },
+      { path: 'attendance', name: 'attendance-overview', redirect: { name: 'manage-today' } },
       { path: 'procurement', name: 'manage-procurement', redirect: '/procurement' },
       { path: 'alerts', name: 'manage-alerts', component: AlertsPage, meta: { ...reviewMeta, title: '异常', canonical: '/manage/alerts' } },
       { path: 'anomalies', redirect: preserveRouteState('/manage/alerts', { surface: 'anomaly' }), meta: { ...reviewMeta, title: '异常处理', canonical: '/manage/alerts' } },
@@ -179,13 +176,13 @@ const rawRoutes = [
       { path: 'settings-center', name: 'manage-settings-center', redirect: preserveRouteState('/manage/admin/settings'), meta: { ...adminMeta, title: '系统设置', canonical: '/manage/admin/settings' } },
       { path: 'admin', name: 'admin-overview', redirect: '/manage/admin/settings', meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/setting', redirect: { name: 'admin-ops-reliability' } },
-      { path: 'admin/settings', name: 'admin-ops-reliability', component: SystemSettingsPage, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
+      { path: 'admin/settings', name: 'admin-ops-reliability', redirect: { name: 'admin-master-workshop' } },
       { path: 'admin/agents', name: 'admin-agent-management', component: AgentManagementPage, meta: { ...adminMeta, title: '通讯治理台', centerNo: '15', canonical: '/manage/admin/agents' } },
       { path: 'channels', name: 'manage-channels', component: CommunicationChannelsPage, meta: { ...adminMeta, title: '通讯通道', centerNo: '15', canonical: '/manage/channels' } },
       { path: 'rag', name: 'manage-rag', component: RagKnowledgePage, meta: { ...adminMeta, title: '知识库资料', centerNo: '17', canonical: '/manage/rag' } },
       { path: 'mapping-reconciliation', name: 'manage-mapping-reconciliation', component: MappingReconciliationPage, meta: { ...adminMeta, title: '输出skill 对齐', centerNo: '16', canonical: '/manage/mapping-reconciliation' } },
       { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },
-      { path: 'admin/governance', name: 'admin-governance-center', component: GovernanceCenter, meta: { ...adminMeta, title: '权限与治理中心', centerNo: '13', canonical: '/manage/admin/governance' } },
+      { path: 'admin/governance', name: 'admin-governance-center', redirect: { name: 'admin-users' } },
       { path: 'admin/templates', redirect: { name: 'admin-ops-reliability' } },
       { path: 'admin/rules', name: 'admin-rule-config-center', component: RuleConfigCenter, meta: { ...adminMeta, title: '规则配置', centerNo: '14', canonical: '/manage/admin/rules' } },
       { path: 'admin/ops', redirect: { name: 'admin-ops-reliability' } },

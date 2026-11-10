@@ -593,8 +593,9 @@ test('manageNavGroups keeps the manager surface focused on daily factory work', 
   })
   const items = groups.flatMap((group) => group.items)
 
-  assert.deepEqual(groups.map((group) => group.label), [''])
-  assert.deepEqual(items.map((item) => item.path), ['/manage/today', '/manage/live', '/manage/production', '/manage/coils', '/manage/alerts'])
+  assert.deepEqual(groups.map((group) => group.label), ['', '业务', '工具'])
+  assert.deepEqual(groups[0].items.map((item) => item.path), ['/manage/today', '/manage/live', '/manage/production', '/manage/coils', '/manage/alerts'])
+  assert.equal(items.some((item) => item.access === 'admin'), false)
 })
 
 test('management shell components do not render numeric module badges', () => {

@@ -14,7 +14,7 @@ const adminUser = {
   assigned_shift_ids: [],
 }
 
-test('retired workshop template center redirects to system settings', async ({ page }) => {
+test('retired workshop template center redirects to master data', async ({ page }) => {
   await setupReviewSessionAndMocks(page, {
     token: 'playwright-admin-token',
     user: adminUser,
@@ -22,8 +22,7 @@ test('retired workshop template center redirects to system settings', async ({ p
 
   await page.goto('/manage/admin/templates')
 
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
-  await expect(page.getByTestId('system-settings-page')).toBeVisible()
+  await expect(page).toHaveURL(/\/manage\/master$/)
+  await expect(page.getByTestId('admin-master-center')).toBeVisible()
   await expect(page.getByTestId('template-editor-page')).toHaveCount(0)
-  await expect(page.getByRole('navigation', { name: '系统设置入口' })).toBeVisible()
 })

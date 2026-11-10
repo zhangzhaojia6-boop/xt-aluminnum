@@ -29,16 +29,14 @@ test.describe('ManageShell layout', () => {
     await expect(page.getByRole('button', { name: '收起侧边栏' })).toBeVisible()
   })
 
-  test('settings drawer exposes frozen destination items', async ({ page }) => {
+  test('former settings gear is gone and frozen pages are not in the nav', async ({ page }) => {
     await setupReviewSessionAndMocks(page)
     await page.goto('/manage/today', { waitUntil: 'networkidle' })
     await expect(page.getByTestId('manage-today')).toBeVisible()
 
-    await page.locator('.xt-manage__settings-trigger').click()
-
-    const settingsNav = page.getByRole('navigation', { name: '管理端设置' })
-    await expect(settingsNav).toBeVisible()
-    await expect(settingsNav.getByRole('link', { name: '系统设置' })).toHaveAttribute('href', '/manage/admin/settings')
+    await expect(page.locator('.xt-manage__settings-trigger')).toHaveCount(0)
+    const aside = page.locator('.xt-manage__sidebar')
+    await expect(aside.getByRole('link', { name: /库存去向|合同|库存/ })).toHaveCount(0)
   })
 
   test('mobile drawer navigation opens, routes, and closes', async ({ page }) => {

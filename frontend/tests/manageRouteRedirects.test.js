@@ -79,14 +79,14 @@ test('redirected legacy pages do not leave unused frontend modules behind', () =
   }
 })
 
-test('system settings route is a lightweight settings page, not the realtime dashboard', () => {
-  const line = routeLine('admin/settings')
+test('old system settings and governance addresses redirect to the pages that replaced them', () => {
+  const settings = routeLine('admin/settings')
+  const governance = routeLine('admin/governance')
 
-  assert.ok(line, "route 'admin/settings' should exist")
-  assert.match(src, /const\s+SystemSettingsPage\s*=\s*\(\)\s*=>\s*import\(['"]\.\.\/views\/manage\/admin\/SystemSettingsPage\.vue['"]\)/)
-  assert.match(line, /\bname:\s*['"]admin-ops-reliability['"]/)
-  assert.match(line, /\bcomponent:\s*SystemSettingsPage\b/)
-  assert.doesNotMatch(line, /\bcomponent:\s*LiveDashboard\b/)
+  assert.match(settings, /\bname:\s*['"]admin-ops-reliability['"]/)
+  assert.match(settings, /redirect:\s*\{\s*name:\s*'admin-master-workshop'\s*\}/)
+  assert.match(governance, /redirect:\s*\{\s*name:\s*'admin-users'\s*\}/)
+  assert.doesNotMatch(src, /SystemSettingsPage|GovernanceCenter/)
 })
 
 test('owner skeleton route metadata stays unique', () => {
