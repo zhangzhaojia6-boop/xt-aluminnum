@@ -132,7 +132,7 @@ async function setView(next) {
         data: readColor('--xt-primary', '#003890'),
         empty: readColor('--xt-border', '#d0d5dd'),
         building: readColor('--xt-border', '#d0d5dd'),
-        edge: '#ffffff'
+        edge: readColor('--xt-bg-page', '#ffffff')
       },
       animate: true,
       plan: LINE_PLAN,
@@ -233,7 +233,7 @@ onBeforeUnmount(dropScene)
 }
 
 .live-process-flow__switch button[aria-pressed='true'] {
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
   color: #fff;
 }
 
@@ -258,7 +258,8 @@ onBeforeUnmount(dropScene)
   justify-items: center;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--xt-border-strong);
+  background: var(--xt-label-bg, rgba(255, 255, 255, 0.92));
   color: var(--xt-text);
   font-size: 12px;
   line-height: 1.3;

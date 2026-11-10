@@ -55,7 +55,7 @@ const ticks = computed(() => {
 </script>
 
 <style scoped>
-.xt-fact-band { display: grid; gap: 24px; padding: 32px 40px; border-radius: 4px; background: var(--xt-primary); color: #fff; }
+.xt-fact-band { display: grid; gap: 24px; padding: 32px 40px; border-radius: 4px; background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; }
 .xt-fact-band__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
 .xt-fact-band h2 { margin: 0; font-size: 20px; font-weight: 400; }
 .xt-fact-band h2 b { font-size: 40px; font-weight: 600; font-variant-numeric: tabular-nums; }

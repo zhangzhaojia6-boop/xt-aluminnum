@@ -688,7 +688,7 @@ onBeforeUnmount(() => {
 :deep(.xt-date-switcher button:hover:not(:disabled)) { background: var(--xt-primary-soft); color: var(--xt-primary); }
 :deep(.xt-date-switcher__label) { font-family: inherit; font-size: 14px; }
 :deep(.xt-cal-pop) { right: 0; left: auto; max-width: calc(100vw - 32px); border-color: var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); box-shadow: var(--xt-shadow-md); }
-:deep(.xt-cal-pop__cell.is-selected) { background: var(--xt-primary); color: #fff; }
+:deep(.xt-cal-pop__cell.is-selected) { background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; }
 :deep(.xt-missing-report) { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--xt-text-secondary); }
 :deep(.xt-missing-report)::before, :deep(.xt-missing-report)::after { display: none; }
 :deep(.xt-missing-report__head span) { display: none; }

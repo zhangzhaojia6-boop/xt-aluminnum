@@ -69,7 +69,7 @@ onMounted(load)
 <style scoped>
 .pc-list__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .pc-list__head h1 { margin: 0; font-size: 28px; font-weight: 600; }
-.pc-list__new { display: inline-flex; align-items: center; min-height: 48px; padding: 0 20px; border-radius: 4px; background: var(--xt-primary); color: #fff; font-weight: 600; text-decoration: none; }
+.pc-list__new { display: inline-flex; align-items: center; min-height: 48px; padding: 0 20px; border-radius: 4px; background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; font-weight: 600; text-decoration: none; }
 .pc-list__state { padding: 40px 0; color: var(--xt-text-secondary); text-align: center; }
 .pc-list__state button { min-height: 44px; margin-left: 12px; padding: 0 16px; border: 1px solid var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); font: inherit; cursor: pointer; }
 .pc-list__empty { display: grid; justify-items: center; gap: 16px; padding: 64px 0; color: var(--xt-text-muted); }

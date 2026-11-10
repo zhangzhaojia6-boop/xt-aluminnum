@@ -268,7 +268,7 @@ onBeforeRouteLeave(() => {
 }
 
 .xt-anomaly-explanation__save {
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
   color: var(--xt-text-inverse);
 }
 

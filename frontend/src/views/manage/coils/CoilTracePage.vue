@@ -633,7 +633,7 @@ load()
 
 .xt-coils__search button:not(:disabled) {
   border-color: var(--xt-primary);
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
   color: var(--xt-text-inverse);
 }
 

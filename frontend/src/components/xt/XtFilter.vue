@@ -144,7 +144,7 @@ function reset() {
 .xt-filter__button--primary {
   border-color: var(--xt-primary);
   color: var(--xt-text-inverse);
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
 }
 
 @media (max-width: 768px) {

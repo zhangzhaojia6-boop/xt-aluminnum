@@ -178,7 +178,7 @@ onMounted(syncFromRoute)
 .pc-filters .pc-filters__check { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--xt-text); }
 .pc-filters__check input { width: 20px; height: 20px; }
 .pc-filters__actions { display: flex; gap: 8px; }
-.pc-filters__actions .is-primary { border-color: var(--xt-primary); background: var(--xt-primary); color: #fff; font-weight: 600; }
+.pc-filters__actions .is-primary { border-color: var(--xt-primary); background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; font-weight: 600; }
 .pc-ledger__error { margin: 0; color: var(--xt-danger); }
 .pc-ledger__table { overflow-x: auto; }
 .pc-ledger table { width: 100%; min-width: 860px; border-collapse: collapse; }

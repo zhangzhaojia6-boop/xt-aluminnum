@@ -10,13 +10,8 @@ const scriptMatch = src.match(/<script setup>([\s\S]*?)<\/script>/)
 assert.ok(scriptMatch)
 const scriptBody = scriptMatch[1]
 
-test('ManageShell imports useHudTheme', () => {
-  assert.match(scriptBody, /from ['"]\.\.\/composables\/useHudTheme\.js['"]/)
-})
-
-test('ManageShell opts into HUD without force (preference-driven)', () => {
-  assert.match(scriptBody, /useHudTheme\(\s*\)/, 'must call useHudTheme() with no args')
-  assert.doesNotMatch(scriptBody, /useHudTheme\(\s*\{\s*force:\s*true/)
+test('ManageShell leaves the theme to the router (no mount/unmount theme toggling)', () => {
+  assert.doesNotMatch(scriptBody, /useHudTheme/)
 })
 
 test('ManageShell does not rewrite existing lifecycle handlers', () => {

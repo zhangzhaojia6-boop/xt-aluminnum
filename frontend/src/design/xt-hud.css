@@ -1,116 +1,179 @@
+/* 暗色科技主题：管理端和登录页（路由决定，见 src/theme/route-theme.js）。
+   直接重定义 --xt-* token，用 token 的页面自动变暗；手机填报不加 data-xt-theme，保持浅色。 */
 :root[data-xt-theme="hud"] {
-  --xt-hud-canvas: #04101f;
-  --xt-hud-canvas-deep: #020812;
-  --xt-hud-panel: rgba(10, 24, 46, 0.68);
-  --xt-hud-panel-strong: rgba(16, 34, 62, 0.82);
-  --xt-hud-border: rgba(148, 196, 255, 0.18);
-  --xt-hud-border-strong: rgba(148, 196, 255, 0.34);
-  --xt-hud-text: rgba(224, 236, 255, 0.92);
-  --xt-hud-text-muted: rgba(176, 196, 224, 0.62);
-  --xt-hud-primary: #5eb8ff;
-  --xt-hud-success: #4ecb8a;
-  --xt-hud-warning: #f0b84a;
-  --xt-hud-danger: #ff6b78;
-  --xt-hud-accent: #c88f3c;
-  --xt-hud-radius-lg: 8px;
-  --xt-hud-radius-md: 8px;
-  --xt-hud-font-mono: var(--xt-font-mono, "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
   color-scheme: dark;
+
+  --xt-primary: #4d8eff;
+  --xt-primary-hover: #6aa2ff;
+  --xt-primary-active: #3a78e6;
+  --xt-primary-light: rgba(77, 142, 255, 0.14);
+  --xt-primary-soft: rgba(77, 142, 255, 0.08);
+  --xt-primary-border: #2c3f5e;
+  --xt-primary-solid: #1f5fd1;
+  --xt-accent: #9aa8bd;
+  --xt-accent-hover: #e6edf7;
+  --xt-accent-light: #111e33;
+  --xt-accent-soft: #0c1626;
+  --xt-accent-border: #1e2c44;
+  --xt-command-surface: #0c1626;
+  --xt-command-surface-strong: #111e33;
+  --xt-command-surface-dark: #060d18;
+
+  --xt-gray-50: #0c1626;
+  --xt-gray-100: #111e33;
+  --xt-gray-200: #1e2c44;
+  --xt-gray-300: #2c3f5e;
+  --xt-gray-400: #7d8ca3;
+  --xt-gray-500: #9aa8bd;
+  --xt-gray-600: #b8c3d4;
+  --xt-gray-700: #cfd8e5;
+  --xt-gray-800: #e6edf7;
+  --xt-gray-900: #f4f7fb;
+
+  --xt-success: #3ecf8e;
+  --xt-success-light: rgba(62, 207, 142, 0.12);
+  --xt-success-border: rgba(62, 207, 142, 0.36);
+  --xt-warning: #f5b544;
+  --xt-warning-light: rgba(245, 181, 68, 0.12);
+  --xt-warning-border: rgba(245, 181, 68, 0.36);
+  --xt-danger: #ff6b6b;
+  --xt-danger-light: rgba(255, 107, 107, 0.12);
+  --xt-danger-border: rgba(255, 107, 107, 0.36);
+  --xt-info: #4d8eff;
+  --xt-info-light: rgba(77, 142, 255, 0.14);
+  --xt-info-border: #2c3f5e;
+
+  --xt-bg-page: #060d18;
+  --xt-bg-shell: #060d18;
+  --xt-bg-panel: #0c1626;
+  --xt-bg-panel-soft: #0a1322;
+  --xt-bg-panel-muted: #0a1322;
+  --xt-bg-panel-strong: #111e33;
+  --xt-bg-depth: #050b14;
+  --xt-bg-ink: #0a1322;
+  --xt-bg-ink-soft: #0a1322;
+  --xt-bg-ink-panel: #0c1626;
+
+  --xt-text: #e6edf7;
+  --xt-text-secondary: #9aa8bd;
+  --xt-text-muted: #7d8ca3;
+  --xt-text-soft: #cfd8e5;
+  --xt-text-inverse: #ffffff;
+
+  --xt-border: #1e2c44;
+  --xt-border-light: #1e2c44;
+  --xt-border-strong: #2c3f5e;
+  --xt-border-ink: rgba(255, 255, 255, 0.06);
+
+  --xt-shadow-md: 0 0 0 1px #1e2c44;
+  --xt-shadow-lg: 0 0 0 1px #2c3f5e;
+
+  --xt-grid-line: rgba(77, 142, 255, 0.06);
+  --xt-roof: #2a5fa8;
+  --xt-label-bg: rgba(12, 22, 38, 0.85);
+
+  /* Element Plus：官方 html.dark 变量之上再对齐到我们的 token */
+  --el-color-primary: #4d8eff;
+  --el-color-primary-light-3: #3a6fc8;
+  --el-color-primary-light-5: #2b5294;
+  --el-color-primary-light-7: #1c3660;
+  --el-color-primary-light-8: #16294a;
+  --el-color-primary-light-9: #111e33;
+  --el-color-primary-dark-2: #6aa2ff;
+  --el-color-success: #3ecf8e;
+  --el-color-warning: #f5b544;
+  --el-color-danger: #ff6b6b;
+  --el-color-error: #ff6b6b;
+  --el-bg-color: #0c1626;
+  --el-bg-color-page: #060d18;
+  --el-bg-color-overlay: #111e33;
+  --el-text-color-primary: #e6edf7;
+  --el-text-color-regular: #cfd8e5;
+  --el-text-color-secondary: #9aa8bd;
+  --el-text-color-placeholder: #7d8ca3;
+  --el-text-color-disabled: #4a5870;
+  --el-border-color: #2c3f5e;
+  --el-border-color-light: #1e2c44;
+  --el-border-color-lighter: #1e2c44;
+  --el-border-color-extra-light: #16233a;
+  --el-border-color-dark: #3a5076;
+  --el-fill-color: #111e33;
+  --el-fill-color-light: #0e1a2c;
+  --el-fill-color-lighter: #0c1626;
+  --el-fill-color-extra-light: #0a1322;
+  --el-fill-color-blank: #0c1626;
+  --el-mask-color: rgba(6, 13, 24, 0.8);
+  --el-box-shadow-light: 0 0 0 1px #2c3f5e;
+  --el-box-shadow: 0 0 0 1px #2c3f5e;
 }
 
 :root[data-xt-theme="hud"] body {
-  background: var(--xt-hud-canvas);
-  color: var(--xt-hud-text);
+  background: var(--xt-bg-page);
+  color: var(--xt-text);
 }
 
-[data-xt-theme="hud"] .xt-manage {
-  background:
-    radial-gradient(120% 80% at 70% 10%, rgba(94, 184, 255, 0.08), transparent 58%),
-    linear-gradient(180deg, var(--xt-hud-canvas) 0%, var(--xt-hud-canvas-deep) 100%);
-  color: var(--xt-hud-text);
+[data-xt-theme="hud"] .el-button--primary {
+  --el-button-bg-color: var(--xt-primary-solid);
+  --el-button-border-color: var(--xt-primary-solid);
+  --el-button-text-color: #ffffff;
+  --el-button-hover-bg-color: #2a6de0;
+  --el-button-hover-border-color: #2a6de0;
 }
 
-[data-xt-theme="hud"] .xt-manage__sidebar {
-  background: linear-gradient(180deg, rgba(6, 16, 32, 0.92), rgba(4, 12, 24, 0.96));
-  border-right: 1px solid var(--xt-hud-border);
-  box-shadow: 1px 0 0 rgba(94, 184, 255, 0.06);
+[data-xt-theme="hud"] .el-table {
+  --el-table-header-bg-color: #111e33;
+  --el-table-row-hover-bg-color: #111e33;
+  --el-table-tr-bg-color: #0c1626;
 }
 
-[data-xt-theme="hud"] .xt-manage__brand {
-  color: var(--xt-hud-text);
-}
-
-[data-xt-theme="hud"] .xt-manage__nav-item {
-  color: var(--xt-hud-text-muted);
-  border-radius: var(--xt-hud-radius-md);
-}
-
-[data-xt-theme="hud"] .xt-manage__nav-item.is-active {
-  color: var(--xt-hud-text);
-  background: rgba(94, 184, 255, 0.1);
-  box-shadow: inset 0 0 0 1px var(--xt-hud-border-strong);
+[data-xt-theme="hud"] .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: #0e1a2c;
 }
 
 [data-xt-theme="hud"] .xt-manage__topbar {
-  background: rgba(4, 14, 28, 0.72);
-  border-bottom: 1px solid var(--xt-hud-border);
+  background: rgba(6, 13, 24, 0.86);
   backdrop-filter: blur(8px);
-}
-
-[data-xt-theme="hud"] .xt-manage__search-trigger,
-[data-xt-theme="hud"] .xt-manage__assistant-trigger,
-[data-xt-theme="hud"] .xt-manage__user {
-  background: rgba(10, 24, 46, 0.55);
-  border: 1px solid var(--xt-hud-border);
-  color: var(--xt-hud-text);
-}
-
-[data-xt-theme="hud"] .xt-manage__content {
-  color: var(--xt-hud-text);
-}
-
-[data-xt-theme="hud"] .panel,
-[data-xt-theme="hud"] .xt-manage__container .panel {
-  background: var(--xt-hud-panel);
-  border: 1px solid var(--xt-hud-border);
-  border-radius: var(--xt-hud-radius-lg);
-  color: var(--xt-hud-text);
 }
 
 [data-xt-theme="hud"] .xt-kpi__value,
 [data-xt-theme="hud"] .xt-number,
 [data-xt-theme="hud"] [data-xt-numeric] {
-  font-family: var(--xt-hud-font-mono);
+  font-family: var(--xt-font-mono);
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
-}
-
-[data-xt-theme="hud"] .login-page {
-  background: var(--xt-hud-canvas-deep);
-  color: var(--xt-hud-text);
-}
-
-[data-xt-theme="hud"] .login-stage {
-  position: relative;
-  z-index: 1;
-}
-
-[data-xt-theme="hud"] .login-stage__headline h2 {
-  background: linear-gradient(180deg, #f2f7ff 0%, rgba(176, 210, 255, 0.72) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-[data-xt-theme="hud"] .login-card.panel {
-  background: var(--xt-hud-panel-strong);
-  border-color: var(--xt-hud-border-strong);
-  color: var(--xt-hud-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
   [data-xt-theme="hud"] .xt-manage__topbar {
     backdrop-filter: none;
-    background: rgba(4, 14, 28, 0.92);
+    background: #060d18;
+  }
+}
+
+/* 打印永远是白纸深字（二维码、报表） */
+@media print {
+  :root[data-xt-theme="hud"] {
+    color-scheme: light;
+    --xt-primary: #003890;
+    --xt-bg-page: #ffffff;
+    --xt-bg-shell: #ffffff;
+    --xt-bg-panel: #ffffff;
+    --xt-bg-panel-soft: #ffffff;
+    --xt-bg-panel-strong: #ffffff;
+    --xt-text: #111827;
+    --xt-text-secondary: #4b5563;
+    --xt-text-muted: #6b7280;
+    --xt-border: #e5e7eb;
+    --xt-border-light: #e5e7eb;
+    --xt-border-strong: #cbd5e1;
+    --el-bg-color: #ffffff;
+    --el-text-color-primary: #111827;
+    --el-text-color-regular: #374151;
+    --el-border-color: #e5e7eb;
+  }
+
+  :root[data-xt-theme="hud"] body {
+    background: #ffffff;
+    color: #111827;
   }
 }

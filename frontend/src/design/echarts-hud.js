@@ -1,38 +1,41 @@
 export const XT_HUD_THEME_NAME = 'xt-hud'
 
+const AXIS = { color: '#9aa8bd' }
+const GRID_LINE = '#1a2740'
+
 const HUD_THEME = {
-  color: ['#5eb8ff', '#4ecb8a', '#f0b84a', '#ff6b78', '#c88f3c', '#8cb7ff'],
+  color: ['#4d8eff', '#3ecf8e', '#f5b544', '#b18cff', '#5fd3e6', '#ff6b6b'],
   backgroundColor: 'transparent',
-  textStyle: { color: 'rgba(224, 236, 255, 0.92)' },
+  textStyle: { color: '#e6edf7' },
   title: {
-    textStyle: { color: 'rgba(224, 236, 255, 0.92)' },
-    subtextStyle: { color: 'rgba(176, 196, 224, 0.72)' }
+    textStyle: { color: '#e6edf7' },
+    subtextStyle: AXIS
   },
-  legend: { textStyle: { color: 'rgba(176, 196, 224, 0.72)' } },
-  grid: { borderColor: 'rgba(148, 196, 255, 0.18)' },
+  legend: { textStyle: AXIS },
+  grid: { borderColor: GRID_LINE },
   categoryAxis: {
-    axisLine: { lineStyle: { color: 'rgba(148, 196, 255, 0.24)' } },
-    axisTick: { lineStyle: { color: 'rgba(148, 196, 255, 0.18)' } },
-    axisLabel: { color: 'rgba(176, 196, 224, 0.72)' },
-    splitLine: { lineStyle: { color: 'rgba(148, 196, 255, 0.08)' } }
+    axisLine: { lineStyle: { color: '#2c3f5e' } },
+    axisTick: { lineStyle: { color: GRID_LINE } },
+    axisLabel: AXIS,
+    splitLine: { lineStyle: { color: GRID_LINE } }
   },
   valueAxis: {
-    axisLine: { lineStyle: { color: 'rgba(148, 196, 255, 0.24)' } },
-    axisTick: { lineStyle: { color: 'rgba(148, 196, 255, 0.18)' } },
-    axisLabel: { color: 'rgba(176, 196, 224, 0.72)' },
-    splitLine: { lineStyle: { color: 'rgba(148, 196, 255, 0.08)' } }
+    axisLine: { lineStyle: { color: '#2c3f5e' } },
+    axisTick: { lineStyle: { color: GRID_LINE } },
+    axisLabel: AXIS,
+    splitLine: { lineStyle: { color: GRID_LINE } }
   },
   line: {
     itemStyle: { borderWidth: 2 },
-    lineStyle: { width: 2, shadowBlur: 8, shadowColor: 'rgba(94, 184, 255, 0.35)' }
+    lineStyle: { width: 2 }
   },
   bar: {
-    itemStyle: { borderRadius: [4, 4, 0, 0] }
+    itemStyle: { borderRadius: [2, 2, 0, 0] }
   },
   tooltip: {
-    backgroundColor: 'rgba(6, 16, 32, 0.92)',
-    borderColor: 'rgba(94, 184, 255, 0.36)',
-    textStyle: { color: 'rgba(224, 236, 255, 0.92)' }
+    backgroundColor: '#111e33',
+    borderColor: '#2c3f5e',
+    textStyle: { color: '#e6edf7' }
   }
 }
 
