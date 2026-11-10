@@ -183,3 +183,47 @@ test.describe('manage alerts first load', () => {
     await expect(page.locator('main strong', { hasText: /^—$/ })).toHaveCount(0)
   })
 })
+
+test.describe('manage alerts anomaly explanation', () => {
+  test('the author writes and saves the explanation for the selected day', async ({ page }) => {
+    await setupReviewSessionAndMocks(page)
+    let saved = null
+    await page.route('**/api/v1/daily-anomaly-notes/**', async (route) => {
+      const date = route.request().url().split('/').pop()
+      if (route.request().method() === 'PUT') {
+        saved = JSON.parse(route.request().postData() || '{}').content
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          business_date: date, content: saved, author_name: '张兆嘉', updated_at: '2026-11-10T09:12:00+08:00', can_edit: true,
+        }) })
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        business_date: date, content: '', author_name: null, updated_at: null, can_edit: true,
+      }) })
+    })
+
+    await page.goto('/manage/alerts')
+    const card = page.getByTestId('anomaly-explanation')
+    await card.getByRole('textbox', { name: '异常说明' }).fill('1650 停机检修 4 小时')
+    await card.getByRole('button', { name: '保存' }).click()
+
+    await expect(card).toContainText('1650 停机检修 4 小时')
+    await expect(card).toContainText('张兆嘉')
+    await expect(card.getByRole('status')).toHaveCount(0)
+    expect(saved).toBe('1650 停机检修 4 小时')
+  })
+
+  test('other readers see the explanation without an editor', async ({ page }) => {
+    await setupReviewSessionAndMocks(page)
+    await page.route('**/api/v1/daily-anomaly-notes/**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ business_date: '2026-11-08', content: '热轧换辊 2 小时', author_name: '张兆嘉', updated_at: '2026-11-09T08:30:00+08:00', can_edit: false }),
+    }))
+
+    await page.goto('/manage/alerts')
+    const card = page.getByTestId('anomaly-explanation')
+    await expect(card).toContainText('热轧换辊 2 小时')
+    await expect(card.getByRole('textbox')).toHaveCount(0)
+    await expect(card.getByRole('button', { name: '修改' })).toHaveCount(0)
+  })
+})

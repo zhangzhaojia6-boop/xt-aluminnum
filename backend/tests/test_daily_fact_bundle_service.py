@@ -4360,3 +4360,53 @@ def _load_snapshot_key_migration():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_anomaly_note_correction_is_a_confirmed_fact_for_hermes(monkeypatch, db_session: Session) -> None:
+    from app.services.hermes_20_question_acceptance import _confirmed_failure_reason
+    from app.services.report import daily_fact_bundle
+
+    monkeypatch.setattr(
+        daily_fact_bundle.template_daily_report,
+        "build_template_daily_report_facts",
+        lambda db, *, target_date, wip_date=None, **_kwargs: {
+            "values": {}, "sources": {}, "missing_fields": [], "conflicts": [],
+        },
+    )
+    db_session.add(User(id=983, username="zhang", password_hash="hashed", name="张兆嘉", role="admin"))
+    db_session.flush()
+    db_session.add(
+        DailyFactCorrection(
+            business_date=date(2026, 11, 8),
+            field_name="anomaly_explanation_daily",
+            value_payload={"value": "1650 停机检修 4 小时"},
+            unit=None,
+            source_text="1650 停机检修 4 小时",
+            reason="异常说明",
+            actor_user_id=983,
+            trace_id="anomaly-note:2026-11-08:abc",
+        )
+    )
+    db_session.commit()
+
+    bundle = daily_fact_bundle.build_daily_fact_bundle(db_session, business_date=date(2026, 11, 8))
+
+    fact = bundle["facts"]["anomaly_explanation_daily"]
+    assert fact["value"] == "1650 停机检修 4 小时"
+    assert fact["evidence_status"] == "confirmed", fact.get("evidence_gaps")
+    ref = fact["source_ref"]
+    assert _confirmed_failure_reason(
+        {
+            "status": "confirmed",
+            "field": "anomaly_explanation_daily",
+            "value": fact["value"],
+            "source_key": ref["source_key"],
+            "source_type": fact["source_type"],
+            "source_ref": ref,
+            "trace_id": ref["trace_id"],
+            "business_date": "2026-11-08",
+            "business_window": ref["business_window"],
+            "unit": "",
+            "metric_contract_version": ref["metric_contract_version"],
+        }
+    ) is None

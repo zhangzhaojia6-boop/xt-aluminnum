@@ -167,6 +167,8 @@ class Settings(BaseSettings):
     DINGTALK_FILE_TEXT_MAX_BYTES: int = 2_000_000
     DINGTALK_BACKFILL_DAYS: int = 3
     DINGTALK_NOTIFY_DRY_RUN: bool = False
+    # 能写异常说明的账号，逗号分隔；默认张兆嘉
+    ANOMALY_NOTE_AUTHOR_USER_IDS: str = '983'
     DINGTALK_INBOUND_TOKEN: str | None = None
     HERMES_DINGTALK_CLIENT_ID: str | None = None
     HERMES_DINGTALK_CLIENT_SECRET: str | None = None

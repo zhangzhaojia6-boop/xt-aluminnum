@@ -563,7 +563,7 @@ def _render_selected_facts(*, plan: RootOwnerMessagePlan, decision: EvidenceDeci
 
 
 _ANOMALY_MISSING_NEXT_STEP = (
-    "系统还没有接入异常说明的来源，这一项暂时答不了；"
+    "这天还没有写异常说明；"
     "系统发现的缺口到数据中枢异常页查看。"
 )
 
