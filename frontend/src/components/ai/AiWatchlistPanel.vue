@@ -174,7 +174,7 @@ async function toggleWatch(watch) {
   min-height: 36px;
   border: 0;
   border-radius: 4px;
-  background: #fff;
+  background: var(--xt-bg-panel);
   color: var(--xt-text);
   font: inherit;
   font-size: 13px;
@@ -213,7 +213,7 @@ async function toggleWatch(watch) {
   min-height: 58px;
   padding: 9px 10px;
   border-radius: 4px;
-  background: #fff;
+  background: var(--xt-bg-panel);
 
 }
 
