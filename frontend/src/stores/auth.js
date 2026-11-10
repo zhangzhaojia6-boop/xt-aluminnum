@@ -26,7 +26,7 @@ function readStoredJson(key) {
   }
 }
 
-function normalizeUser(user) {
+export function normalizeUser(user) {
   if (user == null) return null
   const role = String(user.role || '')
   return {

@@ -75,7 +75,7 @@ const FEATURE_GROUPS = [
     commandGroup: '权限',
     collapsible: true,
     items: [
-      { title: '用户', shortLabel: '用户', path: '/manage/admin/users', icon: User, access: 'admin', commandGroup: '权限' },
+      { title: '用户与角色', shortLabel: '用户与角色', path: '/manage/admin/users', icon: User, access: 'admin', commandGroup: '权限' },
       { title: '通讯治理', shortLabel: '通讯治理', path: '/manage/admin/agents', icon: ChatLineSquare, access: 'admin', commandGroup: '权限' },
       { title: '通讯通道', shortLabel: '通讯通道', path: '/manage/channels', icon: Message, access: 'admin', commandGroup: '权限' }
     ]

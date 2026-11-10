@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import secrets
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -268,6 +270,7 @@ def list_users(
     is_active: bool | None = None,
     machine_binding: str | None = Query(default=None, pattern='^(bound|unbound)$'),
     bound_machine_id: int | None = None,
+    login_status: str | None = Query(default=None, pattern='^stale$'),
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
@@ -295,6 +298,9 @@ def list_users(
             Equipment.bound_user_id.isnot(None),
         )
         query = query.filter(User.id.in_(machine_bound_user_ids))
+    if login_status == 'stale':
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        query = query.filter(or_(User.last_login.is_(None), User.last_login < cutoff))
     total = query.count()
     rows = query.offset(skip).limit(limit).all()
     user_ids = [user.id for user, _workshop_name, _team_name in rows]

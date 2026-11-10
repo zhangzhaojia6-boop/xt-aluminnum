@@ -15,10 +15,10 @@ test('team lead board is cancelled from active routes', () => {
 })
 
 test('team lead roles are no longer selectable or used as landing roles', () => {
-  assert.doesNotMatch(userManagementSource, /value: 'team_leader'/)
-  assert.doesNotMatch(userManagementSource, /value: 'shift_leader'/)
-  assert.doesNotMatch(userManagementSource, /value: 'deputy_leader'/)
-  assert.match(userManagementSource, /value: 'consumable_stat'/)
+  assert.doesNotMatch(userManagementSource, /'team_leader'/)
+  assert.doesNotMatch(userManagementSource, /'shift_leader'/)
+  assert.doesNotMatch(userManagementSource, /'deputy_leader'/)
+  assert.match(userManagementSource, /ACTIVE_ROLE_OPTIONS = \[[^\]]*'consumable_stat'/)
   assert.doesNotMatch(guardSource, /isTeamLeadRole/)
   assert.doesNotMatch(guardSource, /team_lead/)
 })
