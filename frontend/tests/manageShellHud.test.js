@@ -43,10 +43,11 @@ test('ManageShell brand lands on the owner today tab', () => {
   assert.doesNotMatch(src, /class="xt-manage__brand" to="\/manage\/overview"/)
 })
 
-test('ManageShell wires the settings drawer trigger', () => {
-  assert.match(src, /SettingsDrawer v-if="!isMobileViewport && settingsDrawerOpen" v-model:open="settingsDrawerOpen"/)
-  assert.match(src, /v-if="!isMobileViewport" class="xt-manage__settings-trigger" type="button" aria-label="设置" @click="settingsDrawerOpen = true"/)
-  assert.match(src, /if \(isMobileViewport\.value\) settingsDrawerOpen\.value = false/)
+test('ManageShell has no settings gear; former settings live in the grouped nav', () => {
+  assert.doesNotMatch(src, /SettingsDrawer|settingsDrawerOpen|xt-manage__settings-trigger/)
+  assert.match(src, /manageSearchGroups\(auth\)/)
+  assert.match(scriptBody, /function toggleGroup\(group\)/)
+  assert.match(scriptBody, /group\.items\.some\(\(item\) => isActive\(item\.path\)\)/)
 })
 
 test('ManageShell adapts sidebar state to viewport width', () => {
@@ -73,7 +74,7 @@ test('ManageShell hides manual collapse control when viewport owns nav mode', ()
 })
 
 test('ManageShell keeps adaptive navigation usable in icon and mobile modes', () => {
-  assert.match(scriptBody, /ChatDotRound,\s*Close,\s*Expand,\s*Fold,\s*Menu,\s*Search,\s*Setting/)
+  assert.match(scriptBody, /ArrowDown,\s*ArrowRight,\s*ChatDotRound,\s*Close,\s*Expand,\s*Fold,\s*Menu,\s*Search/)
   assert.match(src, /'xt-manage--compact-topbar': isCompactTopbar/)
   assert.match(src, /class="xt-manage__drawer-overlay"/)
   assert.match(src, /:style="\{ width: drawerSize \}"/)
@@ -83,7 +84,8 @@ test('ManageShell keeps adaptive navigation usable in icon and mobile modes', ()
   assert.match(src, /:aria-label="item\.title"/)
   assert.match(src, /:aria-current="isActive\(item\.path\) \? 'page' : undefined"/)
   assert.match(src, /:data-nav-title="item\.title"/)
-  assert.match(src, /v-if="group\.label && \(!collapsed \|\| isAutoRail\)" class="xt-manage__nav-group-label"/)
+  assert.match(src, /v-else-if="group\.label && \(!collapsed \|\| isAutoRail\)" class="xt-manage__nav-group-label"/)
+  assert.match(src, /v-if="group\.label && group\.collapsible && !collapsed"/)
   assert.match(src, /v-if="!collapsed \|\| isAutoRail" class="xt-manage__nav-label"/)
   assert.match(src, /\.xt-manage--collapsed \.xt-manage__brand/)
   assert.match(src, /\.xt-manage--auto-rail \.xt-manage__sidebar:is\(:hover, :focus-within\)/)
@@ -112,7 +114,6 @@ test('ManageShell closes transient overlays when route changes', () => {
   assert.match(scriptBody, /watch\(\(\) => route\.path/)
   assert.match(scriptBody, /searchOpen\.value = false/)
   assert.match(scriptBody, /drawerOpen\.value = false/)
-  assert.match(scriptBody, /settingsDrawerOpen\.value = false/)
   assert.match(scriptBody, /assistantOpen\.value = false/)
   assert.match(scriptBody, /keyword\.value = ''/)
 })

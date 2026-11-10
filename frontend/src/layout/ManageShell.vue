@@ -20,9 +20,19 @@
 
       <nav class="xt-manage__nav" aria-label="管理端导航">
         <section v-for="group in navGroups" :key="group.label" class="xt-manage__nav-group">
-          <div v-if="group.label && (!collapsed || isAutoRail)" class="xt-manage__nav-group-label">{{ group.label }}</div>
+          <button
+            v-if="group.label && group.collapsible && !collapsed"
+            class="xt-manage__nav-group-label xt-manage__nav-group-toggle"
+            type="button"
+            :aria-expanded="isGroupOpen(group) ? 'true' : 'false'"
+            @click="toggleGroup(group)"
+          >
+            <span>{{ group.label }}</span>
+            <el-icon><ArrowDown v-if="isGroupOpen(group)" /><ArrowRight v-else /></el-icon>
+          </button>
+          <div v-else-if="group.label && (!collapsed || isAutoRail)" class="xt-manage__nav-group-label">{{ group.label }}</div>
           <RouterLink
-            v-for="item in group.items"
+            v-for="item in visibleItems(group)"
             :key="item.path"
             :to="navTo(item.path)"
             class="xt-manage__nav-item"
@@ -64,9 +74,6 @@
           <kbd>Ctrl K</kbd>
         </button>
         <div class="xt-manage__topbar-right">
-          <button v-if="!isMobileViewport" class="xt-manage__settings-trigger" type="button" aria-label="设置" @click="settingsDrawerOpen = true">
-            <el-icon><Setting /></el-icon>
-          </button>
           <button class="xt-manage__assistant-trigger" type="button" @click="openAssistantFromTopbar">
             <el-icon><ChatDotRound /></el-icon>
             <span>AI 助手</span>
@@ -155,20 +162,17 @@
       :initial-prompt="assistantInitialPrompt"
       @prompt-consumed="assistantInitialPrompt = ''"
     />
-    <SettingsDrawer v-if="!isMobileViewport && settingsDrawerOpen" v-model:open="settingsDrawerOpen" />
   </div>
 </template>
 
 <script setup>
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { ChatDotRound, Close, Expand, Fold, Menu, Search, Setting } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, ChatDotRound, Close, Expand, Fold, Menu, Search } from '@element-plus/icons-vue'
 
 const AiAssistantDrawer = defineAsyncComponent(() => import('../components/ai/AiAssistantDrawer.vue'))
-const SettingsDrawer = defineAsyncComponent(() => import('../components/manage/SettingsDrawer.vue'))
 import { XtLogo } from '../components/xt'
-import { manageNavGroups } from '../config/manage-navigation'
-import { settingsDrawerGroups } from '../config/manage-settings-drawer'
+import { manageNavGroups, manageSearchGroups } from '../config/manage-navigation'
 import { useAuthStore } from '../stores/auth'
 import { AI_ASSISTANT_OPEN_EVENT, buildAssistantScope } from '../utils/assistantLauncher'
 import { useHudTheme } from '../composables/useHudTheme.js'
@@ -190,7 +194,7 @@ const isCompactTopbar = ref(false)
 const drawerOpen = ref(false)
 const searchOpen = ref(false)
 const assistantOpen = ref(false)
-const settingsDrawerOpen = ref(false)
+const openGroups = ref(readOpenGroups())
 const assistantContextOverride = ref(null)
 const assistantInitialPrompt = ref('')
 const keyword = ref('')
@@ -208,7 +212,7 @@ const navMode = computed(() => {
   if (isAutoRail.value) return 'auto-rail'
   return collapsed.value ? 'rail' : 'full'
 })
-const searchItems = computed(() => [...navGroups.value, ...settingsDrawerGroups(auth)].flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))))
+const searchItems = computed(() => manageSearchGroups(auth).flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))))
 const filteredSearchItems = computed(() => {
   const value = keyword.value.trim().toLowerCase()
   if (!value) return searchItems.value
@@ -221,6 +225,36 @@ const assistantContext = computed(() => assistantContextOverride.value || ({
 
 function isActive(path) {
   return route.path === path || route.path.startsWith(`${path}/`)
+}
+
+function readOpenGroups() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('xt-nav-open-groups') || '[]'))
+  } catch {
+    return new Set()
+  }
+}
+
+// 折叠的组里有当前页面时自动展开；收起成图标栏（含自动窄栏）时全部显示
+function isGroupOpen(group) {
+  if (!group.collapsible || collapsed.value) return true
+  return openGroups.value.has(group.label) || group.items.some((item) => isActive(item.path))
+}
+
+function visibleItems(group) {
+  return isGroupOpen(group) ? group.items : []
+}
+
+function toggleGroup(group) {
+  const next = new Set(openGroups.value)
+  if (isGroupOpen(group)) next.delete(group.label)
+  else next.add(group.label)
+  openGroups.value = next
+  try {
+    localStorage.setItem('xt-nav-open-groups', JSON.stringify([...next]))
+  } catch {
+    // 浏览器禁止本地存储时只在本次会话记住
+  }
 }
 
 function navTo(path) {
@@ -242,7 +276,6 @@ function syncSidebarViewport() {
   isAutoRail.value = width <= SIDEBAR_RAIL_BREAKPOINT && width > SIDEBAR_MOBILE_BREAKPOINT
   isCompactTopbar.value = width <= TOPBAR_COMPACT_BREAKPOINT
   if (!isMobileViewport.value) drawerOpen.value = false
-  if (isMobileViewport.value) settingsDrawerOpen.value = false
 }
 
 function logout() {
@@ -289,7 +322,6 @@ function closeSearchAfterNavigation() {
 watch(() => route.path, () => {
   drawerOpen.value = false
   searchOpen.value = false
-  settingsDrawerOpen.value = false
   assistantOpen.value = false
   keyword.value = ''
 })
@@ -340,6 +372,10 @@ onBeforeUnmount(() => {
 .xt-manage__nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 12px; }
 .xt-manage__nav-group { margin-bottom: 20px; }
 .xt-manage__nav-group-label { padding: 0 12px 8px; color: var(--xt-text-muted); font-size: 12px; }
+.xt-manage__nav-group-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 32px; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 12px; cursor: pointer; }
+.xt-manage__nav-group-toggle:hover { color: var(--xt-text); }
+.xt-manage__nav-group-toggle:focus-visible { outline: 2px solid var(--xt-primary); outline-offset: 2px; }
+.xt-manage--collapsed .xt-manage__nav-group + .xt-manage__nav-group { padding-top: 12px; border-top: 1px solid var(--xt-border); }
 .xt-manage__nav-item {
   display: flex;
   align-items: center;

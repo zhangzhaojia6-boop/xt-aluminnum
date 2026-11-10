@@ -13,7 +13,6 @@ const fillDetails = source('../src/views/manage/fill-details/FillDetailsPage.vue
 const energy = source('../src/views/energy/EnergyCenter.vue')
 const alerts = source('../src/views/manage/alerts/AlertsPage.vue')
 const workshopDashboard = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
-const systemSettings = source('../src/views/manage/admin/SystemSettingsPage.vue')
 const tokens = source('../src/design/xt-tokens.css')
 const hud = source('../src/design/xt-hud.css')
 const industrial = source('../src/design/industrial.css')
@@ -55,21 +54,6 @@ test('second pass secondary management pages keep the same visual pass and sourc
   assert.doesNotMatch(alerts, />MES 外部数据</)
   assert.doesNotMatch(alerts, />人工填报</)
   assert.doesNotMatch(alerts, />算法数据</)
-})
-
-test('system settings exposes the thirteen-workshop and MES mapping cockpit in the same visual language', () => {
-  assert.match(systemSettings, /data-visual-pass="stitch-image2-second-pass"/)
-  assert.doesNotMatch(systemSettings, /second-pass-source-strip/)
-  assert.doesNotMatch(systemSettings, />MES 外部数据</)
-  assert.match(systemSettings, /十三车间/)
-  assert.match(systemSettings, /别名映射/)
-  assert.match(systemSettings, /机列台账/)
-  assert.match(systemSettings, /PC 工艺映射/)
-  assert.match(systemSettings, /数据源状态/)
-  assert.doesNotMatch(systemSettings, />ENV:/)
-  assert.doesNotMatch(systemSettings, />ACTIVE</)
-  assert.doesNotMatch(systemSettings, />ONLINE</)
-  assert.doesNotMatch(systemSettings, /MASTER_DATA|ALIAS_SYNC|RULE_ENGINE|USER_RBAC|QR_SERVICE|AI_ASSIST/)
 })
 
 test('dark command surface tokens stay removed after the paper redesign', () => {

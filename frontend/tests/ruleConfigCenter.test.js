@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const routerSource = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
-const drawerSource = readFileSync(new URL('../src/config/manage-settings-drawer.js', import.meta.url), 'utf8')
+const drawerSource = readFileSync(new URL('../src/config/manage-navigation.js', import.meta.url), 'utf8')
 const masterApiSource = readFileSync(new URL('../src/api/master.js', import.meta.url), 'utf8')
 
 test('rule config center is wired into admin management surface', () => {

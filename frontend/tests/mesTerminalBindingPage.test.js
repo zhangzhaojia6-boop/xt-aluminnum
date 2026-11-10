@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 const pageSrc = readFileSync(new URL('../src/views/master/MesTerminalBinding.vue', import.meta.url), 'utf8')
 const apiSrc = readFileSync(new URL('../src/api/master.js', import.meta.url), 'utf8')
 const routerSrc = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
-const settingsSrc = readFileSync(new URL('../src/views/manage/admin/SystemSettingsPage.vue', import.meta.url), 'utf8')
+const settingsSrc = readFileSync(new URL('../src/config/manage-navigation.js', import.meta.url), 'utf8')
 
 test('MesTerminalBinding page keeps the real binding CRUD contract', () => {
   assert.match(pageSrc, /fetchMesTerminalBindings/)
@@ -39,7 +39,7 @@ test('MesTerminalBinding route and settings entry are wired', () => {
   assert.match(routerSrc, /MesTerminalBinding/)
   assert.match(routerSrc, /path: 'mes-terminal-bindings'/)
   assert.match(settingsSrc, /\/manage\/mes-terminal-bindings/)
-  assert.match(settingsSrc, /终端绑定/)
+  assert.match(settingsSrc, /PC 工艺映射/)
 })
 
 test('MesTerminalBinding page has industrial blue surface and test ids', () => {

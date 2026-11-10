@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { manageNavGroups } from '../src/config/manage-navigation.js'
-import { settingsDrawerGroups } from '../src/config/manage-settings-drawer.js'
+import { manageSearchGroups as settingsDrawerGroups } from '../src/config/manage-navigation.js'
 
 const reviewAuth = {
   canAccessReviewSurface: true,
@@ -24,27 +24,30 @@ const adminPaths = [
   '/manage/admin/rules'
 ]
 
-test('owner skeleton is one unlabeled group of primary entries', () => {
+test('review users get the primary group plus the feature groups they can open', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.label), [''])
+  assert.deepEqual(groups.map((group) => group.label), ['', '业务', '工具'])
+  assert.equal(groups.slice(1).every((group) => group.collapsible), true)
 })
 
 test('owner skeleton keeps five primary entries', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.items.length), [5])
+  assert.equal(groups[0].items.length, 5)
 })
 
 test('owner skeleton paths point to current user-facing manage pages', () => {
   const groups = manageNavGroups(reviewAuth)
-  const paths = groups.flatMap((group) => group.items.map((item) => item.path))
+  const paths = groups[0].items.map((item) => item.path)
 
   assert.deepEqual(paths, ['/manage/today', '/manage/live', '/manage/production', '/manage/coils', '/manage/alerts'])
-  assert.equal(paths.includes('/manage/daily-report'), false)
-  assert.equal(paths.includes('/manage/ops-center'), false)
-  assert.equal(paths.includes('/manage/settings-center'), false)
-  assert.equal(paths.includes('/manage/reports'), false)
+  const allPaths = groups.flatMap((group) => group.items.map((item) => item.path))
+  assert.equal(allPaths.includes('/manage/daily-report'), false)
+  assert.equal(allPaths.includes('/manage/ops-center'), false)
+  assert.equal(allPaths.includes('/manage/settings-center'), false)
+  assert.equal(allPaths.includes('/manage/admin/settings'), false)
+  assert.equal(allPaths.includes('/manage/master'), false)
 })
 
 test('compact management navigation exposes the same review pages as the compact route guard', () => {
@@ -83,12 +86,22 @@ test('admin core configuration paths are exposed in the settings drawer for admi
   }
 })
 
-test('admin settings drawer exposes system settings', () => {
-  const groups = settingsDrawerGroups(adminAuth)
-  const items = groups.flatMap((group) => group.items)
+test('every former settings destination stays reachable from the nav or search', () => {
+  const items = settingsDrawerGroups(adminAuth).flatMap((group) => group.items)
+  const paths = new Set(items.map((item) => item.path))
 
-  assert.equal(items.some((item) => item.path === '/manage/admin/settings'), true)
-  assert.equal(items.some((item) => item.path === '/manage/admin/templates'), false)
+  for (const path of [
+    '/manage/workshop-dashboard', '/manage/fill-details', '/manage/energy', '/manage/procurement',
+    '/manage/master', '/manage/alias', '/manage/admin/rules', '/manage/mes-terminal-bindings',
+    '/manage/admin/users', '/manage/admin/agents', '/manage/channels',
+    '/manage/reports', '/manage/ai-assistant', '/manage/rag', '/manage/mapping-reconciliation', '/manage/admin/qr-print',
+  ]) {
+    assert.equal(paths.has(path), true, path)
+  }
+  assert.equal(paths.has('/manage/admin/settings'), false)
+  assert.equal(paths.has('/manage/admin/governance'), false)
+  assert.equal(paths.has('/manage/attendance'), false)
+  assert.equal(paths.has('/manage/admin/templates'), false)
 })
 
 test('management command labels do not duplicate group and item names', () => {

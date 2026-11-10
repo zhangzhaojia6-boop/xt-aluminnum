@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 import { resolveGuardDecision } from '../src/router/guardRules.js'
-import { settingsDrawerGroups } from '../src/config/manage-settings-drawer.js'
+import { manageSearchGroups as settingsDrawerGroups } from '../src/config/manage-navigation.js'
 
 const source = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')
 

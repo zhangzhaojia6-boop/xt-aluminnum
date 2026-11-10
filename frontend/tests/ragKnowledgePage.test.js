@@ -8,7 +8,7 @@ function source(path) {
 
 test('rag knowledge page has a manage route and navigation entry', () => {
   const router = source('../src/router/index.js')
-  const navigation = source('../src/config/manage-settings-drawer.js')
+  const navigation = source('../src/config/manage-navigation.js')
 
   assert.match(router, /const RagKnowledgePage = \(\) => import\('\.\.\/views\/manage\/rag\/RagKnowledgePage\.vue'\)/)
   assert.match(router, /path: 'rag'/)
