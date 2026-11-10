@@ -17,8 +17,34 @@ export const FACTORY_BLOCKS = [
   { key: 'CT', name: '彩涂', process: 'coating', x: 390, y: 382, w: 235, h: 58 },
   { key: 'ZD', name: '铸锭分厂', label: '铸锭', process: 'casting', x: 670, y: 205, w: 90, h: 115 },
   { key: 'ZR3', name: '铸轧三', process: 'casting', x: 770, y: 205, w: 90, h: 115 },
-  { key: 'office', label: '办公楼', x: 670, y: 340, w: 190, h: 100 }
+  { key: 'dorm', label: '宿舍楼', x: 670, y: 340, w: 62, h: 100 },
+  { key: 'hr', label: '人力资源科', x: 738, y: 340, w: 52, h: 100 },
+  { key: 'office', label: '办公楼', x: 796, y: 340, w: 64, h: 100 },
+  { key: 'monitor', label: '监控室', x: 60, y: 478, w: 52, h: 36 },
+  { key: 'store', label: '仓库', x: 120, y: 478, w: 96, h: 50 },
+  { key: 'dispatch', label: '调度室', x: 224, y: 478, w: 66, h: 36 }
 ]
+
+// 厂区道路、大门、围墙、停车位（同一坐标系）。只画平面图上有的东西。
+export const SITE = {
+  fence: { x: 30, y: 12, w: 875, h: 548 },
+  roads: [
+    { x: 30, y: 168, w: 875, h: 30 },
+    { x: 30, y: 446, w: 875, h: 24 },
+    { x: 348, y: 168, w: 34, h: 302 },
+    { x: 632, y: 168, w: 32, h: 302 },
+    { x: 350, y: 470, w: 22, h: 90 },
+    { x: 840, y: 470, w: 22, h: 90 }
+  ],
+  gates: [
+    { key: 'west-gate', label: '西门', x: 342, y: 552, w: 38, h: 8 },
+    { key: 'east-gate', label: '东门', x: 832, y: 552, w: 38, h: 8 }
+  ],
+  parking: [
+    { x: 400, y: 486, w: 200, h: 40, stalls: 16 },
+    { x: 680, y: 486, w: 140, h: 40, stalls: 10 }
+  ]
+}
 
 const MIN_HEIGHT = 10
 const MAX_HEIGHT = 45
