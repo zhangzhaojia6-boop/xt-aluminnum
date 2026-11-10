@@ -20,45 +20,44 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 import { PLAN_SIZE } from '../../utils/factory-layout.js'
 
+export { supportsWebGL } from '../../utils/webgl-support.js'
+
 const UNIT = 0.1
 const HEIGHT_UNIT = 0.12
 const ENTRY_MS = 600
 
-export function supportsWebGL() {
-  try {
-    const canvas = document.createElement('canvas')
-    const gl = canvas.getContext('webgl2', { failIfMajorPerformanceCaveat: true })
-      || canvas.getContext('webgl', { failIfMajorPerformanceCaveat: true })
-    const ok = Boolean(gl)
-    gl?.getExtension('WEBGL_lose_context')?.loseContext()
-    return ok
-  } catch {
-    return false
-  }
-}
-
-function toWorld(block) {
+function toWorld(block, plan) {
   return {
-    x: (block.x + block.w / 2 - PLAN_SIZE.width / 2) * UNIT,
-    z: (block.y + block.h / 2 - PLAN_SIZE.height / 2) * UNIT
+    x: (block.x + block.w / 2 - plan.width / 2) * UNIT,
+    z: (block.y + block.h / 2 - plan.height / 2) * UNIT
   }
 }
 
 // 只在数据变化、拖动视角或入场动画时重绘，平时不跑渲染循环。
-export function createFactoryScene(container, { colors, animate, onSelect, onLabels, onLost }) {
+export function createFactoryScene(container, {
+  colors,
+  animate,
+  onSelect,
+  onLabels,
+  onLost,
+  plan = PLAN_SIZE,
+  cameraPosition = [6, 78, 58],
+  cameraTarget = [0, 0, 3],
+  distance = [50, 160]
+}) {
   const renderer = new WebGLRenderer({ antialias: true, alpha: true, failIfMajorPerformanceCaveat: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   container.appendChild(renderer.domElement)
 
   const scene = new Scene()
   const camera = new PerspectiveCamera(32, 1, 1, 400)
-  camera.position.set(6, 78, 58)
+  camera.position.set(...cameraPosition)
 
   const controls = new OrbitControls(camera, renderer.domElement)
-  controls.target.set(0, 0, 3)
+  controls.target.set(...cameraTarget)
   controls.enablePan = false
-  controls.minDistance = 50
-  controls.maxDistance = 160
+  controls.minDistance = distance[0]
+  controls.maxDistance = distance[1]
   controls.maxPolarAngle = Math.PI * 0.32
   controls.update()
 
@@ -68,7 +67,7 @@ export function createFactoryScene(container, { colors, animate, onSelect, onLab
   scene.add(sun)
 
   const ground = new Mesh(
-    new PlaneGeometry(PLAN_SIZE.width * UNIT, PLAN_SIZE.height * UNIT),
+    new PlaneGeometry(plan.width * UNIT, plan.height * UNIT),
     new MeshStandardMaterial({ color: new Color(colors.ground) })
   )
   ground.rotation.x = -Math.PI / 2
@@ -145,7 +144,7 @@ export function createFactoryScene(container, { colors, animate, onSelect, onLab
     current = blocks
     for (const block of blocks) {
       if (meshes.has(block.key)) continue
-      const { x, z } = toWorld(block)
+      const { x, z } = toWorld(block, plan)
       const mesh = new Mesh(unitBox, materialFor(block))
       mesh.scale.set(block.w * UNIT - 0.4, 0.01, block.h * UNIT - 0.4)
       mesh.position.set(x, 0, z)
