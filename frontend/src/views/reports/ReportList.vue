@@ -253,12 +253,12 @@ onMounted(load)
 .report-delivery {
   --report-cyan: var(--xt-primary);
   --report-cyan-soft: color-mix(in srgb, var(--xt-primary) 16%, transparent);
-  --report-amber: #ffab00;
-  --report-blue: #74f5ff;
-  --report-bg: #06101f;
-  --report-panel: rgba(12, 25, 42, 0.72);
+  --report-amber: var(--xt-warning);
+  --report-blue: var(--xt-primary-hover);
+  --report-bg: var(--xt-bg-page);
+  --report-panel: var(--xt-bg-panel);
   --report-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
-  --report-muted: rgba(223, 226, 235, 0.66);
+  --report-muted: var(--xt-text-secondary);
   color: var(--xt-text);
 }
 
