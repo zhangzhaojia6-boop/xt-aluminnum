@@ -1,5 +1,6 @@
 import {
   Bell,
+  Box,
   ChatLineSquare,
   Collection,
   Connection,
@@ -41,7 +42,8 @@ const NAV_GROUPS = [
       { title: '实时调度', shortLabel: '实时', path: '/manage/live', icon: Odometer, access: 'review', commandGroup: '主线' },
       { title: '生产分析', shortLabel: '生产', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '主线' },
       { title: '卷级线索', shortLabel: '卷材', path: '/manage/coils', icon: Tickets, access: 'review', commandGroup: '主线' },
-      { title: '异常处理', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '主线' }
+      { title: '异常处理', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '主线' },
+      { title: '3D 工厂', shortLabel: '3D 工厂', path: '/manage/factory-3d', icon: Box, access: 'review', commandGroup: '主线' }
     ]
   }
 ]

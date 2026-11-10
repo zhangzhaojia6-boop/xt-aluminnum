@@ -534,7 +534,8 @@ test('WorkshopDashboardPage avoids a duplicate API load after selecting the defa
   const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
 
   assert.match(dashboardSrc, /const suppressWorkshopSelectionWatch = ref\(false\)/)
-  assert.match(dashboardSrc, /suppressWorkshopSelectionWatch\.value = true[\s\S]*selectedWorkshopId\.value = workshops\.value\[0\]\.id/)
+  assert.match(dashboardSrc, /suppressWorkshopSelectionWatch\.value = true[\s\S]*selectedWorkshopId\.value = \(requested \|\| workshops\.value\[0\]\)\.id/)
+  assert.match(dashboardSrc, /Number\(route\.query\.workshop_id\)/)
   assert.match(dashboardSrc, /watch\(selectedWorkshopId, \(\) => \{[\s\S]*if \(suppressWorkshopSelectionWatch\.value\)/)
 })
 

@@ -47,6 +47,7 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
+        globIgnores: ['**/vendor-three-*.js', '**/factory-scene-*.js'],
         skipWaiting: true,
         clientsClaim: true,
         navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//, /^\/healthz$/, /^\/readyz$/],
@@ -76,6 +77,9 @@ export default defineConfig({
           const normalizedId = id.replace(/\\/g, '/')
 
           if (normalizedId.includes('/node_modules/')) {
+            if (normalizedId.includes('/node_modules/three/')) {
+              return 'vendor-three'
+            }
             if (normalizedId.includes('/echarts/') || normalizedId.includes('/zrender/')) {
               return 'vendor-echarts'
             }
