@@ -219,6 +219,50 @@ def test_list_users_filters_by_machine_line_binding(tmp_path) -> None:
     assert empty_payload['items'] == []
 
 
+def test_list_users_filters_accounts_not_logged_in_for_30_days(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    seed_reference_data(session_factory)
+    with session_factory() as db:
+        admin = db.scalar(select(User).where(User.username == 'admin'))
+        admin.last_login = datetime.now(timezone.utc)
+        db.add(
+            User(
+                username='never',
+                password_hash='x',
+                name='从未登录',
+                role='machine_operator',
+                data_scope_type='self_team',
+                is_mobile_user=True,
+                is_reviewer=False,
+                is_manager=False,
+                is_active=True,
+            )
+        )
+        db.commit()
+
+    def fake_get_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = lambda: User(
+        id=1, username='admin', password_hash='x', name='系统管理员', role='admin', is_active=True
+    )
+    try:
+        response = TestClient(app).get('/api/v1/users/', params={'login_status': 'stale'})
+        invalid = TestClient(app).get('/api/v1/users/', params={'login_status': 'other'})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert [item['username'] for item in response.json()['items']] == ['leader01', 'never']
+    assert response.json()['total'] == 2
+    assert invalid.status_code == 422
+
+
 def test_non_admin_cannot_access_users_routes(tmp_path) -> None:
     session_factory = build_sessionmaker(tmp_path)
     seed_reference_data(session_factory)

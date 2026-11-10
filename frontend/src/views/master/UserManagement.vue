@@ -4,7 +4,7 @@
       <div class="admin-users-center__title-group">
         <div class="admin-users-center__title-copy">
           <span class="admin-users-center__system">权限账号治理</span>
-          <h1 id="admin-users-title">权限治理中心</h1>
+          <h1 id="admin-users-title">用户与角色</h1>
         </div>
         <div class="admin-users-center__tags" aria-label="权限治理范围">
           <span>用户账号</span>
@@ -18,7 +18,7 @@
       </div>
     </header>
 
-    <section class="admin-users-center__status" aria-label="权限账号状态">
+    <section v-show="activeTab === 'accounts'" class="admin-users-center__status" aria-label="权限账号状态">
       <article
         v-for="stat in governanceStats"
         :key="stat.label"
@@ -31,7 +31,12 @@
       </article>
     </section>
 
-    <el-card class="panel admin-users-center__panel" shadow="never">
+    <el-tabs v-model="activeTab" class="admin-users-center__tabs" @tab-change="handleTabChange">
+      <el-tab-pane label="账号" name="accounts" />
+      <el-tab-pane label="角色" name="roles" />
+    </el-tabs>
+
+    <el-card v-show="activeTab === 'accounts'" class="panel admin-users-center__panel" shadow="never">
       <div class="admin-users-center__panel-head">
         <div>
           <span>账号清单</span>
@@ -51,6 +56,9 @@
         <el-select v-model="filters.machineBinding" clearable placeholder="绑定状态" style="width: 160px" @change="handleMachineBindingFilterChange">
           <el-option label="已绑定" value="bound" />
           <el-option label="未绑定" value="unbound" />
+        </el-select>
+        <el-select v-model="filters.loginStatus" clearable placeholder="登录情况" style="width: 160px" @change="handleFilterChange">
+          <el-option label="30 天未登录" value="stale" />
         </el-select>
         <el-select
           v-model="filters.boundMachineId"
@@ -130,6 +138,47 @@
           @current-change="handlePageChange"
         />
       </div>
+    </el-card>
+
+    <el-card v-if="activeTab === 'roles'" class="panel admin-users-center__panel" shadow="never" data-testid="admin-roles-panel">
+      <div class="admin-users-center__panel-head">
+        <div>
+          <span>角色清单</span>
+          <h2>角色与可进页面</h2>
+        </div>
+        <strong>{{ roleRows.length }} 个角色</strong>
+      </div>
+
+      <ReferenceDataTable class="admin-users-center__table" :data="roleRows" row-key="role" v-loading="rolesLoading">
+        <el-table-column type="expand" width="48">
+          <template #default="{ row }">
+            <div class="admin-roles__variants">
+              <div v-for="(variant, index) in row.variants" :key="index" class="admin-roles__variant">
+                <strong>{{ variant.count }} 个账号</strong>
+                <span>手机填报：{{ variant.fill ? '能' : '不能' }}</span>
+                <span v-if="!variant.groups.length">管理端：不能进</span>
+                <span v-for="group in variant.groups" :key="group.label">{{ group.label }}：{{ group.titles.join('、') }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" min-width="160">
+          <template #default="{ row }">{{ formatRoleLabel(row.role) }}</template>
+        </el-table-column>
+        <el-table-column label="账号" min-width="140">
+          <template #default="{ row }">启用 {{ row.active }} / 共 {{ row.total }}</template>
+        </el-table-column>
+        <el-table-column label="手机填报" min-width="120">
+          <template #default="{ row }">
+            <ReferenceStatusTag :status="row.fill === 'mixed' ? 'warning' : row.fill ? 'success' : 'normal'" :label="row.fill === 'mixed' ? '因账号而异' : row.fill ? '能' : '不能'" />
+          </template>
+        </el-table-column>
+        <el-table-column label="管理端页面" min-width="140">
+          <template #default="{ row }">
+            <ReferenceStatusTag :status="row.pageCount === 'mixed' ? 'warning' : row.pageCount ? 'success' : 'normal'" :label="row.pageCount === 'mixed' ? '因账号而异' : row.pageCount ? `${row.pageCount} 页` : '不能进'" />
+          </template>
+        </el-table-column>
+      </ReferenceDataTable>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑用户' : '新增用户'" width="640px" class="admin-users-dialog">
@@ -223,25 +272,30 @@ import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vu
 import { fetchEquipment, fetchTeams, fetchWorkshops } from '../../api/master.js'
 import { createUser, deleteUser, fetchUsersPage, resetUserPassword, syncDingtalkUsers, updateUser } from '../../api/users.js'
 import { formatDateTime, formatRoleLabel } from '../../utils/display.js'
+import { summarizeRoles } from '../../utils/role-access.js'
 
 const route = useRoute()
 
 const ACTIVE_ROLE_OPTIONS = [
-  { value: 'admin', label: '系统管理员' },
-  { value: 'workshop_director', label: '车间主任' },
-  { value: 'machine_operator', label: '主操' },
-  { value: 'energy_stat', label: '车间电工' },
-  { value: 'consumable_stat', label: '生产内勤' },
-  { value: 'quality_owner', label: '全厂质检内勤' },
-  { value: 'planning_owner', label: '全厂计划内勤' },
-  { value: 'energy_chief', label: '全厂总电工' },
-  { value: 'storage_owner', label: '成品库内勤' },
-  { value: 'shipment_outflow_owner', label: '园区剪切内勤' },
-  { value: 'recovery_owner', label: '回收内勤' },
-  { value: 'overhaul_owner', label: '大修内勤' }
-]
+  'admin',
+  'workshop_director',
+  'machine_operator',
+  'energy_stat',
+  'consumable_stat',
+  'quality_owner',
+  'planning_owner',
+  'energy_chief',
+  'storage_owner',
+  'shipment_outflow_owner',
+  'recovery_owner',
+  'overhaul_owner'
+].map((value) => ({ value, label: formatRoleLabel(value) }))
 
 const loading = ref(false)
+const activeTab = ref('accounts')
+const rolesLoading = ref(false)
+const rolesLoaded = ref(false)
+const roleRows = ref([])
 const saving = ref(false)
 const syncingDingtalk = ref(false)
 const dialogVisible = ref(false)
@@ -257,7 +311,8 @@ const filters = reactive({
   workshopId: null,
   status: null,
   machineBinding: null,
-  boundMachineId: null
+  boundMachineId: null,
+  loginStatus: null
 })
 
 const pageState = reactive({
@@ -471,14 +526,38 @@ async function load() {
       is_active: filters.status,
       machine_binding: filters.machineBinding || undefined,
       bound_machine_id: filters.boundMachineId || undefined,
+      login_status: filters.loginStatus || undefined,
       skip: pageState.skip,
       limit: pageState.limit
     })
     items.value = page.items
     pageState.total = page.total
+    rolesLoaded.value = false
   } finally {
     loading.value = false
   }
+}
+
+async function loadRoles() {
+  rolesLoading.value = true
+  try {
+    const users = []
+    let total = Infinity
+    while (users.length < total) {
+      const page = await fetchUsersPage({ skip: users.length, limit: 500 })
+      users.push(...page.items)
+      total = page.total
+      if (!page.items.length) break
+    }
+    roleRows.value = summarizeRoles(users)
+    rolesLoaded.value = true
+  } finally {
+    rolesLoading.value = false
+  }
+}
+
+function handleTabChange(name) {
+  if (name === 'roles' && !rolesLoaded.value) loadRoles()
 }
 
 async function save() {
@@ -980,6 +1059,35 @@ onMounted(async () => {
   0% { transform: translateX(-45%); opacity: 0.35; }
   50% { opacity: 1; }
   100% { transform: translateX(45%); opacity: 0.35; }
+}
+
+.admin-users-center__tabs :deep(.el-tabs__header) {
+  margin: 0;
+}
+
+.admin-roles__variants {
+  display: grid;
+  gap: 10px;
+  padding: 4px 16px 4px 48px;
+}
+
+.admin-roles__variant {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid var(--xt-border);
+  color: var(--xt-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.admin-roles__variant:first-child {
+  border-top: 0;
+}
+
+.admin-roles__variant strong {
+  color: var(--xt-text);
+  font-size: 13px;
 }
 
 @media (max-width: 980px) {

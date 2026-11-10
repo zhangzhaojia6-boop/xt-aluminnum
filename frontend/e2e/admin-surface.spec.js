@@ -249,3 +249,50 @@ test('master data page stays within the viewport on desktop and phone', async ({
     expect(overflow).toBeLessThanOrEqual(1)
   }
 })
+
+test('users and roles page shows what each role can open and filters stale logins', async ({ page }) => {
+  await loginAsAdmin(page)
+  const users = [
+    { id: 1, username: 'admin', name: '管理员', role: 'admin', is_mobile_user: false, is_reviewer: true, is_manager: true, is_active: true },
+    { id: 2, username: 'op1', name: '主操一', role: 'machine_operator', is_mobile_user: true, is_reviewer: false, is_manager: false, is_active: true },
+    { id: 3, username: 'op2', name: '主操二', role: 'machine_operator', is_mobile_user: true, is_reviewer: false, is_manager: false, is_active: true },
+    { id: 4, username: 'el1', name: '电工一', role: 'energy_stat', is_mobile_user: true, is_reviewer: false, is_manager: false, is_active: true },
+    { id: 5, username: 'el2', name: '电工二', role: 'energy_stat', is_mobile_user: false, is_reviewer: false, is_manager: true, is_active: true }
+  ]
+  const requested = []
+  await page.route(/.*\/api\/v1\/users\/?(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    requested.push(url.search)
+    const items = url.searchParams.get('login_status') === 'stale' ? users.slice(3) : users
+    await route.fulfill({ json: { items, total: items.length, skip: 0, limit: 500 } })
+  })
+
+  await page.setViewportSize({ width: 1366, height: 820 })
+  await page.goto('/manage/admin/users')
+  const center = page.getByTestId('admin-users-center')
+  await expect(center.getByRole('heading', { name: '用户与角色' })).toBeVisible()
+  await expect(page.getByTestId('manage-shell').locator('.xt-manage__sidebar').getByRole('link', { name: '用户与角色' })).toHaveAttribute('aria-current', 'page')
+
+  await center.locator('.el-select').filter({ hasText: '登录情况' }).click()
+  await page.getByRole('option', { name: '30 天未登录' }).click()
+  await expect.poll(() => requested.some((search) => search.includes('login_status=stale'))).toBe(true)
+  await expect(center.locator('.admin-users-center__table').first()).toContainText('电工二')
+  await expect(center.locator('.admin-users-center__table').first()).not.toContainText('主操一')
+
+  await center.getByRole('tab', { name: '角色' }).click()
+  const roles = page.getByTestId('admin-roles-panel')
+  await expect(roles).toBeVisible()
+  const operatorRow = roles.locator('tr', { hasText: '主操' }).first()
+  await expect(operatorRow).toContainText('启用 2 / 共 2')
+  await expect(operatorRow).toContainText('不能进')
+  const energyRow = roles.locator('tr', { hasText: '车间电工' }).first()
+  await expect(energyRow).toContainText('因账号而异')
+  await expect(roles.locator('tr', { hasText: '系统管理员' }).first()).toContainText('页')
+
+  await energyRow.locator('.el-table__expand-icon').click()
+  await expect(roles.locator('.admin-roles__variant')).toHaveCount(2)
+  await expect(roles.locator('.admin-roles__variant').filter({ hasText: '异常处理' })).toHaveCount(1)
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(1)
+})

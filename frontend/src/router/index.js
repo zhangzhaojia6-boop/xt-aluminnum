@@ -181,7 +181,7 @@ const rawRoutes = [
       { path: 'channels', name: 'manage-channels', component: CommunicationChannelsPage, meta: { ...adminMeta, title: '通讯通道', centerNo: '15', canonical: '/manage/channels' } },
       { path: 'rag', name: 'manage-rag', component: RagKnowledgePage, meta: { ...adminMeta, title: '知识库资料', centerNo: '17', canonical: '/manage/rag' } },
       { path: 'mapping-reconciliation', name: 'manage-mapping-reconciliation', component: MappingReconciliationPage, meta: { ...adminMeta, title: '输出skill 对齐', centerNo: '16', canonical: '/manage/mapping-reconciliation' } },
-      { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },
+      { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户与角色', centerNo: '13', canonical: '/manage/admin/users' } },
       { path: 'admin/governance', name: 'admin-governance-center', redirect: { name: 'admin-users' } },
       { path: 'admin/templates', redirect: { name: 'admin-ops-reliability' } },
       { path: 'admin/rules', name: 'admin-rule-config-center', component: RuleConfigCenter, meta: { ...adminMeta, title: '规则配置', centerNo: '14', canonical: '/manage/admin/rules' } },
