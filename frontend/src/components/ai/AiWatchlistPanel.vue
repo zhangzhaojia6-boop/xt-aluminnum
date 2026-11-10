@@ -194,7 +194,7 @@ async function toggleWatch(watch) {
   padding: 0 12px;
   border: 0;
   border-radius: 4px;
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
   color: #fff;
   font-weight: 600;
   cursor: pointer;

@@ -97,6 +97,6 @@ async function save() {
 .pc-new__total { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 0; border-block: 1px solid var(--xt-border); color: var(--xt-text-secondary); }
 .pc-new__total b { color: var(--xt-text); font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pc-new__error { margin: 0; color: var(--xt-danger); }
-.pc-new__submit { min-height: 56px; border: 0; border-radius: 4px; background: var(--xt-primary); color: #fff; font: inherit; font-size: 18px; font-weight: 600; cursor: pointer; }
+.pc-new__submit { min-height: 56px; border: 0; border-radius: 4px; background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; font: inherit; font-size: 18px; font-weight: 600; cursor: pointer; }
 .pc-new__submit:disabled { background: var(--xt-bg-depth); color: var(--xt-text-muted); cursor: default; }
 </style>

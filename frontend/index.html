@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>数据中枢</title>
+    <script>
+      (function () {
+        var p = location.pathname
+        var dark = ['/manage', '/login', '/admin'].some(function (x) { return p === x || p.indexOf(x + '/') === 0 })
+        try { if (localStorage.getItem('xt-theme-force-light') === '1') dark = false } catch (e) {}
+        if (dark) {
+          document.documentElement.setAttribute('data-xt-theme', 'hud')
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
+    <style>
+      html[data-xt-theme='hud'] { background: #060d18; color-scheme: dark; }
+    </style>
   </head>
   <body>
     <div id="app"></div>

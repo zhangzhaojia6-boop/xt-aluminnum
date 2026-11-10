@@ -381,7 +381,7 @@ onMounted(load)
 .pc-check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .pc-check input { width: 20px; height: 20px; }
 .pc-go, .pc-plain { min-height: 56px; border-radius: 4px; font: inherit; font-size: 18px; cursor: pointer; touch-action: manipulation; }
-.pc-go { border: 0; background: var(--xt-primary); color: #fff; font-weight: 600; }
+.pc-go { border: 0; background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; font-weight: 600; }
 .pc-go:disabled { background: var(--xt-bg-depth); color: var(--xt-text-muted); cursor: default; }
 .pc-plain { border: 1px solid var(--xt-border); background: var(--xt-bg-page); color: var(--xt-text); }
 .pc-tabs { display: flex; gap: 8px; }

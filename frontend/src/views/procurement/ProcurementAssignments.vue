@@ -99,7 +99,7 @@ onMounted(load)
 .pc-assign__person { min-height: 44px; padding: 0 12px; border: 1px solid var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); color: var(--xt-text); font: inherit; cursor: pointer; }
 .pc-assign__add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; }
 .pc-assign__add select { min-width: 0; min-height: 48px; padding: 0 10px; border: 1px solid var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); color: var(--xt-text); font: inherit; }
-.pc-assign__add button { min-height: 48px; padding: 0 20px; border: 0; border-radius: 4px; background: var(--xt-primary); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.pc-assign__add button { min-height: 48px; padding: 0 20px; border: 0; border-radius: 4px; background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .pc-assign__text { min-height: 44px; border: 0; background: transparent; color: var(--xt-primary); font: inherit; cursor: pointer; }
 .pc-assign__error { margin: 12px 0 0; color: var(--xt-danger); }
 button:focus-visible, select:focus-visible { outline: 2px solid var(--xt-primary); outline-offset: 2px; }

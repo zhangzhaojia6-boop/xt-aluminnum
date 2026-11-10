@@ -487,7 +487,7 @@ svg {
 
 .mobile-history-item .header-actions .el-button--primary.is-plain {
   border-color: var(--xt-primary);
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
   color: var(--xt-text-inverse);
 }
 
@@ -988,8 +988,8 @@ svg {
 }
 
 .el-button--primary {
-  border-color: var(--xt-primary);
-  background: var(--xt-primary);
+  border-color: var(--xt-primary-solid, var(--xt-primary));
+  background: var(--xt-primary-solid, var(--xt-primary));
 }
 
 .el-button--primary:hover,

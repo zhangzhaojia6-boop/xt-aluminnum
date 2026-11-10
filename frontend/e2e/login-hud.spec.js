@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test'
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
-test('login page stays on the paper theme with the company photo on wide screens', async ({ page }) => {
+test('login page is dark with the company photo on wide screens', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   const photo = page.waitForResponse((response) => response.url().endsWith('/media/login-coils.webp'))
   await page.goto('/login')
-  await expect(page.locator('html')).not.toHaveAttribute('data-xt-theme', 'hud')
+  await expect(page.locator('html')).toHaveAttribute('data-xt-theme', 'hud')
   await expect(page.getByTestId('login-photo')).toBeVisible()
   expect((await photo).status()).toBe(200)
   await expect(page.locator('.xt-rolling')).toBeHidden()

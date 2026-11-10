@@ -1,19 +1,6 @@
-import { onBeforeUnmount, onMounted } from 'vue'
-
+// 主题由路由决定（src/theme/route-theme.js）；这里只保存用户偏好，不改页面。
 const THEME_KEY = 'xt-theme-preference'
 const HUD = 'hud'
-
-export function applyHudTheme(doc = document) {
-  doc.documentElement.dataset.xtTheme = HUD
-}
-
-export function clearHudTheme(doc = document) {
-  delete doc.documentElement.dataset.xtTheme
-}
-
-export function isHudActive(doc = document) {
-  return doc.documentElement.dataset.xtTheme === HUD
-}
 
 export function readHudPreference() {
   try {
@@ -30,21 +17,4 @@ export function writeHudPreference(enabled) {
   } catch {
     /* ignore quota / SSR */
   }
-  if (typeof document !== 'undefined') {
-    if (enabled) applyHudTheme()
-    else clearHudTheme()
-  }
-}
-
-export function useHudTheme(options = {}) {
-  if (typeof document !== 'undefined') {
-    if (options.force || readHudPreference()) applyHudTheme()
-    else clearHudTheme()
-  }
-  onMounted(() => {
-    if (options.force || readHudPreference()) applyHudTheme()
-  })
-  onBeforeUnmount(() => {
-    clearHudTheme()
-  })
 }

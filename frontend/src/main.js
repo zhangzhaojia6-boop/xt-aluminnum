@@ -16,6 +16,7 @@ import { installErrorMonitor } from './plugins/errorMonitor'
 import './design/xt-tokens.css'
 import './design/xt-base.css'
 import './design/xt-motion.css'
+import 'element-plus/theme-chalk/dark/css-vars.css'
 import './design/xt-hud.css'
 import './design/industrial.css'
 

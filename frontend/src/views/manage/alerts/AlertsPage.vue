@@ -525,7 +525,7 @@ watch(timeline.targetDate, (next) => {
 
 .xt-alerts__filters :deep(.xt-domain-chip.is-active) {
   border-color: var(--xt-primary);
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
   color: var(--xt-text-inverse);
 }
 

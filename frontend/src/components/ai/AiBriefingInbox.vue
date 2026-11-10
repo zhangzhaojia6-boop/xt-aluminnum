@@ -234,7 +234,7 @@ function handleIgnore(briefing) {
 }
 
 .ai-briefing-inbox__filters button.is-active {
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
   color: #fff;
 }
 

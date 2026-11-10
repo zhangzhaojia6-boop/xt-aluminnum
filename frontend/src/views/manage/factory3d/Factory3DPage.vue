@@ -152,8 +152,8 @@ onMounted(async () => {
         ground: readColor('--xt-bg-panel-soft', '#f4f6f9'),
         data: readColor('--xt-primary', '#003890'),
         empty: readColor('--xt-border', '#d0d5dd'),
-        building: '#eceff3',
-        edge: '#ffffff'
+        building: readColor('--xt-border-strong', '#eceff3'),
+        edge: readColor('--xt-bg-page', '#ffffff')
       },
       animate: true,
       onSelect: open,
@@ -245,7 +245,8 @@ onBeforeUnmount(() => scene.value?.destroy())
   padding: 2px 6px;
   border: 0;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--xt-border-strong);
+  background: var(--xt-label-bg, rgba(255, 255, 255, 0.92));
   color: var(--xt-text);
   font: inherit;
   font-size: 12px;
@@ -283,7 +284,7 @@ button.xt-factory3d__plot,
   justify-items: center;
   gap: 2px;
   box-sizing: border-box;
-  border: 1px solid #fff;
+  border: 1px solid var(--xt-bg-page);
   border-radius: 2px;
   background: var(--xt-border);
   color: var(--xt-text);
@@ -292,7 +293,7 @@ button.xt-factory3d__plot,
 }
 
 .xt-factory3d__plot.is-data {
-  background: var(--xt-primary);
+  background: var(--xt-primary-solid, var(--xt-primary));
   color: #fff;
 }
 

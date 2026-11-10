@@ -114,7 +114,7 @@ onMounted(async () => {
 <style scoped>
 .pc-sup { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .pc-sup__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.pc-sup__head button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 4px; background: var(--xt-primary); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.pc-sup__head button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 4px; background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .pc-sup h1 { margin: 0; font-size: 28px; font-weight: 600; }
 .pc-sup__tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .pc-sup__tabs button { min-height: 44px; padding: 0 14px; border: 1px solid var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); color: var(--xt-text); font: inherit; cursor: pointer; }
@@ -125,7 +125,7 @@ onMounted(async () => {
 .pc-sup__form input, .pc-sup__form select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 0 10px; border: 1px solid var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); color: var(--xt-text); font: inherit; }
 .pc-sup__actions { display: flex; gap: 8px; }
 .pc-sup__actions button { min-height: 44px; padding: 0 16px; border: 1px solid var(--xt-border); border-radius: 4px; background: var(--xt-bg-page); font: inherit; cursor: pointer; }
-.pc-sup__actions .is-primary { border-color: var(--xt-primary); background: var(--xt-primary); color: #fff; font-weight: 600; }
+.pc-sup__actions .is-primary { border-color: var(--xt-primary); background: var(--xt-primary-solid, var(--xt-primary)); color: #fff; font-weight: 600; }
 .pc-sup__error { margin: 0; color: var(--xt-danger); }
 .pc-sup__table { overflow-x: auto; }
 .pc-sup table { width: 100%; min-width: 760px; border-collapse: collapse; }

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { resolveRouteMeta } from '../config/navigation'
 import { useAuthStore } from '../stores/auth'
+import { applyRouteTheme } from '../theme/route-theme.js'
 import {
   isCompactClient,
   isDingTalkRuntimeClient,
@@ -325,6 +326,8 @@ export function installRouterGuards(routerInstance, authStore) {
     document.title = to.meta.title ? `${to.meta.title} - ${pageAppTitle}` : pageAppTitle
     return true
   })
+
+  routerInstance.afterEach((to) => applyRouteTheme(to.path))
 }
 
 export default router
