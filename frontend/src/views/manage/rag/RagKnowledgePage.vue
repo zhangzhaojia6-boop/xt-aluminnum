@@ -326,14 +326,14 @@ onMounted(loadDocuments)
 
 <style scoped>
 .xt-rag {
-  --rag-bg: #131314;
-  --rag-panel: #1f1f20;
-  --rag-panel-high: #2a2a2b;
-  --rag-border: rgba(184, 134, 11, 0.34);
-  --rag-gold: #d3a646;
-  --rag-text: #eee9de;
-  --rag-muted: #bfb39f;
-  --rag-red: #8b1e1e;
+  --rag-bg: var(--xt-bg-page);
+  --rag-panel: var(--xt-bg-panel);
+  --rag-panel-high: var(--xt-bg-panel-strong);
+  --rag-border: var(--xt-border);
+  --rag-gold: var(--xt-primary);
+  --rag-text: var(--xt-text);
+  --rag-muted: var(--xt-text-secondary);
+  --rag-red: var(--xt-danger);
   display: grid;
   gap: var(--xt-space-4);
   min-height: calc(100vh - var(--xt-topbar-height) - var(--xt-space-10));

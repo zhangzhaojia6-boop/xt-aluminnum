@@ -1067,12 +1067,12 @@ onMounted(loadSources)
 
 <style scoped>
 .xt-mapping-reconciliation {
-  --mapping-bg: #081116;
-  --mapping-panel: #111b22;
-  --mapping-border: rgba(179, 139, 69, 0.28);
-  --mapping-gold: #c79b4b;
-  --mapping-red: #7f1d1d;
-  --mapping-text: #f5f0e6;
+  --mapping-bg: var(--xt-bg-page);
+  --mapping-panel: var(--xt-bg-panel);
+  --mapping-border: var(--xt-border);
+  --mapping-gold: var(--xt-primary);
+  --mapping-red: var(--xt-danger);
+  --mapping-text: var(--xt-text);
   display: grid;
   gap: var(--xt-space-4);
   min-height: calc(100vh - var(--xt-topbar-height) - var(--xt-space-10));

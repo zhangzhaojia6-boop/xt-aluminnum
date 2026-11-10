@@ -273,13 +273,13 @@ onMounted(load)
 .alias-router {
   --alias-cyan: var(--xt-primary);
   --alias-cyan-soft: color-mix(in srgb, var(--xt-primary) 12%, transparent);
-  --alias-amber: #ffab00;
-  --alias-bg: rgba(1, 16, 31, 0.72);
-  --alias-bg-strong: rgba(2, 12, 25, 0.92);
+  --alias-amber: var(--xt-warning);
+  --alias-bg: var(--xt-bg-page);
+  --alias-bg-strong: var(--xt-bg-panel-strong);
   --alias-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
   --alias-line-strong: color-mix(in srgb, var(--xt-primary) 38%, transparent);
-  --alias-muted: rgba(185, 223, 235, 0.64);
-  --alias-text: rgba(225, 253, 255, 0.94);
+  --alias-muted: var(--xt-text-secondary);
+  --alias-text: var(--xt-text);
   position: relative;
   isolation: isolate;
   overflow-x: clip;

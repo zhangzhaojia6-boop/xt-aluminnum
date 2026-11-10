@@ -439,12 +439,12 @@ onMounted(loadOverview)
 
 <style scoped>
 .xt-agent-management {
-  --xt-agent-bg: #0b1222;
-  --xt-agent-panel: #161e31;
-  --xt-agent-panel-soft: #1a2337;
-  --xt-agent-border: rgba(94, 112, 143, 0.34);
-  --xt-agent-blue: #1488ff;
-  --xt-agent-cyan: #22d3ee;
+  --xt-agent-bg: var(--xt-bg-page);
+  --xt-agent-panel: var(--xt-bg-panel);
+  --xt-agent-panel-soft: var(--xt-bg-panel-soft);
+  --xt-agent-border: var(--xt-border);
+  --xt-agent-blue: var(--xt-primary-hover);
+  --xt-agent-cyan: var(--xt-primary-hover);
   position: relative;
   isolation: isolate;
   display: grid;
