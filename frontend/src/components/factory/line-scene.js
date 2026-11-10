@@ -16,7 +16,7 @@ import {
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
-import { buildLineParts } from '../../utils/line-parts.js'
+import { buildLineParts, fitDistance } from '../../utils/line-parts.js'
 
 const MATERIALS = {
   furnace: { color: '#6b7891', roughness: 0.7 },
@@ -62,12 +62,15 @@ export function createLineScene(container, { colors = {}, animate, onLabels, onL
   const camera = new PerspectiveCamera(30, 1, 1, 300)
   camera.position.set(0, 13, 31)
   const controls = new OrbitControls(camera, renderer.domElement)
-  controls.target.set(0, 1.2, 0)
+  controls.target.set(0, 2.4, 0)
   controls.enablePan = false
   controls.minDistance = 12
   controls.maxDistance = 80
   controls.maxPolarAngle = Math.PI * 0.42
   controls.update()
+  const viewDirection = camera.position.clone().sub(controls.target).normalize()
+  let userMovedCamera = false
+  controls.addEventListener('start', () => { userMovedCamera = true })
 
   scene.add(new HemisphereLight('#bcd4ff', '#1a2438', 1.6))
   const sun = new DirectionalLight('#ffffff', 1.3)
@@ -248,6 +251,10 @@ export function createLineScene(container, { colors = {}, animate, onLabels, onL
     if (!width || !height) return
     renderer.setSize(width, height, false)
     camera.aspect = width / height
+    if (!userMovedCamera) {
+      camera.position.copy(controls.target).addScaledVector(viewDirection, fitDistance(camera.aspect))
+      controls.update()
+    }
     camera.updateProjectionMatrix()
     render()
   }
