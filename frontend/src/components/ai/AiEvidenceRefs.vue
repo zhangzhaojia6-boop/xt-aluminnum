@@ -75,7 +75,7 @@ const normalizedMissingData = computed(() => props.missingData.filter(Boolean))
   display: inline-grid;
   place-items: center;
   border-radius: var(--xt-radius-pill);
-  background: #fff;
+  background: var(--xt-bg-panel);
   color: var(--xt-primary);
 
   font-size: 12px;
@@ -95,7 +95,7 @@ const normalizedMissingData = computed(() => props.missingData.filter(Boolean))
   min-height: 28px;
   padding: 0 8px;
   border-radius: 4px;
-  background: #fff;
+  background: var(--xt-bg-panel);
   color: var(--xt-text-secondary);
   font-size: 12px;
   font-weight: 600;

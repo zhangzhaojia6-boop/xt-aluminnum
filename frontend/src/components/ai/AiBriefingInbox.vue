@@ -243,7 +243,7 @@ function handleIgnore(briefing) {
   gap: 8px;
   padding: 10px;
   border-radius: 4px;
-  background: #fff;
+  background: var(--xt-bg-panel);
 
 }
 
