@@ -15,18 +15,18 @@
     </header>
 
     <div v-if="view === '3d'" class="live-process-flow__stage" data-testid="live-flow-stage">
-      <div ref="canvasHost" class="live-process-flow__canvas" />
+      <div ref="canvasHost" class="live-process-flow__canvas" data-testid="live-flow-canvas" />
       <span
-        v-for="block in nodeBlocks"
-        v-show="labels[block.key]?.visible"
-        :key="block.key"
+        v-for="item in items"
+        v-show="labels[item.key]?.visible"
+        :key="item.key"
         class="live-process-flow__label"
-        :class="{ 'is-empty': !block.hasData }"
-        :style="labelStyle(block.key)"
+        :class="{ 'is-empty': item.output == null }"
+        :style="labelStyle(item.key)"
         data-testid="live-flow-label"
       >
-        <span>{{ block.label }}</span>
-        <strong>{{ block.valueText }}</strong>
+        <span>{{ item.stage }}</span>
+        <strong>{{ item.valueText }}</strong>
       </span>
     </div>
 
@@ -65,10 +65,9 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import AnimatedMetricValue from './AnimatedMetricValue.vue'
-import { LINE_PLAN, buildProcessLineBlocks } from '../../../utils/process-line-layout.js'
 import { supportsWebGL } from '../../../utils/webgl-support.js'
 
 const props = defineProps({
@@ -85,17 +84,9 @@ const canvasHost = ref(null)
 const labels = ref({})
 const scene = shallowRef(null)
 
-const blocks = computed(() => buildProcessLineBlocks(props.items))
-const nodeBlocks = computed(() => blocks.value.filter((block) => block.isWorkshop))
-
 function labelStyle(key) {
   const position = labels.value[key]
   return position ? { left: `${position.left}px`, top: `${position.top}px` } : {}
-}
-
-function readColor(name, fallback) {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback
 }
 
 function remember(next) {
@@ -123,26 +114,15 @@ async function setView(next) {
   if (next === '2d') return fallbackTo2D()
   view.value = '3d'
   try {
-    const { createFactoryScene } = await import('../../../components/factory/factory-scene.js')
+    const { createLineScene } = await import('../../../components/factory/line-scene.js')
     await nextTick()
     if (view.value !== '3d' || !canvasHost.value) return
-    scene.value = createFactoryScene(canvasHost.value, {
-      colors: {
-        ground: readColor('--xt-bg-panel-soft', '#f4f6f9'),
-        data: readColor('--xt-primary', '#003890'),
-        empty: readColor('--xt-border', '#d0d5dd'),
-        building: readColor('--xt-border', '#d0d5dd'),
-        edge: readColor('--xt-bg-page', '#ffffff')
-      },
+    scene.value = createLineScene(canvasHost.value, {
       animate: true,
-      plan: LINE_PLAN,
-      cameraPosition: [0, 20, 24],
-      cameraTarget: [0, 0, 0],
-      distance: [18, 60],
       onLabels: (next) => { labels.value = next },
       onLost: () => fallbackTo2D('WebGL 上下文丢失')
     })
-    scene.value.update(blocks.value)
+    scene.value.update(props.items)
   } catch (error) {
     fallbackTo2D(error?.message || '3D 加载失败')
   }
@@ -161,7 +141,7 @@ onMounted(() => {
   if (can3D.value && saved === '3d') setView('3d')
 })
 
-watch(blocks, (next) => scene.value?.update(next))
+watch(() => props.items, (next) => scene.value?.update(next))
 
 onBeforeUnmount(dropScene)
 </script>
@@ -239,9 +219,15 @@ onBeforeUnmount(dropScene)
 
 .live-process-flow__stage {
   position: relative;
-  height: 280px;
+  height: 320px;
   overflow: hidden;
+  border: 1px solid var(--xt-border);
   border-radius: 4px;
+  background-color: var(--xt-bg-depth);
+  background-image:
+    linear-gradient(var(--xt-grid-line, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, var(--xt-grid-line, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 .live-process-flow__canvas,

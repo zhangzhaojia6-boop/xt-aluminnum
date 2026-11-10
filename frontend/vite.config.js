@@ -47,7 +47,7 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        globIgnores: ['**/vendor-three-*.js', '**/factory-scene-*.js', '**/plant-scene-*.js'],
+        globIgnores: ['**/vendor-three-*.js', '**/plant-scene-*.js', '**/line-scene-*.js'],
         skipWaiting: true,
         clientsClaim: true,
         navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//, /^\/healthz$/, /^\/readyz$/],
