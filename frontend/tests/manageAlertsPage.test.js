@@ -87,3 +87,8 @@ test('AlertsPage does not report zero alerts before the first load finishes', ()
   assert.match(SRC, /v-if="!initialLoading" class="xt-alerts__timeline-shell"/)
   assert.match(SRC, /role="status">正在读取异常/)
 })
+
+test('AlertsPage shows the anomaly explanation for the selected business day', () => {
+  assert.match(SRC, /<AnomalyExplanation :business-date="timeline\.targetDate\.value" \/>/)
+  assert.ok(SRC.indexOf('<AnomalyExplanation') > SRC.indexOf('data-testid="manage-alerts-stats"'))
+})

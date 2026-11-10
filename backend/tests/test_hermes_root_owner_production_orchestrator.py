@@ -16,6 +16,7 @@ from app.models.system import User
 from app.services.hermes_root_owner_evidence_service import EvidenceCandidate, EvidenceDecision
 from app.services.hermes_root_owner_message_service import understand_root_owner_message
 from app.services.hermes_root_owner_production_orchestrator import (
+    _METRIC_LABELS,
     _build_natural_answer,
     _evidence_payload,
     run_root_owner_production_turn,
@@ -575,3 +576,45 @@ def test_turn_reuses_precommitted_ingress_inbox(monkeypatch) -> None:
         assert inbox.source_payload['recognition_reason']
     finally:
         db.close()
+
+
+def test_partial_answer_still_says_which_metrics_are_missing() -> None:
+    plan = understand_root_owner_message(
+        "电耗升高可能由什么造成？",
+        default_business_date=date(2026, 11, 8),
+    )
+    assert "anomaly_explanation_daily" in plan.metric_keys
+    primary = EvidenceCandidate(
+        source_key="data_hub_projection",
+        source_type="data_hub",
+        domain="energy",
+        priority=40,
+        status="ok",
+        value={
+            "anomaly_explanation_daily": {
+                "value": "1650 停机检修 4 小时",
+                "source_type": "root_owner_correction",
+                "trace_id": "anomaly-note:2026-11-08:abc",
+            }
+        },
+        summary="数据中枢投影已读取当前指标",
+        trace_ref={"source": "daily_fact_bundle", "status": "ok"},
+    )
+    decision = EvidenceDecision(
+        primary=primary,
+        candidates=(primary,),
+        conflicts=(),
+        missing_sources=[],
+        trace={"trace_id": "hermes-20q-2026-11-08-18"},
+    )
+
+    answer = _build_natural_answer(plan=plan, decision=decision)
+
+    assert "1650 停机检修 4 小时" in answer
+    missing_labels = [
+        label
+        for key, label in _METRIC_LABELS.items()
+        if key in plan.metric_keys and key != "anomaly_explanation_daily"
+    ]
+    assert missing_labels
+    assert f"{'、'.join(missing_labels)}暂时没有查到" in answer

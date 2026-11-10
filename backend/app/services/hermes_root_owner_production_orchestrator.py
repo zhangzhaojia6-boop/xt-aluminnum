@@ -538,6 +538,7 @@ def _build_natural_answer(*, plan: RootOwnerMessagePlan, decision: EvidenceDecis
 def _render_selected_facts(*, plan: RootOwnerMessagePlan, decision: EvidenceDecision) -> str:
     candidates = decision.candidates or ((decision.primary,) if decision.primary is not None else ())
     rendered: list[str] = []
+    found: set[str] = set()
     for field_name in plan.metric_keys:
         for candidate in candidates:
             fact = _candidate_field_fact(candidate, field_name)
@@ -558,12 +559,21 @@ def _render_selected_facts(*, plan: RootOwnerMessagePlan, decision: EvidenceDeci
                 details.append(f"事实追踪：{source_trace_id}")
             detail_text = f"（{'；'.join(details)}）" if details else ""
             rendered.append(f"{label}：{value_text}{unit_text}{detail_text}")
+            found.add(field_name)
             break
+    # 只查到一部分时，把没查到的指标说出来，不能让人以为都有数；异常说明是附带项，不单独提
+    missing = [
+        _METRIC_LABELS.get(field_name, field_name)
+        for field_name in plan.metric_keys
+        if field_name not in found and field_name != "anomaly_explanation_daily"
+    ]
+    if rendered and missing:
+        rendered.append(f"{'、'.join(missing)}暂时没有查到")
     return "；".join(rendered)
 
 
 _ANOMALY_MISSING_NEXT_STEP = (
-    "系统还没有接入异常说明的来源，这一项暂时答不了；"
+    "这天还没有写异常说明；"
     "系统发现的缺口到数据中枢异常页查看。"
 )
 

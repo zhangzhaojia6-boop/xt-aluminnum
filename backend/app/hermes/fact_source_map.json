@@ -234,15 +234,16 @@
     "metric_key": "anomaly_explanation_daily",
     "display_name": "异常说明日汇总",
     "domain": "evidence",
-    "priority_sources": ["dingtalk_group_content", "data_quality_issues", "daily_reports", "multimodal_evidence"],
+    "priority_sources": ["dingtalk_group_content", "root_owner_correction", "data_quality_issues", "daily_reports", "multimodal_evidence"],
     "dingtalk_evidence_conditions": {
       "authorized_group": "not_required_enterprise_app_scope",
       "content_type": ["text", "file", "image"],
       "time_range": "business_day_window"
     },
-    "source_tables": ["data_quality_issues", "daily_reports", "multimodal_evidence"],
-    "source_services": ["HermesDataAuditService", "template_daily_report", "agent_multimodal_evidence_service"],
+    "source_tables": ["daily_fact_corrections", "data_quality_issues", "daily_reports", "multimodal_evidence"],
+    "source_services": ["daily_anomaly_note_service", "HermesDataAuditService", "template_daily_report", "agent_multimodal_evidence_service"],
     "api_routes": [
+      "/api/v1/daily-anomaly-notes/{business_date}",
       "/api/v1/dingtalk/agent-inbound",
       "/api/v1/hermes/data-audit/runs",
       "/api/v1/hermes/data-audit/runs/{run_id}",
@@ -251,7 +252,7 @@
     "frontend_pages": ["/manage/alerts", "/manage/today"],
     "hermes_tools": ["dingtalk_evidence", "source_map", "rag_route"],
     "delete_protection": "protect",
-    "known_risks": ["内容类型、时间范围、来源 trace 不全时不能直接当正式事实"],
+    "known_risks": ["内容类型、时间范围、来源 trace 不全时不能直接当正式事实", "目前只有异常页指定作者写入 daily_fact_corrections 这一条路径；钉钉、数据质量问题、日报几条来源还没有写入代码"],
     "verification_status": "已证实"
   },
   {

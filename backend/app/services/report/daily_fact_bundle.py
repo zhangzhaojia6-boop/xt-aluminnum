@@ -758,6 +758,9 @@ def _business_window_start(window: Any) -> datetime | None:
         return None
 
 
+ANOMALY_EXPLANATION_FIELD = "anomaly_explanation_daily"
+
+
 def _apply_root_owner_corrections(
     db: Session,
     *,
@@ -831,6 +834,18 @@ def _apply_root_owner_corrections(
                 "source_text": row.source_text,
                 "business_date": business_date,
             }
+            if field_name == ANOMALY_EXPLANATION_FIELD:
+                # 异常说明只来自负责人补录，要带齐 Hermes 判定「已确认」需要的字段
+                start_at, end_at = production_business_window(business_date)
+                source_detail.update(
+                    {
+                        "source_key": "data_hub_projection",
+                        "business_window": f"{start_at.isoformat()}/{end_at.isoformat()}",
+                        "metric_contract_version": daily_report_metric_contract_for(
+                            field_name
+                        ).metric_contract_version,
+                    }
+                )
         if should_adopt:
             adopted_fact = _fact_item(
                 value=new_value,
@@ -844,6 +859,27 @@ def _apply_root_owner_corrections(
                 source_detail=source_detail,
                 source_ref=source_detail,
             )
+            if field_name == ANOMALY_EXPLANATION_FIELD and correction_source == "root_owner_correction":
+                evidence_gaps = [
+                    gap
+                    for gap in (
+                        metric_value_failure_reason(field_name, new_value),
+                        fact_source_failure_reason(
+                            field_name,
+                            source_key="data_hub_projection",
+                            source_type=correction_source,
+                            source_ref=source_detail,
+                            trace_id=str(row.trace_id or ""),
+                            business_date=business_date.isoformat(),
+                            business_window=str(source_detail["business_window"]),
+                            unit="",
+                            metric_contract_version=str(source_detail["metric_contract_version"]),
+                        ),
+                    )
+                    if gap is not None
+                ]
+                adopted_fact["evidence_status"] = "confirmed" if not evidence_gaps else "needs_evidence"
+                adopted_fact["evidence_gaps"] = evidence_gaps
             if correction_source == "verified_owner_daily":
                 evidence_gaps = [
                     gap

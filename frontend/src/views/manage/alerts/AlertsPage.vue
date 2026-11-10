@@ -46,6 +46,8 @@
       </div>
     </section>
 
+    <AnomalyExplanation :business-date="timeline.targetDate.value" />
+
     <section class="xt-alerts__filters" data-testid="manage-alerts-filters">
       <DomainFilterChips
         :model-value="timeline.domains.value"
@@ -116,6 +118,7 @@
 import { computed, onMounted, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import AnomalyExplanation from '../../../components/manage/AnomalyExplanation.vue'
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import DomainFilterChips from '../../../components/manage/DomainFilterChips.vue'
 import EventTimeline from '../../../components/manage/EventTimeline.vue'

@@ -17,7 +17,7 @@ def test_missing_anomaly_explanation_says_where_to_look_and_what_to_do() -> None
     answer = _next_step(('anomaly_explanation_daily',))
 
     assert _GENERIC_MISSING_ANSWER not in answer
-    assert '还没有接入' in answer
+    assert '还没有写异常说明' in answer
     assert '异常页' in answer
     # 没有任何代码把钉钉内容写进这个字段，不能让人以为发到群里就能答
     assert '钉钉' not in answer
