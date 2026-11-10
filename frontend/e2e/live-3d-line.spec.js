@@ -11,7 +11,7 @@ async function openLive(page) {
 test('live flow switches to a 3D line on demand and back to 2D', async ({ page }) => {
   const threeRequests = []
   page.on('request', (request) => {
-    if (/vendor-three|factory-scene/.test(request.url())) threeRequests.push(request.url())
+    if (/vendor-three|plant-scene|line-scene/.test(request.url())) threeRequests.push(request.url())
   })
   await openLive(page)
   const flow = page.getByRole('region', { name: '生产流转总览' })
@@ -25,6 +25,10 @@ test('live flow switches to a 3D line on demand and back to 2D', async ({ page }
   await toggle.click()
   await expect(flow.getByTestId('live-flow-stage').locator('canvas')).toHaveCount(1)
   await expect(flow.getByTestId('live-flow-label')).toHaveCount(6)
+  const canvas = flow.getByTestId('live-flow-canvas')
+  await expect(canvas).toHaveAttribute('data-draw-calls', /^\d+$/)
+  expect(Number(await canvas.getAttribute('data-draw-calls'))).toBeLessThanOrEqual(40)
+  await expect(canvas).toHaveAttribute('data-coil-running', 'false')
   expect(threeRequests.length).toBeGreaterThan(0)
   await page.waitForTimeout(900)
   await page.screenshot({ path: process.env.LIVE3D_SHOT || 'test-results/live-3d.png' })
