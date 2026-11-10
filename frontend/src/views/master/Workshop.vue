@@ -307,13 +307,13 @@ onMounted(load)
 .workshop-master {
   --workshop-cyan: var(--xt-primary);
   --workshop-cyan-soft: color-mix(in srgb, var(--xt-primary) 12%, transparent);
-  --workshop-amber: #ffab00;
-  --workshop-bg: rgba(1, 16, 31, 0.74);
-  --workshop-bg-strong: rgba(2, 12, 25, 0.92);
+  --workshop-amber: var(--xt-warning);
+  --workshop-bg: var(--xt-bg-page);
+  --workshop-bg-strong: var(--xt-bg-panel-strong);
   --workshop-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
   --workshop-line-strong: color-mix(in srgb, var(--xt-primary) 38%, transparent);
-  --workshop-muted: rgba(185, 223, 235, 0.64);
-  --workshop-text: rgba(225, 253, 255, 0.94);
+  --workshop-muted: var(--xt-text-secondary);
+  --workshop-text: var(--xt-text);
   position: relative;
   isolation: isolate;
   overflow-x: clip;

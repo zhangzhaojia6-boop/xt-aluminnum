@@ -1,12 +1,11 @@
 {
-  "components/ai/AiAssistantDrawer.vue": 3,
   "components/ai/AiBriefingInbox.vue": 1,
   "components/ai/AiWatchlistPanel.vue": 1,
   "components/hud/ParticleField.vue": 6,
   "components/manage/IndustrialProcessIcon.vue": 16,
   "components/manage/YesterdayShiftPanel.vue": 1,
   "layout/ManageShell.vue": 1,
-  "views/ai/AiWorkstation.vue": 4,
+  "views/ai/AiWorkstation.vue": 1,
   "views/factory-command/DestinationScreen.vue": 1,
   "views/factory-command/FactoryCommandShell.vue": 2,
   "views/manage/factory3d/Factory3DPage.vue": 2,
@@ -14,9 +13,6 @@
   "views/manage/today/TodayFactBand.vue": 6,
   "views/manage/today/TodayPage.vue": 1,
   "views/manage/workshop-dashboard/WorkshopDashboardPage.vue": 1,
-  "views/master/MesTerminalBinding.vue": 3,
   "views/master/QRCodePrint.vue": 3,
-  "views/master/Workshop.vue": 5,
-  "views/reports/LiveDashboard.vue": 12,
-  "views/reports/ReportList.vue": 5
+  "views/reports/LiveDashboard.vue": 12
 }

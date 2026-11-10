@@ -297,10 +297,10 @@ onMounted(load)
 <style scoped>
 .terminal-binding {
   --terminal-cyan: var(--xt-primary);
-  --terminal-amber: #ffab00;
-  --terminal-bg: rgba(2, 15, 29, 0.72);
+  --terminal-amber: var(--xt-warning);
+  --terminal-bg: var(--xt-bg-page);
   --terminal-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
-  --terminal-text: rgba(225, 253, 255, 0.94);
+  --terminal-text: var(--xt-text);
   color: var(--xt-text);
 }
 
