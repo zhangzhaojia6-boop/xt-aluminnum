@@ -13,14 +13,17 @@ export function accessForUser(user) {
     admin_surface: isAdmin,
     entry_surface: isAdmin || Boolean(user.is_mobile_user)
   })
-  const groups = auth.canAccessDesktop
-    ? manageSearchGroups(auth).map((group) => ({
-      label: group.label || '主线',
-      titles: group.items.map((item) => item.title)
-    }))
-    : []
+  // 采购办理人登录后只进单独的物资采购工作台（路由守卫 isProcurementOnly）。
+  const groups = auth.isProcurementOnly
+    ? [{ label: '采购', titles: ['物资采购'] }]
+    : auth.canAccessDesktop
+      ? manageSearchGroups(auth).map((group) => ({
+        label: group.label || '主线',
+        titles: group.items.map((item) => item.title)
+      }))
+      : []
   return {
-    fill: auth.canAccessFillSurface,
+    fill: !auth.isProcurementOnly && auth.canAccessFillSurface,
     groups,
     pageCount: groups.reduce((sum, group) => sum + group.titles.length, 0)
   }

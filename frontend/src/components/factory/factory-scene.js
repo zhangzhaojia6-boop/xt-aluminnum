@@ -59,7 +59,7 @@ export function createFactoryScene(container, { colors, animate, onSelect, onLab
   controls.enablePan = false
   controls.minDistance = 50
   controls.maxDistance = 160
-  controls.maxPolarAngle = Math.PI * 0.42
+  controls.maxPolarAngle = Math.PI * 0.32
   controls.update()
 
   scene.add(new AmbientLight(0xffffff, 1.6))

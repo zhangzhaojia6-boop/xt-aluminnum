@@ -31,6 +31,14 @@ test('mobile-only operator gets fill entry and no desktop pages', () => {
   assert.equal(access.pageCount, 0)
 })
 
+test('procurement staff are counted with the procurement workspace, not as having no pages', () => {
+  const access = accessForUser({ ...base, role: 'procurement_staff', is_mobile_user: true })
+
+  assert.equal(access.fill, false)
+  assert.deepEqual(access.groups, [{ label: '采购', titles: ['物资采购'] }])
+  assert.equal(access.pageCount, 1)
+})
+
 test('workshop director is limited to the own-workshop group', () => {
   const access = accessForUser({ ...base, role: 'workshop_director' })
 

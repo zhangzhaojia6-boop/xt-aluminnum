@@ -156,7 +156,7 @@
               <div v-for="(variant, index) in row.variants" :key="index" class="admin-roles__variant">
                 <strong>{{ variant.count }} 个账号</strong>
                 <span>手机填报：{{ variant.fill ? '能' : '不能' }}</span>
-                <span v-if="!variant.groups.length">管理端：不能进</span>
+                <span v-if="!variant.groups.length">电脑端：不能进</span>
                 <span v-for="group in variant.groups" :key="group.label">{{ group.label }}：{{ group.titles.join('、') }}</span>
               </div>
             </div>
@@ -173,7 +173,7 @@
             <ReferenceStatusTag :status="row.fill === 'mixed' ? 'warning' : row.fill ? 'success' : 'normal'" :label="row.fill === 'mixed' ? '因账号而异' : row.fill ? '能' : '不能'" />
           </template>
         </el-table-column>
-        <el-table-column label="管理端页面" min-width="140">
+        <el-table-column label="电脑端页面" min-width="140">
           <template #default="{ row }">
             <ReferenceStatusTag :status="row.pageCount === 'mixed' ? 'warning' : row.pageCount ? 'success' : 'normal'" :label="row.pageCount === 'mixed' ? '因账号而异' : row.pageCount ? `${row.pageCount} 页` : '不能进'" />
           </template>
