@@ -9,7 +9,7 @@ const authPages = [
   { name: 'yesterday dashboard', path: '/manage/today', scope: 'main', heading: '经营总览' },
   { name: 'production dashboard', path: '/manage/production', scope: 'main', testId: 'manage-production' },
   { name: 'workshop dashboard', path: '/manage/workshop-dashboard', scope: 'main', testId: 'workshop-dashboard' },
-  { name: 'system settings center', path: '/manage/admin/settings', scope: 'main', heading: '系统设置' },
+  { name: 'master data center', path: '/manage/master', scope: 'main', heading: '车间主数据' },
   { name: 'reports center', path: '/manage/reports', scope: 'main', heading: '日报与交付中心', mocks: setupReportsMocks },
   { name: 'quality alerts', path: '/manage/alerts?surface=quality', scope: 'main', heading: '异常', mocks: setupQualityMocks },
   { name: 'reconciliation alerts', path: '/manage/alerts?surface=reconciliation', scope: 'main', heading: '异常', mocks: setupReconciliationMocks },

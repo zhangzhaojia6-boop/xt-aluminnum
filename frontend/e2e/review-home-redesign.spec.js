@@ -119,7 +119,7 @@ test('manage shell keeps current core centers readable on tablet and mobile widt
     { path: '/manage/today', testId: 'manage-today' },
     { path: '/manage/production', testId: 'manage-production' },
     { path: '/manage/fill-details', testId: 'manage-fill-details' },
-    { path: '/manage/admin/settings', testId: 'system-settings-page' }
+    { path: '/manage/master', testId: 'admin-master-center' }
   ]
 
   await page.setViewportSize({ width: 1100, height: 900 })
@@ -137,6 +137,6 @@ test('production center exposes current production board and summary sections', 
   await expectManageChrome(page)
   await expect(page.getByTestId('manage-production')).toBeVisible()
   await expect(page.getByRole('heading', { name: '生产', exact: true })).toBeVisible()
-  await expect(page.getByText('车间产量排名')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '车间产量', exact: true })).toBeVisible()
   await expect(page.getByText('生产摘要')).toBeVisible()
 })

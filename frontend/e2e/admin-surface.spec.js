@@ -48,46 +48,6 @@ async function loginAsFillOnlyOperator(page) {
   await seedStoredSession(page, token, user)
 }
 
-test('admin surface is separate from review and entry surfaces', async ({ page }) => {
-  await loginAsAdmin(page)
-  await page.goto('/manage/admin')
-
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
-  await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByTestId('system-settings-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '系统设置' })).toBeVisible()
-  await expect(page.locator('.xt-placeholder-page')).toHaveCount(0)
-  await expect(page.getByText('现场填报')).toHaveCount(0)
-  await expect(page.getByTestId('entry-shell')).toHaveCount(0)
-})
-
-test('admin compatibility shortcuts land on manage modules', async ({ page }) => {
-  await loginAsAdmin(page)
-
-  await page.goto('/manage/ingestion')
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
-  await expect(page.getByTestId('system-settings-page')).toBeVisible()
-
-  await page.goto('/manage/admin/settings')
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
-  await expect(page.getByTestId('system-settings-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '系统设置' })).toBeVisible()
-
-  await page.goto('/manage/master')
-  await expect(page).toHaveURL(/\/manage\/master$/)
-  await expect(page.getByTestId('admin-master-center')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '车间主数据' })).toBeVisible()
-
-  await page.goto('/manage/admin/templates')
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
-  await expect(page.getByTestId('system-settings-page')).toBeVisible()
-  await expect(page.getByTestId('template-editor-page')).toHaveCount(0)
-
-  await page.goto('/manage/admin/users')
-  await expect(page).toHaveURL(/\/manage\/admin\/users$/)
-  await expect(page.getByRole('heading', { name: /权限治理中心|用户管理/ })).toBeVisible()
-})
-
 test('admin master route renders the master data smoke surface', async ({ page }) => {
   await loginAsAdmin(page)
   await page.goto('/manage/master')
@@ -97,7 +57,8 @@ test('admin master route renders the master data smoke surface', async ({ page }
 
   await expect(page).toHaveURL(/\/manage\/master$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByRole('button', { name: '设置' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '设置' })).toHaveCount(0)
+  await expect(adminAside.getByRole('link', { name: '主数据' })).toHaveAttribute('aria-current', 'page')
   await expect(adminAside.getByRole('link', { name: /模板/ })).toHaveCount(0)
   await expect(adminAside.getByRole('link', { name: /导入/ })).toHaveCount(0)
   await expect(masterCenter.getByRole('heading', { name: '车间主数据' })).toBeVisible()
@@ -106,64 +67,6 @@ test('admin master route renders the master data smoke surface', async ({ page }
   await expect(masterCenter.getByRole('columnheader', { name: '名称' })).toBeVisible()
   await expect(masterCenter.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
   await expect(masterCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
-})
-
-test('retired admin ingestion route redirects to system settings', async ({ page }) => {
-  await loginAsAdmin(page)
-  await page.goto('/manage/ingestion')
-
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
-  await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByTestId('system-settings-page')).toBeVisible()
-  await expect(page.getByTestId('review-ingestion-center-v2')).toHaveCount(0)
-})
-
-test('admin settings route renders the system settings surface', async ({ page }) => {
-  await loginAsAdmin(page)
-  await page.goto('/manage/admin/settings')
-
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
-  await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByTestId('system-settings-page')).toBeVisible()
-  await expect(page.getByRole('navigation', { name: '系统设置入口' })).toBeVisible()
-  await expect(page.getByRole('link', { name: /用户管理/ })).toHaveAttribute('href', '/manage/admin/users')
-  await expect(page.getByRole('link', { name: /QR 打印/ })).toHaveAttribute('href', '/manage/admin/qr-print')
-  await expect(page.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '补录产量' })).toHaveCount(0)
-})
-
-test('admin settings links to MES terminal binding management', async ({ page }) => {
-  await loginAsAdmin(page)
-  await page.goto('/manage/admin/settings')
-
-  const terminalLink = page.getByRole('link', { name: /终端绑定/ })
-  await expect(terminalLink).toHaveAttribute('href', '/manage/mes-terminal-bindings')
-  await terminalLink.click()
-
-  await expect(page).toHaveURL(/\/manage\/mes-terminal-bindings$/)
-  await expect(page.getByTestId('mes-terminal-binding-page')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'MES 终端绑定' })).toBeVisible()
-  await expect(page.getByTestId('mes-terminal-binding-table')).toBeVisible()
-})
-
-test('admin settings route stays within viewport without overflow', async ({ page }) => {
-  await loginAsAdmin(page)
-
-  for (const viewport of [
-    { width: 1366, height: 820 },
-    { width: 390, height: 844 }
-  ]) {
-    await page.setViewportSize(viewport)
-    await page.goto('/manage/admin/settings?desktop=1')
-
-    await expect(page.getByTestId('system-settings-page')).toBeVisible()
-
-    const overflow = await page.evaluate(() => Math.max(
-      document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      document.body.scrollWidth - document.body.clientWidth
-    ))
-    expect(overflow).toBeLessThanOrEqual(1)
-  }
 })
 
 test('manage live route shows realtime process flow without page overflow', async ({ page }) => {
@@ -203,45 +106,6 @@ test('manage live route stays readable on a narrow factory screen', async ({ pag
     document.body.scrollWidth - document.body.clientWidth
   ))
   expect(overflow).toBeLessThanOrEqual(1)
-})
-
-test('admin settings route does not render retired external missing input checklist', async ({ page }) => {
-  await loginAsAdmin(page)
-
-  for (const viewport of [
-    { width: 1366, height: 820 },
-    { width: 390, height: 844 }
-  ]) {
-    await page.setViewportSize(viewport)
-    await page.goto('/manage/admin/settings?desktop=1')
-
-    await expect(page.getByTestId('system-settings-page')).toBeVisible()
-    await expect(page.locator('.external-readiness-missing')).toHaveCount(0)
-    await expect(page.getByText('real-secret')).toHaveCount(0)
-
-    const overflow = await page.evaluate(() => Math.max(
-      document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      document.body.scrollWidth - document.body.clientWidth
-    ))
-    expect(overflow).toBeLessThanOrEqual(1)
-  }
-})
-
-test('admin governance route renders the permission governance smoke surface', async ({ page }) => {
-  await loginAsAdmin(page)
-  await page.goto('/manage/admin/governance')
-
-  const governanceCenter = page.getByTestId('review-governance-center')
-
-  await expect(page).toHaveURL(/\/manage\/admin\/governance$/)
-  await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(governanceCenter.getByRole('heading', { name: '权限与治理中心' })).toBeVisible()
-  await expect(governanceCenter.getByText('当前角色')).toBeVisible()
-  await expect(governanceCenter.getByText('数据范围')).toBeVisible()
-  await expect(governanceCenter.getByText('能力矩阵')).toBeVisible()
-  await expect(governanceCenter.getByText('审阅权限')).toBeVisible()
-  await expect(governanceCenter.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
-  await expect(governanceCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
 test('fill-only operator cannot access admin master ops ingestion or governance', async ({ page }) => {
@@ -314,9 +178,74 @@ test('super admin can switch between admin entry and review surfaces', async ({ 
   await expect(page.getByTestId('entry-shell')).toBeVisible()
 
   await page.goto('/manage/admin')
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
+  await expect(page).toHaveURL(/\/manage\/master$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await page.goto('/manage/today', { waitUntil: 'domcontentloaded' })
   await expect(page).toHaveURL(/\/manage\/today$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
+})
+
+test('admin surface lands on master data and stays separate from entry surfaces', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.goto('/manage/admin')
+
+  await expect(page).toHaveURL(/\/manage\/master$/)
+  await expect(page.getByTestId('manage-shell')).toBeVisible()
+  await expect(page.getByTestId('admin-master-center')).toBeVisible()
+  await expect(page.getByText('现场填报')).toHaveCount(0)
+  await expect(page.getByTestId('entry-shell')).toHaveCount(0)
+})
+
+test('retired settings and governance addresses land on the pages that replaced them', async ({ page }) => {
+  await loginAsAdmin(page)
+
+  for (const from of ['/manage/ingestion', '/manage/admin/settings', '/manage/admin/templates']) {
+    await page.goto(from)
+    await expect(page).toHaveURL(/\/manage\/master$/)
+    await expect(page.getByTestId('admin-master-center')).toBeVisible()
+  }
+
+  await page.goto('/manage/admin/governance')
+  await expect(page).toHaveURL(/\/manage\/admin\/users$/)
+
+  await page.goto('/manage/attendance')
+  await expect(page).toHaveURL(/\/manage\/today$/)
+})
+
+test('former settings entries live in collapsible left-nav groups', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.setViewportSize({ width: 1366, height: 820 })
+  await page.goto('/manage/today')
+
+  const aside = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
+  await expect(aside.getByRole('button', { name: '配置' })).toHaveAttribute('aria-expanded', 'false')
+  await expect(aside.getByRole('link', { name: 'PC 工艺映射' })).toHaveCount(0)
+
+  await aside.getByRole('button', { name: '配置' }).click()
+  const terminalLink = aside.getByRole('link', { name: 'PC 工艺映射' })
+  await expect(terminalLink).toHaveAttribute('href', '/manage/mes-terminal-bindings')
+  await terminalLink.click()
+
+  await expect(page).toHaveURL(/\/manage\/mes-terminal-bindings$/)
+  await expect(page.getByTestId('mes-terminal-binding-page')).toBeVisible()
+  await expect(aside.getByRole('button', { name: '配置' })).toHaveAttribute('aria-expanded', 'true')
+})
+
+test('master data page stays within the viewport on desktop and phone', async ({ page }) => {
+  await loginAsAdmin(page)
+
+  for (const viewport of [
+    { width: 1366, height: 820 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/manage/master?desktop=1')
+    await expect(page.getByTestId('admin-master-center')).toBeVisible()
+
+    const overflow = await page.evaluate(() => Math.max(
+      document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      document.body.scrollWidth - document.body.clientWidth
+    ))
+    expect(overflow).toBeLessThanOrEqual(1)
+  }
 })
