@@ -453,6 +453,7 @@ onBeforeUnmount(() => {
 .xt-manage__content { padding: 40px; background: var(--xt-bg-page); }
 .xt-manage__content::before, .xt-manage__content::after { content: none; }
 .xt-manage__container { max-width: 1440px; margin: 0 auto; min-width: 0; }
+@media (min-width: 1920px) { .xt-manage__container { max-width: 2240px; } }
 .xt-manage__page { min-width: 0; animation: xt-page-in var(--xt-motion-normal) var(--xt-ease) backwards; }
 @keyframes xt-page-in { from { opacity: 0; transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) { .xt-manage__page { min-width: 0; animation: none; } }

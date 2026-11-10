@@ -223,6 +223,7 @@ onBeforeUnmount(() => scene.value?.destroy())
 
 .xt-factory3d__stage {
   position: relative;
+  width: 100%;
   aspect-ratio: 935 / 570;
   max-height: calc(100vh - 220px);
   min-height: 360px;
