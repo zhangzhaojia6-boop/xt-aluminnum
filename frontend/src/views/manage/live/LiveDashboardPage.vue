@@ -10,7 +10,7 @@
       <h1>全厂实时调度墙</h1>
       <div class="live-dashboard-page__actions">
         <span class="live-dashboard-page__connection" :class="`is-${connectionTone}`">
-          <i></i>
+          <XtPulseDot :state="pulseState(connectionTone)" data-testid="live-pulse" />
           {{ connectionLabel }}
         </span>
         <span class="live-dashboard-page__chip">更新 {{ lastUpdateLabel || '--:--:--' }}</span>
@@ -76,6 +76,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, fetchLiveFillDetails } from '../../../api/realtime'
 import { useRealtimeStream } from '../../../composables/useRealtimeStream'
+import XtPulseDot from '../../../components/xt/XtPulseDot.vue'
+import { pulseState } from '../../../utils/ring-arc.js'
 import { useAuthStore } from '../../../stores/auth'
 import { inferBusinessDate } from '../../../utils/shiftClock'
 import LiveDataStatePanel from './LiveDataStatePanel.vue'
@@ -343,13 +345,6 @@ onUnmounted(() => {
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
   font-variant-numeric: tabular-nums;
-}
-
-.live-dashboard-page__connection i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentcolor;
 }
 
 .live-dashboard-page__connection.is-success { color: var(--xt-success); }

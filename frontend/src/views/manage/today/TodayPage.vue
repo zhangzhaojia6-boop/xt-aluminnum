@@ -37,19 +37,41 @@
     <div :aria-busy="snapshot.pending.value.daily" class="xt-today__kpis">
       <ul class="xt-today__kpi-grid" data-testid="manage-kpi-bar">
         <li v-for="item in kpiItems" :key="item.key" :class="`is-${item.size}`">
+          <XtTechFrame v-if="item.size === 'xl'" class="xt-today__hero" data-testid="today-hero-chart">
+            <XtMetric
+              :label="item.label"
+              :value="item.value"
+              :unit="item.unit"
+              :state="item.state"
+              :sub="item.sub"
+              :size="item.size"
+            />
+            <XtSparkArea
+              v-if="outputTrend.length"
+              class="xt-today__kpi-trend"
+              :points="outputTrend"
+              label="近 14 天包装产量走势"
+            />
+          </XtTechFrame>
+          <div v-else-if="item.key === 'yield-rate'" class="xt-today__ring-metric">
+            <XtRing :ratio="item.value == null ? null : Number(item.value) / 100" :label="item.label" data-testid="today-yield-ring" />
+            <XtMetric
+              :label="item.label"
+              :value="item.value"
+              :unit="item.unit"
+              :state="item.state"
+              :sub="item.sub"
+              :size="item.size"
+            />
+          </div>
           <XtMetric
+            v-else
             :label="item.label"
             :value="item.value"
             :unit="item.unit"
             :state="item.state"
             :sub="item.sub"
             :size="item.size"
-          />
-          <XtSparkArea
-            v-if="item.size === 'xl' && outputTrend.length"
-            class="xt-today__kpi-trend"
-            :points="outputTrend"
-            label="近 14 天包装产量走势"
           />
         </li>
       </ul>
@@ -181,6 +203,8 @@ import dayjs from 'dayjs'
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import XtMetric from '../../../components/xt/XtMetric.vue'
 import XtSparkArea from '../../../components/xt/XtSparkArea.vue'
+import XtRing from '../../../components/xt/XtRing.vue'
+import XtTechFrame from '../../../components/xt/XtTechFrame.vue'
 import TodayFactBand from './TodayFactBand.vue'
 import TodayProcessFlow from './TodayProcessFlow.vue'
 import TodayWorkshopBars from './TodayWorkshopBars.vue'
@@ -625,8 +649,10 @@ onBeforeUnmount(() => {
 .xt-today__loading { display: block; margin-top: 8px; color: var(--xt-text-muted); font-size: 12px; }
 .xt-today__kpi-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 48px 40px; margin: 0; padding: 0; list-style: none; }
 .xt-today__kpi-grid > li { grid-column: span 3; min-width: 0; }
-.xt-today__kpi-grid > li.is-xl { display: grid; grid-column: span 6; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: 32px; }
-.xt-today__kpi-trend { align-self: end; margin-bottom: 24px; }
+.xt-today__kpi-grid > li.is-xl { grid-column: span 12; }
+.xt-today__hero { display: grid; grid-template-columns: minmax(220px, auto) minmax(0, 1fr); align-items: end; gap: 40px; }
+.xt-today__hero .xt-today__kpi-trend { align-self: stretch; height: 160px; }
+.xt-today__ring-metric { display: flex; align-items: center; gap: 16px; }
 
 .xt-today__flow { padding: 40px; border-radius: 4px; background: var(--xt-bg-panel-soft); }
 .xt-today__flow :deep(.xt-flow__node) { background: var(--xt-bg-panel-soft); }
@@ -712,7 +738,8 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
   .xt-today__top-actions { width: 100%; }
   .xt-today__kpi-grid { gap: 32px 16px; }
   .xt-today__kpi-grid > li { grid-column: span 6; }
-  .xt-today__kpi-grid > li.is-xl { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .xt-today__hero { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .xt-today__hero .xt-today__kpi-trend { height: 96px; }
   .xt-today__kpi-trend { margin-bottom: 0; }
   .xt-today__flow { padding: 24px 20px; }
   .xt-today__command-wall { grid-template-columns: minmax(0, 1fr); gap: 40px; }
