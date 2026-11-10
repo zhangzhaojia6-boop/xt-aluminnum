@@ -52,10 +52,14 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//, /^\/healthz$/, /^\/readyz$/],
         runtimeCaching: [
           {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif)$/,
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
             handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'image-cache'
+              cacheName: 'image-cache',
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 30 * 24 * 60 * 60
+              }
             }
           }
         ]

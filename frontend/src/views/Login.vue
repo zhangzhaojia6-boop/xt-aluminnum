@@ -8,6 +8,7 @@
     <main class="login-stage" data-testid="login-page">
       <div class="login-stage__brand">
         <h1 class="login-stage__title">数据中枢</h1>
+        <div class="login-stage__photo" role="img" aria-label="鑫泰铝业铝卷库房" data-testid="login-photo" />
         <XtRollingLine class="login-stage__art" />
       </div>
 
@@ -304,6 +305,38 @@ onMounted(async () => {
 
 .login-stage__art {
   max-width: 560px;
+}
+
+.login-stage__photo {
+  display: none;
+}
+
+@media (min-width: 861px) {
+  .login-stage__photo {
+    display: block;
+    max-width: 560px;
+    aspect-ratio: 16 / 10;
+    border-radius: 4px;
+    background: var(--xt-bg-panel-soft) url('/media/login-coils.webp') center / cover no-repeat;
+    animation: login-photo-in 600ms var(--xt-ease) backwards;
+  }
+
+  .login-stage__art {
+    display: none;
+  }
+}
+
+@keyframes login-photo-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-stage__photo {
+    animation: none;
+  }
 }
 
 .login-stage__title {
