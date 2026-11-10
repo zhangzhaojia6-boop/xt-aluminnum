@@ -334,8 +334,10 @@ async function loadWorkshops() {
   try {
     workshops.value = await fetchWorkshops({ limit: 300 })
     if (canChooseWorkshop.value && !selectedWorkshopId.value && workshops.value.length) {
+      const requestedId = Number(route.query.workshop_id)
+      const requested = workshops.value.find((item) => Number(item.id) === requestedId)
       suppressWorkshopSelectionWatch.value = true
-      selectedWorkshopId.value = workshops.value[0].id
+      selectedWorkshopId.value = (requested || workshops.value[0]).id
     }
   } catch {
     workshops.value = []

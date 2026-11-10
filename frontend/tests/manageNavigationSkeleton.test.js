@@ -31,17 +31,17 @@ test('review users get the primary group plus the feature groups they can open',
   assert.equal(groups.slice(1).every((group) => group.collapsible), true)
 })
 
-test('owner skeleton keeps five primary entries', () => {
+test('owner skeleton keeps six primary entries', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.equal(groups[0].items.length, 5)
+  assert.equal(groups[0].items.length, 6)
 })
 
 test('owner skeleton paths point to current user-facing manage pages', () => {
   const groups = manageNavGroups(reviewAuth)
   const paths = groups[0].items.map((item) => item.path)
 
-  assert.deepEqual(paths, ['/manage/today', '/manage/live', '/manage/production', '/manage/coils', '/manage/alerts'])
+  assert.deepEqual(paths, ['/manage/today', '/manage/live', '/manage/production', '/manage/coils', '/manage/alerts', '/manage/factory-3d'])
   const allPaths = groups.flatMap((group) => group.items.map((item) => item.path))
   assert.equal(allPaths.includes('/manage/daily-report'), false)
   assert.equal(allPaths.includes('/manage/ops-center'), false)

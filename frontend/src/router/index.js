@@ -46,6 +46,7 @@ const CoilTracePage = () => import('../views/manage/coils/CoilTracePage.vue')
 const AlertsPage = () => import('../views/manage/alerts/AlertsPage.vue')
 const FillDetailsPage = () => import('../views/manage/fill-details/FillDetailsPage.vue')
 const WorkshopDashboardPage = () => import('../views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
+const Factory3DPage = () => import('../views/manage/factory3d/Factory3DPage.vue')
 const AgentManagementPage = () => import('../views/manage/admin/AgentManagementPage.vue')
 const MappingReconciliationPage = () => import('../views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 const RagKnowledgePage = () => import('../views/manage/rag/RagKnowledgePage.vue')
@@ -144,6 +145,7 @@ const rawRoutes = [
       { path: 'live', name: 'manage-live', component: LiveDashboardPage, meta: { ...reviewMeta, title: '生产实时', canonical: '/manage/live' } },
       { path: 'workshop', redirect: preserveRouteState('/manage/workshop-dashboard') },
       { path: 'workshop-dashborad', redirect: preserveRouteState('/manage/workshop-dashboard') },
+      { path: 'factory-3d', name: 'manage-factory-3d', component: Factory3DPage, beforeEnter: () => (isCompactClient() ? { name: 'manage-workshop-dashboard' } : true), meta: { ...reviewMeta, title: '3D 工厂', canonical: '/manage/factory-3d' } },
       { path: 'workshop-dashboard', name: 'manage-workshop-dashboard', component: WorkshopDashboardPage, meta: { ...reviewMeta, access: 'workshop_dashboard', title: '各车间看板', canonical: '/manage/workshop-dashboard' } },
       { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '昨日日报', canonical: '/manage/today' } },
       { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },

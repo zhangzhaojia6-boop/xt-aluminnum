@@ -18,7 +18,7 @@ test.describe('owner three-tab skeleton', () => {
 
     await expect(page.getByTestId('manage-today')).toBeVisible()
     await expect(page.getByRole('heading', { name: '经营总览' })).toBeVisible()
-    await expect(page.locator('.xt-manage__sidebar .xt-manage__nav-item')).toHaveCount(5)
+    await expect(page.locator('.xt-manage__sidebar .xt-manage__nav-item')).toHaveCount(6)
   })
 
   test('navigates the core management tabs without 404', async ({ page }) => {
