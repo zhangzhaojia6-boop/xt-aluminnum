@@ -72,7 +72,7 @@ test('stored admin session is routed to the permission default without role choi
 
   await page.goto('/login')
 
-  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
+  await expect(page).toHaveURL(/\/manage\/master$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
 })
 
