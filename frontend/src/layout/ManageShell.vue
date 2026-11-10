@@ -96,7 +96,9 @@
       <main class="xt-manage__content xt-page">
         <div class="xt-manage__container">
           <RouterView v-slot="{ Component }">
-            <component :is="Component" :key="route.path" />
+            <div :key="route.path" class="xt-manage__page">
+              <component :is="Component" />
+            </div>
           </RouterView>
         </div>
       </main>
@@ -453,6 +455,9 @@ onBeforeUnmount(() => {
 .xt-manage__content { padding: 40px; background: var(--xt-bg-page); }
 .xt-manage__content::before, .xt-manage__content::after { content: none; }
 .xt-manage__container { max-width: 1440px; margin: 0 auto; min-width: 0; }
+.xt-manage__page { min-width: 0; animation: xt-page-in var(--xt-motion-normal) var(--xt-ease) backwards; }
+@keyframes xt-page-in { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .xt-manage__page { min-width: 0; animation: none; } }
 .xt-manage__drawer-overlay { position: fixed; inset: 0; z-index: 2200; background: #171b244d; }
 .xt-manage__drawer { height: 100dvh; max-width: 88vw; overflow-y: auto; background: var(--xt-bg-page); box-shadow: var(--xt-shadow-md); }
 .xt-manage__drawer-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--xt-border); }

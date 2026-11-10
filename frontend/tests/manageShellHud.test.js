@@ -110,7 +110,9 @@ test('ManageShell preserves desktop override while navigating inside mobile draw
 
 test('ManageShell closes transient overlays when route changes', () => {
   assert.match(scriptBody, /import \{ computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch \} from ['"]vue['"]/)
-  assert.match(src, /<component :is="Component" :key="route\.path" \/>/)
+  assert.match(src, /<div :key="route\.path" class="xt-manage__page">\s*<component :is="Component" \/>/)
+  assert.match(src, /\.xt-manage__page \{[^}]*animation: xt-page-in[^}]*backwards/)
+  assert.match(src, /prefers-reduced-motion: reduce\) \{ \.xt-manage__page \{[^}]*animation: none/)
   assert.match(scriptBody, /watch\(\(\) => route\.path/)
   assert.match(scriptBody, /searchOpen\.value = false/)
   assert.match(scriptBody, /drawerOpen\.value = false/)

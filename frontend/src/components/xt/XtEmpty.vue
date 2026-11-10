@@ -1,6 +1,12 @@
 <template>
   <div class="xt-empty">
-    <div class="xt-empty__mark">—</div>
+    <svg class="xt-empty__mark" viewBox="0 0 64 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="15" />
+      <circle cx="20" cy="20" r="10" />
+      <circle cx="20" cy="20" r="4" />
+      <path d="M20 35 H60" />
+      <path class="xt-empty__strip" d="M35 20 L60 35" />
+    </svg>
     <div class="xt-empty__text">{{ text }}</div>
     <div v-if="$slots.actions" class="xt-empty__actions">
       <slot name="actions" />
@@ -33,16 +39,17 @@ defineProps({
 }
 
 .xt-empty__mark {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border: 1px solid var(--xt-border-light);
-  border-radius: 4px;
-  background: var(--xt-bg-panel);
-  color: var(--xt-text-muted);
-  font-size: var(--xt-text-xl);
+  width: 64px;
+  height: 40px;
+  fill: none;
+  stroke: var(--xt-primary);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
 
+.xt-empty__strip {
+  stroke-dasharray: 3 3;
 }
 
 .xt-empty__text {
