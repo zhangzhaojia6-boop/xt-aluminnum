@@ -232,13 +232,13 @@ onMounted(load)
 <style scoped>
 .inventory-command {
   --inventory-cyan: var(--xt-primary);
-  --inventory-amber: #ffab00;
-  --inventory-blue: #74f5ff;
-  --inventory-danger: #ff5c35;
-  --inventory-bg: #06101f;
-  --inventory-panel: rgba(12, 25, 42, 0.72);
+  --inventory-amber: var(--xt-warning);
+  --inventory-blue: var(--xt-primary-hover);
+  --inventory-danger: var(--xt-danger);
+  --inventory-bg: var(--xt-bg-page);
+  --inventory-panel: var(--xt-bg-panel);
   --inventory-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
-  --inventory-muted: rgba(223, 226, 235, 0.66);
+  --inventory-muted: var(--xt-text-secondary);
   color: var(--xt-text);
 }
 

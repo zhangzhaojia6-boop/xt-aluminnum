@@ -660,15 +660,15 @@ onMounted(async () => {
   background: transparent;
   --users-accent: var(--xt-primary);
   --users-accent-soft: color-mix(in srgb, var(--xt-primary) 12%, transparent);
-  --users-bg: rgba(3, 16, 31, 0.92);
-  --users-panel: rgba(8, 31, 55, 0.78);
-  --users-panel-strong: rgba(11, 42, 70, 0.92);
+  --users-bg: var(--xt-bg-page);
+  --users-panel: var(--xt-bg-panel);
+  --users-panel-strong: var(--xt-bg-panel-strong);
   --users-line: color-mix(in srgb, var(--xt-primary) 16%, transparent);
   --users-line-strong: color-mix(in srgb, var(--xt-primary) 38%, transparent);
-  --users-text: rgba(225, 253, 255, 0.94);
-  --users-muted: rgba(185, 223, 235, 0.64);
-  --users-success: #4ecb8a;
-  --users-warning: #ffab00;
+  --users-text: var(--xt-text);
+  --users-muted: var(--xt-text-secondary);
+  --users-success: var(--xt-success);
+  --users-warning: var(--xt-warning);
 }
 
 .admin-users-center::before {
@@ -1024,7 +1024,7 @@ onMounted(async () => {
 :global(.admin-users-dialog) {
   --users-accent: var(--xt-primary);
   --users-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
-  --users-text: rgba(225, 253, 255, 0.94);
+  --users-text: var(--xt-text);
   border: 1px solid var(--xt-border);
   border-radius: 4px;
   background: transparent;

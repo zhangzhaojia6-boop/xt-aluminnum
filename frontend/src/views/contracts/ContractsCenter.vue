@@ -242,13 +242,13 @@ onMounted(load)
 .contracts-command {
   --contracts-cyan: var(--xt-primary);
   --contracts-cyan-soft: color-mix(in srgb, var(--xt-primary) 16%, transparent);
-  --contracts-amber: #ffab00;
-  --contracts-blue: #74f5ff;
-  --contracts-danger: #ff5c35;
-  --contracts-bg: #06101f;
-  --contracts-panel: rgba(12, 25, 42, 0.72);
+  --contracts-amber: var(--xt-warning);
+  --contracts-blue: var(--xt-primary-hover);
+  --contracts-danger: var(--xt-danger);
+  --contracts-bg: var(--xt-bg-page);
+  --contracts-panel: var(--xt-bg-panel);
   --contracts-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
-  --contracts-muted: rgba(223, 226, 235, 0.66);
+  --contracts-muted: var(--xt-text-secondary);
   color: var(--xt-text);
 }
 

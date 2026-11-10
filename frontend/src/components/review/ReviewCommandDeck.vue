@@ -54,7 +54,7 @@ function iconToneClass(tone) {
 }
 
 .review-command-deck__card {
-  --deck-accent: rgba(148, 163, 184, 0.46);
+  --deck-accent: var(--xt-border-strong);
   position: relative;
   overflow: hidden;
   display: grid;
@@ -102,19 +102,19 @@ function iconToneClass(tone) {
 }
 
 .review-command-deck__card.is-alert {
-  --deck-accent: rgba(217, 119, 6, 0.7);
+  --deck-accent: var(--xt-warning);
 }
 
 .review-command-deck__card.is-danger {
-  --deck-accent: rgba(220, 38, 38, 0.75);
+  --deck-accent: var(--xt-danger);
 }
 
 .review-command-deck__card.is-success {
-  --deck-accent: rgba(22, 163, 74, 0.72);
+  --deck-accent: var(--xt-success);
 }
 
 .review-command-deck__card.is-primary {
-  --deck-accent: rgba(37, 99, 235, 0.72);
+  --deck-accent: var(--xt-primary);
 }
 
 .review-command-deck__label {

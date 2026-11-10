@@ -372,12 +372,12 @@ onMounted(loadLatestEnergyDate)
 .energy-center {
   --energy-cyan: var(--xt-primary);
   --energy-cyan-soft: color-mix(in srgb, var(--xt-primary) 16%, transparent);
-  --energy-amber: #ffab00;
-  --energy-blue: #74f5ff;
-  --energy-bg: #06101f;
-  --energy-panel: rgba(12, 25, 42, 0.72);
+  --energy-amber: var(--xt-warning);
+  --energy-blue: var(--xt-primary-hover);
+  --energy-bg: var(--xt-bg-page);
+  --energy-panel: var(--xt-bg-panel);
   --energy-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
-  --energy-muted: rgba(223, 226, 235, 0.66);
+  --energy-muted: var(--xt-text-secondary);
   color: var(--xt-text);
 }
 

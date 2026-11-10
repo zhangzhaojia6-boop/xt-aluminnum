@@ -310,16 +310,16 @@ onMounted(async () => {
 <style scoped>
 .rule-config-center {
   --rule-accent: var(--xt-primary);
-  --rule-accent-strong: #74f5ff;
-  --rule-bg: #06101f;
-  --rule-card: rgba(6, 26, 49, 0.88);
-  --rule-card-strong: rgba(8, 38, 66, 0.92);
-  --rule-danger: #ff5b2e;
+  --rule-accent-strong: var(--xt-primary-hover);
+  --rule-bg: var(--xt-bg-page);
+  --rule-card: var(--xt-bg-panel);
+  --rule-card-strong: var(--xt-bg-panel-strong);
+  --rule-danger: var(--xt-danger);
   --rule-line: color-mix(in srgb, var(--xt-primary) 18%, transparent);
   --rule-line-strong: color-mix(in srgb, var(--xt-primary) 38%, transparent);
-  --rule-muted: rgba(185, 223, 235, 0.64);
-  --rule-text: rgba(225, 253, 255, 0.92);
-  --rule-warning: #ffab00;
+  --rule-muted: var(--xt-text-secondary);
+  --rule-text: var(--xt-text);
+  --rule-warning: var(--xt-warning);
   position: relative;
   display: grid;
   gap: 16px;
