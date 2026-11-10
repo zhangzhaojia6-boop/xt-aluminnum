@@ -55,7 +55,7 @@ test('reduced motion shows the 2D plant plan instead of WebGL', async ({ page })
 test('3D code is only downloaded on the 3D page', async ({ page }) => {
   const threeRequests = []
   page.on('request', (request) => {
-    if (/vendor-three|factory-scene/.test(request.url())) threeRequests.push(request.url())
+    if (/vendor-three|plant-scene|line-scene/.test(request.url())) threeRequests.push(request.url())
   })
   await setupReviewSessionAndMocks(page)
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -74,7 +74,7 @@ test('phones are sent to the 2D workshop board', async ({ page }) => {
 
 test('a failed daily request shows a data error badge instead of pretending there is no output', async ({ page }) => {
   await setupReviewSessionAndMocks(page)
-  await page.route(/\/api\/v1\/dashboard\/daily-production/, (route) => route.fulfill({ status: 500, json: { detail: 'boom' } }))
+  await page.route(/\/api\/v1\/dashboard\/(daily-production|factory-director)/, (route) => route.fulfill({ status: 500, json: { detail: 'boom' } }))
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/manage/factory-3d')
   await expect(page.getByTestId('factory-data-error')).toBeVisible()
