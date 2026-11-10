@@ -31,6 +31,13 @@ test('3D factory lays real workshops on the plant plan and opens the workshop bo
   const aside = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
   await expect(aside.getByRole('link', { name: '3D 工厂' })).toHaveAttribute('aria-current', 'page')
 
+  if ((await stage.getAttribute('data-mode')) === '3d') {
+    await expect(page.getByTestId('factory-canvas')).toHaveAttribute('data-draw-calls', /^\d+$/)
+    const calls = Number(await page.getByTestId('factory-canvas').getAttribute('data-draw-calls'))
+    expect(calls).toBeGreaterThan(0)
+    expect(calls).toBeLessThanOrEqual(60)
+  }
+
   await castTwo.click()
   await expect(page).toHaveURL(/\/manage\/workshop-dashboard\?workshop_id=2$/)
 })
@@ -48,7 +55,7 @@ test('reduced motion shows the 2D plant plan instead of WebGL', async ({ page })
 test('3D code is only downloaded on the 3D page', async ({ page }) => {
   const threeRequests = []
   page.on('request', (request) => {
-    if (/vendor-three|factory-scene/.test(request.url())) threeRequests.push(request.url())
+    if (/vendor-three|plant-scene|line-scene/.test(request.url())) threeRequests.push(request.url())
   })
   await setupReviewSessionAndMocks(page)
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -63,4 +70,12 @@ test('phones are sent to the 2D workshop board', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/manage/factory-3d')
   await expect(page).not.toHaveURL(/factory-3d/)
+})
+
+test('a failed daily request shows a data error badge instead of pretending there is no output', async ({ page }) => {
+  await setupReviewSessionAndMocks(page)
+  await page.route(/\/api\/v1\/dashboard\/(daily-production|factory-director)/, (route) => route.fulfill({ status: 500, json: { detail: 'boom' } }))
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/manage/factory-3d')
+  await expect(page.getByTestId('factory-data-error')).toBeVisible()
 })

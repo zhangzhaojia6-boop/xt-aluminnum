@@ -15,11 +15,12 @@
     <div class="xt-factory3d__legend" aria-hidden="true">
       <span><i class="is-data" />有产量</span>
       <span><i class="is-empty" />无数据</span>
-      <span>高度按工序分别比较</span>
+      <span>柱高按工序组内比较</span>
     </div>
 
     <div class="xt-factory3d__stage" data-testid="factory-stage" :data-mode="mode">
-      <div v-if="mode === '3d'" ref="canvasHost" class="xt-factory3d__canvas" />
+      <span v-if="dataError" class="xt-factory3d__error" data-testid="factory-data-error">数据未加载</span>
+      <div v-if="mode === '3d'" ref="canvasHost" class="xt-factory3d__canvas" data-testid="factory-canvas" />
 
       <template v-if="mode === '3d'">
         <component
@@ -28,7 +29,7 @@
           v-show="labels[block.key]?.visible"
           :key="block.key"
           class="xt-factory3d__label"
-          :class="{ 'is-empty': !block.hasData }"
+          :class="{ 'is-empty': !block.hasData, 'is-annex': !block.isWorkshop, 'is-hover': hoveredKey === block.key }"
           :type="block.workshopId ? 'button' : undefined"
           :style="labelStyle(block.key)"
           data-testid="factory-label"
@@ -103,6 +104,8 @@ const mode = ref('loading')
 const canvasHost = ref(null)
 const labels = ref({})
 const scene = shallowRef(null)
+const hoveredKey = ref(null)
+const dataError = computed(() => Boolean(snapshot.lastError.value) && !(snapshot.productionLane.value || []).length)
 
 const model = computed(() => buildFactoryModel(snapshot.productionLane.value || []))
 const workshopBlocks = computed(() => model.value.blocks.filter((block) => block.isWorkshop))
@@ -143,20 +146,19 @@ onMounted(async () => {
   const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   if (reducedMotion) return fallbackTo2D()
   try {
-    const { createFactoryScene, supportsWebGL } = await import('../../../components/factory/factory-scene.js')
+    const { createPlantScene, supportsWebGL } = await import('../../../components/factory/plant-scene.js')
     if (!supportsWebGL()) return fallbackTo2D('WebGL 不可用')
     mode.value = '3d'
     await nextTick()
-    scene.value = createFactoryScene(canvasHost.value, {
+    scene.value = createPlantScene(canvasHost.value, {
       colors: {
-        ground: readColor('--xt-bg-panel-soft', '#f4f6f9'),
-        data: readColor('--xt-primary', '#003890'),
-        empty: readColor('--xt-border', '#d0d5dd'),
-        building: readColor('--xt-border-strong', '#eceff3'),
-        edge: readColor('--xt-bg-page', '#ffffff')
+        ground: readColor('--xt-bg-depth', '#0a1424'),
+        roof: readColor('--xt-roof', '#2a5fa8'),
+        hover: readColor('--xt-primary-hover', '#6aa2ff')
       },
       animate: true,
       onSelect: open,
+      onHover: (key) => { hoveredKey.value = key },
       onLabels: (next) => { labels.value = next },
       onLost: () => fallbackTo2D('WebGL 上下文丢失')
     })
@@ -227,7 +229,24 @@ onBeforeUnmount(() => scene.value?.destroy())
   overflow: hidden;
   border: 1px solid var(--xt-border);
   border-radius: 4px;
-  background: var(--xt-bg-panel);
+  background-color: var(--xt-bg-depth);
+  background-image:
+    linear-gradient(var(--xt-grid-line, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, var(--xt-grid-line, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.xt-factory3d__error {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  padding: 2px 8px;
+  border: 1px solid var(--xt-danger-border);
+  border-radius: 999px;
+  background: var(--xt-danger-light);
+  color: var(--xt-danger);
+  font-size: 12px;
 }
 
 .xt-factory3d__canvas,
@@ -242,9 +261,8 @@ onBeforeUnmount(() => scene.value?.destroy())
   position: absolute;
   display: grid;
   justify-items: center;
-  padding: 2px 6px;
-  border: 0;
-  border-radius: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
   border: 1px solid var(--xt-border-strong);
   background: var(--xt-label-bg, rgba(255, 255, 255, 0.92));
   color: var(--xt-text);
@@ -256,6 +274,17 @@ onBeforeUnmount(() => scene.value?.destroy())
   pointer-events: auto;
 }
 
+.xt-factory3d__label.is-annex {
+  padding: 1px 8px;
+  border-color: transparent;
+  color: var(--xt-text-muted);
+  font-size: 11px;
+}
+
+.xt-factory3d__label.is-hover {
+  border-color: var(--xt-primary-hover);
+}
+
 button.xt-factory3d__label,
 button.xt-factory3d__plot,
 .xt-factory3d__offmap button {
@@ -264,7 +293,8 @@ button.xt-factory3d__plot,
 
 .xt-factory3d__label strong {
   color: var(--xt-primary);
-  font-size: 14px;
+  font-family: var(--xt-font-mono);
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
 }
 
