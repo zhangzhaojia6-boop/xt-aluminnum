@@ -1,8 +1,6 @@
 {
   "components/ai/AiBriefingInbox.vue": 1,
   "components/ai/AiWatchlistPanel.vue": 1,
-  "components/hud/ParticleField.vue": 6,
-  "components/manage/IndustrialProcessIcon.vue": 16,
   "components/manage/YesterdayShiftPanel.vue": 1,
   "layout/ManageShell.vue": 1,
   "views/ai/AiWorkstation.vue": 1,
