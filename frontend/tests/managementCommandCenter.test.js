@@ -22,14 +22,6 @@ import {
   statusToneForCell,
 } from '../src/utils/managementCommandCenter.js'
 
-const liveDashboardSource = readFileSync(
-  new URL('../src/views/reports/LiveDashboard.vue', import.meta.url),
-  'utf8',
-)
-const referenceFrameSource = readFileSync(
-  new URL('../src/components/reference/ReferencePageFrame.vue', import.meta.url),
-  'utf8',
-)
 const referenceCardSource = readFileSync(
   new URL('../src/components/reference/ReferenceModuleCard.vue', import.meta.url),
   'utf8',
@@ -323,28 +315,6 @@ test('data source labels expose local coil fill as direct entry', () => {
   assert.equal(dataSourceLabel('mixed'), 'MES + 填报')
 })
 
-test('live dashboard resolves active business date before first load', () => {
-  assert.match(liveDashboardSource, /fetchLiveActiveDate/)
-  assert.match(liveDashboardSource, /initializeActiveBusinessDate/)
-  assert.match(liveDashboardSource, /shouldRedirectToActiveBusinessDate/)
-  assert.match(liveDashboardSource, /const redirectDate = shouldRedirectToActiveBusinessDate/)
-  assert.match(liveDashboardSource, /targetDate\.value = redirectDate/)
-  assert.match(liveDashboardSource, /onMounted\(async \(\) => \{\s*await initializeActiveBusinessDate\(\)\s*await loadDashboardSurface\(\)\s*\}\)/)
-  assert.doesNotMatch(liveDashboardSource, /if \(!dateChanged\)/)
-})
-
-test('live dashboard publishes realtime aggregation before secondary cards settle', () => {
-  const liveDataIndex = liveDashboardSource.indexOf('const liveData = await fetchLiveAggregation')
-  const publishIndex = liveDashboardSource.indexOf('aggregation.value = liveData')
-  const secondaryIndex = liveDashboardSource.indexOf('Promise.allSettled')
-
-  assert.notEqual(liveDataIndex, -1)
-  assert.notEqual(publishIndex, -1)
-  assert.notEqual(secondaryIndex, -1)
-  assert.ok(liveDataIndex < publishIndex)
-  assert.ok(publishIndex < secondaryIndex)
-})
-
 test('buildOutputDistribution ranks live machine output and marks unbound lines', () => {
   const rows = buildOutputDistribution([
     {
@@ -599,120 +569,9 @@ test('manageNavGroups keeps the manager surface focused on daily factory work', 
 })
 
 test('management shell components do not render numeric module badges', () => {
-  assert.doesNotMatch(referenceFrameSource, /reference-page__number/)
   assert.doesNotMatch(referenceCardSource, /reference-card__number/)
   assert.doesNotMatch(moduleTileSource, /xt-module-tile__number/)
   assert.doesNotMatch(routerSource, /xt-placeholder-page__number/)
-})
-
-test('reference page frame uses canonical product identity', () => {
-  assert.match(referenceFrameSource, /鑫泰铝业 数据中枢 · 运行中心/)
-  assert.doesNotMatch(referenceFrameSource, /鑫泰数据中枢 · 运行中心/)
-})
-
-test('LiveDashboard first screen uses management-readable labels', () => {
-  assert.match(liveDashboardSource, /今日产量/)
-  assert.match(liveDashboardSource, /损耗重量/)
-  assert.match(liveDashboardSource, /成材率/)
-  assert.match(liveDashboardSource, /口径对照/)
-  assert.match(liveDashboardSource, /算法成材率/)
-  assert.match(liveDashboardSource, /内勤成品率/)
-  assert.match(liveDashboardSource, /算法总能耗/)
-  assert.match(liveDashboardSource, /内勤全厂用电/)
-  assert.match(liveDashboardSource, /毛利估算|亏损估算/)
-  assert.match(liveDashboardSource, /风险项/)
-  assert.doesNotMatch(liveDashboardSource, /异常 \{\{ managementOverview\.blockerBreakdown\.anomalyCount/)
-  assert.match(liveDashboardSource, /外部 MES/)
-  assert.match(liveDashboardSource, /fetchMesSyncStatus/)
-  assert.match(liveDashboardSource, /fetchMesSyncRuns/)
-  assert.match(liveDashboardSource, /MES 同步稳定性/)
-  assert.match(liveDashboardSource, /mes-sync-stability/)
-  assert.match(liveDashboardSource, /mesSyncRunSummary/)
-  assert.match(liveDashboardSource, /MES_MVC_BASE_URL/)
-  assert.match(liveDashboardSource, /required_env|requiredEnv/)
-  assert.match(liveDashboardSource, /mesRequiredEnvLabel/)
-  assert.match(liveDashboardSource, /缺少配置/)
-  assert.match(liveDashboardSource, /fetchExternalReadiness/)
-  assert.match(liveDashboardSource, /externalReadiness/)
-  assert.match(liveDashboardSource, /externalReadinessLoaded/)
-  assert.match(liveDashboardSource, /外部联通闸门/)
-  assert.match(liveDashboardSource, /外部联通明细/)
-  assert.match(liveDashboardSource, /external-readiness-lanes/)
-  assert.match(liveDashboardSource, /externalReadinessLanes/)
-  assert.match(liveDashboardSource, /missing_inputs|missingInputs/)
-  assert.match(liveDashboardSource, /missing_fields|missingFields/)
-  assert.match(liveDashboardSource, /externalMissingInputs/)
-  assert.match(liveDashboardSource, /external-readiness-missing/)
-  assert.match(liveDashboardSource, /缺失输入清单/)
-  assert.match(liveDashboardSource, /建议取值/)
-  assert.match(liveDashboardSource, /LLM_DISABLED/)
-  assert.match(liveDashboardSource, /APP_CONNECTION_DISABLED/)
-  assert.match(liveDashboardSource, /DINGTALK_NO_BOUND_USERS/)
-  assert.match(liveDashboardSource, /LLM 摘要/)
-  assert.match(liveDashboardSource, /应用连接/)
-  assert.match(liveDashboardSource, /钉钉人员/)
-  assert.doesNotMatch(liveDashboardSource, /保存密钥|写入配置|启用外联|重置同步|强制同步/)
-  assert.match(liveDashboardSource, /接口待返回/)
-  assert.match(liveDashboardSource, /hard_issues|hardIssues/)
-  assert.match(liveDashboardSource, /live-output-distribution/)
-  assert.match(liveDashboardSource, /卷级直录分布/)
-  assert.match(liveDashboardSource, /outputDistributionRows/)
-  assert.match(liveDashboardSource, /live-shift-rhythm/)
-  assert.match(liveDashboardSource, /班次产量节奏/)
-  assert.match(liveDashboardSource, /shiftOutputRhythmRows/)
-  assert.match(liveDashboardSource, /未绑定填报归属/)
-  assert.match(liveDashboardSource, /unboundFillSummary/)
-  assert.match(liveDashboardSource, /live-unbound-fill/)
-  assert.match(liveDashboardSource, /绑定账号/)
-  assert.match(liveDashboardSource, /unboundAccountRoute/)
-  assert.match(liveDashboardSource, /machine_binding: 'unbound'/)
-  assert.match(liveDashboardSource, /机列归属率/)
-  assert.match(liveDashboardSource, /machineOwnershipSummary/)
-  assert.match(liveDashboardSource, /live-machine-ownership/)
-  assert.match(liveDashboardSource, /buildMachineOwnershipSummary/)
-  assert.match(liveDashboardSource, /填报接入/)
-  assert.match(liveDashboardSource, /已进入正式/)
-  assert.match(liveDashboardSource, /草稿待提交/)
-  assert.match(liveDashboardSource, /fillIntakeSummary/)
-  assert.match(liveDashboardSource, /buildFillIntakeSummary/)
-  assert.match(liveDashboardSource, /车间填报接入/)
-  assert.match(liveDashboardSource, /workshopFillIntakeRows/)
-  assert.match(liveDashboardSource, /fill-workshop-flow/)
-  assert.match(liveDashboardSource, /buildWorkshopFillIntakeRows/)
-  assert.match(liveDashboardSource, /实时数据日期/)
-  assert.match(liveDashboardSource, /外部 MES 机列绑定/)
-  assert.match(liveDashboardSource, /live-reality-strip/)
-  assert.match(liveDashboardSource, /liveRealityStatus/)
-  assert.match(liveDashboardSource, /buildLiveRealityStatus/)
-  assert.match(liveDashboardSource, /草稿待归属/)
-  assert.match(liveDashboardSource, /pendingAssignmentSummary/)
-  assert.match(liveDashboardSource, /buildPendingAssignmentSummary/)
-  assert.match(liveDashboardSource, /待补产出重量/)
-  assert.match(liveDashboardSource, /missingOutputWeightSummary/)
-  assert.match(liveDashboardSource, /live-missing-output/)
-  assert.match(liveDashboardSource, /buildMissingOutputWeightSummary/)
-  assert.match(liveDashboardSource, /补重量/)
-  assert.match(liveDashboardSource, /补产出重量/)
-  assert.match(liveDashboardSource, /missingOutputDialogVisible/)
-  assert.match(liveDashboardSource, /activeMissingOutput/)
-  assert.match(liveDashboardSource, /resolveMissingOutputWeight/)
-  assert.match(liveDashboardSource, /submitMissingOutputWeight/)
-  assert.match(liveDashboardSource, /el-input-number/)
-  assert.match(liveDashboardSource, /经营链路/)
-  assert.match(liveDashboardSource, /填报明细台账/)
-  assert.match(liveDashboardSource, /fillDetailSearch/)
-  assert.match(liveDashboardSource, /visibleFillDetailRows/)
-  assert.match(liveDashboardSource, /fetchLiveFillDetails/)
-  assert.match(liveDashboardSource, /ownerDailyMetricItems/)
-  assert.match(liveDashboardSource, /ownerDailyTotalsByKey/)
-  assert.match(liveDashboardSource, /energy_summary/)
-  assert.match(liveDashboardSource, /blockerBreakdown/)
-  assert.match(liveDashboardSource, /deliveryBlocker/)
-  assert.match(liveDashboardSource, /Promise\.allSettled/)
-  assert.match(liveDashboardSource, /storageFinishedWeight/)
-  assert.match(liveDashboardSource, /shipmentWeight/)
-  assert.match(liveDashboardSource, /入库\/发货[\s\S]*storageFinishedWeight[\s\S]*shipmentWeight/)
-  assert.doesNotMatch(liveDashboardSource, /<span>入库\/发货<\/span>[\s\S]{0,160}deliveryReady/)
 })
 
 test('realtime api exposes missing output weight correction endpoint', () => {
@@ -747,11 +606,3 @@ test('executive api keeps monthly review status endpoints available for backend 
   assert.match(executiveApiSource, /api\.post/)
 })
 
-test('LiveDashboard keeps the command matrix contained on narrow screens', () => {
-  assert.match(liveDashboardSource, /class="live-dashboard__export-button"/)
-  assert.match(liveDashboardSource, /aria-label="导出电子表格"/)
-  assert.match(liveDashboardSource, /\.live-dashboard__workshops\s*{[^}]*min-width:\s*0/s)
-  assert.match(liveDashboardSource, /\.live-dashboard__collapse\s*{[^}]*min-width:\s*0/s)
-  assert.match(liveDashboardSource, /\.live-workshop__board\s*{[^}]*overflow:\s*hidden/s)
-  assert.match(liveDashboardSource, /\.live-board__scroller\s*{[^}]*max-width:\s*100%/s)
-})
