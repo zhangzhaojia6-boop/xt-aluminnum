@@ -13,47 +13,9 @@ test('TodayPage renders yesterday shift data inside the Stitch event rail', () =
   assert.doesNotMatch(src, /shiftTiles/)
 })
 
-test('TodayPage no longer mounts the legacy standalone shift panel', () => {
-  const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.doesNotMatch(src, /import\s+YesterdayShiftPanel/)
-  assert.doesNotMatch(src, /<YesterdayShiftPanel/)
-})
-
 test('useDashboardSnapshot exposes yesterdayShiftBreakdown', () => {
   const src = source('../src/composables/useDashboardSnapshot.js')
   assert.match(src, /yesterdayShiftBreakdown/)
   assert.match(src, /yesterday_shift_breakdown/)
 })
 
-test('YesterdayShiftPanel renders three shifts in A/B/C order', () => {
-  const src = source('../src/components/manage/YesterdayShiftPanel.vue')
-  assert.match(src, /SHIFT_ORDER\s*=\s*\['A',\s*'B',\s*'C'\]/)
-  assert.match(src, /大夜班/)
-  assert.match(src, /长白班/)
-  assert.match(src, /小夜班/)
-})
-
-test('YesterdayShiftPanel stays on the paper surface', () => {
-  const src = source('../src/components/manage/YesterdayShiftPanel.vue')
-  const styleBlock = src.split('<style')[1] || ''
-  assert.doesNotMatch(styleBlock, /linear-gradient/)
-  assert.doesNotMatch(styleBlock, /#0d1320|#131b2e/)
-})
-
-test('YesterdayShiftPanel marks the leading shift', () => {
-  const src = source('../src/components/manage/YesterdayShiftPanel.vue')
-  assert.match(src, /leaderIdx/)
-  assert.match(src, /is-leader/)
-})
-
-test('YesterdayShiftPanel shows reported_workshops / expected_workshops ratio', () => {
-  const src = source('../src/components/manage/YesterdayShiftPanel.vue')
-  assert.match(src, /reported_workshops/)
-  assert.match(src, /expected_workshops/)
-})
-
-test('YesterdayShiftPanel uses throughput total for shift share', () => {
-  const src = source('../src/components/manage/YesterdayShiftPanel.vue')
-  assert.match(src, /shiftShareTotal/)
-  assert.match(src, /total_throughput/)
-})

@@ -1,7 +1,6 @@
 {
   "components/ai/AiBriefingInbox.vue": 1,
   "components/ai/AiWatchlistPanel.vue": 1,
-  "components/manage/YesterdayShiftPanel.vue": 1,
   "layout/ManageShell.vue": 1,
   "views/ai/AiWorkstation.vue": 1,
   "views/factory-command/DestinationScreen.vue": 1,
