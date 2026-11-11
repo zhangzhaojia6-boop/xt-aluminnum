@@ -648,7 +648,7 @@ def _outbox_content(
             action_label = "查看并跟进"
         else:
             action_route = _outbox_action_route(str(item["action_route"]))
-            action_label = "立即补录"
+            action_label = "去填写"
         action_url = _public_action_url(action_route)
         item_lines.append(
             f"- {_field_label(item['field'])}（责任：{owner_label}）："
