@@ -219,7 +219,7 @@ onBeforeUnmount(dropScene)
 
 .live-process-flow__stage {
   position: relative;
-  height: 320px;
+  height: clamp(320px, 18vw, 460px);
   overflow: hidden;
   border: 1px solid var(--xt-border);
   border-radius: 4px;
