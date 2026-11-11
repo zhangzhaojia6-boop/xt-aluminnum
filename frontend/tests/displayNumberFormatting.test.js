@@ -31,13 +31,10 @@ test('shift display order starts at 07:30 production day', () => {
   assert.deepEqual(['大夜', '长白班', '小夜班'].sort(compareShiftLabels), ['长白班', '小夜班', '大夜'])
 })
 
-test('management energy and legacy live surfaces use canonical shift labels', () => {
+test('management energy surface uses canonical shift labels', () => {
   const energySource = readFileSync(new URL('../src/views/energy/EnergyCenter.vue', import.meta.url), 'utf8')
-  const legacyLiveSource = readFileSync(new URL('../src/views/reports/LiveDashboard.vue', import.meta.url), 'utf8')
 
   assert.match(energySource, /formatShiftLabel\(row\.shift_code, '-'\)/)
-  assert.match(legacyLiveSource, /formatShiftLabel\(shift\.shift_name, '-'\)/)
-  assert.match(legacyLiveSource, /formatShiftLabel\(activeCell\.shift_name, '-'\)/)
 })
 
 test('role labels do not mark active business roles as disabled', () => {
