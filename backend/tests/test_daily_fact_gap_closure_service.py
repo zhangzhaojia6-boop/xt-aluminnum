@@ -335,6 +335,7 @@ def test_sync_routes_supervisor_notifications_to_manage_dashboard_without_changi
             "business_date=2026-07-21&trace_id=trace-supervisor-route"
         )
         assert "查看并跟进" in supervisor_message.content
+        assert "去填写" not in supervisor_message.content
         assert "立即补录" not in supervisor_message.content
         assert (
             "[查看并跟进](https://hub.example.com/manage/workshop-dashboard?"
@@ -351,9 +352,9 @@ def test_sync_routes_supervisor_notifications_to_manage_dashboard_without_changi
             "&entry_field=total_electricity_kwh&owner_role=energy_chief"
             "&trace_id=trace-supervisor-route"
         )
-        assert "立即补录" in specialist_message.content
+        assert "去填写" in specialist_message.content
         assert (
-            "[立即补录](https://hub.example.com/entry/fill?"
+            "[去填写](https://hub.example.com/entry/fill?"
             "business_date=2026-07-21&entry_fields=total_electricity_kwh"
             "&entry_field=total_electricity_kwh&owner_role=energy_chief"
             "&trace_id=trace-supervisor-route)"
@@ -938,7 +939,7 @@ def test_sync_creates_one_event_per_field_and_one_deduped_outbox(monkeypatch) ->
         assert "total_output_daily" not in outbox[0].content
         assert "hot_roll_daily" not in outbox[0].content
         assert (
-            "[立即补录](https://hub.example.com/entry/fill?"
+            "[去填写](https://hub.example.com/entry/fill?"
             "business_date=2026-07-21&entry_fields=output_weight"
         ) in outbox[0].content
         assert second["outbox_message_id"] == first["outbox_message_id"]
