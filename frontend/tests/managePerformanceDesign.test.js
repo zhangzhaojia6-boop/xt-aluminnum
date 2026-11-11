@@ -24,7 +24,6 @@ const CRITICAL_MANAGE_SURFACES = [
   'components/manage/DateSwitcher.vue',
   'components/manage/FactorySourceStrip.vue',
   'components/manage/KpiBar.vue',
-  'components/manage/IndustrialProcessIcon.vue',
   'components/manage/MissingReportPanel.vue',
   'components/manage/SummaryHero.vue',
   'components/manage/OutputTrendLine.vue',
