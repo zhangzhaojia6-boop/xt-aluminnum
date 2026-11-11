@@ -95,3 +95,12 @@ export function buildLineParts(items = []) {
     hasAnyData: stations.some((station) => station.hasData)
   }
 }
+
+// 相机距离：让整条产线（半宽 halfWidth）和设备高度（半高 halfHeight）都装进画面。
+// 宽屏舞台很扁时按高度定距离，不会把产线缩成一条细带。
+export function fitDistance(aspect, { halfWidth = 33, halfHeight = 7, fovDeg = 30, min = 12, max = 80 } = {}) {
+  const tanV = Math.tan((fovDeg * Math.PI) / 360)
+  const byWidth = halfWidth / (tanV * Math.max(aspect, 0.1))
+  const byHeight = halfHeight / tanV
+  return Math.min(Math.max(Math.max(byWidth, byHeight), min), max)
+}

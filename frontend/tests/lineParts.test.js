@@ -55,3 +55,13 @@ test('the coil only moves when some station has data', () => {
   assert.equal(buildLineParts(items.map((i) => ({ ...i, output: null }))).hasAnyData, false)
   assert.equal(buildLineParts([]).conveyor, null)
 })
+
+test('camera distance fits the whole line and gets closer on wide stages', async () => {
+  const { fitDistance } = await import('../src/utils/line-parts.js')
+  const normal = fitDistance(1176 / 320)
+  const wide = fitDistance(2240 / 320)
+  assert.ok(wide < normal, `${wide} < ${normal}`)
+  assert.ok(normal > 25 && normal < 40)
+  assert.ok(wide >= 7 / Math.tan((15 * Math.PI) / 180) - 0.001)
+  assert.equal(fitDistance(0.5), 80)
+})
