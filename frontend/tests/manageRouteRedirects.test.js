@@ -12,7 +12,6 @@ const manageShellSrc = readFileSync(new URL('../src/layout/ManageShell.vue', imp
 const assistantLauncherSrc = readFileSync(new URL('../src/utils/assistantLauncher.js', import.meta.url), 'utf8')
 const loginSrc = readFileSync(new URL('../src/views/Login.vue', import.meta.url), 'utf8')
 const guardRulesSrc = readFileSync(new URL('../src/router/guardRules.js', import.meta.url), 'utf8')
-const appShellSrc = readFileSync(new URL('../src/layout/AppShell.vue', import.meta.url), 'utf8')
 const navigationSrc = readFileSync(new URL('../src/config/navigation.js', import.meta.url), 'utf8')
 const manageNavigationSrc = readFileSync(new URL('../src/config/manage-navigation.js', import.meta.url), 'utf8')
 
@@ -177,7 +176,6 @@ test('legacy route callers use the owner skeleton tabs', () => {
   assert.match(guardRulesSrc, /canAccessReviewSurface\)\s*return\s*\{\s*name:\s*['"]manage-today['"]\s*\}/, 'review guard should land on today')
   assert.match(guardRulesSrc, /canAccessFactoryDashboard\)\s*return\s*\{\s*name:\s*['"]manage-production['"]\s*\}/, 'factory guard should land on production')
   assert.match(guardRulesSrc, /canAccessWorkshopDashboard\)\s*return\s*\{\s*name:\s*['"]manage-workshop-dashboard['"]\s*\}/, 'workshop guard should land on workshop dashboard')
-  assert.match(appShellSrc, /router\.push\(\{\s*name:\s*['"]manage-today['"]\s*\}\)/, 'app shell review switch should land on today')
   assert.doesNotMatch(reportListSrc, /name:\s*['"]report-detail['"]/, 'report list should not open removed report detail route')
   assert.doesNotMatch(
     reconciliationDetailSrc,

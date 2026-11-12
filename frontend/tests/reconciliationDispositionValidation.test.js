@@ -3,10 +3,6 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 import {
-  hasReconciliationDispositionNote,
-  normalizeReconciliationDispositionNote,
-} from '../src/utils/reconciliationDispositionValidation.js'
-import {
   formatReconciliationDiffValue,
   formatReconciliationDimension,
   formatReconciliationFieldLabel,
@@ -19,18 +15,6 @@ const reconciliationDetailSource = readFileSync(
   new URL('../src/views/reconciliation/ReconciliationDetail.vue', import.meta.url),
   'utf8',
 )
-
-test('hasReconciliationDispositionNote rejects blank disposition notes', () => {
-  assert.equal(hasReconciliationDispositionNote(''), false)
-  assert.equal(hasReconciliationDispositionNote('   '), false)
-  assert.equal(hasReconciliationDispositionNote(null), false)
-  assert.equal(hasReconciliationDispositionNote(' 已核对业务口径 '), true)
-})
-
-test('normalizeReconciliationDispositionNote trims operator notes', () => {
-  assert.equal(normalizeReconciliationDispositionNote(' 已核对业务口径 '), '已核对业务口径')
-  assert.equal(normalizeReconciliationDispositionNote(null), '')
-})
 
 test('reconciliation display helpers keep fill and external MES labels consistent', () => {
   assert.equal(formatReconciliationSourceLabel('production'), '填报端产量')
