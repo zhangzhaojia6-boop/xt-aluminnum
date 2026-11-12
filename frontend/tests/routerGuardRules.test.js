@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  isCompactClient,
   resolveGuardDecision,
   resolveRuntimeAuthCode,
 } from '../src/router/guardRules.js'
@@ -340,4 +341,16 @@ test('resolveGuardDecision allows runtime auth code into mobile entry before tok
     true
   )
   assert.equal(resolveRuntimeAuthCode({ auth_code: 'dt-code' }), 'dt-code')
+})
+
+test('isCompactClient ignores a zero-width background window on desktop', () => {
+  const desktop = (innerWidth) => ({
+    innerWidth,
+    navigator: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/140.0' },
+    matchMedia: (query) => ({ matches: query === '(max-width: 900px)' && innerWidth <= 900 }),
+  })
+  assert.equal(isCompactClient(desktop(0)), false)
+  assert.equal(isCompactClient(desktop(1440)), false)
+  assert.equal(isCompactClient(desktop(390)), true)
+  assert.equal(isCompactClient({ ...desktop(0), navigator: { userAgent: 'Mozilla/5.0 (iPhone)' } }), true)
 })

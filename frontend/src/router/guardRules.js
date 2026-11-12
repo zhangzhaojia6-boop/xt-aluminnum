@@ -6,7 +6,9 @@ export function resolveRuntimeAuthCode(query = {}) {
 export function isCompactClient(windowRef = globalThis.window) {
   if (!windowRef) return false
   const userAgent = windowRef.navigator?.userAgent || ''
-  const matchesViewport = typeof windowRef.matchMedia === 'function' && windowRef.matchMedia('(max-width: 900px)').matches
+  // 后台或最小化的窗口宽度为 0，此时视口不可信，只看设备类型。
+  const hasViewport = Number(windowRef.innerWidth) > 0
+  const matchesViewport = hasViewport && typeof windowRef.matchMedia === 'function' && windowRef.matchMedia('(max-width: 900px)').matches
   return matchesViewport || /MicroMessenger|wxwork|DingTalk|iPhone|iPad|Android|Mobile/i.test(userAgent)
 }
 
