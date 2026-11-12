@@ -58,7 +58,7 @@ test('missing energy remains unavailable instead of displaying zero consumption'
   await expect(page.getByTestId('manage-cost-line')).not.toContainText('当日 0')
 })
 
-test('history charts match the light workspace and selected date on desktop and phone', async ({ page }, testInfo) => {
+test('history charts match the dark workspace and selected date on desktop and phone', async ({ page }, testInfo) => {
   await setupReviewSessionAndMocks(page)
   await page.route('**/api/v1/dashboard/timeseries**', route => route.fulfill({ json: [
     { date: '2026-09-12', output: 484700, energy: 1000 },
@@ -86,7 +86,7 @@ test('history charts match the light workspace and selected date on desktop and 
       return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3)
     }))
     expect(backgrounds).toHaveLength(2)
-    for (const rgb of backgrounds) expect(Math.min(...rgb)).toBeGreaterThan(220)
+    for (const rgb of backgrounds) expect(Math.max(...rgb)).toBeLessThan(60)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     // Canvas animation is independent of Playwright's CSS animation handling.
     await page.waitForTimeout(1200)

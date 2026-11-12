@@ -18,9 +18,9 @@
       />
     </header>
 
-    <KpiBar :items="kpiItems" />
+    <KpiBar :items="kpiItems" :loading="snapshot.pending.value.daily" />
 
-    <FactorySourceStrip :overview="stitchSurface.sourceOverview" />
+    <FactorySourceStrip :overview="stitchSurface.sourceOverview" :loading="snapshot.pending.value.daily" />
 
     <div v-if="snapshot.lastError.value" class="xt-production__error">{{ snapshot.lastError.value }}</div>
 
@@ -30,7 +30,8 @@
           <h2>车间产量</h2>
           <span v-if="hasMonthlyMarker" class="xt-production__legend"><i aria-hidden="true"></i>月均</span>
         </div>
-        <p v-if="rankedRows.length === 0" class="xt-production__empty">无车间数据</p>
+        <div v-if="rankedRows.length === 0 && snapshot.pending.value.daily" class="xt-production__empty" aria-busy="true" data-testid="production-loading" />
+        <p v-else-if="rankedRows.length === 0" class="xt-production__empty">无车间数据</p>
         <table v-else class="xt-production__table" data-testid="manage-production-table">
           <thead>
             <tr>
@@ -74,7 +75,8 @@
         <dl class="xt-production__brief-list">
           <div v-for="item in productionBrief" :key="item.key">
             <dt>{{ item.label }}</dt>
-            <dd>{{ item.value }}</dd>
+            <dd v-if="snapshot.pending.value.daily"><span class="xt-production__skeleton" aria-hidden="true" data-testid="kpi-loading" /></dd>
+            <dd v-else>{{ item.value }}</dd>
           </div>
         </dl>
       </aside>
@@ -345,6 +347,14 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   width: 2px;
   height: 14px;
   background: var(--xt-text);
+}
+
+.xt-production__skeleton {
+  display: block;
+  width: 96px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--xt-bg-panel-strong);
 }
 
 .xt-production__empty {
