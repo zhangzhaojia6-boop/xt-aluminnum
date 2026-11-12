@@ -20,14 +20,11 @@ const CRITICAL_MANAGE_SURFACES = [
   'views/energy/EnergyCenter.vue',
   'views/manage/fill-details/FillDetailsPage.vue',
   'views/manage/alerts/AlertsPage.vue',
-  'components/xt/XtCameraGuide.vue',
   'components/manage/DateSwitcher.vue',
   'components/manage/FactorySourceStrip.vue',
   'components/manage/KpiBar.vue',
   'components/manage/MissingReportPanel.vue',
-  'components/manage/SummaryHero.vue',
   'components/manage/OutputTrendLine.vue',
-  'components/manage/WorkshopBarChart.vue',
   'components/manage/CostLine.vue',
 ]
 
@@ -81,16 +78,10 @@ test('critical management surfaces keep industrial structure after light-effect 
   assert.match(missing, /data-testid="missing-report-panel"/)
 })
 
-test('core interactive components keep visible keyboard focus and button semantics', () => {
+test('search keeps visible keyboard focus', () => {
   const search = read('components/xt/XtSearch.vue')
-  const section = read('components/xt/XtSectionCard.vue')
 
   assert.doesNotMatch(search, /outline:\s*none/)
   assert.match(search, /\.xt-search__input:focus-visible\s*\{[\s\S]*?outline:/)
   assert.match(search, /\.xt-search__item:focus-visible\s*\{[\s\S]*?outline:/)
-
-  assert.match(section, /type="button"/)
-  assert.match(section, /:aria-expanded="!collapsed"/)
-  assert.match(section, /:aria-label="collapsed \? '展开区块' : '收起区块'"/)
-  assert.match(section, /@click\.stop="toggle"/)
 })

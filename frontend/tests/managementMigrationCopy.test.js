@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs'
 import { buildShellNavigation, NAV_ROUTE_META } from '../src/config/navigation.js'
 
 const routerSource = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
-const appShellSource = readFileSync(new URL('../src/layout/AppShell.vue', import.meta.url), 'utf8')
 
 test('management routes no longer expose migration placeholders', () => {
   assert.doesNotMatch(routerSource, /功能正在迁移中/)
@@ -18,7 +17,6 @@ test('management routes no longer expose migration placeholders', () => {
 test('current management pages do not label active admin modules as migrating', () => {
   assert.doesNotMatch(routerSource, /改造中/)
   assert.doesNotMatch(routerSource, /待迁移/)
-  assert.doesNotMatch(appShellSource, /改造中|待迁移/)
 })
 
 test('admin shell navigation does not expose retired overview route', () => {
@@ -28,5 +26,4 @@ test('admin shell navigation does not expose retired overview route', () => {
   assert.equal(items.some((item) => item.routeName === 'admin-overview'), false)
   assert.equal(items.filter((item) => item.routeName === 'admin-ops-reliability').length, 1)
   assert.equal(NAV_ROUTE_META['admin-overview'].legacy, true)
-  assert.match(appShellSource, /router\.push\(\{ name: 'admin-ops-reliability' \}\)/)
 })

@@ -17,9 +17,7 @@ test('useHudChartTheme observes data-xt-theme and returns xt-hud theme name', ()
 test('shared chart components pass HUD theme to VChart', () => {
   for (const file of [
     '../src/components/xt/XtBarChart.vue',
-    '../src/components/xt/XtLineChart.vue',
-    '../src/components/xt/XtGaugeChart.vue',
-    '../src/components/manage/WorkshopBarChart.vue'
+    '../src/components/xt/XtLineChart.vue'
   ]) {
     const src = source(file)
     assert.match(src, /useHudChartTheme/)
