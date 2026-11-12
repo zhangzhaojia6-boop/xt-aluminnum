@@ -68,7 +68,7 @@
           <h2>文档清单</h2>
           <span>{{ documents.length }} 份</span>
         </header>
-        <div v-if="documents.length === 0" class="xt-rag__empty">暂无资料</div>
+        <div v-if="!loading && documents.length === 0" class="xt-rag__empty">暂无资料</div>
         <div v-else class="xt-rag__table-wrap">
           <table>
             <thead>

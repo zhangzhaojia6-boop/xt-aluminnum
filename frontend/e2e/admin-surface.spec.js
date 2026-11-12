@@ -296,3 +296,15 @@ test('users and roles page shows what each role can open and filters stale login
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(1)
 })
+
+test('agent management does not claim empty lists while the overview is still loading', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.route('**/api/v1/agent-management/overview**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+    await route.fallback()
+  })
+  await page.goto('/manage/admin/agents')
+  await expect(page.locator('.xt-agent-management__state.is-loading')).toBeVisible()
+  await expect(page.locator('.xt-agent-management__empty', { hasText: '暂无记录' })).toHaveCount(0)
+  await expect(page.locator('.xt-agent-management__state.is-loading')).toHaveCount(0, { timeout: 10000 })
+})

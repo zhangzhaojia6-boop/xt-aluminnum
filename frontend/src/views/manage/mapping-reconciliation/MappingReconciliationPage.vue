@@ -68,8 +68,8 @@
           aria-label="筛选参考文件"
           placeholder="筛选文件"
         />
-        <div v-if="sourceFiles.length === 0" class="xt-mapping-reconciliation__empty">暂无可读文件</div>
-        <div v-else-if="filteredSourceFiles.length === 0" class="xt-mapping-reconciliation__empty">暂无匹配文件</div>
+        <div v-if="!loading && sourceFiles.length === 0" class="xt-mapping-reconciliation__empty">暂无可读文件</div>
+        <div v-else-if="!loading && filteredSourceFiles.length === 0" class="xt-mapping-reconciliation__empty">暂无匹配文件</div>
         <ul v-else class="xt-mapping-reconciliation__file-list">
           <li v-for="item in visibleSourceFiles" :key="item.relative_path">
             <b>{{ item.name }}</b>

@@ -33,7 +33,7 @@
           <h2>智能体状态</h2>
           <span>{{ agents.length }} 个</span>
         </header>
-        <div v-if="agents.length === 0" class="xt-agent-management__empty">暂无记录</div>
+        <div v-if="!loading && agents.length === 0" class="xt-agent-management__empty">暂无记录</div>
         <div v-else class="xt-agent-management__table-wrap">
           <table>
             <thead>
@@ -66,7 +66,7 @@
           <h2>通道治理</h2>
           <span>{{ channels.length }} 条</span>
         </header>
-        <div v-if="channels.length === 0" class="xt-agent-management__empty">暂无记录</div>
+        <div v-if="!loading && channels.length === 0" class="xt-agent-management__empty">暂无记录</div>
         <div v-else class="xt-agent-management__list">
           <article v-for="item in channels" :key="item.id" class="xt-agent-management__row">
             <div>
@@ -85,7 +85,7 @@
           <h2>多模态证据</h2>
           <span>{{ evidence.length }} 条</span>
         </header>
-        <div v-if="evidence.length === 0" class="xt-agent-management__empty">暂无记录</div>
+        <div v-if="!loading && evidence.length === 0" class="xt-agent-management__empty">暂无记录</div>
         <div v-else class="xt-agent-management__evidence">
           <article v-for="item in evidence" :key="item.id">
             <span>{{ evidenceTypeLabel(item.evidence_type) }}</span>
@@ -100,7 +100,7 @@
           <h2>最近事件</h2>
           <span>{{ events.length }} 条</span>
         </header>
-        <div v-if="events.length === 0" class="xt-agent-management__empty">暂无记录</div>
+        <div v-if="!loading && events.length === 0" class="xt-agent-management__empty">暂无记录</div>
         <ol v-else class="xt-agent-management__timeline">
           <li v-for="item in events" :key="item.id">
             <i :class="`is-${item.severity || 'info'}`"></i>
@@ -118,7 +118,7 @@
           <h2>待审核操作</h2>
           <span>{{ operationApprovals.length }} 条</span>
         </header>
-        <div v-if="operationApprovals.length === 0" class="xt-agent-management__empty">暂无记录</div>
+        <div v-if="!loading && operationApprovals.length === 0" class="xt-agent-management__empty">暂无记录</div>
         <div v-else class="xt-agent-management__list">
           <article v-for="item in operationApprovals" :key="item.id" class="xt-agent-management__row">
             <div>
@@ -147,7 +147,7 @@
         </header>
         <p v-if="dispatchText" class="xt-agent-management__inline-state">{{ dispatchText }}</p>
         <p v-if="logErrorText" class="xt-agent-management__inline-state is-error">{{ logErrorText }}</p>
-        <div v-if="outbox.length === 0" class="xt-agent-management__empty">暂无记录</div>
+        <div v-if="!loading && outbox.length === 0" class="xt-agent-management__empty">暂无记录</div>
         <div v-else class="xt-agent-management__list">
           <article v-for="item in outbox" :key="item.id" class="xt-agent-management__row">
             <div>
@@ -193,7 +193,7 @@
           <h2>知识口径</h2>
           <span>{{ knowledgeEntries.length }} 条</span>
         </header>
-        <div v-if="knowledgeEntries.length === 0" class="xt-agent-management__empty">暂无记录</div>
+        <div v-if="!loading && knowledgeEntries.length === 0" class="xt-agent-management__empty">暂无记录</div>
         <div v-else class="xt-agent-management__list">
           <article v-for="item in knowledgeEntries" :key="item.entry_id" class="xt-agent-management__row">
             <div>
