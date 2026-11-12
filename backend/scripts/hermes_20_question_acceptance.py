@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = REPO_ROOT / "backend"
@@ -16,8 +19,10 @@ if str(BACKEND_ROOT) not in sys.path:
 load_dotenv(BACKEND_ROOT / ".env")
 
 from app.core.redaction import redact_secret_text
-from app.database import get_sessionmaker
+from app.database import get_engine, get_sessionmaker
 from app.models.system import User
+from app.services import agent_communication_service
+from app.services.agent_communication_service import DispatchOutcome
 from app.services.external_readonly_source_registry import (
     build_external_readonly_sources,
     health_check_sources,
@@ -45,6 +50,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--sender-external-id", required=True)
     parser.add_argument("--target", action="append", default=[])
     parser.add_argument("--real-delivery", action="store_true")
+    parser.add_argument("--rehearsal", action="store_true")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--user-id", type=int, default=1)
     parser.add_argument("--output-skill-root", default=None)
@@ -55,6 +61,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="docs/superpowers/reports/2026-06-28-hermes-20-question-real-acceptance-report.md",
     )
     return parser.parse_args(argv)
+
+
+@contextmanager
+def rehearsal_session(engine):
+    with engine.connect() as connection:
+        outer = connection.begin()
+        db = Session(bind=connection, join_transaction_mode="create_savepoint")
+        try:
+            with patch.object(
+                agent_communication_service,
+                "dispatch_outbox_message",
+                lambda db, outbox_message_id, **kwargs: DispatchOutcome(
+                    status="rehearsal", detail="not_sent", outbox_message_id=outbox_message_id
+                ),
+            ):
+                yield db
+        finally:
+            db.close()
+            outer.rollback()
 
 
 def parse_delivery_targets(values: list[str]) -> tuple[DingTalkDeliveryTarget, ...]:
@@ -203,8 +228,36 @@ def _daily_report_gate_artifact_row(
     }
 
 
+def _run_rehearsal(args: argparse.Namespace) -> int:
+    try:
+        business_date = date.fromisoformat(args.business_date)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    with rehearsal_session(get_engine()) as db:
+        current_user = db.get(User, int(args.user_id))
+        if current_user is None:
+            print("user_not_found")
+            return 2
+        outcome = run_20_question_acceptance(
+            db,
+            current_user=current_user,
+            sender_external_id=args.sender_external_id,
+            business_date=business_date,
+            source_health=health_check_sources(build_external_readonly_sources(), probe=lambda source: None),
+            limit=args.limit,
+        )
+    print(render_acceptance_report(outcome.summary))
+    return 0 if outcome.summary.core_passed else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.rehearsal:
+        if args.real_delivery or args.target or args.require_daily_report_gate:
+            print("rehearsal_excludes_real_delivery_target_and_gate")
+            return 2
+        return _run_rehearsal(args)
     if not args.real_delivery:
         print("refusing_real_acceptance_without_real_delivery_flag")
         return 2
