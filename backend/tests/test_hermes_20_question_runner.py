@@ -5,7 +5,7 @@ import json
 from datetime import date
 from types import SimpleNamespace
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 
 from app.models import Base
@@ -1473,3 +1473,45 @@ def test_acceptance_cli_main_rejects_artifact_dir_outside_reports_dir_before_db(
 
     assert exit_code == 2
     assert capsys.readouterr().out.strip() == "alignment_artifact_dir_outside_reports_dir"
+
+
+def test_rehearsal_session_rolls_back_commits_and_skips_real_dispatch() -> None:
+    from app.services import agent_communication_service
+    from scripts.hermes_20_question_acceptance import rehearsal_session
+
+    engine = create_engine("sqlite:///:memory:", future=True)
+    # pysqlite 默认不在 SAVEPOINT 前开事务，需按 SQLAlchemy 文档接管 BEGIN
+    event.listen(engine, "connect", lambda conn, _: setattr(conn, "isolation_level", None))
+    event.listen(engine, "begin", lambda conn: conn.exec_driver_sql("BEGIN"))
+    Base.metadata.create_all(bind=engine)
+
+    with rehearsal_session(engine) as db:
+        db.add(AgentOutboxMessage(dispatch_key="rehearsal-1", status="pending", message_type="markdown", title="t", content="c", trace_id="trace-1"))
+        db.commit()
+        outcome = agent_communication_service.dispatch_outbox_message(db, 123)
+        assert db.query(AgentOutboxMessage).count() == 1
+
+    assert (outcome.status, outcome.detail, outcome.outbox_message_id) == ("rehearsal", "not_sent", 123)
+    with Session(engine) as fresh:
+        assert fresh.query(AgentOutboxMessage).count() == 0
+
+
+def test_acceptance_cli_main_rejects_rehearsal_with_target(monkeypatch, capsys) -> None:
+    from scripts import hermes_20_question_acceptance as cli
+
+    monkeypatch.setattr(cli, "get_sessionmaker", lambda: (_ for _ in ()).throw(AssertionError("db_should_not_run")))
+
+    exit_code = cli.main(
+        [
+            "--business-date",
+            "2026-06-27",
+            "--sender-external-id",
+            "dt-root-001",
+            "--rehearsal",
+            "--target",
+            "x:y",
+        ]
+    )
+
+    assert exit_code == 2
+    assert capsys.readouterr().out.strip() == "rehearsal_excludes_real_delivery_target_and_gate"
