@@ -150,7 +150,11 @@ test('reports center sends filters and retired detail links land on the overview
 
   await expect.poll(() => requests.list.length).toBeGreaterThanOrEqual(2)
   const latestQuery = requests.list.at(-1)
-  expect(latestQuery.start_date).toBe(currentBusinessDate())
+  // 默认查最近 30 天（含当天）
+  const start = new Date(`${currentBusinessDate()}T00:00:00`)
+  start.setDate(start.getDate() - 29)
+  const pad = (value) => String(value).padStart(2, '0')
+  expect(latestQuery.start_date).toBe(`${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`)
   expect(latestQuery.end_date).toBe(currentBusinessDate())
   expect(latestQuery.report_type).toBe('production')
   expect(latestQuery.status).toBe('published')
