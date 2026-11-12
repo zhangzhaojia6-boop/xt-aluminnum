@@ -435,3 +435,12 @@ def test_does_not_treat_unrelated_single_machine_character_as_machine_query() ->
 
         assert plan.domain == "general", message
         assert plan.needs_clarification is True, message
+
+
+def test_input_weight_question_only_asks_for_input_weight() -> None:
+    plan = understand_root_owner_message(
+        "今天投料量是多少？",
+        default_business_date=date(2026, 11, 11),
+    )
+
+    assert plan.metric_keys == ("daily_input_weight",)
