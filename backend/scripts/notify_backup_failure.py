@@ -32,6 +32,7 @@ def recipient_ids() -> list[int]:
 
 def main(argv: list[str]) -> int:
     message = build_message(' '.join(argv[1:]), datetime.now())
+    print(message.replace('\n', ' | '))
     db = get_sessionmaker()()
     try:
         users = db.query(User).filter(User.id.in_(recipient_ids())).all()

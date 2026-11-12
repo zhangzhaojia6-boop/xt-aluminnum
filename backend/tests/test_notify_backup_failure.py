@@ -30,3 +30,7 @@ def test_backup_unit_triggers_alert_on_failure():
     assert 'OnFailure=xintai-backup-alert.service' in unit
     assert 'scripts/notify_backup_failure.py' in alert
     assert 'EnvironmentFile=/srv/aluminum-bypass/backend/.env' in alert
+    assert 'SupplementaryGroups=systemd-journal' in alert
+    # systemd 会先展开 $，命令行里的 $ 必须写成 $$
+    assert 'reason=$$(' in alert and '"$$reason"' in alert
+    assert 'reason=$(' not in alert
