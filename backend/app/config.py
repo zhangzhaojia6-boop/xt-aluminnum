@@ -169,6 +169,8 @@ class Settings(BaseSettings):
     DINGTALK_NOTIFY_DRY_RUN: bool = False
     # 能写异常说明的账号，逗号分隔；默认张兆嘉
     ANOMALY_NOTE_AUTHOR_USER_IDS: str = '983'
+    # 运维告警（如每日备份失败）接收账号，逗号分隔；默认张兆嘉
+    OPS_ALERT_USER_IDS: str = '983'
     DINGTALK_INBOUND_TOKEN: str | None = None
     HERMES_DINGTALK_CLIENT_ID: str | None = None
     HERMES_DINGTALK_CLIENT_SECRET: str | None = None
