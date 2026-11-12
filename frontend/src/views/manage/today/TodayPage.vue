@@ -45,6 +45,7 @@
               :state="item.state"
               :sub="item.sub"
               :size="item.size"
+              :loading="snapshot.pending.value.daily"
             />
             <XtSparkArea
               v-if="outputTrend.length"
@@ -62,6 +63,7 @@
               :state="item.state"
               :sub="item.sub"
               :size="item.size"
+              :loading="snapshot.pending.value.daily"
             />
           </div>
           <XtMetric
@@ -72,6 +74,7 @@
             :state="item.state"
             :sub="item.sub"
             :size="item.size"
+            :loading="snapshot.pending.value.daily"
           />
         </li>
       </ul>
