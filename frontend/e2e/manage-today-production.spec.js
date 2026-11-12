@@ -38,6 +38,21 @@ test.describe('manage today/production content', () => {
     await expect(page.getByText('月均', { exact: false }).first()).toBeVisible()
   })
 
+  test('production shows placeholders, not zero or unknown, while the daily report loads', async ({ page }) => {
+    await page.route('**/api/v1/dashboard/daily-production**', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      await route.fallback()
+    })
+    await page.goto('/manage/production')
+    await expect(page.getByTestId('manage-production')).toBeVisible()
+    await expect(page.getByTestId('production-loading')).toBeVisible()
+    for (const text of ['无车间数据', '参与车间 0 个', '暂无车间数据', '未知来源']) {
+      await expect(page.getByText(text, { exact: false })).toHaveCount(0)
+    }
+    await expect(page.getByTestId('production-loading')).toHaveCount(0, { timeout: 10000 })
+    await expect(page.getByTestId('kpi-loading')).toHaveCount(0)
+  })
+
   test('neither tab uses banned phrasing', async ({ page }) => {
     await page.goto('/manage/today')
     await expect(page.getByTestId('manage-today')).toBeVisible()

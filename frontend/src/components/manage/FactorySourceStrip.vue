@@ -11,14 +11,16 @@
       <span class="xt-source-strip__pulse" aria-hidden="true"></span>
       <div>
         <small>主数据</small>
-        <strong>{{ strip.sourceLabel }}</strong>
+        <strong v-if="loading" class="xt-source-strip__skeleton" aria-hidden="true" data-testid="kpi-loading" />
+        <strong v-else>{{ strip.sourceLabel }}</strong>
       </div>
     </div>
 
     <ul class="xt-source-strip__items">
       <li v-for="item in strip.items" :key="item.key">
         <span class="xt-source-strip__label">{{ item.label }}</span>
-        <span class="xt-source-strip__readout">
+        <span v-if="loading" class="xt-source-strip__skeleton" aria-hidden="true" data-testid="kpi-loading" />
+        <span v-else class="xt-source-strip__readout">
           <b>{{ item.value }}</b>
           <small>{{ item.unit }}</small>
         </span>
@@ -34,12 +36,22 @@ import { buildFactorySourceStrip } from '../../utils/factorySourceStrip.js'
 
 const props = defineProps({
   overview: { type: Object, default: () => ({}) },
+  loading: { type: Boolean, default: false },
 })
 
 const strip = computed(() => buildFactorySourceStrip(props.overview))
 </script>
 
 <style scoped>
+.xt-source-strip__skeleton {
+  display: block;
+  width: 72px;
+  height: 18px;
+  margin-top: 4px;
+  border-radius: 4px;
+  background: var(--xt-bg-panel-strong);
+}
+
 .xt-source-strip {
   position: relative;
   display: grid;

@@ -50,3 +50,28 @@ test('KpiBar lays out dashboard-width KPI cards with mobile breakpoints', () => 
   assert.match(src, /@media\s*\(max-width:\s*720px\)/)
   assert.match(src, /grid-template-columns:\s*repeat\(2,\s*1fr\)/)
 })
+
+test('KpiBar shows a static placeholder instead of a dash while loading', () => {
+  const src = source('../src/components/manage/KpiBar.vue')
+  assert.match(src, /loading: \{ type: Boolean, default: false \}/)
+  assert.match(src, /<div v-if="loading && isBlank\(item\.value\)" class="xt-kpi-bar__skeleton"/)
+  assert.doesNotMatch(src, /xt-kpi-bar__skeleton[^}]*animation/)
+})
+
+test('production page does not claim "no workshop data" while the daily report is loading', () => {
+  const page = source('../src/views/manage/production/ProductionPage.vue')
+  assert.match(page, /<KpiBar :items="kpiItems" :loading="snapshot\.pending\.value\.daily" \/>/)
+  assert.match(page, /v-if="rankedRows\.length === 0 && snapshot\.pending\.value\.daily"[^>]*data-testid="production-loading"/)
+  assert.match(page, /<p v-else-if="rankedRows\.length === 0" class="xt-production__empty">无车间数据<\/p>/)
+})
+
+test('production summary and source strip show placeholders instead of zero or unknown while loading', () => {
+  const page = source('../src/views/manage/production/ProductionPage.vue')
+  assert.match(page, /<FactorySourceStrip :overview="stitchSurface\.sourceOverview" :loading="snapshot\.pending\.value\.daily" \/>/)
+  assert.match(page, /<dd v-if="snapshot\.pending\.value\.daily"><span class="xt-production__skeleton"/)
+  const strip = source('../src/components/manage/FactorySourceStrip.vue')
+  assert.match(strip, /loading: \{ type: Boolean, default: false \}/)
+  assert.match(strip, /<strong v-if="loading" class="xt-source-strip__skeleton"/)
+  assert.match(strip, /<span v-if="loading" class="xt-source-strip__skeleton"/)
+  assert.doesNotMatch(strip, /xt-source-strip__skeleton[^}]*animation/)
+})

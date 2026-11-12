@@ -14,7 +14,8 @@
             {{ item.deltaText }}
           </span>
         </div>
-        <div class="xt-kpi-bar__value">
+        <div v-if="loading && isBlank(item.value)" class="xt-kpi-bar__skeleton" aria-hidden="true" data-testid="kpi-loading" />
+        <div v-else class="xt-kpi-bar__value">
           <span>{{ item.value }}</span>
           <small v-if="item.unit">{{ item.unit }}</small>
         </div>
@@ -34,7 +35,15 @@
 
 <script setup>
 import Sparkline from './Sparkline.vue'
-defineProps({ items: { type: Array, default: () => [] } })
+defineProps({
+  items: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false }
+})
+
+const BLANK = new Set(['', '—', '-', '--'])
+function isBlank(value) {
+  return value === null || value === undefined || BLANK.has(String(value).trim())
+}
 </script>
 
 <style scoped>
@@ -274,6 +283,14 @@ defineProps({ items: { type: Array, default: () => [] } })
   color: var(--xt-danger);
   background: transparent;
   border-color: var(--xt-border);
+}
+
+.xt-kpi-bar__skeleton {
+  width: min(120px, 70%);
+  height: 30px;
+  margin-top: 5px;
+  border-radius: 4px;
+  background: var(--xt-bg-panel-strong);
 }
 
 .xt-kpi-bar__value {
