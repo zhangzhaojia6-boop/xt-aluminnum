@@ -38,8 +38,11 @@
     <div class="workshop-board__kpis">
       <article v-for="item in kpis" :key="item.key" class="workshop-board__kpi" :class="`tone-${item.tone}`">
         <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <small>{{ item.unit }}</small>
+        <i v-if="loading && (item.value === '-' || item.key === 'exception')" class="workshop-board__skeleton" aria-hidden="true" data-testid="kpi-loading" />
+        <template v-else>
+          <strong>{{ item.value }}</strong>
+          <small>{{ item.unit }}</small>
+        </template>
       </article>
     </div>
 
@@ -153,7 +156,8 @@
           </header>
           <article v-for="row in exceptionRows" :key="row.key" class="workshop-board__exception" :class="`tone-${row.tone}`">
             <span>{{ row.label }}</span>
-            <strong>{{ row.value }}</strong>
+            <i v-if="loading" class="workshop-board__skeleton workshop-board__skeleton--small" aria-hidden="true" data-testid="kpi-loading" />
+            <strong v-else>{{ row.value }}</strong>
           </article>
         </section>
 
@@ -691,6 +695,21 @@ load()
   background: transparent;
 
 
+}
+
+.workshop-board__skeleton {
+  display: block;
+  width: min(110px, 70%);
+  height: 26px;
+  margin-top: 10px;
+  border-radius: 4px;
+  background: var(--xt-bg-panel-strong);
+}
+
+.workshop-board__skeleton--small {
+  width: 36px;
+  height: 20px;
+  margin-top: 0;
 }
 
 .workshop-board__kpi {
