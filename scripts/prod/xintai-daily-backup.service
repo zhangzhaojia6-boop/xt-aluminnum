@@ -1,5 +1,6 @@
 [Unit]
 Description=Daily backup of the data hub database and uploads
+OnFailure=xintai-backup-alert.service
 
 [Service]
 Type=oneshot

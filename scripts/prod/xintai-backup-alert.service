@@ -1,0 +1,9 @@
+[Unit]
+Description=Notify ops when the daily backup fails
+
+[Service]
+Type=oneshot
+User=www-data
+WorkingDirectory=/srv/aluminum-bypass/backend
+EnvironmentFile=/srv/aluminum-bypass/backend/.env
+ExecStart=/bin/bash -c 'reason=$(journalctl -u xintai-daily-backup -n 5 --no-pager -o cat | tail -1); exec /srv/aluminum-bypass/backend/.venv/bin/python scripts/notify_backup_failure.py "$reason"'
