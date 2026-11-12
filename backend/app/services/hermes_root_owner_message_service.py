@@ -70,6 +70,7 @@ _METRIC_PHRASE_RULES: tuple[tuple[str, str, tuple[str, ...], tuple[str, ...]], .
     ("quality", "quality_summary", ("daily_yield_rate",), ("成品率", "成材率", "良品率", "合格率")),
     ("cost", "cost_summary", ("cost_per_ton",), ("成本折算", "吨成本", "每吨成本", "元/吨")),
     ("production", "production_summary", ("wip_total",), ("在制料", "在制")),
+    ("production", "production_summary", ("daily_input_weight",), ("投料量",)),
     ("operations", "contract_summary", ("remaining_contract_weight",), ("总余合同", "余合同", "合同余量", "剩余合同")),
     ("operation_period", "period_summary", ("monthly_total_output",), ("本月累计产量", "月累计产量", "本月产量累计")),
     ("operation_period", "period_summary", ("annual_total_output",), ("今年累计产量", "年累计产量", "年度累计产量")),
