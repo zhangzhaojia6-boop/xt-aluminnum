@@ -237,3 +237,21 @@ def test_wip_answer_says_when_the_number_was_captured() -> None:
     _decision, answer, _records = _turn("今天在制料是多少？", payload)
 
     assert "取自 11-08 08:02 抓取" in answer
+
+
+def test_electricity_per_ton_divides_high_voltage_total_by_packaging_output() -> None:
+    payload = _hub_payload()
+    payload["facts"]["total_electricity_kwh"] = {"value": 180000.0, "evidence_status": "confirmed", "source_type": "manual_workbook"}
+
+    _decision, answer, records = _turn("今天吨电耗是多少？分母是什么？", payload)
+
+    assert [(record["field"], record["status"], record["value"]) for record in records] == [
+        ("electricity_per_ton", "candidate", 636.83)
+    ]
+    assert "高压合计 180000 度 ÷ 包装产量 282.65 吨" in answer
+
+
+def test_electricity_per_ton_is_missing_without_electricity() -> None:
+    _decision, _answer, records = _turn("今天吨电耗是多少？分母是什么？")
+
+    assert [(record["field"], record["status"]) for record in records] == [("electricity_per_ton", "missing")]
