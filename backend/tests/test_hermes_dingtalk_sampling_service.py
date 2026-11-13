@@ -488,3 +488,19 @@ def test_afternoon_message_stays_on_its_day_even_when_previous_day_is_missing() 
     adopt_registered_message_evidence(db, evidence_id=evidence.id)
 
     assert evidence.payload['business_date'] == '2026-11-08'
+
+
+def test_registered_energy_screenshot_is_promoted_by_its_staged_file_name(tmp_path) -> None:
+    db, (evidence,) = _staged_energy_session(tmp_path, file_names=('image.png',))
+    evidence.payload = {
+        **evidence.payload,
+        'energy_ingest': {
+            **evidence.payload['energy_ingest'],
+            'stored_file': str(tmp_path / 'msg-energy-1_各车间电耗统计表-截图.xlsx'),
+        },
+    }
+    db.commit()
+
+    assert promote_registered_energy_file_evidence(db, evidence_id=evidence.id) == (
+        'registered-energy-file:electricity:energy-owner'
+    )

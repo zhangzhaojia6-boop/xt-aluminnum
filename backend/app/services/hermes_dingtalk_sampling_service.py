@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from hashlib import sha256
 from io import BytesIO
+from pathlib import Path
 
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
@@ -241,7 +242,7 @@ def promote_registered_energy_file_evidence(db: Session, *, evidence_id: int) ->
         mode=REGISTERED_ENERGY_FILE_MODE,
         content_type='file',
         pattern_key='file_name_pattern',
-        subject=str(payload.get('file_name') or ''),
+        subject=Path(ingest['stored_file']).name if ingest.get('stored_file') else str(payload.get('file_name') or ''),
     )
     if rule is None:
         return None
