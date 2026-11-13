@@ -71,6 +71,7 @@ def build_derived_facts(
     payload = hub_payload if isinstance(hub_payload, Mapping) else {}
     builders = {
         "annual_total_output": lambda: _annual_total(db, business_date),
+        "electricity_per_ton": lambda: _electricity_per_ton(payload),
         "dingtalk_specialist_evidence": lambda: _specialist_evidence(payload, business_date),
         "source_status": lambda: _source_status(payload, normalized_text),
         "daily_report_readiness": lambda: _report_readiness(payload),
@@ -111,6 +112,31 @@ def _annual_total(db: Session | None, business_date: date) -> DerivedFact | None
             "display": display,
             "reason": f"annual_coverage_incomplete:{covered_days}/{expected_days}",
             "action": "补齐缺失日期的包装投影，或由负责人给出年初累计后再转正式口径。",
+        },
+    )
+
+
+def _electricity_per_ton(payload: Mapping[str, Any]) -> DerivedFact | None:
+    facts = _facts(payload)
+    electricity = (facts.get("total_electricity_kwh") or {}).get("value")
+    output = (facts.get("total_output_daily") or {}).get("value")
+    if electricity in (None, "") or not output:
+        return None
+    value = round(float(electricity) / float(output), 2)
+    return DerivedFact(
+        field="electricity_per_ton",
+        source_key="data_hub_projection",
+        status="candidate",
+        summary="高压合计用电量除以当天包装产量",
+        fact={
+            "value": value,
+            "status": "candidate",
+            "unit": "度/吨",
+            "source_key": "data_hub_projection",
+            "source_type": "data_hub",
+            "display": f"{_number(value)} 度/吨（高压合计 {_number(electricity)} 度 ÷ 包装产量 {_number(output)} 吨）",
+            "reason": "derived:total_electricity_kwh/total_output_daily",
+            "action": "分子来自能耗表，分母来自包装产量；任一项更正后重新计算。",
         },
     )
 

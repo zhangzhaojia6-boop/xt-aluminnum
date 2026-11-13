@@ -385,6 +385,7 @@ DAILY_REPORT_METRIC_CONTRACTS: dict[str, DailyReportMetricContract] = _bind_metr
         unit='kWh/吨',
         tolerance=0.2,
         requires_same_business_window=True,
+        allowed_non_confirmed_statuses=frozenset({'candidate', 'missing', 'conflict'}),
         source_contracts=(_electricity_per_ton_source_contract(),),
     ),
     'daily_yield_rate': DailyReportMetricContract(
