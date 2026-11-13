@@ -3,12 +3,15 @@ from __future__ import annotations
 import base64
 import binascii
 from datetime import date
+from io import BytesIO
 from pathlib import Path
 import re
 from typing import Any
 
+from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
+from app.adapters.llm import read_table_image_text
 from app.config import settings
 from app.core.business_time import last_completed_production_business_date, local_now
 from app.core.redaction import redact_secret_text
@@ -26,6 +29,8 @@ INLINE_FILE_KEYS = (
 )
 DATE_KEYS = ('business_date', 'businessDate', 'report_date', 'reportDate', 'target_date', 'targetDate', 'date')
 EXCEL_SUFFIXES = {'.xls', '.xlsx', '.xlsm'}
+IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg'}
+SCREENSHOT_ELECTRICITY_FILE_NAME = '各车间电耗统计表-截图.xlsx'
 
 
 def _clean_text(value: Any) -> str:
@@ -117,6 +122,49 @@ def _is_excel_file(file_name: str) -> bool:
     return Path(file_name).suffix.lower() in EXCEL_SUFFIXES
 
 
+def _number(text: str) -> float | None:
+    try:
+        return float(text.replace(',', ''))
+    except ValueError:
+        return None
+
+
+def _table_rows(text: str) -> list[list[str]]:
+    lines = [line for line in text.splitlines() if line.strip() and not line.lstrip().startswith('```')]
+    return [[cell.strip() for cell in line.split('\t')] for line in lines]
+
+
+def _table_day_check_error(rows: list[list[str]], business_date: date) -> str | None:
+    day_header = f'{business_date.day}日'
+    if day_header not in rows[0]:
+        return f'missing column {day_header}'
+    column = rows[0].index(day_header)
+    totals: dict[str, float | None] = {}
+    rows_sum = 0.0
+    for row in rows[1:]:
+        value = _number(row[column]) if column < len(row) else None
+        if row[0] in ('合计', '高压合计', '差值'):
+            totals[row[0]] = value
+        elif '合计' not in totals:
+            rows_sum += value or 0
+    total = totals.get('合计')
+    if total is None or round(rows_sum, 3) != round(total, 3):
+        return f'{day_header} rows sum {rows_sum:g} != 合计 {total}'
+    high_voltage, difference = totals.get('高压合计'), totals.get('差值')
+    if high_voltage is not None and difference is not None and round(high_voltage - total, 3) != round(difference, 3):
+        return f'{day_header} 高压合计 {high_voltage:g} - 合计 {total:g} != 差值 {difference:g}'
+    return None
+
+
+def _workbook_bytes(rows: list[list[str]]) -> bytes:
+    workbook = Workbook()
+    for row in rows:
+        workbook.active.append([cell if _number(cell) is None else _number(cell) for cell in row])
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
 def _load_energy_import_module():
     from scripts import dry_run_energy_import
 
@@ -146,12 +194,34 @@ def ingest_dingtalk_energy_file(
         return _attach_ingest_result(db, evidence, {'status': 'blocked', 'reason': content_error})
     if content is None:
         return _attach_ingest_result(db, evidence, {'status': 'skipped', 'reason': 'no_inline_file_content'})
-    if not _is_excel_file(file_name):
+    is_image = Path(file_name).suffix.lower() in IMAGE_SUFFIXES
+    if not _is_excel_file(file_name) and not is_image:
         return _attach_ingest_result(db, evidence, {'status': 'skipped', 'reason': 'not_excel_file'})
 
     business_date = resolve_dingtalk_energy_business_date(payload, file_name=file_name)
     if business_date is None:  # pragma: no cover - default resolver mode always returns a date
         business_date = last_completed_production_business_date()
+    if is_image:
+        mime = 'image/png' if file_name.lower().endswith('.png') else 'image/jpeg'
+        rows = _table_rows(
+            read_table_image_text(image_data_url=f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}")
+        )
+        if not rows or not any('车间/日期' in cell for cell in rows[0]):
+            return _attach_ingest_result(db, evidence, {'status': 'skipped', 'reason': 'not_energy_table'})
+        check_error = _table_day_check_error(rows, business_date)
+        if check_error:
+            return _attach_ingest_result(
+                db,
+                evidence,
+                {
+                    'status': 'blocked',
+                    'reason': 'image_table_check_failed',
+                    'business_date': business_date.isoformat(),
+                    'detail': check_error,
+                },
+            )
+        file_name = SCREENSHOT_ELECTRICITY_FILE_NAME
+        content = _workbook_bytes(rows)
     stored_path = _stored_file_path(business_date=business_date, trace_id=trace_id, file_name=file_name)
     stored_path.write_bytes(content)
 

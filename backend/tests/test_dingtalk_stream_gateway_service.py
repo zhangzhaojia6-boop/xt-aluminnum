@@ -747,3 +747,44 @@ def test_blocked_energy_file_is_not_offered_for_promotion(monkeypatch) -> None:
         assert promotions == []
     finally:
         db.close()
+
+
+def _image_download() -> dingtalk_service.DingTalkDownloadedFile:
+    return dingtalk_service.DingTalkDownloadedFile(
+        download_url_host='files.dingtalk.com',
+        content=b'png-bytes',
+        content_type='image/png',
+        size=len(b'png-bytes'),
+    )
+
+
+def test_only_private_chat_image_is_passed_to_energy_ingest(monkeypatch) -> None:
+    _allow_group(monkeypatch, group_id='*')
+    calls = []
+    monkeypatch.setattr(
+        gateway,
+        'ingest_dingtalk_energy_file',
+        lambda _db, *, payload, evidence, trace_id: calls.append(trace_id) or {'status': 'skipped'},
+    )
+    db = _db_session()
+    try:
+        image = {'fileName': 'image.png', 'downloadCode': 'download-code-001', 'fileId': 'file-001'}
+        gateway.ingest_dingtalk_stream_event(
+            db,
+            _file_payload(messageId='group-image-001', content=image),
+            dingtalk_service=FakeDingTalkService(result=_image_download()),
+        )
+        gateway.ingest_dingtalk_stream_event(
+            db,
+            _file_payload(
+                messageId='private-image-001',
+                conversationId='cid-private-001',
+                conversationType='private',
+                content={**image, 'fileId': 'file-002'},
+            ),
+            dingtalk_service=FakeDingTalkService(result=_image_download()),
+        )
+
+        assert calls == ['private-image-001']
+    finally:
+        db.close()

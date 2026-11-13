@@ -9,6 +9,10 @@ import httpx
 from app.config import Settings, settings as runtime_settings
 
 
+# Vision models take about a minute to transcribe a table screenshot.
+TABLE_IMAGE_TIMEOUT_SECONDS = 180.0
+
+
 @dataclass(frozen=True)
 class LlmTextResponse:
     content: str
@@ -187,7 +191,7 @@ def _resolve_latest_image_model(
 
 def generate_llm_summary(
     *,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     settings: Settings | None = None,
     client: httpx.Client | None = None,
     max_tokens: int | None = None,
@@ -202,7 +206,7 @@ def generate_llm_summary(
 
 def generate_llm_summary_with_usage(
     *,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     settings: Settings | None = None,
     client: httpx.Client | None = None,
     max_tokens: int | None = None,
@@ -297,6 +301,20 @@ def generate_llm_summary_with_usage(
         total_tokens=total_tokens,
         raw_usage=dict(usage),
     )
+
+
+def read_table_image_text(*, image_data_url: str, settings: Settings | None = None) -> str:
+    messages = [
+        {
+            'role': 'user',
+            'content': [
+                {'type': 'image_url', 'image_url': {'url': image_data_url}},
+                {'type': 'text', 'text': '把图中表格逐行转成制表符分隔文本，第一行是表头，数字原样照抄，不要解释。'},
+            ],
+        }
+    ]
+    with httpx.Client(timeout=TABLE_IMAGE_TIMEOUT_SECONDS) as client:
+        return generate_llm_summary(messages=messages, settings=settings, client=client)
 
 
 def generate_llm_image_asset(

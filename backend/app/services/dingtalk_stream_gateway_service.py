@@ -17,6 +17,7 @@ from app.core.redaction import redact_secret_text
 from app.models.agent_communication import MultimodalEvidence
 from app.services.dingtalk_energy_ingest_service import (
     DATE_KEYS,
+    IMAGE_SUFFIXES,
     INLINE_FILE_KEYS,
     ingest_dingtalk_energy_file,
     resolve_dingtalk_energy_business_date,
@@ -283,7 +284,9 @@ def _maybe_ingest_energy_file(
 ) -> dict[str, Any] | None:
     if evidence is None:
         return None
-    if Path(str(event.file_name or '')).suffix.lower() not in EXCEL_SUFFIXES:
+    suffix = Path(str(event.file_name or '')).suffix.lower()
+    # Energy table screenshots are only expected in private chats; group images are mostly site photos.
+    if suffix not in EXCEL_SUFFIXES and not (suffix in IMAGE_SUFFIXES and event.channel == 'dingtalk_private'):
         return None
     ingest_payload = dict(file_payload)
     if business_date is not None:
